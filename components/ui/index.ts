@@ -34,6 +34,7 @@ export type { EmptyStateType } from './EmptyState';
 
 export { default as ErrorState } from './ErrorState';
 export { Skeleton } from './Skeleton';
+export { DashboardSkeleton, ListPageSkeleton, DetailPageSkeleton, FormPageSkeleton, AnalyticsSkeleton } from './PageSkeletons';
 export { default as Tooltip } from './Tooltip';
 
 // Form Components

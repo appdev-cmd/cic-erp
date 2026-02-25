@@ -5,19 +5,13 @@ import React, { Suspense, lazy } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useLayoutContext } from './layout/MainLayout';
 import { ROUTES } from '../routes/routes';
-import { Loader2 } from 'lucide-react';
-
-// Loading Fallback Component
-const PageLoader: React.FC = () => (
-    <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-3">
-            <Loader2 size={32} className="text-orange-500 animate-spin" />
-            <span className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                Đang tải...
-            </span>
-        </div>
-    </div>
-);
+import {
+    DashboardSkeleton,
+    ListPageSkeleton,
+    DetailPageSkeleton,
+    FormPageSkeleton,
+    AnalyticsSkeleton,
+} from './ui/PageSkeletons';
 
 // Lazy load heavy components
 const Dashboard = lazy(() => import('./Dashboard'));
@@ -39,9 +33,9 @@ const Settings = lazy(() => import('./Settings'));
 const UserGuide = lazy(() => import('./UserGuide'));
 const DocumentManager = lazy(() => import('./DocumentManager'));
 
-// Helper wrapper for Suspense
-const withSuspense = (Component: React.ReactNode) => (
-    <Suspense fallback={<PageLoader />}>
+// Helper wrapper for Suspense with custom fallback
+const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
+    <Suspense fallback={fallback || <ListPageSkeleton />}>
         {Component}
     </Suspense>
 );
@@ -59,7 +53,8 @@ export const LazyDashboardPage: React.FC = () => {
             selectedUnit={selectedUnit}
             onSelectUnit={setSelectedUnit}
             onSelectContract={(id) => navigate(ROUTES.CONTRACT_DETAIL(id))}
-        />
+        />,
+        <DashboardSkeleton />
     );
 };
 
@@ -74,7 +69,8 @@ export const LazyContractListPage: React.FC = () => {
             onAdd={() => navigate(ROUTES.CONTRACT_NEW)}
             onClone={(contract) => navigate(ROUTES.CONTRACT_NEW, { state: { cloneFrom: contract } })}
             onEdit={(id) => navigate(ROUTES.CONTRACT_EDIT(encodeURIComponent(id)))}  // Quick edit
-        />
+        />,
+        <ListPageSkeleton />
     );
 };
 
@@ -98,7 +94,8 @@ export const LazyContractDetailPage: React.FC = () => {
                     toast.error('Lỗi xóa hợp đồng: ' + (e.message || e));
                 }
             }}
-        />
+        />,
+        <DetailPageSkeleton />
     );
 };
 
@@ -162,12 +159,10 @@ export const LazyContractFormPage: React.FC = () => {
                             if (id && !cloneFrom) {
                                 await ContractService.update(id, data);
                                 toast.success("Cập nhật hợp đồng thành công!");
-                                // Navigate to contract detail after editing
                                 navigate(ROUTES.CONTRACT_DETAIL(encodeURIComponent(id)));
                             } else {
                                 const newContract = await ContractService.create(data);
                                 toast.success(cloneFrom ? "Nhân bản hợp đồng thành công!" : "Tạo hợp đồng thành công!");
-                                // Navigate to new contract detail or list
                                 if (newContract?.id) {
                                     navigate(ROUTES.CONTRACT_DETAIL(encodeURIComponent(newContract.id)));
                                 } else {
@@ -179,7 +174,8 @@ export const LazyContractFormPage: React.FC = () => {
                         }
                     }}
                     onCancel={() => navigate(-1)}
-                />
+                />,
+                <FormPageSkeleton />
             )}
         </div>
     );
@@ -197,7 +193,8 @@ export const LazyPaymentListPage: React.FC = () => {
 export const LazyAnalyticsPage: React.FC = () => {
     const { selectedUnit, setSelectedUnit } = useLayoutContext();
     return withSuspense(
-        <Analytics selectedUnit={selectedUnit} onSelectUnit={setSelectedUnit} />
+        <Analytics selectedUnit={selectedUnit} onSelectUnit={setSelectedUnit} />,
+        <AnalyticsSkeleton />
     );
 };
 
@@ -226,7 +223,8 @@ export const LazyPersonnelDetailPage: React.FC = () => {
             personnelId={id}
             onBack={() => navigate(ROUTES.PERSONNEL)}
             onViewContract={(contractId) => navigate(ROUTES.CONTRACT_DETAIL(contractId))}
-        />
+        />,
+        <DetailPageSkeleton />
     );
 };
 
@@ -248,7 +246,8 @@ export const LazyCustomerDetailPage: React.FC = () => {
             customerId={id}
             onBack={() => navigate(ROUTES.CUSTOMERS)}
             onViewContract={(contractId) => navigate(ROUTES.CONTRACT_DETAIL(contractId))}
-        />
+        />,
+        <DetailPageSkeleton />
     );
 };
 
@@ -271,7 +270,8 @@ export const LazyProductDetailPage: React.FC = () => {
             onBack={() => navigate(ROUTES.PRODUCTS)}
             onEdit={() => { }}
             onViewContract={(contractId) => navigate(ROUTES.CONTRACT_DETAIL(contractId))}
-        />
+        />,
+        <DetailPageSkeleton />
     );
 };
 
@@ -294,7 +294,8 @@ export const LazyUnitDetailPage: React.FC = () => {
             onBack={() => navigate(ROUTES.UNITS)}
             onViewContract={(contractId) => navigate(ROUTES.CONTRACT_DETAIL(contractId))}
             onViewPersonnel={(personnelId) => navigate(ROUTES.PERSONNEL_DETAIL(personnelId))}
-        />
+        />,
+        <DetailPageSkeleton />
     );
 };
 
