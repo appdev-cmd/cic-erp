@@ -437,42 +437,31 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
             {/* Right: Filters */}
             <div className="flex flex-wrap items-center gap-3">
-              {/* Unit Filter Button */}
+              {/* Unit Filter Button - Native Select (giống Năm) */}
               <div className="relative z-20">
-                <button
-                  onClick={() => setShowUnitSelector(!showUnitSelector)}
-                  className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm hover:border-indigo-300 dark:hover:border-orange-700/50 transition-all group"
-                >
+                <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm hover:border-indigo-300 dark:hover:border-orange-700/50 transition-all group cursor-pointer relative">
                   <Building2 size={16} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
                   <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate max-w-[140px]">
                     {safeUnit.name}
                   </span>
-                  <ChevronDown size={14} className={`text-slate-400 transition-transform duration-300 ${showUnitSelector ? 'rotate-180' : ''}`} />
-                </button>
+                  <ChevronDown size={14} className="text-slate-400" />
 
-                {showUnitSelector && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowUnitSelector(false)} />
-                    <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-20 py-2 animate-in fade-in zoom-in-95 duration-200 overflow-hidden dark-dropdown-accent">
-                      <div className="max-h-[320px] overflow-y-auto">
-                        {[{ id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit, ...allUnits.filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch'))].map((u) => (
-                          <button
-                            key={u.id}
-                            onClick={() => {
-                              onSelectUnit(u);
-                              setShowUnitSelector(false);
-                            }}
-                            className={`w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors flex items-center gap-3 ${u.id === safeUnit.id ? 'bg-indigo-50 dark:bg-orange-500/10 text-indigo-600 dark:text-orange-400' : 'text-slate-600 dark:text-slate-300'}`}
-                          >
-                            <div className={`w-2 h-2 rounded-full shrink-0 ${u.id === 'all' ? 'bg-indigo-500' : u.type === 'Center' ? 'bg-emerald-400' : 'bg-amber-400'}`}></div>
-                            <span className="truncate">{u.name}</span>
-                            {u.id === safeUnit.id && <CheckCircle2 size={16} className="ml-auto text-indigo-600" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
+                  <select
+                    value={safeUnit.id}
+                    onChange={(e) => {
+                      const selected = e.target.value === 'all'
+                        ? { id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit
+                        : allUnits.find(u => u.id === e.target.value);
+                      if (selected) onSelectUnit(selected);
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  >
+                    <option value="all">Toàn công ty</option>
+                    {allUnits.filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch')).map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Year Filter Button */}
