@@ -1,8 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
-    ChevronLeft,
-    ChevronRight,
     Loader2,
     Search,
     CreditCard,
@@ -20,6 +18,8 @@ import {
 import { Payment, PaymentStatus, Customer } from '../types';
 import { PaymentService, ContractService, CustomerService } from '../services';
 import PaymentForm from './PaymentForm';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import ScrollToTop from './ui/ScrollToTop';
 
 interface PaymentListProps {
     onSelectContract?: (id: string) => void;
@@ -29,15 +29,11 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<'Revenue' | 'Expense'>('Revenue');
-    const [payments, setPayments] = useState<Payment[]>([]);
     const [customers, setCustomers] = useState<Customer[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState<any>(null);
 
-    // Pagination State
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(20);
-    const [totalCount, setTotalCount] = useState(0);
+    // Infinite scroll batch size
+    const PAGE_SIZE = 20;
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
     // CRUD state
@@ -49,56 +45,55 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(searchQuery);
-            setPage(1);
         }, 500);
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Fetch Data (Paginated)
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            const [listRes, statsRes, customersData] = await Promise.all([
-                PaymentService.list({
-                    page,
-                    limit,
-                    search: debouncedSearch,
-                    type: typeFilter,
-                    status: statusFilter
-                }),
-                PaymentService.getStats({ type: typeFilter }),
-                customers.length === 0 ? CustomerService.getAll({ pageSize: 200 }) : Promise.resolve({ data: customers })
-                // TODO: Optimize - Backend should populate customer_name directly in payment response
-            ]);
+    // Infinite scroll fetch function
+    const fetchPaymentPage = useCallback(async (page: number) => {
+        const [listRes, statsRes, customersData] = await Promise.all([
+            PaymentService.list({
+                page,
+                limit: PAGE_SIZE,
+                search: debouncedSearch,
+                type: typeFilter,
+                status: statusFilter
+            }),
+            page === 1 ? PaymentService.getStats({ type: typeFilter }) : Promise.resolve(null),
+            page === 1 && customers.length === 0 ? CustomerService.getAll({ pageSize: 200 }) : Promise.resolve(null)
+        ]);
 
-            setPayments(listRes.data);
-            setTotalCount(listRes.count);
-            setStats(statsRes);
-
-            if (customers.length === 0) {
-                // customerService.getAll returns { data, total ... }
-                // if customersData comes from CustomerService.getAll, it is { data: ... }
-                // if it comes from Promise.resolve, it is { data: customers } (coerced above)
-                const incoming = (customersData as any).data || customersData;
-                setCustomers(incoming as Customer[]);
-            }
-
-        } catch (error) {
-            console.error("Failed to fetch data:", error);
-            toast.error("Không thể tải dữ liệu thanh toán");
-        } finally {
-            setIsLoading(false);
+        if (statsRes) setStats(statsRes);
+        if (customersData) {
+            const incoming = (customersData as any).data || customersData;
+            setCustomers(incoming as Customer[]);
         }
-    };
 
-    useEffect(() => {
-        fetchData();
-    }, [page, limit, debouncedSearch, typeFilter, statusFilter]);
+        return {
+            data: listRes.data,
+            hasMore: listRes.data.length >= PAGE_SIZE,
+            totalCount: listRes.count
+        };
+    }, [debouncedSearch, typeFilter, statusFilter]);
+
+    const {
+        items: payments,
+        isLoading,
+        isLoadingMore,
+        hasMore,
+        totalCount,
+        sentinelRef,
+        reset: resetInfiniteScroll,
+        setItems: setPayments
+    } = useInfiniteScroll<Payment>({
+        fetchFn: fetchPaymentPage,
+        pageSize: PAGE_SIZE,
+        resetDeps: [debouncedSearch, typeFilter, statusFilter]
+    });
 
     // Legacy effect for stats calculation removed (now server-side or separately fetched)
 
     // Memoized is removed as we depend on API result now
-    const totalPages = Math.ceil(totalCount / limit);
 
     const formatCurrency = (val: number) => {
         if (val >= 1e9) return `${(val / 1e9).toFixed(2).replace(/\.?0+$/, '')} tỷ`;
@@ -178,7 +173,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             setEditingPayment(undefined);
             setIsFormOpen(false);
             setEditingPayment(undefined);
-            fetchData(); // Refresh to ensure data consistency
+            resetInfiniteScroll(); // Refresh to ensure data consistency
             toast.success("Lưu khoản thanh toán thành công");
         } catch (error) {
             console.error("Failed to save payment:", error);
@@ -200,13 +195,13 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 </div>
                 <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
                     <button
-                        onClick={() => { setTypeFilter('Revenue'); setPage(1); }}
+                        onClick={() => { setTypeFilter('Revenue'); }}
                         className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${typeFilter === 'Revenue' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         Khoản Thu
                     </button>
                     <button
-                        onClick={() => { setTypeFilter('Expense'); setPage(1); }}
+                        onClick={() => { setTypeFilter('Expense'); }}
                         className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${typeFilter === 'Expense' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         Khoản Chi
@@ -289,7 +284,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                     <Filter size={16} className="text-slate-400" />
                     <select
                         value={statusFilter}
-                        onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                        onChange={(e) => { setStatusFilter(e.target.value); }}
                         className="bg-transparent text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none"
                     >
                         <option value="all">Tất cả trạng thái</option>
@@ -389,45 +384,26 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                     </table>
                 </div>
 
-                <div className="flex items-center justify-between p-4 border-t border-slate-100 dark:border-slate-800">
-                    <div className="text-sm font-bold text-slate-500">
-                        Hiển thị {payments.length} / {totalCount} kết quả
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={page === 1}
-                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            <ChevronLeft size={20} />
-                        </button>
-                        <div className="flex items-center gap-1">
-                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                let p = i + 1;
-                                if (totalPages > 5 && page > 3) p = page - 2 + i;
-                                if (p > totalPages) return null;
-                                return (
-                                    <button
-                                        key={p}
-                                        onClick={() => setPage(p)}
-                                        className={`w-10 h-10 rounded-lg text-sm font-black transition-all ${page === p
-                                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none'
-                                            : 'bg-transparent text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                            }`}
-                                    >
-                                        {p}
-                                    </button>
-                                );
-                            })}
+                {/* INFINITE SCROLL SENTINEL + STATUS */}
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-bold text-slate-500">
+                            Hiển thị {payments.length} / {totalCount} kết quả
                         </div>
-                        <button
-                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                            disabled={page === totalPages || totalPages === 0}
-                            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            <ChevronRight size={20} />
-                        </button>
                     </div>
+                    {/* Sentinel for IntersectionObserver */}
+                    <div ref={sentinelRef} className="h-1" />
+                    {isLoadingMore && (
+                        <div className="flex items-center justify-center py-6 gap-2 text-indigo-600 dark:text-indigo-400">
+                            <Loader2 size={20} className="animate-spin" />
+                            <span className="text-sm font-medium">Đang tải thêm...</span>
+                        </div>
+                    )}
+                    {!hasMore && payments.length > 0 && !isLoading && (
+                        <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+                            Đã hiển thị tất cả {totalCount} kết quả
+                        </div>
+                    )}
                 </div>
 
                 {!isLoading && payments.length === 0 && (
@@ -450,6 +426,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                     onCancel={() => { setIsFormOpen(false); setEditingPayment(undefined); }}
                 />
             )}
+            <ScrollToTop />
         </div>
     );
 };

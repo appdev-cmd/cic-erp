@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
     Search,
@@ -12,12 +12,15 @@ import {
     Pencil,
     Trash2,
     MoreVertical,
-    Upload
+    Upload,
+    Loader2
 } from 'lucide-react';
 import { Customer } from '../types';
 import { CustomerService } from '../services';
 import CustomerForm from './CustomerForm';
 import ImportCustomerModal from './ImportCustomerModal';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import ScrollToTop from './ui/ScrollToTop';
 
 interface CustomerListProps {
     onSelectCustomer?: (id: string) => void;
@@ -27,14 +30,9 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [industryFilter, setIndustryFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<'all' | 'Customer' | 'Supplier'>('all');
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
 
-    // Pagination State
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalCount, setTotalCount] = useState(0);
-    const pageSize = 10;
+    // Infinite scroll batch size
+    const PAGE_SIZE = 20;
 
     // CRUD state
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -42,41 +40,44 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
     const [actionMenuId, setActionMenuId] = useState<string | null>(null);
     const [isImportOpen, setIsImportOpen] = useState(false);
 
-    // Fetch Data
+    // Debounced search
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
-            try {
-                // Fetch Customers (Paginated) with Stats included
-                const custRes = await CustomerService.getAll({
-                    page: currentPage,
-                    pageSize,
-                    search: searchQuery,
-                    type: typeFilter,
-                    industry: industryFilter
-                });
-
-                setCustomers(custRes.data);
-                setTotalCount(custRes.total);
-                setTotalPages(Math.ceil(custRes.total / pageSize));
-
-            } catch (error) {
-                console.error("Error loading data", error);
-                toast.error("Không thể tải danh sách đối tác");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        // Debounce search
-        const timer = setTimeout(fetchData, 300);
+        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
         return () => clearTimeout(timer);
-    }, [currentPage, searchQuery, typeFilter, industryFilter]); // Re-fetch on filter change
+    }, [searchQuery]);
 
-    // Reset page on filter change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchQuery, typeFilter, industryFilter]);
+    // Infinite scroll fetch function
+    const fetchCustomerPage = useCallback(async (page: number) => {
+        const custRes = await CustomerService.getAll({
+            page,
+            pageSize: PAGE_SIZE,
+            search: debouncedSearch,
+            type: typeFilter,
+            industry: industryFilter
+        });
+
+        return {
+            data: custRes.data,
+            hasMore: custRes.data.length >= PAGE_SIZE,
+            totalCount: custRes.total
+        };
+    }, [debouncedSearch, typeFilter, industryFilter]);
+
+    const {
+        items: customers,
+        isLoading,
+        isLoadingMore,
+        hasMore,
+        totalCount,
+        sentinelRef,
+        reset: resetInfiniteScroll,
+        setItems: setCustomers
+    } = useInfiniteScroll<Customer>({
+        fetchFn: fetchCustomerPage,
+        pageSize: PAGE_SIZE,
+        resetDeps: [debouncedSearch, typeFilter, industryFilter]
+    });
 
     const industries = ['all', 'Xây dựng', 'Bất động sản', 'Năng lượng', 'Công nghệ', 'Sản xuất', 'Khác']; // Hardcoded for filter UI
 
@@ -159,7 +160,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                     {typeFilter === 'all' ? 'Quản lý Đối tác' : typeFilter === 'Customer' ? 'Quản lý Khách hàng' : 'Quản lý Nhà cung cấp'}
                 </h1>
                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                    {totalCount} {typeFilter === 'Supplier' ? 'nhà cung cấp' : 'khách hàng'} • Trang {currentPage}/{totalPages}
+                    {totalCount} {typeFilter === 'Supplier' ? 'nhà cung cấp' : 'khách hàng'}
                 </p>
             </div>
 
@@ -203,7 +204,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                 isOpen={isImportOpen}
                 onClose={() => setIsImportOpen(false)}
                 onSuccess={() => {
-                    setCurrentPage(1);
+                    resetInfiniteScroll();
                     setIsImportOpen(false);
                 }}
             />
@@ -411,31 +412,29 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                     </table>
                 </div>
 
-                {/* Pagination Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
-                        Hiển thị <strong>{customers.length}</strong> trên tổng số <strong>{totalCount}</strong> đối tác
+                {/* INFINITE SCROLL SENTINEL + STATUS */}
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                            Hiển thị <strong>{customers.length}</strong> trên tổng số <strong>{totalCount}</strong> đối tác
+                        </div>
                     </div>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            disabled={currentPage === 1 || isLoading}
-                            className="px-3 py-1 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors"
-                        >
-                            Trước
-                        </button>
-                        <span className="px-3 py-1 text-sm flex items-center font-medium">
-                            Trang {currentPage} / {totalPages || 1}
-                        </span>
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            disabled={currentPage === totalPages || isLoading}
-                            className="px-3 py-1 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors"
-                        >
-                            Sau
-                        </button>
-                    </div>
+                    {/* Sentinel for IntersectionObserver */}
+                    <div ref={sentinelRef} className="h-1" />
+                    {isLoadingMore && (
+                        <div className="flex items-center justify-center py-6 gap-2 text-indigo-600 dark:text-indigo-400">
+                            <Loader2 size={20} className="animate-spin" />
+                            <span className="text-sm font-medium">Đang tải thêm...</span>
+                        </div>
+                    )}
+                    {!hasMore && customers.length > 0 && !isLoading && (
+                        <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+                            Đã hiển thị tất cả {totalCount} đối tác
+                        </div>
+                    )}
                 </div>
+
+                <ScrollToTop />
             </div>
         </div>
     );

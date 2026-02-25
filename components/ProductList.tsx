@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
     Search,
     Package,
@@ -19,6 +19,8 @@ import { ProductService, UnitService } from '../services';
 import { Product, ProductCategory, Unit } from '../types';
 import ProductForm from './ProductForm';
 import ImportProductModal from './ImportProductModal';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import ScrollToTop from './ui/ScrollToTop';
 
 interface ProductListProps {
     onSelectProduct?: (id: string) => void;
@@ -30,15 +32,10 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
     const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
 
     // Data state
-    const [products, setProducts] = useState<Product[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
 
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalCount, setTotalCount] = useState(0);
-    const pageSize = 12;
+    // Infinite scroll batch size
+    const PAGE_SIZE = 20;
 
     // CRUD state
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -48,40 +45,56 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
 
     const categories: ProductCategory[] = ['Phần mềm', 'Tư vấn', 'Thiết kế', 'Thi công', 'Bảo trì', 'Đào tạo'];
 
-    // Fetch data
+    // Fetch units once
     useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
+        const fetchUnits = async () => {
             try {
-                if (units.length === 0) {
-                    const unitsData = await UnitService.getAll();
-                    setUnits(unitsData);
-                }
-
-                const res = await ProductService.list({
-                    page: currentPage,
-                    pageSize,
-                    search: searchQuery,
-                    category: categoryFilter
-                });
-                setProducts(res.data);
-                setTotalCount(res.total);
-                setTotalPages(Math.ceil(res.total / pageSize));
+                const unitsData = await UnitService.getAll();
+                setUnits(unitsData);
             } catch (error) {
-                console.error('Error fetching data:', error);
-            } finally {
-                setIsLoading(false);
+                console.error('Error fetching units:', error);
             }
         };
+        fetchUnits();
+    }, []);
 
-        const timer = setTimeout(fetchData, 300);
-        return () => clearTimeout(timer);
-    }, [currentPage, searchQuery, categoryFilter]);
-
-    // Reset page on filter
+    // Debounced search
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     useEffect(() => {
-        setCurrentPage(1);
-    }, [searchQuery, categoryFilter]);
+        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Infinite scroll fetch function
+    const fetchProductPage = useCallback(async (page: number) => {
+        const res = await ProductService.list({
+            page,
+            pageSize: PAGE_SIZE,
+            search: debouncedSearch,
+            category: categoryFilter
+        });
+
+        return {
+            data: res.data,
+            hasMore: res.data.length >= PAGE_SIZE,
+            totalCount: res.total
+        };
+    }, [debouncedSearch, categoryFilter]);
+
+    const {
+        items: products,
+        isLoading,
+        isLoadingMore,
+        hasMore,
+        totalCount,
+        sentinelRef,
+        reset: resetInfiniteScroll,
+        setItems: setProducts
+    } = useInfiniteScroll<Product>({
+        fetchFn: fetchProductPage,
+        pageSize: PAGE_SIZE,
+        resetDeps: [debouncedSearch, categoryFilter]
+    });
 
     // Use server result
     const filteredProducts = products;
@@ -167,7 +180,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                         Sản phẩm & Dịch vụ
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                        {totalCount} sản phẩm • Trang {currentPage}/{totalPages}
+                        {totalCount} sản phẩm
                     </p>
                 </div>
 
@@ -268,10 +281,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                 onClose={() => setIsImportOpen(false)}
                 units={units}
                 onSuccess={() => {
-                    setCurrentPage(1);
-                    // Trigger re-fetch
-                    setSearchQuery(prev => prev + ' ');
-                    setTimeout(() => setSearchQuery(prev => prev.trim()), 10);
+                    resetInfiniteScroll();
                 }}
             />
 
@@ -463,31 +473,29 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
                     </div>
                 )}
-                {/* Pagination Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
-                        Hiển thị <strong>{filteredProducts.length}</strong> trên tổng số <strong>{totalCount}</strong> sản phẩm
+                {/* INFINITE SCROLL SENTINEL + STATUS */}
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                            Hiển thị <strong>{filteredProducts.length}</strong> trên tổng số <strong>{totalCount}</strong> sản phẩm
+                        </div>
                     </div>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                            disabled={currentPage === 1 || isLoading}
-                            className="px-3 py-1 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors"
-                        >
-                            Trước
-                        </button>
-                        <span className="px-3 py-1 text-sm flex items-center font-medium">
-                            Trang {currentPage} / {totalPages || 1}
-                        </span>
-                        <button
-                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                            disabled={currentPage === totalPages || isLoading}
-                            className="px-3 py-1 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors"
-                        >
-                            Sau
-                        </button>
-                    </div>
+                    {/* Sentinel for IntersectionObserver */}
+                    <div ref={sentinelRef} className="h-1" />
+                    {isLoadingMore && (
+                        <div className="flex items-center justify-center py-6 gap-2 text-indigo-600 dark:text-indigo-400">
+                            <Loader2 size={20} className="animate-spin" />
+                            <span className="text-sm font-medium">Đang tải thêm...</span>
+                        </div>
+                    )}
+                    {!hasMore && filteredProducts.length > 0 && !isLoading && (
+                        <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+                            Đã hiển thị tất cả {totalCount} sản phẩm
+                        </div>
+                    )}
                 </div>
+
+                <ScrollToTop />
             </div>
         </div>
     );

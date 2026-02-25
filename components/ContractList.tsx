@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import { Search, Filter, Plus, MoreVertical, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, ChevronLeft, ChevronRight, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Filter, Plus, MoreVertical, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { ContractService, EmployeeService, UnitService } from '../services';
 import { ContractStatus, Unit, Contract, Employee, UserRole } from '../types';
 import { CONTRACT_STATUS_LABELS } from '../constants';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import ImportContractModal from './ImportContractModal';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import ScrollToTop from './ui/ScrollToTop';
 
 // Inline debounce hook if not exists, but better to check. 
 // For now, I'll use a simple useEffect debounce logic.
@@ -30,16 +32,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // Pagination state
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
-  const [totalCount, setTotalCount] = useState(0);
+  // Infinite scroll batch size
+  const PAGE_SIZE = 20;
 
   // Data state
-  const [contracts, setContracts] = useState<Contract[]>([]);
   const [salespeople, setSalespeople] = useState<Employee[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
-  const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0 });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
@@ -51,7 +49,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
-      setPage(1); // Reset to page 1 on search change
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
@@ -133,61 +130,59 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     fetchLookups();
   }, []);
 
-  // Fetch Contracts & Stats when params change
-  useEffect(() => {
-    const fetchContracts = async () => {
-      setLoading(true);
-      try {
-        // IMPERSONATION OVERRIDE
-        let effectiveUnitId = 'All';
+  // Compute effective unit ID for fetching
+  const effectiveUnitId = useMemo(() => {
+    const GLOBAL_VIEW_ROLES: UserRole[] = ['Legal', 'Accountant', 'ChiefAccountant', 'Leadership', 'Admin'];
+    if (isImpersonating && impersonatedUser) {
+      if (GLOBAL_VIEW_ROLES.includes(impersonatedUser.role)) return 'All';
+      if (impersonatedUser.unitId) return impersonatedUser.unitId;
+    }
+    if (selectedUnit && selectedUnit.id !== 'all') return selectedUnit.id;
+    if (unitFilter !== 'All') return unitFilter;
+    return 'All';
+  }, [isImpersonating, impersonatedUser, selectedUnit, unitFilter]);
 
-        // Roles có quyền xem TẤT CẢ hợp đồng (không filter theo đơn vị)
-        const GLOBAL_VIEW_ROLES: UserRole[] = ['Legal', 'Accountant', 'ChiefAccountant', 'Leadership', 'Admin'];
-
-        if (isImpersonating && impersonatedUser) {
-          if (GLOBAL_VIEW_ROLES.includes(impersonatedUser.role)) {
-            // Pháp chế, Kế toán, Ban lãnh đạo → xem TẤT CẢ hợp đồng
-            effectiveUnitId = 'All';
-            console.log('[ContractList] Global view role:', impersonatedUser.role, '→ showing ALL contracts');
-          } else if (impersonatedUser.unitId) {
-            // Các role khác → chỉ xem hợp đồng của đơn vị mình
-            effectiveUnitId = impersonatedUser.unitId;
-            console.log('[ContractList] Unit filter:', impersonatedUser.unitId);
-          }
-        } else if (selectedUnit && selectedUnit.id !== 'all') {
-          effectiveUnitId = selectedUnit.id;
-        } else if (unitFilter !== 'All') {
-          effectiveUnitId = unitFilter;
-        }
-
-        const params = {
-          page,
-          limit,
-          search: debouncedSearch,
-          status: statusFilter,
-          unitId: effectiveUnitId,
-          year: yearFilter,
-          sortBy: sortBy || undefined,
-          sortDir: sortBy ? sortDir : undefined
-        };
-
-        const [listRes, statsRes] = await Promise.all([
-          ContractService.list(params),
-          ContractService.getStats(params) // Reuse same filters for stats
-        ]);
-
-        setContracts(listRes.data);
-        setTotalCount(listRes.count);
-        setMetrics(statsRes);
-      } catch (error) {
-        console.error("Failed to fetch contracts:", error);
-        toast.error("Không thể tải danh sách hợp đồng");
-      } finally {
-        setLoading(false);
-      }
+  // Infinite scroll fetch function
+  const fetchContractPage = useCallback(async (page: number) => {
+    const params = {
+      page,
+      limit: PAGE_SIZE,
+      search: debouncedSearch,
+      status: statusFilter,
+      unitId: effectiveUnitId,
+      year: yearFilter,
+      sortBy: sortBy || undefined,
+      sortDir: sortBy ? sortDir : undefined
     };
-    fetchContracts();
-  }, [page, limit, debouncedSearch, statusFilter, yearFilter, unitFilter, selectedUnit, isImpersonating, impersonatedUser, sortBy, sortDir]);
+
+    const [listRes, statsRes] = await Promise.all([
+      ContractService.list(params),
+      page === 1 ? ContractService.getStats(params) : Promise.resolve(null)
+    ]);
+
+    if (statsRes) setMetrics(statsRes);
+
+    return {
+      data: listRes.data,
+      hasMore: listRes.data.length >= PAGE_SIZE,
+      totalCount: listRes.count
+    };
+  }, [debouncedSearch, statusFilter, effectiveUnitId, yearFilter, sortBy, sortDir]);
+
+  const {
+    items: contracts,
+    isLoading: loading,
+    isLoadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    reset: resetInfiniteScroll,
+    setItems: setContracts
+  } = useInfiniteScroll<Contract>({
+    fetchFn: fetchContractPage,
+    pageSize: PAGE_SIZE,
+    resetDeps: [debouncedSearch, statusFilter, effectiveUnitId, yearFilter, sortBy, sortDir]
+  });
 
   // Extract unique years (We can keep this separate or hardcode for now since we don't have all data to derive from)
   // For server-side, it's better to verify available years from API, but for now fallback to static range or keeping simple
@@ -232,7 +227,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     return new Intl.NumberFormat('vi-VN', { notation: "compact", maximumFractionDigits: 1 }).format(number);
   };
 
-  const totalPages = Math.ceil(totalCount / limit);
 
   // File input ref for import
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -477,7 +471,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
             value={yearFilter}
             onChange={(e) => {
               setYearFilter(e.target.value);
-              setPage(1);
             }}
           >
             <option value="All">Tất cả năm</option>
@@ -496,7 +489,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               value={unitFilter}
               onChange={(e) => {
                 setUnitFilter(e.target.value);
-                setPage(1);
               }}
             >
               <option value="All">Tất cả đơn vị</option>
@@ -515,7 +507,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value as any);
-              setPage(1);
             }}
           >
             <option value="All">Tất cả trạng thái</option>
@@ -564,7 +555,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       setSortBy(col.sortKey);
                       setSortDir('desc');
                     }
-                    setPage(1);
                   }}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -621,8 +611,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               const margin = revenue > 0 ? (profit / revenue) * 100 : ((contract.value || 0) > 0 ? (profit / contract.value) * 100 : 0);
               const salesperson = salespeople.find(s => s.id === contract.salespersonId);
 
-              // STT calculate based on page
-              const stt = ((page - 1) * limit) + index + 1;
+              // STT - sequential across infinite scroll
+              const stt = index + 1;
 
               return (
                 <tr
@@ -728,60 +718,36 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         </table>
       </div>
 
-      {/* PAGINATION */}
-      <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
-        <div className="text-sm font-bold text-slate-500">
-          Hiển thị {contracts.length} / {totalCount} kết quả
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex items-center gap-1">
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              // Logic to show sliding window or just simple first 5
-              // Simplified: show current surround or just basic 
-              let p = i + 1;
-              if (totalPages > 5 && page > 3) {
-                p = page - 2 + i;
-              }
-              if (p > totalPages) return null;
-
-              return (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={`w-10 h-10 rounded-lg text-sm font-black transition-all ${page === p
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-500/20'
-                    : 'bg-transparent text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                    }`}
-                >
-                  {p}
-                </button>
-              );
-            })}
+      {/* INFINITE SCROLL SENTINEL + STATUS */}
+      <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-bold text-slate-500">
+            Hiển thị {contracts.length} / {totalCount} kết quả
           </div>
-          <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages || totalPages === 0}
-            className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronRight size={20} />
-          </button>
         </div>
+        {/* Sentinel for IntersectionObserver */}
+        <div ref={sentinelRef} className="h-1" />
+        {isLoadingMore && (
+          <div className="flex items-center justify-center py-6 gap-2 text-indigo-600 dark:text-indigo-400">
+            <Loader2 size={20} className="animate-spin" />
+            <span className="text-sm font-medium">Đang tải thêm...</span>
+          </div>
+        )}
+        {!hasMore && contracts.length > 0 && !loading && (
+          <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+            Đã hiển thị tất cả {totalCount} kết quả
+          </div>
+        )}
       </div>
+
+      <ScrollToTop />
 
       {/* Import Modal */}
       <ImportContractModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onSuccess={() => {
-          setPage(1);
-          setDebouncedSearch(prev => prev + ' ');
+          resetInfiniteScroll();
           setIsImportModalOpen(false);
         }}
       />
