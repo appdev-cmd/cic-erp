@@ -33,6 +33,7 @@ import Auth from './components/Auth';
 import { useAuth } from './contexts/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import DebugPanel from './components/DebugPanel';
+import { UnitService } from './services/unitService';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -57,6 +58,21 @@ const App: React.FC = () => {
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [cloningContract, setCloningContract] = useState<Contract | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [dashboardActiveMetric, setDashboardActiveMetric] = useState<string>('signing');
+  const [dashboardYearFilter, setDashboardYearFilter] = useState<string>(new Date().getFullYear().toString());
+  const [allUnits, setAllUnits] = useState<Unit[]>([]);
+
+  useEffect(() => {
+    const fetchUnits = async () => {
+      try {
+        const units = await UnitService.getAll();
+        setAllUnits(units || []);
+      } catch (e) {
+        console.error("Failed to fetch units in App", e);
+      }
+    };
+    fetchUnits();
+  }, []);
 
   // Auth Context
   const { session, isLoading: isLoadingSession, user, profile } = useAuth();
@@ -250,7 +266,13 @@ const App: React.FC = () => {
 
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard selectedUnit={selectedUnit} onSelectUnit={setSelectedUnit} onSelectContract={handleViewContract} />;
+        return <Dashboard
+          selectedUnit={selectedUnit}
+          onSelectUnit={setSelectedUnit}
+          onSelectContract={handleViewContract}
+          activeMetric={dashboardActiveMetric as any}
+          yearFilter={dashboardYearFilter}
+        />;
       case 'contracts':
         return <ContractList selectedUnit={selectedUnit} onSelectContract={handleViewContract} onAdd={() => setIsCreating(true)} onClone={handleCloneContract} />;
       case 'documents':
@@ -324,6 +346,14 @@ const App: React.FC = () => {
         return <UnitList onSelectUnit={handleViewUnit} />;
       case 'user-guide':
         return <UserGuide />;
+      case 'dashboard':
+        return <Dashboard
+          selectedUnit={selectedUnit}
+          onSelectUnit={setSelectedUnit}
+          onSelectContract={handleViewContract}
+          activeMetric={dashboardActiveMetric as any}
+          yearFilter={dashboardYearFilter}
+        />;
       default:
         return <Dashboard selectedUnit={selectedUnit} onSelectUnit={setSelectedUnit} onSelectContract={handleViewContract} />;
     }
@@ -360,6 +390,13 @@ const App: React.FC = () => {
           onMenuClick={() => setIsSidebarOpen(true)}
           isSidebarCollapsed={isSidebarCollapsed}
           user={session?.user}
+          selectedUnit={activeTab === 'dashboard' ? selectedUnit : undefined}
+          onSelectUnit={activeTab === 'dashboard' ? setSelectedUnit : undefined}
+          yearFilter={activeTab === 'dashboard' ? dashboardYearFilter : undefined}
+          onYearFilterChange={activeTab === 'dashboard' ? setDashboardYearFilter : undefined}
+          activeMetric={activeTab === 'dashboard' ? dashboardActiveMetric : undefined}
+          onActiveMetricChange={activeTab === 'dashboard' ? setDashboardActiveMetric : undefined}
+          allUnits={allUnits}
         />
 
         {/* 

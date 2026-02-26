@@ -1,14 +1,32 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Menu, LogOut, ChevronDown, User as UserIcon } from 'lucide-react';
+import { Search, Bell, Menu, LogOut, ChevronDown, User as UserIcon, Building2, Calendar } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { Unit } from '../types';
 
 interface HeaderProps {
   onMenuClick: () => void;
   isSidebarCollapsed: boolean;
+  selectedUnit?: Unit;
+  onSelectUnit?: (unit: Unit) => void;
+  yearFilter?: string;
+  onYearFilterChange?: (year: string) => void;
+  activeMetric?: string;
+  onActiveMetricChange?: (metric: string) => void;
+  allUnits?: Unit[];
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  onMenuClick, 
+  isSidebarCollapsed,
+  selectedUnit,
+  onSelectUnit,
+  yearFilter,
+  onYearFilterChange,
+  activeMetric,
+  onActiveMetricChange,
+  allUnits = []
+}) => {
   const marginClass = isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64';
   const { signOut, user, profile } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -73,6 +91,82 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed }) => {
           </kbd>
         </button>
       </div>
+
+      {/* DASHBOARD FILTERS (Only visible if props are provided) */}
+      {onActiveMetricChange && (
+        <div className="hidden lg:flex items-center gap-4 flex-1 justify-center px-4">
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-w-fit">
+            {[
+              { id: 'signing', label: 'Ký kết' },
+              { id: 'revenue', label: 'Doanh thu' },
+              { id: 'adminProfit', label: 'LNG QT' },
+              { id: 'revProfit', label: 'LNG DT' },
+              { id: 'cash', label: 'Dòng tiền' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => onActiveMetricChange(tab.id)}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeMetric === tab.id
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700'
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {onSelectUnit && selectedUnit && (
+              <div className="relative group">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-orange-300 dark:hover:border-orange-700 transition-all cursor-pointer">
+                  <Building2 size={14} className="text-slate-400" />
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 max-w-[100px] truncate">
+                    {selectedUnit.name}
+                  </span>
+                  <ChevronDown size={12} className="text-slate-400" />
+                  <select
+                    value={selectedUnit.id}
+                    onChange={(e) => {
+                      const selected = e.target.value === 'all'
+                        ? { id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit
+                        : allUnits.find(u => u.id === e.target.value);
+                      if (selected) onSelectUnit(selected);
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  >
+                    <option value="all">Toàn công ty</option>
+                    {allUnits.filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch')).map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {onYearFilterChange && (
+              <div className="relative group">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-orange-300 dark:hover:border-orange-700 transition-all cursor-pointer">
+                  <Calendar size={14} className="text-slate-400" />
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
+                    {yearFilter === 'All' ? 'Tất cả' : yearFilter}
+                  </span>
+                  <select
+                    value={yearFilter}
+                    onChange={(e) => onYearFilterChange(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  >
+                    <option value="All">Tất cả năm</option>
+                    <option value="2026">2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-1 sm:gap-4 ml-2">
         <button className="relative p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">

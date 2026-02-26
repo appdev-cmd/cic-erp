@@ -49,6 +49,8 @@ interface DashboardProps {
   selectedUnit: Unit;
   onSelectUnit: (unit: Unit) => void;
   onSelectContract: (id: string) => void;
+  activeMetric: keyof KPIPlan;
+  yearFilter: string;
 }
 
 
@@ -80,12 +82,13 @@ const DashboardSkeleton = () => (
   </div>
 );
 
-const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSelectContract }) => {
-  const [activeMetric, setActiveMetric] = useState<keyof KPIPlan>('signing');
-  const [showUnitSelector, setShowUnitSelector] = useState(false);
-  const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
-  const [previousYear, setPreviousYear] = useState<string>((new Date().getFullYear() - 1).toString());
-
+const Dashboard: React.FC<DashboardProps> = ({
+  selectedUnit,
+  onSelectUnit,
+  onSelectContract,
+  activeMetric,
+  yearFilter
+}) => {
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
 
@@ -142,12 +145,6 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   }, []);
 
 
-  // Update Previous Year when year filter changes
-  useEffect(() => {
-    if (yearFilter !== 'All') {
-      setPreviousYear((parseInt(yearFilter) - 1).toString());
-    }
-  }, [yearFilter]);
 
   // Main Data Fetch Effect - SIMPLIFIED VERSION
   useEffect(() => {
@@ -414,79 +411,6 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
             Tổng quan Quản trị
           </h1>
-        </div>
-
-        {/* STICKY FILTER BAR - Metric Tabs + Filters */}
-        <div className="sticky top-16 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-4 border-b border-slate-200/50 dark:border-slate-800">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-end gap-4">
-            {/* Left: Metric Tabs */}
-            <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto no-scrollbar">
-              {metricTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveMetric(tab.id as keyof KPIPlan)}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeMetric === tab.id
-                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20 dark:shadow-orange-500/10'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                    }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Right: Filters */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Unit Filter Button - Native Select (giống Năm) */}
-              <div className="relative z-20">
-                <div className="flex items-center gap-2.5 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm hover:border-indigo-300 dark:hover:border-orange-700/50 transition-all group cursor-pointer relative">
-                  <Building2 size={16} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate max-w-[140px]">
-                    {safeUnit.name}
-                  </span>
-                  <ChevronDown size={14} className="text-slate-400" />
-
-                  <select
-                    value={safeUnit.id}
-                    onChange={(e) => {
-                      const selected = e.target.value === 'all'
-                        ? { id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit
-                        : allUnits.find(u => u.id === e.target.value);
-                      if (selected) onSelectUnit(selected);
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  >
-                    <option value="all">Toàn công ty</option>
-                    {allUnits.filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch')).map(u => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Year Filter Button */}
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm hover:border-indigo-300 dark:hover:border-orange-700/50 transition-all group cursor-pointer relative">
-                  <Calendar size={16} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                    {yearFilter === 'All' ? 'Tất cả năm' : `Năm ${yearFilter}`}
-                  </span>
-                  <ChevronDown size={14} className="text-slate-400" />
-
-                  <select
-                    value={yearFilter}
-                    onChange={(e) => setYearFilter(e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  >
-                    <option value="All">Tất cả năm</option>
-                    <option value="2026">Năm 2026</option>
-                    <option value="2025">Năm 2025</option>
-                    <option value="2024">Năm 2024</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Main KPI Stats */}
