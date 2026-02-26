@@ -10,23 +10,11 @@ interface HeaderProps {
   selectedUnit?: Unit;
   onSelectUnit?: (unit: Unit) => void;
   yearFilter?: string;
-  onYearFilterChange?: (year: string) => void;
-  activeMetric?: string;
-  onActiveMetricChange?: (metric: string) => void;
+  onYearChange?: (year: string) => void;
   allUnits?: Unit[];
 }
 
-const Header: React.FC<HeaderProps> = ({
-  onMenuClick,
-  isSidebarCollapsed,
-  selectedUnit,
-  onSelectUnit,
-  yearFilter,
-  onYearFilterChange,
-  activeMetric,
-  onActiveMetricChange,
-  allUnits = []
-}) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, selectedUnit, onSelectUnit, yearFilter, onYearChange, allUnits = [] }) => {
   const marginClass = isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64';
   const { signOut, user, profile } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -82,7 +70,7 @@ const Header: React.FC<HeaderProps> = ({
             // Trigger CommandPalette
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
           }}
-          className="flex items-center bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg w-full max-w-[120px] sm:max-w-xs md:max-w-md border border-transparent hover:border-orange-300 dark:hover:border-orange-700 transition-all cursor-pointer group"
+          className="flex items-center bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg w-full max-w-[120px] sm:max-w-xs md:max-w-3xl border border-transparent hover:border-orange-300 dark:hover:border-orange-700 transition-all cursor-pointer group"
         >
           <Search size={18} className="text-slate-400 mr-2 flex-shrink-0 group-hover:text-orange-500 transition-colors" />
           <span className="text-sm text-slate-400 text-left flex-1 truncate">Tìm kiếm...</span>
@@ -92,68 +80,48 @@ const Header: React.FC<HeaderProps> = ({
         </button>
       </div>
 
-      {/* DASHBOARD FILTERS (Only visible if props are provided) */}
-      {onActiveMetricChange && (
-        <div className="hidden md:flex items-center gap-2 lg:gap-4 flex-1 justify-center px-2 lg:px-4">
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-w-fit">
-            {[
-              { id: 'signing', label: 'Ký kết' },
-              { id: 'revenue', label: 'Doanh thu' },
-              { id: 'adminProfit', label: 'LNG QT' },
-              { id: 'revProfit', label: 'LNG DT' },
-              { id: 'cash', label: 'Dòng tiền' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => onActiveMetricChange(tab.id)}
-                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeMetric === tab.id
-                  ? 'bg-orange-500 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700'
-                  }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {onSelectUnit && selectedUnit && (
-              <div className="relative group">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-orange-300 dark:hover:border-orange-700 transition-all cursor-pointer">
-                  <Building2 size={14} className="text-slate-400" />
-                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 max-w-[100px] truncate">
-                    {selectedUnit.name}
-                  </span>
-                  <ChevronDown size={12} className="text-slate-400" />
-                  <select
-                    value={selectedUnit.id}
-                    onChange={(e) => {
-                      const selected = e.target.value === 'all'
-                        ? { id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit
-                        : allUnits.find(u => u.id === e.target.value);
-                      if (selected) onSelectUnit(selected);
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  >
-                    <option value="all">Toàn công ty</option>
-                    {allUnits.filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch')).map(u => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                </div>
+      <div className="flex items-center gap-2 sm:gap-3 ml-2">
+        {/* Filter Buttons (visible on lg+) */}
+        {selectedUnit && onSelectUnit && (
+          <>
+            {/* Unit Filter */}
+            <div className="hidden lg:block relative">
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-orange-300 dark:hover:border-orange-700/50 rounded-lg transition-all group cursor-pointer relative">
+                <Building2 size={15} className="text-slate-400 group-hover:text-orange-500 transition-colors" />
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
+                  {selectedUnit.name}
+                </span>
+                <ChevronDown size={13} className="text-slate-400" />
+                <select
+                  value={selectedUnit.id}
+                  onChange={(e) => {
+                    const sel = e.target.value === 'all'
+                      ? { id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit
+                      : allUnits.find(u => u.id === e.target.value);
+                    if (sel) onSelectUnit(sel);
+                  }}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                >
+                  <option value="all">Toàn công ty</option>
+                  {allUnits.filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch')).map(u => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
               </div>
-            )}
+            </div>
 
-            {onYearFilterChange && (
-              <div className="relative group">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-orange-300 dark:hover:border-orange-700 transition-all cursor-pointer">
-                  <Calendar size={14} className="text-slate-400" />
-                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
+            {/* Year Filter */}
+            {yearFilter && onYearChange && (
+              <div className="hidden lg:block relative">
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-orange-300 dark:hover:border-orange-700/50 rounded-lg transition-all group cursor-pointer relative">
+                  <Calendar size={15} className="text-slate-400 group-hover:text-orange-500 transition-colors" />
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
                     {yearFilter === 'All' ? 'Tất cả' : yearFilter}
                   </span>
+                  <ChevronDown size={13} className="text-slate-400" />
                   <select
                     value={yearFilter}
-                    onChange={(e) => onYearFilterChange(e.target.value)}
+                    onChange={(e) => onYearChange(e.target.value)}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   >
                     <option value="All">Tất cả năm</option>
@@ -164,11 +132,11 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
 
-      <div className="flex items-center gap-1 sm:gap-4 ml-2">
+        {/* Divider */}
+        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 hidden lg:block"></div>
         <button className="relative p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
           <Bell size={20} />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-900 animate-pulse"></span>

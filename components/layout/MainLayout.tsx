@@ -11,6 +11,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import Auth from '../Auth';
 import ErrorBoundary from '../ErrorBoundary';
 import { Unit } from '../../types';
+import { UnitService } from '../../services';
+import { NON_BUSINESS_UNIT_CODES } from '../../constants';
 
 const MainLayout: React.FC = () => {
     const navigate = useNavigate();
@@ -31,6 +33,18 @@ const MainLayout: React.FC = () => {
         lastYearActual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
     };
     const [selectedUnit, setSelectedUnit] = useState<Unit>(ALL_UNIT);
+
+    // Year filter (shared with Dashboard)
+    const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
+
+    // All business units (for Header filter dropdown)
+    const [allUnits, setAllUnits] = useState<Unit[]>([]);
+
+    useEffect(() => {
+        UnitService.getAll()
+            .then(units => setAllUnits(units.filter(u => !NON_BUSINESS_UNIT_CODES.includes(u.code))))
+            .catch(e => console.error('[MainLayout] Failed to fetch units:', e));
+    }, []);
 
     // Theme management — 2 axes: mode (light/dark) + accent (orange/blue)
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -93,13 +107,16 @@ const MainLayout: React.FC = () => {
         return 'dashboard';
     };
 
-    // Loading state
-    if (isLoadingSession) {
+    // Dev bypass auth mode
+    const isDevBypass = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+
+    // Loading state (skip if dev bypass)
+    if (!isDevBypass && isLoadingSession) {
         return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-400">Loading...</div>;
     }
 
-    // Auth required
-    if (!session) {
+    // Auth required (skip if dev bypass)
+    if (!isDevBypass && !session) {
         return (
             <ErrorBoundary>
                 <Auth />
@@ -131,13 +148,18 @@ const MainLayout: React.FC = () => {
                     <Header
                         onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
                         isSidebarCollapsed={isSidebarCollapsed}
+                        selectedUnit={selectedUnit}
+                        onSelectUnit={setSelectedUnit}
+                        yearFilter={yearFilter}
+                        onYearChange={setYearFilter}
+                        allUnits={allUnits}
                     />
 
                     {/* Page Content */}
                     <main className="mt-16 p-4 md:p-6 lg:p-8">
                         <div className={`${contentMaxWidthClass} mx-auto`}>
                             {/* Pass context to child routes via Outlet */}
-                            <Outlet context={{ selectedUnit, setSelectedUnit, theme, setTheme, accent, setAccent }} />
+                            <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, theme, setTheme, accent, setAccent }} />
                         </div>
                     </main>
                 </div>
@@ -161,6 +183,8 @@ import { useOutletContext } from 'react-router-dom';
 interface LayoutContext {
     selectedUnit: Unit;
     setSelectedUnit: (unit: Unit) => void;
+    yearFilter: string;
+    setYearFilter: (year: string) => void;
     theme: 'light' | 'dark';
     setTheme: (theme: 'light' | 'dark') => void;
     accent: 'orange' | 'blue';

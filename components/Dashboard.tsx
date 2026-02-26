@@ -29,27 +29,23 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  Building2,
   Sparkles,
   Zap,
   ShieldCheck,
   Loader2,
-  ChevronDown,
-  Calendar
+  Building2,
 } from 'lucide-react';
 import { Skeleton } from './ui/Skeleton';
 import ErrorBoundary from './ErrorBoundary';
 import { ContractService, UnitService, EmployeeService } from '../services';
-import { Unit, KPIPlan, Contract, Employee } from '../types';
+import { Unit, KPIPlan, Contract } from '../types';
 import { getSmartInsightsWithDeepSeek } from '../services/openaiService';
-import { NON_BUSINESS_UNIT_CODES } from '../constants';
 import { getChartColors, getAccentColor, getAccentColorLight, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill } from '../lib/themeColors';
 
 interface DashboardProps {
   selectedUnit: Unit;
   onSelectUnit: (unit: Unit) => void;
   onSelectContract: (id: string) => void;
-  activeMetric: keyof KPIPlan;
   yearFilter: string;
 }
 
@@ -82,13 +78,10 @@ const DashboardSkeleton = () => (
   </div>
 );
 
-const Dashboard: React.FC<DashboardProps> = ({
-  selectedUnit,
-  onSelectUnit,
-  onSelectContract,
-  activeMetric,
-  yearFilter
-}) => {
+const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSelectContract, yearFilter }) => {
+  const [activeMetric, setActiveMetric] = useState<keyof KPIPlan>('signing');
+  const [previousYear, setPreviousYear] = useState<string>((new Date().getFullYear() - 1).toString());
+
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
 
@@ -116,35 +109,15 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Recent Activity (Light Fetch)
   const [recentContracts, setRecentContracts] = useState<Contract[]>([]);
 
-  // Config Data
-  const [allUnits, setAllUnits] = useState<Unit[]>([]);
 
-  // Initial Config Load
+
+
+  // Update Previous Year when year filter changes
   useEffect(() => {
-    console.log('[Dashboard] Initial config load starting...');
-
-    // Safety timeout - force loading to false after 20 seconds
-    const safetyTimeout = setTimeout(() => {
-      console.warn('[Dashboard] Safety timeout triggered - forcing loadingConfig to false');
-      setLoadingConfig(false);
-    }, 20000);
-
-    const fetchConfig = async () => {
-      try {
-        console.log('[Dashboard] Fetching units...');
-        const units = await UnitService.getAll();
-        console.log('[Dashboard] Units fetched:', units.length);
-        setAllUnits(units.filter(u => !NON_BUSINESS_UNIT_CODES.includes(u.code)));
-      } catch (e) {
-        console.error("[Dashboard] Config load failed", e);
-      }
-    };
-    fetchConfig();
-
-    return () => clearTimeout(safetyTimeout);
-  }, []);
-
-
+    if (yearFilter !== 'All') {
+      setPreviousYear((parseInt(yearFilter) - 1).toString());
+    }
+  }, [yearFilter]);
 
   // Main Data Fetch Effect - SIMPLIFIED VERSION
   useEffect(() => {
@@ -382,7 +355,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   // Safe Unit for Display
-  const safeUnit: Unit = allUnits.find(u => u.id === selectedUnit?.id) || selectedUnit || {
+  const safeUnit: Unit = selectedUnit || {
     id: 'all',
     name: 'Công ty',
     type: 'Company',
@@ -411,6 +384,26 @@ const Dashboard: React.FC<DashboardProps> = ({
           <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
             Tổng quan Quản trị
           </h1>
+        </div>
+
+        {/* STICKY FILTER BAR - Metric Tabs Only */}
+        <div className="sticky top-16 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-4 border-b border-slate-200/50 dark:border-slate-800">
+          <div className="flex items-center">
+            <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto no-scrollbar">
+              {metricTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveMetric(tab.id as keyof KPIPlan)}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeMetric === tab.id
+                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20 dark:shadow-orange-500/10'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                    }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Main KPI Stats */}

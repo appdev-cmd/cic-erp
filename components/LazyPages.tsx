@@ -47,12 +47,13 @@ const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) =>
 // Dashboard
 export const LazyDashboardPage: React.FC = () => {
     const navigate = useNavigate();
-    const { selectedUnit, setSelectedUnit } = useLayoutContext();
+    const { selectedUnit, setSelectedUnit, yearFilter } = useLayoutContext();
     return withSuspense(
         <Dashboard
             selectedUnit={selectedUnit}
             onSelectUnit={setSelectedUnit}
             onSelectContract={(id) => navigate(ROUTES.CONTRACT_DETAIL(id))}
+            yearFilter={yearFilter}
         />,
         <DashboardSkeleton />
     );
