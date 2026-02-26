@@ -31,7 +31,7 @@ import { Moon, Sun, Monitor } from 'lucide-react';
 import { Session } from '@supabase/supabase-js';
 import Auth from './components/Auth';
 import { useAuth } from './contexts/AuthContext';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import ErrorBoundary from './components/ErrorBoundary';
 import DebugPanel from './components/DebugPanel';
 import { UnitService } from './services/unitService';
 
@@ -346,7 +346,7 @@ const App: React.FC = () => {
         return <UnitList onSelectUnit={handleViewUnit} />;
       case 'user-guide':
         return <UserGuide />;
-      case 'dashboard':
+      default:
         return <Dashboard
           selectedUnit={selectedUnit}
           onSelectUnit={setSelectedUnit}
@@ -354,8 +354,6 @@ const App: React.FC = () => {
           activeMetric={dashboardActiveMetric as any}
           yearFilter={dashboardYearFilter}
         />;
-      default:
-        return <Dashboard selectedUnit={selectedUnit} onSelectUnit={setSelectedUnit} onSelectContract={handleViewContract} />;
     }
   };
 
@@ -389,7 +387,6 @@ const App: React.FC = () => {
         <Header
           onMenuClick={() => setIsSidebarOpen(true)}
           isSidebarCollapsed={isSidebarCollapsed}
-          user={session?.user}
           selectedUnit={activeTab === 'dashboard' ? selectedUnit : undefined}
           onSelectUnit={activeTab === 'dashboard' ? setSelectedUnit : undefined}
           yearFilter={activeTab === 'dashboard' ? dashboardYearFilter : undefined}

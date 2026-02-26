@@ -16,8 +16,8 @@ interface HeaderProps {
   allUnits?: Unit[];
 }
 
-const Header: React.FC<HeaderProps> = ({ 
-  onMenuClick, 
+const Header: React.FC<HeaderProps> = ({
+  onMenuClick,
   isSidebarCollapsed,
   selectedUnit,
   onSelectUnit,
@@ -94,7 +94,7 @@ const Header: React.FC<HeaderProps> = ({
 
       {/* DASHBOARD FILTERS (Only visible if props are provided) */}
       {onActiveMetricChange && (
-        <div className="hidden lg:flex items-center gap-4 flex-1 justify-center px-4">
+        <div className="hidden md:flex items-center gap-2 lg:gap-4 flex-1 justify-center px-2 lg:px-4">
           <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-w-fit">
             {[
               { id: 'signing', label: 'Ký kết' },
