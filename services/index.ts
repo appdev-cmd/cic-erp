@@ -8,6 +8,7 @@ export * from './documentService';
 export * from './workflowService';
 export * from './auditLogService';
 export * from './permissionService';
+export * from './unitVisibilityService';
 export * from './ExecutionCostService';
 export * from './googleDriveService';
 export * from './driveInitService';

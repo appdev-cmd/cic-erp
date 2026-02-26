@@ -16,6 +16,7 @@ import {
   ComposedChart,
 } from 'recharts';
 import ChatWidget from './ChatWidget';
+import OnlineUsers from './dashboard/OnlineUsers';
 import {
   FileText,
   CreditCard,
@@ -41,6 +42,7 @@ import { ContractService, UnitService, EmployeeService } from '../services';
 import { Unit, KPIPlan, Contract } from '../types';
 import { getSmartInsightsWithDeepSeek } from '../services/openaiService';
 import { getChartColors, getAccentColor, getAccentColorLight, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill } from '../lib/themeColors';
+import { useCurrentUserVisibleUnits } from '../hooks';
 
 interface DashboardProps {
   selectedUnit: Unit;
@@ -81,6 +83,9 @@ const DashboardSkeleton = () => (
 const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSelectContract, yearFilter }) => {
   const [activeMetric, setActiveMetric] = useState<keyof KPIPlan>('signing');
   const [previousYear, setPreviousYear] = useState<string>((new Date().getFullYear() - 1).toString());
+
+  // Cross-unit visibility
+  const { visibleUnits } = useCurrentUserVisibleUnits();
 
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
@@ -267,6 +272,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
               : activeMetric === 'revProfit' ? (u.stats?.totalRevenueProfit || 0)
                 : (u.stats?.totalCash || 0)
       }));
+
+      // Filter by visibility permissions
+      if (visibleUnits !== 'all') {
+        perfData = perfData.filter(p => visibleUnits.includes(p.id));
+      }
     } else {
       // For Specific Unit: map employee data
       perfData = rawDistData.map(e => ({
@@ -384,6 +394,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
             Tổng quan Quản trị
           </h1>
+          <OnlineUsers />
         </div>
 
         {/* STICKY FILTER BAR - Metric Tabs Only */}
@@ -577,7 +588,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           }))
         }} />
       </div>
-    </ErrorBoundary>
+    </ErrorBoundary >
   );
 };
 

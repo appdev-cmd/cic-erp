@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, Check, X, Loader2, Search } from 'lucide-react';
+import { Shield, Users, Check, X, Loader2, Search, Eye, EyeOff, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PermissionAction, PermissionResource, UserProfile, UserRole, DEFAULT_ROLE_PERMISSIONS } from '../../types';
-import { useAllPermissions, useUpdatePermission } from '../../hooks';
+import { useAllPermissions, useUpdatePermission, useEmployeeVisibility, useToggleVisibility } from '../../hooks';
 import { dataClient } from '../../lib/dataClient';
 
 // Resource labels in Vietnamese
@@ -58,6 +58,11 @@ const PermissionManager: React.FC = () => {
 
     const { data: allPermissions, isLoading: permLoading } = useAllPermissions();
     const updatePermission = useUpdatePermission();
+    const toggleVisibility = useToggleVisibility();
+
+    // Cross-unit visibility state
+    const [allUnits, setAllUnits] = useState<{ id: string; name: string }[]>([]);
+    const { data: grantedUnits, isLoading: visLoading } = useEmployeeVisibility(selectedUserId);
 
     // Fetch users from employees table (not profiles)
     useEffect(() => {
@@ -105,6 +110,11 @@ const PermissionManager: React.FC = () => {
             setLoading(false);
         };
         fetchUsers();
+
+        // Fetch units for cross-unit visibility section
+        dataClient.from('units').select('id, name').order('name').then(({ data }) => {
+            if (data) setAllUnits(data);
+        });
     }, []);
 
     // Update local permissions when user is selected
@@ -316,6 +326,89 @@ const PermissionManager: React.FC = () => {
                     </table>
                 </div>
             )}
+
+            {/* Cross-Unit Visibility Section */}
+            {selectedUserId && selectedUser && (() => {
+                const GLOBAL_ROLES: UserRole[] = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
+                const isGlobalRole = selectedUser.role && GLOBAL_ROLES.includes(selectedUser.role);
+                const employeeOwnUnit = selectedUser.unitId;
+                const otherUnits = allUnits.filter(u => u.id !== employeeOwnUnit);
+
+                return (
+                    <div className="mt-8 p-5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Building2 size={18} className="text-orange-500" />
+                            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                                Quyền xem đơn vị khác
+                            </h3>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 ml-[26px]">
+                            Cho phép nhân viên xem hợp đồng, sản lượng của các đơn vị khác ngoài đơn vị chính.
+                        </p>
+
+                        {isGlobalRole ? (
+                            <div className="flex items-center gap-2 py-3 px-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                <Eye size={16} className="text-emerald-600 dark:text-emerald-400" />
+                                <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                                    Role <strong>{selectedUser.role}</strong> luôn xem được tất cả đơn vị
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {visLoading ? (
+                                    <div className="flex items-center gap-2 py-4 justify-center text-slate-400">
+                                        <Loader2 size={16} className="animate-spin" />
+                                        <span className="text-sm">Đang tải...</span>
+                                    </div>
+                                ) : otherUnits.length === 0 ? (
+                                    <p className="text-sm text-slate-400 py-3 text-center">Không có đơn vị khác</p>
+                                ) : (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                        {otherUnits.map(unit => {
+                                            const isGranted = grantedUnits?.includes(unit.id) || false;
+                                            return (
+                                                <button
+                                                    key={unit.id}
+                                                    onClick={async () => {
+                                                        try {
+                                                            await toggleVisibility.mutateAsync({
+                                                                employeeId: selectedUserId,
+                                                                unitId: unit.id,
+                                                                enabled: !isGranted,
+                                                            });
+                                                            toast.success(isGranted
+                                                                ? `Đã thu hồi quyền xem ${unit.name}`
+                                                                : `Đã cấp quyền xem ${unit.name}`);
+                                                        } catch {
+                                                            toast.error('Lỗi khi cập nhật quyền xem đơn vị');
+                                                        }
+                                                    }}
+                                                    disabled={toggleVisibility.isPending}
+                                                    className={`group flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer transition-all duration-200 text-left ${isGranted
+                                                        ? 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800/60 hover:border-orange-300 dark:hover:border-orange-700'
+                                                        : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-700/50 hover:bg-orange-50/50 dark:hover:bg-orange-950/10'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <Building2 size={14} className={`flex-shrink-0 ${isGranted ? 'text-orange-500' : 'text-slate-400 dark:text-slate-500'}`} />
+                                                        <span className={`text-sm font-medium truncate ${isGranted ? 'text-orange-700 dark:text-orange-300' : 'text-slate-600 dark:text-slate-300'}`}>
+                                                            {unit.name}
+                                                        </span>
+                                                    </div>
+                                                    {/* Toggle indicator */}
+                                                    <div className={`flex-shrink-0 w-9 h-5 rounded-full relative transition-colors duration-200 ${isGranted ? 'bg-orange-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
+                                                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${isGranted ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             {!selectedUserId && users.length > 0 && (
                 <div className="text-center py-12 text-slate-400">

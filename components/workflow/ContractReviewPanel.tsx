@@ -7,6 +7,7 @@ interface ContractReviewPanelProps {
     userRole: string;
     legalApproved?: boolean;  // NEW: track if legal has approved
     financeApproved?: boolean; // NEW: track if finance has approved
+    isOwnUnit?: boolean;      // NEW: check if user belongs to this unit
     onAction: (action: 'SubmitReview' | 'ApproveLegal' | 'RejectLegal' | 'ApproveFinance' | 'RejectFinance' | 'SubmitSign' | 'Sign') => void;
 }
 
@@ -26,6 +27,7 @@ export const ContractReviewPanel: React.FC<ContractReviewPanelProps> = ({
     userRole,
     legalApproved = false,
     financeApproved = false,
+    isOwnUnit = false,
     onAction
 }) => {
     // Loading state for buttons
@@ -45,7 +47,7 @@ export const ContractReviewPanel: React.FC<ContractReviewPanelProps> = ({
 
     // Điều kiện hiển thị các nút - hỗ trợ cả QUY TRÌNH MỚI (Pending_Review) và QUY TRÌNH CŨ (Pending_Legal/Pending_Finance)
     const showSubmitReview = (currentStatus === 'Draft' || currentStatus === 'Pending') &&
-        (userRole === 'NVKD' || userRole === 'UnitLeader');
+        (isAdmin || (isOwnUnit && (userRole === 'NVKD' || userRole === 'UnitLeader')));
 
     // PARALLEL: Legal có thể duyệt nếu status = Pending_Review VÀ chưa duyệt
     const showLegalReview = currentStatus === 'Pending_Review' && !legalApproved &&

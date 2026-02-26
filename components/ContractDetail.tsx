@@ -419,6 +419,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
               contractId={contract.id}
               currentStatus={contract.status}
               userRole={effectiveRole || ''}
+              isOwnUnit={profile?.unitId === contract.unitId}
               legalApproved={(contract as any).legal_approved || false}
               financeApproved={(contract as any).finance_approved || false}
               onAction={async (action) => {

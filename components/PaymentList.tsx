@@ -15,10 +15,12 @@ import {
     Calendar,
     Plus
 } from 'lucide-react';
-import { Payment, PaymentStatus, Customer } from '../types';
-import { PaymentService, ContractService, CustomerService } from '../services';
+import { Payment, PaymentStatus, Customer, Unit } from '../types';
+import { PaymentService, ContractService, CustomerService, UnitService } from '../services';
 import PaymentForm from './PaymentForm';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { useCurrentUserVisibleUnits } from '../hooks';
+import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
 
 interface PaymentListProps {
@@ -26,10 +28,15 @@ interface PaymentListProps {
 }
 
 const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
+    const { profile } = useAuth();
+    const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
+
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [unitFilter, setUnitFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<'Revenue' | 'Expense'>('Revenue');
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [units, setUnits] = useState<Unit[]>([]);
     const [stats, setStats] = useState<any>(null);
 
     // Infinite scroll batch size
@@ -51,16 +58,21 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
     // Infinite scroll fetch function
     const fetchPaymentPage = useCallback(async (page: number) => {
-        const [listRes, statsRes, customersData] = await Promise.all([
+        const [listRes, statsRes, customersData, unitsData] = await Promise.all([
             PaymentService.list({
                 page,
                 limit: PAGE_SIZE,
                 search: debouncedSearch,
                 type: typeFilter,
-                status: statusFilter
+                status: statusFilter,
+                unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter]
             }),
-            page === 1 ? PaymentService.getStats({ type: typeFilter }) : Promise.resolve(null),
-            page === 1 && customers.length === 0 ? CustomerService.getAll({ pageSize: 200 }) : Promise.resolve(null)
+            page === 1 ? PaymentService.getStats({
+                type: typeFilter,
+                unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter]
+            }) : Promise.resolve(null),
+            page === 1 && customers.length === 0 ? CustomerService.getAll({ pageSize: 200 }) : Promise.resolve(null),
+            page === 1 && units.length === 0 ? UnitService.getAll() : Promise.resolve(null)
         ]);
 
         if (statsRes) setStats(statsRes);
@@ -68,13 +80,16 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             const incoming = (customersData as any).data || customersData;
             setCustomers(incoming as Customer[]);
         }
+        if (unitsData) {
+            setUnits(unitsData as Unit[]);
+        }
 
         return {
             data: listRes.data,
             hasMore: listRes.data.length >= PAGE_SIZE,
             totalCount: listRes.count
         };
-    }, [debouncedSearch, typeFilter, statusFilter]);
+    }, [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits, customers.length, units.length]);
 
     const {
         items: payments,
@@ -88,7 +103,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     } = useInfiniteScroll<Payment>({
         fetchFn: fetchPaymentPage,
         pageSize: PAGE_SIZE,
-        resetDeps: [debouncedSearch, typeFilter, statusFilter]
+        resetDeps: [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits]
     });
 
     // Legacy effect for stats calculation removed (now server-side or separately fetched)
@@ -171,8 +186,6 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             }
             setIsFormOpen(false);
             setEditingPayment(undefined);
-            setIsFormOpen(false);
-            setEditingPayment(undefined);
             resetInfiniteScroll(); // Refresh to ensure data consistency
             toast.success("Lưu khoản thanh toán thành công");
         } catch (error) {
@@ -207,66 +220,80 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         Khoản Chi
                     </button>
                 </div>
-                <button
-                    onClick={handleAdd}
-                    className={`px-5 py-2.5 text-white rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg ${typeFilter === 'Revenue' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'}`}
-                >
-                    <Plus size={18} />
-                    Thêm {typeFilter === 'Revenue' ? 'khoản thu' : 'khoản chi'}
-                </button>
             </div>
 
+            {(() => {
+                const GLOBAL_ROLES = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
+                const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
+                const canAdd = isGlobal || (unitFilter === profile?.unitId) || (unitFilter === 'all' && profile?.unitId !== 'all');
+
+                if (!canAdd) return null;
+
+                return (
+                    <button
+                        onClick={handleAdd}
+                        className={`px-5 py-2.5 text-white rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg ${typeFilter === 'Revenue' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'}`}
+                    >
+                        <Plus size={18} />
+                        Thêm {typeFilter === 'Revenue' ? 'khoản thu' : 'khoản chi'}
+                    </button>
+                );
+            })()}
+
+
             {/* Stats Cards */}
-            {stats && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                                <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-black text-emerald-600">{formatCurrency(stats.paidAmount)}</p>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400">{typeFilter === 'Revenue' ? 'Tiền về' : 'Đã chi'} ({stats.paidCount})</p>
-                            </div>
-                        </div>
-                    </div>
-                    {typeFilter === 'Revenue' && (
+            {
+                stats && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                                    <FileCheck size={20} className="text-blue-600 dark:text-blue-400" />
+                                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                                    <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
                                 </div>
                                 <div>
-                                    <p className="text-2xl font-black text-blue-600">{formatCurrency(stats.invoicedAmount || 0)}</p>
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Đã xuất HĐ</p>
+                                    <p className="text-2xl font-black text-emerald-600">{formatCurrency(stats.paidAmount)}</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{typeFilter === 'Revenue' ? 'Tiền về' : 'Đã chi'} ({stats.paidCount})</p>
                                 </div>
                             </div>
                         </div>
-                    )}
-                    <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                                <Clock size={20} className="text-amber-600 dark:text-amber-400" />
+                        {typeFilter === 'Revenue' && (
+                            <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                        <FileCheck size={20} className="text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-black text-blue-600">{formatCurrency(stats.invoicedAmount || 0)}</p>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Đã xuất HĐ</p>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-2xl font-black text-amber-600">{formatCurrency(stats.pendingAmount)}</p>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400">{typeFilter === 'Revenue' ? 'Chờ thu' : 'Chờ chi'} ({stats.pendingCount})</p>
+                        )}
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                                    <Clock size={20} className="text-amber-600 dark:text-amber-400" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-black text-amber-600">{formatCurrency(stats.pendingAmount)}</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{typeFilter === 'Revenue' ? 'Chờ thu' : 'Chờ chi'} ({stats.pendingCount})</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
+                                    <AlertCircle size={20} className="text-rose-600 dark:text-rose-400" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-black text-rose-600">{formatCurrency(stats.overdueAmount)}</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Quá hạn ({stats.overdueCount})</p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
-                                <AlertCircle size={20} className="text-rose-600 dark:text-rose-400" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-black text-rose-600">{formatCurrency(stats.overdueAmount)}</p>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400">Quá hạn ({stats.overdueCount})</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">
@@ -279,6 +306,25 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                     />
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
+                    <Building2 size={16} className="text-slate-400" />
+                    <select
+                        value={unitFilter}
+                        onChange={(e) => { setUnitFilter(e.target.value); }}
+                        className="bg-transparent text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none"
+                    >
+                        {(visibleUnits === 'all' || visibleUnits.length > 1) && (
+                            <option value="all">Tất cả đơn vị</option>
+                        )}
+                        {units.filter(u =>
+                            u.id !== 'all' &&
+                            u.type !== 'Company' &&
+                            (visibleUnits === 'all' || visibleUnits.includes(u.id))
+                        ).map(u => (
+                            <option key={u.id} value={u.id}>{u.name}</option>
+                        ))}
+                    </select>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
                     <Filter size={16} className="text-slate-400" />

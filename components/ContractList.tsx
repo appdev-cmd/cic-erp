@@ -8,6 +8,8 @@ import { CONTRACT_STATUS_LABELS } from '../constants';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import ImportContractModal from './ImportContractModal';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { useCurrentUserVisibleUnits } from '../hooks';
+import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
 
 // Inline debounce hook if not exists, but better to check. 
@@ -22,6 +24,7 @@ interface ContractListProps {
 }
 
 const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContract, onAdd, onClone, onEdit }) => {
+  const { profile } = useAuth();
   // Impersonation - để filter theo đơn vị của user đang giả làm
   const { impersonatedUser, isImpersonating } = useImpersonation();
 
@@ -41,9 +44,28 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0 });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
+  // Cross-unit visibility
+  const { visibleUnits } = useCurrentUserVisibleUnits();
+  const canSeeAll = visibleUnits === 'all';
+
   // Sort state
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  // Permissions logic
+  const GLOBAL_ROLES: UserRole[] = ['Leadership', 'Admin', 'Legal', 'Accountant', 'ChiefAccountant'];
+  const isGlobalRole = profile ? GLOBAL_ROLES.includes(profile.role) : false;
+
+  // Can create if admin/leadership OR filtering specifically for their own unit
+  const canCreate = useMemo(() => {
+    if (!profile) return false;
+    if (isGlobalRole) return true;
+
+    // Non-global roles can only create if specifically viewing their own unit
+    // effectiveUnitId handles selectedUnit, impersonation and unitFilter
+    // but for simplicity, we check if they are in their own unit scope
+    return unitFilter === profile.unitId || (unitFilter === 'All' && !isImpersonating && profile.unitId !== 'all');
+  }, [profile, isGlobalRole, unitFilter, isImpersonating]);
 
   // Debounce search
   useEffect(() => {
@@ -64,7 +86,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       // Alt+N: Add new contract (changed from Ctrl+N to avoid browser conflict)
       if (e.altKey && e.key === 'n') {
         e.preventDefault();
-        onAdd();
+        if (canCreate) onAdd();
         return;
       }
 
@@ -387,13 +409,15 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           >
             <Download size={20} /> Xuất Excel
           </button>
-          <button
-            onClick={onAdd}
-            title="Thêm hợp đồng mới (Alt+N)"
-            className="flex items-center justify-center gap-2 bg-indigo-700 text-white px-6 py-3 rounded-lg font-black hover:bg-indigo-800 transition-all shadow-xl shadow-indigo-100 dark:shadow-none"
-          >
-            <Plus size={22} /> Thêm mới
-          </button>
+          {canCreate && (
+            <button
+              onClick={onAdd}
+              title="Thêm hợp đồng mới (Alt+N)"
+              className="flex items-center justify-center gap-2 bg-indigo-700 text-white px-6 py-3 rounded-lg font-black hover:bg-indigo-800 transition-all shadow-xl shadow-indigo-100 dark:shadow-none"
+            >
+              <Plus size={22} /> Thêm mới
+            </button>
+          )}
         </div>
       </div>
 
@@ -491,10 +515,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 setUnitFilter(e.target.value);
               }}
             >
-              <option value="All">Tất cả đơn vị</option>
-              {units.map(u => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
+              {canSeeAll && <option value="All">Tất cả đơn vị</option>}
+              {units
+                .filter(u => visibleUnits === 'all' || visibleUnits.includes(u.id))
+                .map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
             </select>
           </div>
         )}
@@ -694,7 +720,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   </td>
                   <td className="px-4 py-5 text-right bg-white dark:bg-slate-900">
                     <div className="flex items-center justify-end gap-1">
-                      {onClone && (
+                      {(onClone && (isGlobalRole || contract.unitId === profile?.unitId)) && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

@@ -20,6 +20,7 @@ import SearchableSelect from './ui/SearchableSelect';
 import QuickAddCustomerDialog from './ui/QuickAddCustomerDialog';
 
 // Contract Form Sub-components
+import { useAuth } from '../contexts/AuthContext';
 import { StepIndicator, FinancialSummary, FormHeader, formatVND as formatVNDUtil, PAKDImportButton } from './contract-form';
 import UnitAllocationsInput from './contract-form/UnitAllocationsInput';
 
@@ -31,6 +32,7 @@ interface ContractFormProps {
 }
 
 const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false, onSave, onCancel }) => {
+  const { profile } = useAuth();
   const isEditing = !!contract && !isCloning;
 
   // Data Options State
@@ -59,10 +61,18 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
         setSuppliers(suppliersRes.data?.filter(c => c.type === 'Supplier' || c.type === 'Both') || []);
         setExecutionCostTypes(executionCostTypesRes);
 
-        // Set default unit if creating new and no unit selected yet (skip admin units)
+        // Set default unit if creating new and no unit selected yet
         if (!isEditing && !unitId && unitsData.length > 0) {
-          const operationalUnits = unitsData.filter(u => u.id !== 'all' && u.type !== 'Company' && u.type !== 'BackOffice');
-          if (operationalUnits.length > 0) setUnitId(operationalUnits[0].id);
+          // If profile exists and not global, use their unit. Otherwise default to first operational unit.
+          const GLOBAL_ROLES = ['Leadership', 'Admin', 'Legal', 'Accountant', 'ChiefAccountant'];
+          const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
+
+          if (profile?.unitId && !isGlobal) {
+            setUnitId(profile.unitId);
+          } else {
+            const operationalUnits = unitsData.filter(u => u.id !== 'all' && u.type !== 'Company' && u.type !== 'BackOffice');
+            if (operationalUnits.length > 0) setUnitId(operationalUnits[0].id);
+          }
         }
       } catch (error) {
         console.error(error);
@@ -674,8 +684,17 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                       onChange={(e) => { setUnitId(e.target.value); setSalespersonId(''); }}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:border-indigo-500 transition-all"
                     >
-                      <option value="">-- Chọn đơn vị --</option>
-                      {units.filter(u => u.id !== 'all' && u.type !== 'Company' && u.type !== 'BackOffice').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                      {(() => {
+                        const GLOBAL_ROLES = ['Leadership', 'Admin', 'Legal', 'Accountant', 'ChiefAccountant'];
+                        const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
+                        const availableUnits = units.filter(u => {
+                          if (u.id === 'all' || u.type === 'Company' || u.type === 'BackOffice') return false;
+                          if (isGlobal || !profile?.unitId) return true;
+                          return u.id === profile.unitId;
+                        });
+
+                        return availableUnits.map(u => <option key={u.id} value={u.id}>{u.name}</option>);
+                      })()}
                     </select>
                   </div>
 
@@ -803,8 +822,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                             type="button"
                             onClick={(e) => { e.preventDefault(); setVatRate(rate); }}
                             className={`px-2.5 py-1 rounded-md text-[11px] font-black transition-all ${vatRate === rate
-                                ? 'bg-emerald-500 text-white shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                              ? 'bg-emerald-500 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                               }`}
                           >
                             {rate}%
@@ -813,8 +832,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                       </div>
                     )}
                     <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase ${hasVat
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                        : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
+                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                      : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
                       }`}>
                       {hasVat ? `DT = Ký kết / ${(1 + vatRate / 100).toFixed(2)}` : 'DT = Ký kết'}
                     </span>

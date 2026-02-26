@@ -33,8 +33,9 @@ export const PaymentService = {
         search?: string;
         type?: string;
         status?: string;
+        unitIds?: string[] | 'all';
     }): Promise<{ data: Payment[]; count: number }> => {
-        const { page, limit, search, type, status } = params;
+        const { page, limit, search, type, status, unitIds } = params;
         const from = (page - 1) * limit;
         const to = from + limit - 1;
 
@@ -58,6 +59,22 @@ export const PaymentService = {
                 query = query.in('status', ['Quá hạn', 'Overdue']);
             } else {
                 query = query.eq('status', status);
+            }
+        }
+
+        if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
+            // Need to filter by contracts belonging to these units
+            const { data: contracts } = await supabase
+                .from('contracts')
+                .select('id')
+                .in('unit_id', unitIds);
+
+            const contractIds = contracts?.map(c => c.id) || [];
+            if (contractIds.length > 0) {
+                query = query.in('contract_id', contractIds);
+            } else {
+                // Return empty if no contracts found for these units
+                return { data: [], count: 0 };
             }
         }
 
@@ -110,12 +127,26 @@ export const PaymentService = {
         return data.map(mapPayment);
     },
 
-    getStats: async (params: { type?: string }) => {
-        const { type } = params;
+    getStats: async (params: { type?: string; unitIds?: string[] | 'all' }) => {
+        const { type, unitIds } = params;
         let query = supabase.from('payments').select('*');
 
         if (type) {
             query = query.eq('payment_type', type);
+        }
+
+        if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
+            const { data: contracts } = await supabase
+                .from('contracts')
+                .select('id')
+                .in('unit_id', unitIds);
+
+            const contractIds = contracts?.map(c => c.id) || [];
+            if (contractIds.length > 0) {
+                query = query.in('contract_id', contractIds);
+            } else {
+                return { totalAmount: 0, paidAmount: 0, pendingAmount: 0, overdueAmount: 0, paidCount: 0, pendingCount: 0, overdueCount: 0 };
+            }
         }
 
         const { data, error } = await query;

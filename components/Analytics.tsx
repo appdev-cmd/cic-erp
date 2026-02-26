@@ -10,6 +10,7 @@ import { ContractService, UnitService, EmployeeService, PaymentService } from '.
 import { Unit, Contract, Payment, Employee } from '../types';
 import { toast } from 'sonner';
 import { getChartColors, getAccentColor, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill } from '../lib/themeColors';
+import { useCurrentUserVisibleUnits } from '../hooks';
 
 interface AnalyticsProps {
     selectedUnit: Unit;
@@ -22,6 +23,8 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
     const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
     const [showUnitSelector, setShowUnitSelector] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+
+    const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
 
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
@@ -68,8 +71,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
 
     // 1. Structure Pie Chart Data
     const structureData = useMemo(() => {
+        const allowedUnits = units.filter(u => {
+            if (u.id === 'all') return false;
+            if (visibleUnits === 'all') return true;
+            return visibleUnits.includes(u.id);
+        });
+
         if (selectedUnit.id === 'all') {
-            return units.filter(u => u.id !== 'all').map(u => ({
+            return allowedUnits.map(u => ({
                 name: u.name,
                 value: contracts
                     .filter(c => c.unitId === u.id && (yearFilter === 'All' || c.signedDate?.startsWith(yearFilter)))
@@ -82,7 +91,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
                 .map(e => ({
                     name: e.name,
                     value: filteredContracts
-                        .filter(c => c.employeeId === e.id)
+                        .filter(c => c.salespersonId === e.id)
                         .reduce((sum, c) => sum + (c.actualRevenue || 0), 0)
                 }))
                 .filter(d => d.value > 0)
@@ -92,10 +101,16 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
 
     // 2. Plan vs Actual Bar Chart
     const planVsActualData = useMemo(() => {
-        return units.filter(u => u.id !== 'all' && (selectedUnit.id === 'all' || u.id === selectedUnit.id)).map(u => {
+        const allowedUnits = units.filter(u => {
+            if (u.id === 'all') return false;
+            if (visibleUnits === 'all') return true;
+            return visibleUnits.includes(u.id);
+        });
+
+        return allowedUnits.filter(u => selectedUnit.id === 'all' || u.id === selectedUnit.id).map(u => {
             const unitContracts = contracts.filter(c => c.unitId === u.id && (yearFilter === 'All' || c.signedDate?.startsWith(yearFilter)));
             const actualRev = unitContracts.reduce((sum, c) => sum + (c.actualRevenue || 0), 0);
-            const targetRev = u.target?.revenue || 0; // Assuming target is annual, might need adjustment if mock data is weird
+            const targetRev = u.target?.revenue || 0;
             return {
                 name: u.name,
                 Target: targetRev,
@@ -199,8 +214,13 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setShowUnitSelector(false)} />
                                 <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 shadow-xl rounded-lg z-20 overflow-hidden">
-                                    <button onClick={() => { onSelectUnit({ id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit); setShowUnitSelector(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-sm">Toàn công ty</button>
-                                    {units.filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch')).map(u => (
+                                    {(visibleUnits === 'all' || visibleUnits.length > 1) && (
+                                        <button onClick={() => { onSelectUnit({ id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit); setShowUnitSelector(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-sm">Toàn công ty</button>
+                                    )}
+                                    {units.filter(u => u.name !== 'Toàn công ty' &&
+                                        (u.type === 'Center' || u.type === 'Branch') &&
+                                        (visibleUnits === 'all' || visibleUnits.includes(u.id))
+                                    ).map(u => (
                                         <button key={u.id} onClick={() => { onSelectUnit(u); setShowUnitSelector(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-sm">{u.name}</button>
                                     ))}
                                 </div>
@@ -253,7 +273,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
                                         <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} strokeWidth={0} />
                                     ))}
                                 </Pie>
-                                <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={getTooltipStyle()} />
+                                <Tooltip formatter={(value: number | undefined) => formatCurrency(value || 0)} contentStyle={getTooltipStyle()} />
                                 <Legend layout="vertical" align="right" verticalAlign="middle" iconType="circle" />
                             </PieChart>
                         </ResponsiveContainer>
@@ -271,7 +291,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} dy={10} />
                                 <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
-                                <Tooltip cursor={{ fill: getCursorFill() }} formatter={(value: number) => formatCurrency(value)} contentStyle={getTooltipStyle()} />
+                                <Tooltip cursor={{ fill: getCursorFill() }} formatter={(value: number | undefined) => formatCurrency(value || 0)} contentStyle={getTooltipStyle()} />
                                 <Legend />
                                 <Bar dataKey="Actual" name="Thực tế" fill={getAccentColor()} radius={[6, 6, 0, 0]} />
                                 <Bar dataKey="Target" name="Kế hoạch" fill={getMutedBarFill()} radius={[6, 6, 0, 0]} />
@@ -302,7 +322,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} dy={10} />
                             <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
-                            <Tooltip contentStyle={getTooltipStyle()} formatter={(value: number) => formatCurrency(value)} />
+                            <Tooltip contentStyle={getTooltipStyle()} formatter={(value: number | undefined) => formatCurrency(value || 0)} />
                             <Legend />
                             <Area type="monotone" dataKey="DoanhThu" name="Doanh thu" stroke={getAccentColor()} strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
                             <Area type="monotone" dataKey="LoiNhuan" name="Lợi nhuận" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" />
@@ -322,7 +342,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} dy={10} />
                             <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
-                            <Tooltip contentStyle={getTooltipStyle()} formatter={(value: number) => formatCurrency(value)} />
+                            <Tooltip contentStyle={getTooltipStyle()} formatter={(value: number | undefined) => formatCurrency(value || 0)} />
                             <Legend />
                             <Bar dataKey="Thu" name="Dòng tiền vào" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
                             <Bar dataKey="Chi" name="Dòng tiền ra" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={20} />

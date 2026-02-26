@@ -1,7 +1,8 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, Bell, Menu, LogOut, ChevronDown, User as UserIcon, Building2, Calendar } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrentUserVisibleUnits } from '../hooks';
 import { Unit } from '../types';
 
 interface HeaderProps {
@@ -19,6 +20,16 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
   const { signOut, user, profile } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { visibleUnits } = useCurrentUserVisibleUnits();
+
+  // Filter units by visibility permissions
+  const filteredUnits = useMemo(() => {
+    if (visibleUnits === 'all') return allUnits;
+    return allUnits.filter(u => visibleUnits.includes(u.id));
+  }, [allUnits, visibleUnits]);
+
+  // Whether user can see "Toàn công ty" (all company) option
+  const canSeeAll = visibleUnits === 'all';
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -102,8 +113,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 >
-                  <option value="all">Toàn công ty</option>
-                  {allUnits.filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch')).map(u => (
+                  {canSeeAll && <option value="all">Toàn công ty</option>}
+                  {filteredUnits.filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch')).map(u => (
                     <option key={u.id} value={u.id}>{u.name}</option>
                   ))}
                 </select>

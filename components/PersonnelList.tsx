@@ -6,6 +6,8 @@ import { Employee, Unit } from '../types';
 import PersonnelForm from './PersonnelForm';
 import EmployeeDetailModal from './EmployeeDetailModal';
 import ImportEmployeeModal from './ImportEmployeeModal';
+import { useCurrentUserVisibleUnits } from '../hooks';
+import { useAuth } from '../contexts/AuthContext';
 
 interface PersonnelListProps {
     selectedUnit: Unit;
@@ -13,6 +15,9 @@ interface PersonnelListProps {
 }
 
 const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPersonnel }) => {
+    const { profile } = useAuth();
+    const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
+
     const [searchQuery, setSearchQuery] = useState('');
     const [unitFilter, setUnitFilter] = useState<string>('all');
     const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
@@ -75,8 +80,24 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
 
     // Filter units for dropdown
     const filterUnits = useMemo(() => {
-        return [{ id: 'all', name: 'Tất cả đơn vị', code: 'ALL', type: 'Company' as const, target: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 } }, ...units.filter(u => u.id !== 'all')];
-    }, [units]);
+        const allowedUnits = units.filter(u =>
+            u.id !== 'all' &&
+            (visibleUnits === 'all' || visibleUnits.includes(u.id))
+        );
+
+        const companyOption = {
+            id: 'all',
+            name: 'Tất cả đơn vị',
+            code: 'ALL',
+            type: 'Company' as const,
+            target: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
+        };
+
+        if (visibleUnits === 'all' || visibleUnits.length > 1) {
+            return [companyOption, ...allowedUnits];
+        }
+        return allowedUnits;
+    }, [units, visibleUnits]);
 
     // Selected unit name for display
     const selectedUnitName = useMemo(() => {
@@ -105,7 +126,12 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     const filteredPersonnel = useMemo(() => {
         let filtered = allPersonnel;
 
-        // Filter by unit
+        // Filter by visibility first
+        if (visibleUnits !== 'all') {
+            filtered = filtered.filter(p => visibleUnits.includes(p.unitId));
+        }
+
+        // Filter by unit select
         if (unitFilter !== 'all') {
             filtered = filtered.filter(p => p.unitId === unitFilter);
         }
@@ -275,13 +301,23 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                     </a>
 
                     {/* Add Button */}
-                    <button
-                        onClick={() => { setEditingPerson(undefined); setIsFormOpen(true); }}
-                        className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-200/50 hover:shadow-xl transition-all"
-                    >
-                        <Plus size={18} />
-                        <span className="hidden sm:inline">Thêm NV</span>
-                    </button>
+                    {(() => {
+                        const GLOBAL_ROLES = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
+                        const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
+                        const canAdd = isGlobal || (profile?.unitId && (unitFilter === profile.unitId || unitFilter === 'all'));
+
+                        if (!canAdd) return null;
+
+                        return (
+                            <button
+                                onClick={() => { setEditingPerson(undefined); setIsFormOpen(true); }}
+                                className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-200/50 hover:shadow-xl transition-all"
+                            >
+                                <Plus size={18} />
+                                <span className="hidden sm:inline">Thêm NV</span>
+                            </button>
+                        );
+                    })()}
                 </div>
             </div>
 
@@ -451,33 +487,43 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
 
                                         {/* Actions */}
                                         <td className="py-4 px-6">
-                                            <div className="relative">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setActionMenuId(actionMenuId === person.id ? null : person.id); }}
-                                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                    <MoreVertical size={16} className="text-slate-400" />
-                                                </button>
-                                                {actionMenuId === person.id && (
-                                                    <>
-                                                        <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
-                                                        <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-20 overflow-hidden">
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); setEditingPerson(person); setIsFormOpen(true); setActionMenuId(null); }}
-                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                                                            >
-                                                                <Pencil size={14} /> Chỉnh sửa
-                                                            </button>
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); handleDelete(person.id); }}
-                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                            >
-                                                                <Trash2 size={14} /> Xóa
-                                                            </button>
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </div>
+                                            {(() => {
+                                                const GLOBAL_ROLES = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
+                                                const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
+                                                const isOwnUnit = profile?.unitId === person.unitId;
+
+                                                if (!isGlobal && !isOwnUnit) return null;
+
+                                                return (
+                                                    <div className="relative">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setActionMenuId(actionMenuId === person.id ? null : person.id); }}
+                                                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            <MoreVertical size={16} className="text-slate-400" />
+                                                        </button>
+                                                        {actionMenuId === person.id && (
+                                                            <>
+                                                                <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
+                                                                <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-20 overflow-hidden">
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setEditingPerson(person); setIsFormOpen(true); setActionMenuId(null); }}
+                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                                                    >
+                                                                        <Pencil size={14} /> Chỉnh sửa
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); handleDelete(person.id); }}
+                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                    >
+                                                                        <Trash2 size={14} /> Xóa
+                                                                    </button>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
                                         </td>
                                     </tr>
                                 ))}

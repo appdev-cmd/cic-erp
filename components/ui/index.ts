@@ -41,3 +41,4 @@ export { default as Tooltip } from './Tooltip';
 export { default as SearchableSelect } from './SearchableSelect';
 export { default as QuickAddCustomerDialog } from './QuickAddCustomerDialog';
 export { default as NumberInput } from './NumberInput';
+export { Avatar, AvatarImage, AvatarFallback } from './Avatar';
