@@ -21,12 +21,20 @@ import CustomerForm from './CustomerForm';
 import ImportCustomerModal from './ImportCustomerModal';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import ScrollToTop from './ui/ScrollToTop';
+import { useAuth } from '../contexts/AuthContext';
+import { useImpersonation } from '../contexts/ImpersonationContext';
+import { canDeleteCustomer } from '../lib/permissions';
 
 interface CustomerListProps {
     onSelectCustomer?: (id: string) => void;
 }
 
 const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
+    const { profile: realProfile } = useAuth();
+    const { impersonatedUser, isImpersonating } = useImpersonation();
+    const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
+    const allowDelete = profile ? canDeleteCustomer(profile.role) : false;
+
     const [searchQuery, setSearchQuery] = useState('');
     const [industryFilter, setIndustryFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<'all' | 'Customer' | 'Supplier'>('all');
@@ -390,16 +398,18 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                                                                 <Pencil size={14} />
                                                                 Chỉnh sửa
                                                             </button>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleDelete(customer.id);
-                                                                }}
-                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
-                                                            >
-                                                                <Trash2 size={14} />
-                                                                Xóa
-                                                            </button>
+                                                            {allowDelete && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDelete(customer.id);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                    Xóa
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </>
                                                 )}

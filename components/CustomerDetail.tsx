@@ -17,8 +17,11 @@ import {
     Loader2
 } from 'lucide-react';
 import { Customer, Contract } from '../types';
-import { CustomerService, ContractService } from '../services'; // Updated imports
+import { CustomerService, ContractService } from '../services';
 import CustomerForm from './CustomerForm';
+import { useAuth } from '../contexts/AuthContext';
+import { useImpersonation } from '../contexts/ImpersonationContext';
+import { canDeleteCustomer } from '../lib/permissions';
 
 interface CustomerDetailProps {
     customerId: string;
@@ -27,6 +30,11 @@ interface CustomerDetailProps {
 }
 
 const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onViewContract }) => {
+    const { profile: realProfile } = useAuth();
+    const { impersonatedUser, isImpersonating } = useImpersonation();
+    const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
+    const allowDelete = profile ? canDeleteCustomer(profile.role) : false;
+
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -176,13 +184,15 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                         <Edit3 size={16} />
                         Chỉnh sửa
                     </button>
-                    <button
-                        onClick={handleDelete}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/30 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
-                    >
-                        <Trash2 size={16} />
-                        Xóa
-                    </button>
+                    {allowDelete && (
+                        <button
+                            onClick={handleDelete}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/30 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+                        >
+                            <Trash2 size={16} />
+                            Xóa
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -203,7 +213,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                     <div className="flex flex-col sm:flex-row gap-4">
                         {/* Logo/Avatar */}
                         <div className="w-20 h-20 -mt-14 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-black text-xl shadow-xl border-4 border-white dark:border-slate-900 flex-shrink-0 relative z-10">
-                            {customer.shortName.substring(0, 3)}
+                            {(customer.shortName || customer.name || '?').substring(0, 3)}
                         </div>
 
                         {/* Info */}

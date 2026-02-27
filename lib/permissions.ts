@@ -148,30 +148,59 @@ export function canDeleteCustomer(role: UserRole): boolean {
 // Employee / Unit permissions (spec §6.5)
 // ═══════════════════════════════════════════
 
-/** Only Admin can create employees */
-export function canCreateEmployee(role: UserRole): boolean {
-    return role === 'Admin' || role === 'Leadership';
+/** HR unit code — Phòng Tổng Hợp */
+const HR_UNIT_CODE = 'HCNS';
+
+/**
+ * Can VIEW the Personnel section at all?
+ * Only: Admin, Leadership, AdminUnit of Phòng Tổng Hợp (HCNS)
+ */
+export function canViewEmployees(role: UserRole, userUnitCode?: string): boolean {
+    if (role === 'Admin' || role === 'Leadership') return true;
+    if (role === 'AdminUnit' && userUnitCode === HR_UNIT_CODE) return true;
+    return false;
+}
+
+/** Can CREATE employees — Admin, Leadership, AdminUnit of HCNS */
+export function canCreateEmployee(role: UserRole, userUnitCode?: string): boolean {
+    return canViewEmployees(role, userUnitCode);
 }
 
 /**
  * Can EDIT employee?
  * - Admin/Leadership: all employees
- * - UnitLeader: employees in their own unit only
+ * - AdminUnit of HCNS: all employees
  */
 export function canEditEmployee(
     role: UserRole,
     employeeUnitId?: string,
-    userUnitId?: string
+    userUnitId?: string,
+    userUnitCode?: string
 ): boolean {
     if (role === 'Admin' || role === 'Leadership') return true;
-    if (role === 'UnitLeader' && employeeUnitId && userUnitId) {
-        return employeeUnitId === userUnitId;
-    }
+    if (role === 'AdminUnit' && userUnitCode === HR_UNIT_CODE) return true;
     return false;
 }
 
-/** Only Admin can delete employees */
-export function canDeleteEmployee(role: UserRole): boolean {
+/** Can DELETE employees — Admin, Leadership, AdminUnit of HCNS */
+export function canDeleteEmployee(role: UserRole, userUnitCode?: string): boolean {
+    return canViewEmployees(role, userUnitCode);
+}
+
+/**
+ * Can VIEW the Units section?
+ * Only Admin and Leadership
+ */
+export function canViewUnits(role: UserRole): boolean {
+    return role === 'Admin' || role === 'Leadership';
+}
+
+// ═══════════════════════════════════════════
+// Product permissions
+// ═══════════════════════════════════════════
+
+/** Can DELETE products — only Admin and Leadership */
+export function canDeleteProduct(role: UserRole): boolean {
     return role === 'Admin' || role === 'Leadership';
 }
 
@@ -196,13 +225,24 @@ export function canManagePermissions(role: UserRole): boolean {
 /**
  * Items that should be hidden from sidebar based on role.
  * Returns Set of nav item IDs to HIDE.
+ * Note: 'personnel' requires unitCode check, handled separately via canViewEmployees.
  */
-export function getHiddenNavItems(role: UserRole): Set<string> {
+export function getHiddenNavItems(role: UserRole, userUnitCode?: string): Set<string> {
     const hidden = new Set<string>();
 
     // Settings: only Admin
     if (role !== 'Admin') {
         hidden.add('settings');
+    }
+
+    // Units: only Admin & Leadership
+    if (!canViewUnits(role)) {
+        hidden.add('units');
+    }
+
+    // Personnel: only Admin, Leadership, AdminUnit of HCNS
+    if (!canViewEmployees(role, userUnitCode)) {
+        hidden.add('personnel');
     }
 
     return hidden;

@@ -360,6 +360,7 @@ export interface UserProfile {
   fullName: string;
   role: UserRole;
   unitId?: string; // Links to Unit
+  unitCode?: string; // Unit code (e.g. 'HCNS', 'DCS') for permission checks
   avatarUrl?: string;
   employeeId?: string; // Links to employees table (auto-matched by email)
 }

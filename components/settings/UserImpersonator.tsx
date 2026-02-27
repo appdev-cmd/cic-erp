@@ -67,9 +67,10 @@ const UserImpersonator: React.FC = () => {
                 // Then fetch units separately
                 const { data: unitsData } = await supabase
                     .from('units')
-                    .select('id, name');
+                    .select('id, name, code');
 
                 const unitsMap = new Map(unitsData?.map(u => [u.id, u.name]) || []);
+                const unitsCodeMap = new Map(unitsData?.map(u => [u.id, u.code]) || []);
 
                 if (employeesData) {
                     console.log('[UserImpersonator] Loaded', employeesData.length, 'employees');
@@ -79,6 +80,7 @@ const UserImpersonator: React.FC = () => {
                         fullName: u.name,
                         role: (u.role_code as UserRole) || mapPositionToRole(u.position),
                         unitId: u.unit_id,
+                        unitCode: u.unit_id ? unitsCodeMap.get(u.unit_id) : undefined,
                         position: u.position,
                         unitName: u.unit_id ? unitsMap.get(u.unit_id) : undefined,
                     })));

@@ -273,12 +273,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }
                 }
 
+                // Look up unit code for permission checks
+                let unitCode: string | undefined;
+                if (unitId) {
+                    const { data: unitData } = await dataClient
+                        .from('units')
+                        .select('code')
+                        .eq('id', unitId)
+                        .single();
+                    unitCode = unitData?.code;
+                }
+
                 setProfile({
                     id: data.id,
                     email: userEmail,
                     fullName: fullName,
                     role: userRole,
                     unitId: unitId,
+                    unitCode: unitCode,
                     avatarUrl: data.avatar_url,
                     employeeId: employeeId
                 });

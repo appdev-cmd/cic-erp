@@ -21,12 +21,20 @@ import ProductForm from './ProductForm';
 import ImportProductModal from './ImportProductModal';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import ScrollToTop from './ui/ScrollToTop';
+import { useAuth } from '../contexts/AuthContext';
+import { useImpersonation } from '../contexts/ImpersonationContext';
+import { canDeleteProduct } from '../lib/permissions';
 
 interface ProductListProps {
     onSelectProduct?: (id: string) => void;
 }
 
 const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
+    const { profile: realProfile } = useAuth();
+    const { impersonatedUser, isImpersonating } = useImpersonation();
+    const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
+    const allowDelete = profile ? canDeleteProduct(profile.role) : false;
+
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -445,13 +453,15 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                                                 <Pencil size={14} />
                                                                 Chỉnh sửa
                                                             </button>
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); handleDelete(product.id); }}
-                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
-                                                            >
-                                                                <Trash2 size={14} />
-                                                                Xóa
-                                                            </button>
+                                                            {allowDelete && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleDelete(product.id); }}
+                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                    Xóa
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </>
                                                 )}
