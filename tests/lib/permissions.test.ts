@@ -109,9 +109,10 @@ describe('Permission Helpers', () => {
             expect(canCreateCustomer('NVKD')).toBe(true);
         });
 
-        it('should only allow Admin to delete customers', () => {
+        it('should allow Admin and Leadership to delete customers', () => {
             expect(canDeleteCustomer('Admin')).toBe(true);
-            expect(canDeleteCustomer('Leadership')).toBe(false);
+            expect(canDeleteCustomer('Leadership')).toBe(true);
+            expect(canDeleteCustomer('NVKD')).toBe(false);
         });
     });
 

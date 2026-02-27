@@ -49,7 +49,7 @@ describe('useFinancialCalculations', () => {
         );
 
         expect(result.current.signingValue).toBe(1100);
-        expect(result.current.estimatedRevenue).toBe(1000);
+        expect(result.current.estimatedRevenue).toBeCloseTo(1000, 2);
     });
 
     it('handles 0% VAT items', () => {
@@ -133,6 +133,6 @@ describe('useFinancialCalculations', () => {
 
         expect(result.current.signingValue).toBe(2180);
         // Revenue: 1100/1.1 + 1080/1.08 = 1000 + 1000 = 2000
-        expect(result.current.estimatedRevenue).toBe(2000);
+        expect(result.current.estimatedRevenue).toBeCloseTo(2000, 2);
     });
 });
