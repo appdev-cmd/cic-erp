@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UnitVisibilityService } from '../services/unitVisibilityService';
 import { useAuth } from '../contexts/AuthContext';
+import { useImpersonation } from '../contexts/ImpersonationContext';
 import { UserRole } from '../types';
 
 // Roles that always see all units
@@ -36,6 +37,8 @@ export function useAllVisibility() {
 
 /**
  * Returns the list of unit IDs the current user is allowed to view.
+ * IMPERSONATION-AWARE: When impersonating, returns the impersonated user's
+ * visible units instead of the real admin's.
  * - Global roles → returns 'all'
  * - Other roles → returns [own unit] + granted units
  */
@@ -44,17 +47,21 @@ export function useCurrentUserVisibleUnits(): {
     isLoading: boolean;
 } {
     const { profile } = useAuth();
-    const employeeId = profile?.employeeId || profile?.id || '';
-    const role = profile?.role;
-    const ownUnitId = profile?.unitId;
+    const { impersonatedUser, isImpersonating } = useImpersonation();
+
+    // Determine which profile to use for visibility
+    const effectiveProfile = isImpersonating && impersonatedUser ? impersonatedUser : profile;
+    const effectiveEmployeeId = effectiveProfile?.employeeId || effectiveProfile?.id || '';
+    const effectiveRole = effectiveProfile?.role;
+    const effectiveOwnUnitId = effectiveProfile?.unitId;
 
     // Global roles always see everything
-    const isGlobalRole = role && GLOBAL_VIEW_ROLES.includes(role);
+    const isGlobalRole = effectiveRole && GLOBAL_VIEW_ROLES.includes(effectiveRole);
 
     const { data: grantedUnits, isLoading } = useQuery({
-        queryKey: visibilityKeys.byEmployee(employeeId),
-        queryFn: () => UnitVisibilityService.getByEmployeeId(employeeId),
-        enabled: !!employeeId && !isGlobalRole,
+        queryKey: visibilityKeys.byEmployee(effectiveEmployeeId),
+        queryFn: () => UnitVisibilityService.getByEmployeeId(effectiveEmployeeId),
+        enabled: !!effectiveEmployeeId && !isGlobalRole,
         staleTime: 10 * 60 * 1000,
     });
 
@@ -64,7 +71,7 @@ export function useCurrentUserVisibleUnits(): {
 
     // Build list: own unit + granted units
     const unitSet = new Set<string>();
-    if (ownUnitId) unitSet.add(ownUnitId);
+    if (effectiveOwnUnitId) unitSet.add(effectiveOwnUnitId);
     if (grantedUnits) {
         grantedUnits.forEach(id => unitSet.add(id));
     }

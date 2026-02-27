@@ -10,14 +10,18 @@ import CommandPalette from '../ui/CommandPalette';
 import { useAuth } from '../../contexts/AuthContext';
 import Auth from '../Auth';
 import ErrorBoundary from '../ErrorBoundary';
-import { Unit } from '../../types';
+import { Unit, UserRole } from '../../types';
 import { UnitService } from '../../services';
 import { NON_BUSINESS_UNIT_CODES } from '../../constants';
+import { useCurrentUserVisibleUnits } from '../../hooks';
+import { useImpersonation } from '../../contexts/ImpersonationContext';
 
 const MainLayout: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { session, isLoading: isLoadingSession, profile } = useAuth();
+    const { visibleUnits } = useCurrentUserVisibleUnits();
+    const { impersonatedUser, isImpersonating } = useImpersonation();
 
     // Sidebar state
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);

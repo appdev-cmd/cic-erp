@@ -155,14 +155,33 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   // Compute effective unit ID for fetching
   const effectiveUnitId = useMemo(() => {
     const GLOBAL_VIEW_ROLES: UserRole[] = ['Legal', 'Accountant', 'ChiefAccountant', 'Leadership', 'Admin'];
+
+    // Helper: check if current visibility allows a specific unit
+    const isUnitAllowed = (unitId: string) => {
+      if (canSeeAll) return true;
+      if (Array.isArray(visibleUnits) && visibleUnits.includes(unitId)) return true;
+      return false;
+    };
+
+    // If a specific unit is selected from the header dropdown, use it only if allowed
+    if (selectedUnit && selectedUnit.id !== 'all') {
+      if (isUnitAllowed(selectedUnit.id)) return selectedUnit.id;
+      // Not allowed → fall through to default scope
+    }
+    // If a specific unit is selected from the local filter, use it only if allowed
+    if (unitFilter !== 'All') {
+      if (isUnitAllowed(unitFilter)) return unitFilter;
+    }
+
+    // No specific unit selected or selected unit not allowed — determine scope
     if (isImpersonating && impersonatedUser) {
       if (GLOBAL_VIEW_ROLES.includes(impersonatedUser.role)) return 'All';
+      // Non-global impersonated user → restrict to their own unit
       if (impersonatedUser.unitId) return impersonatedUser.unitId;
     }
-    if (selectedUnit && selectedUnit.id !== 'all') return selectedUnit.id;
-    if (unitFilter !== 'All') return unitFilter;
-    return 'All';
-  }, [isImpersonating, impersonatedUser, selectedUnit, unitFilter]);
+
+    return canSeeAll ? 'All' : (Array.isArray(visibleUnits) && visibleUnits[0]) || 'All';
+  }, [isImpersonating, impersonatedUser, selectedUnit, unitFilter, canSeeAll, visibleUnits]);
 
   // Infinite scroll fetch function
   const fetchContractPage = useCallback(async (page: number) => {
@@ -334,7 +353,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
             <p className="text-xs text-amber-600 dark:text-amber-400">
               {(['Legal', 'Accountant', 'ChiefAccountant', 'Leadership', 'Admin'] as UserRole[]).includes(impersonatedUser.role)
                 ? 'Hiển thị TẤT CẢ hợp đồng của toàn công ty'
-                : 'Chỉ hiển thị hợp đồng thuộc đơn vị của nhân viên này'
+                : 'Hiển thị hợp đồng thuộc đơn vị của nhân viên này và đơn vị được cấp quyền xem'
               }
             </p>
           </div>

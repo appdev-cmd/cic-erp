@@ -43,6 +43,8 @@ import { Unit, KPIPlan, Contract } from '../types';
 import { getSmartInsightsWithDeepSeek } from '../services/openaiService';
 import { getChartColors, getAccentColor, getAccentColorLight, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill } from '../lib/themeColors';
 import { useCurrentUserVisibleUnits } from '../hooks';
+import { useImpersonation } from '../contexts/ImpersonationContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DashboardProps {
   selectedUnit: Unit;
@@ -86,6 +88,16 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
   // Cross-unit visibility
   const { visibleUnits } = useCurrentUserVisibleUnits();
+  const { profile } = useAuth();
+  const { impersonatedUser, isImpersonating } = useImpersonation();
+
+  // Determine if we're viewing a unit that isn't the user's own unit
+  // In that case, hide individual employee performance details for privacy
+  const effectiveProfile = isImpersonating && impersonatedUser ? impersonatedUser : profile;
+  const effectiveRole = effectiveProfile?.role;
+  const GLOBAL_ROLES = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
+  const isGlobalRole = effectiveRole && GLOBAL_ROLES.includes(effectiveRole);
+  const isViewingForeignUnit = !isGlobalRole && selectedUnit?.id !== effectiveProfile?.unitId;
 
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
@@ -113,6 +125,9 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
   // Recent Activity (Light Fetch)
   const [recentContracts, setRecentContracts] = useState<Contract[]>([]);
+
+  // Company-wide target (fetched from DB when viewing 'all')
+  const [companyTarget, setCompanyTarget] = useState<any>(null);
 
 
 
@@ -191,8 +206,19 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         }
         if (!isCancelled) setRawDistData(distData || []);
 
-        // STEP 5: Fetch Recent Contracts
-        console.log('[Dashboard] Step 5: Fetching recent contracts...');
+        // STEP 5: Fetch company-wide target if viewing 'all'
+        if (unitId === 'all') {
+          console.log('[Dashboard] Step 5: Fetching company-wide target...');
+          const companyUnit = await UnitService.getById('all');
+          if (!isCancelled && companyUnit) {
+            setCompanyTarget(companyUnit.target);
+          }
+        } else {
+          if (!isCancelled) setCompanyTarget(null);
+        }
+
+        // STEP 6: Fetch Recent Contracts
+        console.log('[Dashboard] Step 6: Fetching recent contracts...');
         const recent = await ContractService.search('', 5);
         if (!isCancelled) {
           setRecentContracts(recent || []);
@@ -373,6 +399,15 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
     target: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
   };
 
+  // When viewing company-wide ('all'), use the target from the DB 'all' unit
+  // When viewing a specific unit, use that unit's target
+  const displayTarget = (() => {
+    if (safeUnit.id === 'all' && companyTarget) {
+      return companyTarget;
+    }
+    return safeUnit.target;
+  })();
+
   if (loadingConfig || !selectedUnit) {
     return <DashboardSkeleton />;
   }
@@ -419,11 +454,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
         {/* Main KPI Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          <KPIItem title="Ký kết" metric="signing" stats={stats.actual} target={safeUnit?.target || { signing: 0 }} yoy={getYoY('signing')} color="indigo" icon={<FileText size={20} />} />
-          <KPIItem title="Doanh thu" metric="revenue" stats={stats.actual} target={safeUnit?.target || { revenue: 0 }} yoy={getYoY('revenue')} color="emerald" icon={<CreditCard size={20} />} />
-          <KPIItem title="LNG Quản trị" metric="adminProfit" stats={stats.actual} target={safeUnit?.target || { adminProfit: 0 }} yoy={getYoY('adminProfit')} color="purple" icon={<TrendingUp size={20} />} />
-          <KPIItem title="LNG Doanh thu" metric="revProfit" stats={stats.actual} target={safeUnit?.target || { revProfit: 0 }} yoy={getYoY('revProfit')} color="amber" icon={<Target size={20} />} />
-          <KPIItem title="Dòng tiền ròng" metric="netCashflow" stats={stats.actual} target={{ netCashflow: 0 }} yoy={{ value: '0', isUp: true }} color="cyan" icon={<Wallet size={20} />} />
+          <KPIItem title="Ký kết" metric="signing" stats={stats.actual} target={displayTarget} yoy={getYoY('signing')} color="indigo" icon={<FileText size={20} />} />
+          <KPIItem title="Doanh thu" metric="revenue" stats={stats.actual} target={displayTarget} yoy={getYoY('revenue')} color="emerald" icon={<CreditCard size={20} />} />
+          <KPIItem title="LNG Quản trị" metric="adminProfit" stats={stats.actual} target={displayTarget} yoy={getYoY('adminProfit')} color="purple" icon={<TrendingUp size={20} />} />
+          <KPIItem title="LNG Doanh thu" metric="revProfit" stats={stats.actual} target={displayTarget} yoy={getYoY('revProfit')} color="amber" icon={<Target size={20} />} />
+          <KPIItem title="Dòng tiền ròng" metric="netCashflow" stats={stats.actual} target={displayTarget} yoy={{ value: '0', isUp: true }} color="cyan" icon={<Wallet size={20} />} />
         </div>
 
         {/* Status Highlights */}
@@ -473,106 +508,133 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
             </h3>
             <p className="text-sm font-medium text-slate-500 mb-8">Tỷ trọng đóng góp vào tổng số</p>
 
-            <div className="flex-1 relative min-h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={distributionData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={90}
-                    paddingAngle={4}
-                    dataKey="value"
-                    cornerRadius={6}
-                  >
-                    {distributionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} strokeWidth={0} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={getTooltipStyle()}
-                    itemStyle={{ fontSize: '12px', fontWeight: 600 }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng số</p>
-                <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{formatCurrency(stats.actual[activeMetric] || 0)}</p>
+            {isViewingForeignUnit ? (
+              <div className="flex-1 flex flex-col items-center justify-center min-h-[250px] text-center">
+                <ShieldCheck size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
+                <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Thông tin chi tiết năng suất cá nhân</p>
+                <p className="text-sm font-bold text-slate-500 dark:text-slate-400">được bảo mật khi xem đơn vị khác</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-3">
+                  Bạn chỉ có thể xem dữ liệu tổng hợp
+                </p>
               </div>
-            </div>
-
-            <div className="mt-8 space-y-3">
-              {/* List Top 4 */}
-              {distributionData.slice(0, 4).map((d, i) => (
-                <div key={i} className="flex items-center justify-between group cursor-default">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-md transition-transform group-hover:scale-125" style={{ backgroundColor: getChartColors()[i % getChartColors().length] }}></div>
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300 truncate max-w-[140px]">{d.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-400">{((d.value / (stats.actual[activeMetric] || 1)) * 100).toFixed(1)}%</span>
-                    <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${Math.min(100, (d.value / (Math.max(...distributionData.map(x => x.value)) || 1)) * 100)}%`, backgroundColor: getChartColors()[i % getChartColors().length] }}></div>
-                    </div>
+            ) : (
+              <>
+                <div className="flex-1 relative min-h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={distributionData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={70}
+                        outerRadius={90}
+                        paddingAngle={4}
+                        dataKey="value"
+                        cornerRadius={6}
+                      >
+                        {distributionData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} strokeWidth={0} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={getTooltipStyle()}
+                        itemStyle={{ fontSize: '12px', fontWeight: 600 }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng số</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{formatCurrency(stats.actual[activeMetric] || 0)}</p>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="mt-8 space-y-3">
+                  {/* List Top 4 */}
+                  {distributionData.slice(0, 4).map((d, i) => (
+                    <div key={i} className="flex items-center justify-between group cursor-default">
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-md transition-transform group-hover:scale-125" style={{ backgroundColor: getChartColors()[i % getChartColors().length] }}></div>
+                        <span className="text-sm font-bold text-slate-600 dark:text-slate-300 truncate max-w-[140px]">{d.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-400">{((d.value / (stats.actual[activeMetric] || 1)) * 100).toFixed(1)}%</span>
+                        <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${Math.min(100, (d.value / (Math.max(...distributionData.map(x => x.value)) || 1)) * 100)}%`, backgroundColor: getChartColors()[i % getChartColors().length] }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Performance Table */}
-        <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm dark-card-glow">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-            <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-3 mb-2">
-                {safeUnit?.id === 'all' ? <Building2 className="text-indigo-600" size={24} /> : <Users className="text-indigo-600" size={24} />}
-                {safeUnit?.id === 'all' ? 'Hiệu suất thực hiện Đơn vị' : 'Hiệu suất nhân sự kinh doanh'}
+        {/* Performance Table — hidden for cross-unit viewers */}
+        {isViewingForeignUnit ? (
+          <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm dark-card-glow">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <ShieldCheck size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
+              <h3 className="text-lg font-black text-slate-700 dark:text-slate-300 mb-2">
+                Bảng hiệu suất nhân sự — Giới hạn truy cập
               </h3>
-              <p className="text-sm font-medium text-slate-500">Bảng xếp hạng hiệu quả hoạt động ({activeMetric})</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
+                Bạn đang xem đơn vị <strong>{selectedUnit?.name}</strong>. Chi tiết năng suất từng cá nhân được bảo mật — chỉ thành viên hoặc lãnh đạo đơn vị này mới xem được.
+              </p>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-separate border-spacing-y-3">
-              <thead>
-                <tr className="text-[11px] uppercase tracking-wider text-slate-400 font-black">
-                  <th className="pb-2">{safeUnit?.id === 'all' ? 'Đơn vị' : 'Nhân sự'}</th>
-                  <th className="pb-2 text-right">Mục tiêu</th>
-                  <th className="pb-2 text-right">Thực tế</th>
-                  <th className="pb-2 text-center w-64">Tiến độ hoàn thành</th>
-                </tr>
-              </thead>
-              <tbody>
-                {performanceTableData.map((row) => (
-                  <tr key={row.id} className="group cursor-pointer transition-colors">
-                    <td className="py-4 pl-4 rounded-l-3xl bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-l border-transparent transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-lg ${safeUnit?.id === 'all' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'} flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform`}>
-                          {row.name.substring(0, 1)}
-                        </div>
-                        <div>
-                          <p className="text-base font-black text-slate-900 dark:text-slate-100">{row.name}</p>
-                          <p className="text-xs font-bold text-slate-400">{row.subText}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4 text-right bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-transparent transition-colors text-sm font-bold text-slate-500">{formatCurrency(row.target)}</td>
-                    <td className="py-4 text-right bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-transparent transition-colors text-sm font-black text-slate-900 dark:text-slate-100">{formatCurrency(row.actual)}</td>
-                    <td className="py-4 px-6 rounded-r-3xl bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-r border-transparent transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                          <div className={`h-full rounded-full transition-all duration-1000 ${row.progress >= 90 ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : row.progress >= 70 ? 'bg-indigo-600' : 'bg-amber-500'}`} style={{ width: `${row.progress}%` }}></div>
-                        </div>
-                        <span className={`text-xs font-bold w-10 text-right ${row.progress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>{row.progress.toFixed(0)}%</span>
-                      </div>
-                    </td>
+        ) : (
+          <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm dark-card-glow">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-3 mb-2">
+                  {safeUnit?.id === 'all' ? <Building2 className="text-indigo-600" size={24} /> : <Users className="text-indigo-600" size={24} />}
+                  {safeUnit?.id === 'all' ? 'Hiệu suất thực hiện Đơn vị' : 'Hiệu suất nhân sự kinh doanh'}
+                </h3>
+                <p className="text-sm font-medium text-slate-500">Bảng xếp hạng hiệu quả hoạt động ({activeMetric})</p>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-separate border-spacing-y-3">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wider text-slate-400 font-black">
+                    <th className="pb-2">{safeUnit?.id === 'all' ? 'Đơn vị' : 'Nhân sự'}</th>
+                    <th className="pb-2 text-right">Mục tiêu</th>
+                    <th className="pb-2 text-right">Thực tế</th>
+                    <th className="pb-2 text-center w-64">Tiến độ hoàn thành</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {performanceTableData.map((row) => (
+                    <tr key={row.id} className="group cursor-pointer transition-colors">
+                      <td className="py-4 pl-4 rounded-l-3xl bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-l border-transparent transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-lg ${safeUnit?.id === 'all' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'} flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform`}>
+                            {row.name.substring(0, 1)}
+                          </div>
+                          <div>
+                            <p className="text-base font-black text-slate-900 dark:text-slate-100">{row.name}</p>
+                            <p className="text-xs font-bold text-slate-400">{row.subText}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 text-right bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-transparent transition-colors text-sm font-bold text-slate-500">{formatCurrency(row.target)}</td>
+                      <td className="py-4 text-right bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-transparent transition-colors text-sm font-black text-slate-900 dark:text-slate-100">{formatCurrency(row.actual)}</td>
+                      <td className="py-4 px-6 rounded-r-3xl bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-r border-transparent transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                            <div className={`h-full rounded-full transition-all duration-1000 ${row.progress >= 90 ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : row.progress >= 70 ? 'bg-indigo-600' : 'bg-amber-500'}`} style={{ width: `${row.progress}%` }}></div>
+                          </div>
+                          <span className={`text-xs font-bold w-10 text-right ${row.progress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>{row.progress.toFixed(0)}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* AI Chat Widget */}
         <ChatWidget contextData={{
