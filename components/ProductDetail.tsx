@@ -15,9 +15,7 @@ import {
 } from 'lucide-react';
 import { Product, Unit, Contract, Customer } from '../types';
 import { ProductService, UnitService, ContractService, CustomerService } from '../services';
-import { useAuth } from '../contexts/AuthContext';
-import { useImpersonation } from '../contexts/ImpersonationContext';
-import { canDeleteProduct } from '../lib/permissions';
+import { usePermissionCheck } from '../hooks/usePermissions';
 
 interface ProductDetailProps {
     productId: string;
@@ -27,10 +25,8 @@ interface ProductDetailProps {
 }
 
 const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit, onViewContract }) => {
-    const { profile: realProfile } = useAuth();
-    const { impersonatedUser, isImpersonating } = useImpersonation();
-    const effectiveProfile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
-    const allowDelete = effectiveProfile ? canDeleteProduct(effectiveProfile.role) : false;
+    const { can } = usePermissionCheck();
+    const allowDelete = can('products', 'delete');
 
     const [product, setProduct] = useState<Product | null>(null);
     const [unit, setUnit] = useState<Unit | null>(null);

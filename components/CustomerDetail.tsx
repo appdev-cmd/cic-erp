@@ -19,9 +19,7 @@ import {
 import { Customer, Contract } from '../types';
 import { CustomerService, ContractService } from '../services';
 import CustomerForm from './CustomerForm';
-import { useAuth } from '../contexts/AuthContext';
-import { useImpersonation } from '../contexts/ImpersonationContext';
-import { canDeleteCustomer } from '../lib/permissions';
+import { usePermissionCheck } from '../hooks/usePermissions';
 
 interface CustomerDetailProps {
     customerId: string;
@@ -30,10 +28,8 @@ interface CustomerDetailProps {
 }
 
 const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onViewContract }) => {
-    const { profile: realProfile } = useAuth();
-    const { impersonatedUser, isImpersonating } = useImpersonation();
-    const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
-    const allowDelete = profile ? canDeleteCustomer(profile.role) : false;
+    const { can } = usePermissionCheck();
+    const allowDelete = can('customers', 'delete');
 
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [contracts, setContracts] = useState<Contract[]>([]);
