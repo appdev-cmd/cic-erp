@@ -248,7 +248,7 @@ const RoleDefaultsManager: React.FC = () => {
             <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600/50">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="border-b border-slate-200 dark:border-slate-600/50 bg-slate-100 dark:bg-slate-800/80">
+                        <tr className="border-b border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800">
                             <th className="text-left py-3 px-4 font-bold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
                                 Module
                             </th>
@@ -275,10 +275,10 @@ const RoleDefaultsManager: React.FC = () => {
                             return (
                                 <tr
                                     key={resource}
-                                    className={`border-b border-slate-100 dark:border-slate-700/30 last:border-b-0 transition-colors duration-150 ${idx % 2 === 0
+                                    className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 transition-colors duration-150 ${idx % 2 === 0
                                         ? 'bg-transparent dark:bg-transparent'
-                                        : 'bg-slate-50/50 dark:bg-slate-800/30'
-                                        } hover:bg-orange-50/30 dark:hover:bg-slate-600/20`}
+                                        : 'bg-slate-50/50 dark:bg-slate-800'
+                                        } hover:bg-orange-50/30 dark:hover:bg-slate-700`}
                                 >
                                     <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200">
                                         {RESOURCE_LABELS[resource]}

@@ -182,8 +182,8 @@ const DataSeeder: React.FC = () => {
     };
 
     return (
-        <div className="p-4 bg-white dark:bg-slate-800/60 rounded-lg shadow border border-slate-200 dark:border-slate-700 my-4">
-            <h3 className="text-lg font-bold mb-4">Database Seeding Tool</h3>
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-lg shadow border border-slate-200 dark:border-slate-700 my-4">
+            <h3 className="text-lg font-bold mb-4 text-slate-800 dark:text-slate-100">Database Seeding Tool</h3>
             <p className="mb-4 text-sm text-slate-500">
                 Click below to wipe existing data (if collision) and repopulate from constants.
             </p>

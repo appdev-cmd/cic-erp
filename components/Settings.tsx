@@ -36,7 +36,7 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl border border-transparent dark:border-slate-700/40">
+            <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-transparent dark:border-slate-700">
                 {visibleTabs.map(tab => (
                     <button
                         key={tab.id}
@@ -53,7 +53,7 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="bg-white dark:bg-slate-800/40 p-6 md:p-8 rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-sm dark:shadow-none backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-none">
                 {activeTab === 'system' && (
                     <div className="space-y-6">
                         {/* Theme Mode */}
@@ -67,7 +67,7 @@ const Settings: React.FC = () => {
                                     onClick={() => setTheme('light')}
                                     className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${theme === 'light'
                                         ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-900/20 dark:border-orange-500 dark:text-orange-400'
-                                        : 'bg-white dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
+                                        : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
                                         }`}
                                 >
                                     <Sun size={20} />
@@ -77,7 +77,7 @@ const Settings: React.FC = () => {
                                     onClick={() => setTheme('dark')}
                                     className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${theme === 'dark'
                                         ? 'bg-orange-900/30 border-orange-500 text-orange-400'
-                                        : 'bg-white dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
+                                        : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
                                         }`}
                                 >
                                     <Moon size={20} />
@@ -97,7 +97,7 @@ const Settings: React.FC = () => {
                                     onClick={() => setAccent('orange')}
                                     className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${accent === 'orange'
                                         ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-900/20 dark:border-orange-500 dark:text-orange-400'
-                                        : 'bg-white dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
+                                        : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
                                         }`}
                                 >
                                     <div className="w-5 h-5 rounded-full bg-orange-500" />
@@ -107,7 +107,7 @@ const Settings: React.FC = () => {
                                     onClick={() => setAccent('blue')}
                                     className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${accent === 'blue'
                                         ? 'bg-sky-50 border-sky-500 text-sky-700 dark:bg-sky-900/20 dark:border-sky-500 dark:text-sky-400'
-                                        : 'bg-white dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
+                                        : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
                                         }`}
                                 >
                                     <div className="w-5 h-5 rounded-full bg-sky-500" />

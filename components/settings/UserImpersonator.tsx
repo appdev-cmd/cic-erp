@@ -171,7 +171,7 @@ const UserImpersonator: React.FC = () => {
                                 {RESOURCES.map(resource => {
                                     const actions = permissions[resource] || [];
                                     return (
-                                        <div key={resource} className={`rounded-lg p-2 text-xs ${actions.length > 0 ? 'bg-white dark:bg-slate-700/50' : 'bg-slate-100 dark:bg-slate-800/50 opacity-50'}`}>
+                                        <div key={resource} className={`rounded-lg p-2 text-xs ${actions.length > 0 ? 'bg-white dark:bg-slate-700' : 'bg-slate-100 dark:bg-slate-800 opacity-50'}`}>
                                             <span className="font-semibold text-slate-700 dark:text-slate-300 block">
                                                 {RESOURCE_LABELS[resource]}
                                             </span>
@@ -197,7 +197,7 @@ const UserImpersonator: React.FC = () => {
                     type="button"
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     disabled={loading}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-600 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-all duration-200 cursor-pointer"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-all duration-200 cursor-pointer"
                 >
                     <span className={loading ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}>
                         {loading ? 'Đang tải danh sách...' : `${users.length} nhân viên có sẵn`}
