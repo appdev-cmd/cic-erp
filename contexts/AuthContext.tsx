@@ -218,6 +218,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.log('[AuthContext.fetchProfile] Raw data:', JSON.stringify(data));
                 console.log('[AuthContext.fetchProfile] data.role:', data.role, 'typeof:', typeof data.role);
 
+                // ===============================================
+                // SECURITY: Profile must be linked to an employee
+                // (Admin profiles created manually may not have employee_id)
+                // ===============================================
+                const SYSTEM_ROLES = ['Admin'];
+                const hasEmployeeLink = !!data.employee_id;
+                const isSystemRole = SYSTEM_ROLES.includes(data.role);
+
+                if (!hasEmployeeLink && !isSystemRole) {
+                    console.warn('[AuthContext.fetchProfile] REJECTED: Profile has no employee link:', userId, email);
+                    alert('Tài khoản của bạn chưa được gắn với nhân sự trong hệ thống. Vui lòng liên hệ quản trị viên.');
+                    await supabase.auth.signOut();
+                    setSession(null);
+                    setUser(null);
+                    setProfile(null);
+                    setIsLoading(false);
+                    return;
+                }
+
                 let userRole: UserRole = data.role as UserRole;
                 const userEmail = email || data.email || '';
 
