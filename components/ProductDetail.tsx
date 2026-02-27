@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 import { Product, Unit, Contract, Customer } from '../types';
 import { ProductService, UnitService, ContractService, CustomerService } from '../services';
+import { useAuth } from '../contexts/AuthContext';
+import { useImpersonation } from '../contexts/ImpersonationContext';
+import { canDeleteProduct } from '../lib/permissions';
 
 interface ProductDetailProps {
     productId: string;
@@ -24,6 +27,11 @@ interface ProductDetailProps {
 }
 
 const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit, onViewContract }) => {
+    const { profile: realProfile } = useAuth();
+    const { impersonatedUser, isImpersonating } = useImpersonation();
+    const effectiveProfile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
+    const allowDelete = effectiveProfile ? canDeleteProduct(effectiveProfile.role) : false;
+
     const [product, setProduct] = useState<Product | null>(null);
     const [unit, setUnit] = useState<Unit | null>(null);
     const [relatedContracts, setRelatedContracts] = useState<Contract[]>([]);
@@ -142,24 +150,26 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
                         <Edit3 size={16} />
                         Chỉnh sửa
                     </button>
-                    <button
-                        onClick={async () => {
-                            if (confirm('Bạn có chắc chắn muốn xóa sản phẩm này? hành động này không thể hoàn tác.')) {
-                                try {
-                                    await ProductService.delete(productId);
-                                    toast.success("Đã xóa sản phẩm thành công");
-                                    onBack();
-                                } catch (error) {
-                                    console.error('Failed to delete product', error);
-                                    toast.error('Có lỗi xảy ra khi xóa sản phẩm');
+                    {allowDelete && (
+                        <button
+                            onClick={async () => {
+                                if (confirm('Bạn có chắc chắn muốn xóa sản phẩm này? hành động này không thể hoàn tác.')) {
+                                    try {
+                                        await ProductService.delete(productId);
+                                        toast.success("Đã xóa sản phẩm thành công");
+                                        onBack();
+                                    } catch (error) {
+                                        console.error('Failed to delete product', error);
+                                        toast.error('Có lỗi xảy ra khi xóa sản phẩm');
+                                    }
                                 }
-                            }
-                        }}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/30 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
-                    >
-                        <Trash2 size={16} />
-                        Xóa
-                    </button>
+                            }}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/30 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+                        >
+                            <Trash2 size={16} />
+                            Xóa
+                        </button>
+                    )}
                 </div>
             </div>
 

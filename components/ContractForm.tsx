@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   X, Save, Calendar, User, FileText,
@@ -23,6 +23,7 @@ import QuickAddSupplierDialog from './ui/QuickAddSupplierDialog';
 
 // Contract Form Sub-components
 import { useAuth } from '../contexts/AuthContext';
+import { useFinancialCalculations } from '../hooks/useFinancialCalculations';
 import { StepIndicator, FinancialSummary, FormHeader, formatVND as formatVNDUtil, PAKDImportButton } from './contract-form';
 import UnitAllocationsInput from './contract-form/UnitAllocationsInput';
 
@@ -36,6 +37,7 @@ interface ContractFormProps {
 const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false, onSave, onCancel }) => {
   const { profile } = useAuth();
   const isEditing = !!contract && !isCloning;
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Data Options State
   const [units, setUnits] = useState<Unit[]>([]);
@@ -282,9 +284,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       }
     }
     setCurrentStep(prev => prev + 1);
-    // Scroll to top
-    const formContainer = document.querySelector('.overflow-y-auto');
-    if (formContainer) formContainer.scrollTop = 0;
+    // Scroll to top using ref
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleBack = () => {
@@ -456,41 +457,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   }, [unitId, clientName, signedDate, units, isEditing, isIdTouched]);
 
   // Logic tính toán chuyên sâu (VAT & CK NCC per line item)
-  const totals = useMemo(() => {
-    // Per-item calculations
-    let signingValue = 0;
-    let totalInput = 0;
-    let totalDirectCosts = 0;
-    let totalSupplierDiscount = 0;
-    let estimatedRevenue = 0;
-
-    lineItems.forEach(item => {
-      const itemOutputTotal = item.quantity * item.outputPrice;
-      const itemInputTotal = item.quantity * item.inputPrice;
-      const itemVatRate = item.vatRate ?? 10;
-      const itemDiscount = item.supplierDiscount ?? 0;
-
-      signingValue += itemOutputTotal;
-      totalInput += itemInputTotal;
-      totalDirectCosts += item.directCosts;
-      totalSupplierDiscount += itemInputTotal * (itemDiscount / 100);
-      // Doanh thu = giá đầu ra / (1 + VAT%) cho từng SP
-      estimatedRevenue += itemVatRate > 0 ? itemOutputTotal / (1 + itemVatRate / 100) : itemOutputTotal;
-    });
-
-    // Admin costs (legacy)
-    const adminSum = (Object.values(adminCosts) as number[]).reduce((acc: number, val: number) => acc + val, 0);
-
-    // Execution costs (Chi phí thực hiện hợp đồng - dynamic list)
-    const executionCostsSum = executionCosts.reduce((acc, c) => acc + (c.amount || 0), 0);
-
-    // Total costs = Đầu vào + CP trực tiếp + CP thực hiện - Chiết khấu NCC (per item)
-    const totalCosts = totalInput + totalDirectCosts + executionCostsSum - totalSupplierDiscount;
-    const grossProfit = signingValue - totalCosts;
-    const profitMargin = signingValue > 0 ? (grossProfit / signingValue) * 100 : 0;
-
-    return { signingValue, estimatedRevenue, totalCosts, grossProfit, profitMargin, totalInput, totalDirectCosts, adminSum, executionCostsSum, supplierDiscountAmount: totalSupplierDiscount };
-  }, [lineItems, adminCosts, executionCosts]);
+  const totals = useFinancialCalculations(lineItems, adminCosts, executionCosts);
 
   const formatVND = (val: number) => new Intl.NumberFormat('vi-VN').format(Math.round(val));
 
