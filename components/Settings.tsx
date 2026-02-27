@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Moon, Sun, Shield, Settings2, FlaskConical, Users, Palette, HardDrive } from 'lucide-react';
+import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive } from 'lucide-react';
 import DataSeeder from './admin/DataSeeder';
 import PilotRunner from './admin/PilotRunner';
 import PermissionManager from './settings/PermissionManager';
@@ -9,7 +9,7 @@ import DriveSettings from './settings/DriveSettings';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 
-type SettingsTab = 'system' | 'permissions' | 'drive' | 'testing';
+type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'drive' | 'testing';
 
 const Settings: React.FC = () => {
     const { theme, setTheme, accent, setAccent } = useLayoutContext();
@@ -20,7 +20,8 @@ const Settings: React.FC = () => {
 
     const tabs: { id: SettingsTab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
         { id: 'system', label: 'Cài đặt hệ thống', icon: <Settings2 size={18} /> },
-        { id: 'permissions', label: 'Phân quyền người dùng', icon: <Shield size={18} />, adminOnly: true },
+        { id: 'role-defaults', label: 'Quyền theo Role', icon: <ShieldCheck size={18} />, adminOnly: true },
+        { id: 'permissions', label: 'Phân quyền User', icon: <Shield size={18} />, adminOnly: true },
         { id: 'drive', label: 'Google Drive', icon: <HardDrive size={18} />, adminOnly: true },
         { id: 'testing', label: 'Kiểm thử', icon: <FlaskConical size={18} /> },
     ];
@@ -135,20 +136,21 @@ const Settings: React.FC = () => {
                             </div>
                         </div>
                         <PermissionManager />
+                    </div>
+                )}
 
-                        {/* Role Defaults Section */}
-                        <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                                    <Shield size={20} className="text-white" />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-800 dark:text-slate-200">Quyền mặc định theo Role</h3>
-                                    <p className="text-xs text-slate-500">Cấu hình quyền cơ bản cho từng vai trò trong hệ thống</p>
-                                </div>
+                {activeTab === 'role-defaults' && isAdmin && (
+                    <div>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                                <ShieldCheck size={20} className="text-white" />
                             </div>
-                            <RoleDefaultsManager />
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-slate-200">Quyền mặc định theo Role</h3>
+                                <p className="text-xs text-slate-500">Cấu hình quyền cơ bản cho từng vai trò trong hệ thống</p>
+                            </div>
                         </div>
+                        <RoleDefaultsManager />
                     </div>
                 )}
 
