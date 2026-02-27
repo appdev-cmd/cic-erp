@@ -12,7 +12,7 @@ import {
     useAllPermissions, useUpdatePermission, useInitializePermissions,
     useEmployeeVisibility, useToggleVisibility
 } from '../../hooks';
-import { supabase } from '../../lib/supabase';
+import { dataClient } from '../../lib/dataClient';
 import { AuditLogService } from '../../services/auditLogService';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -97,7 +97,7 @@ const PermissionManager: React.FC = () => {
         const fetchUsers = async () => {
             setLoading(true);
             try {
-                const { data: employeesData, error: empError } = await supabase
+                const { data: employeesData, error: empError } = await dataClient
                     .from('employees')
                     .select('id, email, name, position, unit_id, role_code')
                     .order('name');
@@ -108,7 +108,7 @@ const PermissionManager: React.FC = () => {
                     return;
                 }
 
-                const { data: unitsData } = await supabase
+                const { data: unitsData } = await dataClient
                     .from('units')
                     .select('id, name')
                     .order('name');
@@ -228,7 +228,7 @@ const PermissionManager: React.FC = () => {
 
         try {
             // Update role in employees table
-            const { error } = await supabase
+            const { error } = await dataClient
                 .from('employees')
                 .update({ role_code: newRole })
                 .eq('id', selectedUserId);
@@ -236,7 +236,7 @@ const PermissionManager: React.FC = () => {
             if (error) throw error;
 
             // Also update profiles table if exists
-            await supabase
+            await dataClient
                 .from('profiles')
                 .update({ role: newRole })
                 .eq('id', selectedUserId);
