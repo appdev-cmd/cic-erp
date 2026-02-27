@@ -315,7 +315,12 @@ export const ContractService = {
             query = query.eq('status', status);
         }
         if (unitId && unitId !== 'All' && unitId !== 'all') {
-            query = query.eq('unit_id', unitId);
+            // Support comma-separated unit IDs for cross-unit visibility
+            if (unitId.includes(',')) {
+                query = query.in('unit_id', unitId.split(',').map(id => id.trim()));
+            } else {
+                query = query.eq('unit_id', unitId);
+            }
         }
         if (year && year !== 'All') {
             const startDate = `${year}-01-01`;
@@ -404,7 +409,11 @@ export const ContractService = {
             query = query.eq('status', status);
         }
         if (unitId && unitId !== 'All' && unitId !== 'all') {
-            query = query.eq('unit_id', unitId);
+            if (unitId.includes(',')) {
+                query = query.in('unit_id', unitId.split(',').map(id => id.trim()));
+            } else {
+                query = query.eq('unit_id', unitId);
+            }
         }
         if (year && year !== 'All') {
             const startDate = `${year}-01-01`;

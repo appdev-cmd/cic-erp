@@ -174,15 +174,18 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       if (isUnitAllowed(unitFilter)) return unitFilter;
     }
 
-    // No specific unit selected or selected unit not allowed — determine scope
-    if (isImpersonating && impersonatedUser) {
-      if (GLOBAL_VIEW_ROLES.includes(impersonatedUser.role)) return 'All';
-      // Non-global impersonated user → restrict to their own unit
-      if (impersonatedUser.unitId) return impersonatedUser.unitId;
+    // No specific unit selected → determine full scope
+    // Global-view roles can see everything
+    const effectiveRole = profile?.role;
+    if (effectiveRole && GLOBAL_VIEW_ROLES.includes(effectiveRole)) return 'All';
+
+    // For non-global roles: pass ALL visible units (own + granted) as comma-separated
+    if (Array.isArray(visibleUnits) && visibleUnits.length > 0) {
+      return visibleUnits.join(',');
     }
 
-    return canSeeAll ? 'All' : (Array.isArray(visibleUnits) && visibleUnits[0]) || 'All';
-  }, [isImpersonating, impersonatedUser, selectedUnit, unitFilter, canSeeAll, visibleUnits]);
+    return canSeeAll ? 'All' : 'All';
+  }, [profile, selectedUnit, unitFilter, canSeeAll, visibleUnits]);
 
   // Infinite scroll fetch function
   const fetchContractPage = useCallback(async (page: number) => {
