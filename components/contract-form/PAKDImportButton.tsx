@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Upload, FileSpreadsheet, Download, X, CheckCircle, Loader2, Link2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, Download, X, CheckCircle, Loader2, Link2, ClipboardPaste } from 'lucide-react';
 import { parsePAKDExcel, generatePAKDTemplate, ParsedPAKD } from '../../services/pakdExcelParser';
 import { PAKDImportGoogleModal } from './PAKDImportGoogleModal';
+import { PAKDClipboardPasteModal } from './PAKDClipboardPasteModal';
 import { toast } from 'sonner';
 
 interface PAKDImportButtonProps {
@@ -15,6 +16,7 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
     const [isProcessing, setIsProcessing] = useState(false);
     const [previewData, setPreviewData] = useState<ParsedPAKD | null>(null);
     const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
+    const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
 
     const handleFileSelect = async (file: File) => {
         if (!file) return;
@@ -93,6 +95,22 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
                     <span className="hidden sm:inline">Google Sheets</span>
                 </button>
 
+                <button
+                    onClick={() => !disabled && setIsPasteModalOpen(true)}
+                    disabled={disabled}
+                    className={`
+                        flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all
+                        ${disabled
+                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            : 'bg-white dark:bg-slate-700 text-violet-600 hover:shadow-md dark:text-violet-400'
+                        }
+                    `}
+                    title="Paste dữ liệu từ Excel clipboard"
+                >
+                    <ClipboardPaste size={14} />
+                    <span className="hidden sm:inline">Paste</span>
+                </button>
+
                 <div className="w-px h-4 bg-slate-200 dark:bg-slate-600 mx-1" />
 
                 <button
@@ -124,6 +142,16 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
                 onImport={(data) => {
                     onImport(data);
                     setIsGoogleModalOpen(false);
+                }}
+            />
+
+            {/* Clipboard Paste Modal */}
+            <PAKDClipboardPasteModal
+                isOpen={isPasteModalOpen}
+                onClose={() => setIsPasteModalOpen(false)}
+                onImport={(data) => {
+                    onImport(data);
+                    setIsPasteModalOpen(false);
                 }}
             />
 

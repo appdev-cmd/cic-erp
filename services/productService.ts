@@ -118,6 +118,20 @@ export const ProductService = {
     },
 
     /**
+     * Search products by name or code (for SearchableSelect)
+     */
+    search: async (query: string, limit: number = 20): Promise<Product[]> => {
+        if (!query || query.trim().length < 2) return [];
+        const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            .or(`name.ilike.%${query.trim()}%,code.ilike.%${query.trim()}%`)
+            .limit(limit);
+        if (error) throw error;
+        return (data || []).map(mapProduct);
+    },
+
+    /**
      * Find product by name or create new one
      * Used for PAKD Excel import
      */

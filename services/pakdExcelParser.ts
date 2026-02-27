@@ -753,3 +753,69 @@ export function convertToFormData(parsed: ParsedPAKD) {
         financials: parsed.financials,
     };
 }
+
+/**
+ * Parse PAKD data from clipboard text (tab-separated, copied from Excel)
+ *
+ * Converts the pasted text into an in-memory XLSX workbook and then
+ * delegates to parsePAKDWorkbook() — reusing ALL existing logic for
+ * header detection, template format detection, column mapping, summary
+ * section parsing, etc.
+ *
+ * Users can paste the ENTIRE sheet (including title, header, data, totals,
+ * summary) — the parser handles it automatically.
+ */
+export function parsePAKDFromClipboard(text: string): ParsedPAKD {
+    if (!text || !text.trim()) {
+        throw new Error('Không có dữ liệu. Vui lòng copy từ Excel rồi paste vào đây.');
+    }
+
+    // Normalize line endings
+    const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+
+    if (lines.length === 0) {
+        throw new Error('Không có dữ liệu hợp lệ.');
+    }
+
+    // Convert tab-separated text → 2D array
+    const aoa: any[][] = lines.map(line => {
+        return line.split('\t').map(cell => {
+            const trimmed = cell.trim();
+            if (trimmed === '') return '';
+
+            // Remove surrounding quotes from Excel
+            const unquoted = trimmed.replace(/^"(.*)"$/, '$1');
+
+            // Try to parse as number (Vietnamese formatting: dots as thousands)
+            // Only parse as number if it looks like a pure numeric value
+            const cleanNum = unquoted
+                .replace(/\s/g, '')
+                .replace(/₫|đ/gi, '')
+                .replace(/%$/, '');
+
+            // Check if it's a formatted Vietnamese number like "6.068.500" or "130.680.000"
+            if (/^-?\d{1,3}(\.\d{3})+$/.test(cleanNum)) {
+                return Number(cleanNum.replace(/\./g, ''));
+            }
+            // Check if it's a number with comma decimal: "37,60%"
+            if (/^-?\d+,\d+%?$/.test(cleanNum)) {
+                return parseFloat(cleanNum.replace(',', '.'));
+            }
+            // Plain integer or float
+            if (/^-?\d+(\.\d+)?$/.test(cleanNum)) {
+                return Number(cleanNum);
+            }
+
+            return unquoted;
+        });
+    });
+
+    // Build an XLSX workbook from the 2D array
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Clipboard');
+
+    // Delegate to the existing workbook parser
+    return parsePAKDWorkbook(wb);
+}
+

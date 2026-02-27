@@ -18,6 +18,8 @@ import { UnitService, CustomerService, ProductService, ContractService, Employee
 import Modal from './ui/Modal';
 import SearchableSelect from './ui/SearchableSelect';
 import QuickAddCustomerDialog from './ui/QuickAddCustomerDialog';
+import QuickAddProductDialog from './ui/QuickAddProductDialog';
+import QuickAddSupplierDialog from './ui/QuickAddSupplierDialog';
 
 // Contract Form Sub-components
 import { useAuth } from '../contexts/AuthContext';
@@ -70,7 +72,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
             const operationalUnits = unitsData.filter(u => u.id !== 'all' && u.type !== 'Company' && u.type !== 'BackOffice');
             if (operationalUnits.length > 0) setUnitId(operationalUnits[0].id);
           }
-          
+
           // Also set default salesperson to current user
           if (profile?.id) {
             const isEmployee = peopleData.some(p => p.id === profile.id);
@@ -158,6 +160,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
 
   // Quick Add Customer Dialog
   const [showAddCustomerDialog, setShowAddCustomerDialog] = useState(false);
+  const [showAddProductDialog, setShowAddProductDialog] = useState(false);
+  const [addProductForIndex, setAddProductForIndex] = useState<number | null>(null);
+  const [showAddSupplierDialog, setShowAddSupplierDialog] = useState(false);
+  const [addSupplierForIndex, setAddSupplierForIndex] = useState<number | null>(null);
 
   // const [manualValue, setManualValue] = useState<number>(contract?.value || 0); // Removed per request
 
@@ -230,9 +236,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     setExecutionCosts(executionCosts.filter(c => c.id !== id));
   };
 
-  // Update execution cost item
+  // Update execution cost item (functional update to avoid stale state)
   const updateExecutionCost = (id: string, field: keyof ExecutionCostItem, value: any) => {
-    setExecutionCosts(executionCosts.map(c => c.id === id ? { ...c, [field]: value } : c));
+    setExecutionCosts(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
   };
 
   // Supplier Discount - separate from admin costs, ADDS to revenue
@@ -405,6 +411,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const [formContractId, setFormContractId] = useState(isCloning ? '' : (contract?.id || ''));
   const [isIdTouched, setIsIdTouched] = useState(isCloning ? false : !!contract?.id);
 
+  // Customer Contract Number (Số HĐ KH)
+  const [hasCustomerContractNumber, setHasCustomerContractNumber] = useState(!!(contract as any)?.customerContractNumber);
+  const [customerContractNumber, setCustomerContractNumber] = useState((contract as any)?.customerContractNumber || '');
+
   useEffect(() => {
     const generateId = async () => {
       try {
@@ -521,6 +531,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       lineItems: lineItems,
       adminCosts: adminCosts,
       revenueSchedules: revenueSchedules,
+      customerContractNumber: hasCustomerContractNumber ? customerContractNumber : null,
     };
 
     onSave(payload);
@@ -764,6 +775,30 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                       placeholder="Nhập số hợp đồng..."
                       className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-lg text-sm font-bold focus:border-indigo-500 outline-none"
                     />
+                    {/* Checkbox: Số HĐ KH */}
+                    <label className="flex items-center gap-2 mt-2 cursor-pointer group">
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${hasCustomerContractNumber
+                        ? 'bg-indigo-500 border-indigo-500 text-white'
+                        : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'
+                        }`}
+                        onClick={() => setHasCustomerContractNumber(!hasCustomerContractNumber)}
+                      >
+                        {hasCustomerContractNumber && (
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500">Có số HĐ theo KH</span>
+                    </label>
+                    {hasCustomerContractNumber && (
+                      <input
+                        value={customerContractNumber}
+                        onChange={(e) => setCustomerContractNumber(e.target.value)}
+                        placeholder="Nhập số HĐ theo khách hàng..."
+                        className="w-full px-5 py-2.5 bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg text-sm font-bold focus:border-indigo-500 outline-none mt-1"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2">
                     <SearchableSelect
@@ -1118,11 +1153,15 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                             return (
                               <tr key={item.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                                 <td className="px-4 py-3">
-                                  <select
-                                    value={products.find(p => p.name === item.name)?.id || ''}
-                                    onChange={(e) => {
-                                      const pId = e.target.value;
-                                      const prod = products.find(p => p.id === pId);
+                                  <SearchableSelect
+                                    value={products.find(p => p.name === item.name)?.id || null}
+                                    placeholder="Gõ để tìm SP..."
+                                    getDisplayValue={(id) => {
+                                      const prod = products.find(p => p.id === id);
+                                      return prod?.name || item.name || undefined;
+                                    }}
+                                    onChange={(pId) => {
+                                      const prod = pId ? products.find(p => p.id === pId) : null;
                                       const newList = [...lineItems];
                                       if (prod) {
                                         newList[index].name = prod.name;
@@ -1133,13 +1172,16 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                       }
                                       setLineItems(newList);
                                     }}
-                                    className="w-full bg-transparent font-black text-slate-700 dark:text-slate-200 outline-none dark:bg-slate-800"
-                                  >
-                                    <option value="">-- Chọn SP --</option>
-                                    {products.map(p => (
-                                      <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                  </select>
+                                    onSearch={async (query) => {
+                                      const results = await ProductService.search(query, 20);
+                                      return results.map(p => ({ id: p.id, name: p.name, subText: p.category }));
+                                    }}
+                                    onAddNew={() => {
+                                      setAddProductForIndex(index);
+                                      setShowAddProductDialog(true);
+                                    }}
+                                    addNewLabel="+ Thêm sản phẩm mới"
+                                  />
                                 </td>
                                 <td className="px-2 py-3">
                                   <input
@@ -1154,20 +1196,31 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                   />
                                 </td>
                                 <td className="px-4 py-3">
-                                  <select
-                                    value={item.supplier}
-                                    onChange={(e) => {
+                                  <SearchableSelect
+                                    value={suppliers.find(s => (s.shortName || s.name) === item.supplier)?.id || null}
+                                    placeholder="Gõ để tìm NCC..."
+                                    getDisplayValue={(id) => {
+                                      const sup = suppliers.find(s => s.id === id);
+                                      return sup ? (sup.shortName || sup.name) : item.supplier || undefined;
+                                    }}
+                                    onChange={(sId) => {
+                                      const sup = sId ? suppliers.find(s => s.id === sId) : null;
                                       const newList = [...lineItems];
-                                      newList[index].supplier = e.target.value;
+                                      newList[index].supplier = sup ? (sup.shortName || sup.name) : '';
                                       setLineItems(newList);
                                     }}
-                                    className="w-full bg-transparent font-medium text-slate-500 dark:text-slate-300 outline-none dark:bg-slate-800"
-                                  >
-                                    <option value="">-- Chọn NCC --</option>
-                                    {suppliers.map(s => (
-                                      <option key={s.id} value={s.shortName || s.name}>{s.shortName || s.name}</option>
-                                    ))}
-                                  </select>
+                                    onSearch={async (query) => {
+                                      const results = await CustomerService.search(query, 20);
+                                      return results
+                                        .filter(c => c.type === 'Supplier' || c.type === 'Both')
+                                        .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry }));
+                                    }}
+                                    onAddNew={() => {
+                                      setAddSupplierForIndex(index);
+                                      setShowAddSupplierDialog(true);
+                                    }}
+                                    addNewLabel="+ Thêm NCC mới"
+                                  />
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   <div className="relative group/currency">
@@ -1507,7 +1560,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                   className="w-full bg-transparent text-[11px] font-black text-right outline-none text-slate-800 dark:text-slate-200"
                                 />
                                 {revenueSchedules.length > 1 && (
-                                  <button onClick={() => setRevenueSchedules(revenueSchedules.filter(r => r.id !== rev.id))} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => setRevenueSchedules(revenueSchedules.filter(r => r.id !== rev.id))} className="text-slate-300 hover:text-rose-500 transition-colors flex-shrink-0">
                                     <X size={12} />
                                   </button>
                                 )}
@@ -1568,7 +1621,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                   className="w-full bg-transparent text-[11px] font-black text-right outline-none text-emerald-600"
                                 />
                                 {paymentSchedules.length > 1 && (
-                                  <button onClick={() => setPaymentSchedules(paymentSchedules.filter(p => p.id !== pay.id))} className="text-emerald-400 hover:text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => setPaymentSchedules(paymentSchedules.filter(p => p.id !== pay.id))} className="text-emerald-400 hover:text-rose-500 transition-colors flex-shrink-0">
                                     <X size={12} />
                                   </button>
                                 )}
@@ -1636,7 +1689,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                 }}
                                 className="w-full bg-transparent text-[11px] font-black text-right outline-none text-rose-500"
                               />
-                              <button onClick={() => setSupplierSchedules(supplierSchedules.filter(p => p.id !== pay.id))} className="text-rose-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => setSupplierSchedules(supplierSchedules.filter(p => p.id !== pay.id))} className="text-rose-400 hover:text-rose-600 transition-colors flex-shrink-0">
                                 <X size={12} />
                               </button>
                             </div>
@@ -1809,6 +1862,44 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           setEndUserId(customer.id);
           setEndUserName(customer.name);
           toast.success(`Đã thêm End User: ${customer.name}`);
+        }}
+      />
+
+      {/* Quick Add Product Dialog */}
+      <QuickAddProductDialog
+        isOpen={showAddProductDialog}
+        onClose={() => { setShowAddProductDialog(false); setAddProductForIndex(null); }}
+        onCreated={async (product) => {
+          // Update line item with new product
+          if (addProductForIndex !== null) {
+            const newList = [...lineItems];
+            newList[addProductForIndex].name = product.name;
+            newList[addProductForIndex].inputPrice = product.costPrice || 0;
+            newList[addProductForIndex].outputPrice = product.basePrice;
+            setLineItems(newList);
+          }
+          // Refresh products list so it appears in dropdown
+          const allProducts = await ProductService.getAll();
+          setProducts(allProducts);
+          toast.success(`Đã thêm SP: ${product.name}`);
+        }}
+      />
+
+      {/* Quick Add Supplier Dialog */}
+      <QuickAddSupplierDialog
+        isOpen={showAddSupplierDialog}
+        onClose={() => { setShowAddSupplierDialog(false); setAddSupplierForIndex(null); }}
+        onCreated={async (supplier) => {
+          // Update line item with new supplier
+          if (addSupplierForIndex !== null) {
+            const newList = [...lineItems];
+            newList[addSupplierForIndex].supplier = supplier.shortName || supplier.name;
+            setLineItems(newList);
+          }
+          // Refresh suppliers list
+          const suppliersRes = await CustomerService.getAll({ pageSize: 100, type: 'Supplier' });
+          setSuppliers(suppliersRes.data?.filter(c => c.type === 'Supplier' || c.type === 'Both') || []);
+          toast.success(`Đã thêm NCC: ${supplier.shortName || supplier.name}`);
         }}
       />
     </div >
