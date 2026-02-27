@@ -425,7 +425,7 @@ export interface UserPermission {
   updatedAt?: string;
 }
 
-// Default permissions by role
+// Default permissions by role — aligned with PHANQUYENHETHONG.md v1.0
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<PermissionResource, PermissionAction[]>>> = {
   // Quản trị hệ thống — Toàn quyền
   Admin: {
@@ -438,67 +438,56 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     settings: ['view', 'create', 'update', 'delete'],
     permissions: ['view', 'create', 'update', 'delete'],
   },
-  // Ban lãnh đạo — Toàn quyền trên dữ liệu, KHÔNG truy cập settings/permissions
+  // Ban lãnh đạo — Toàn quyền dữ liệu, KHÔNG settings/permissions, payments chỉ xem
   Leadership: {
     contracts: ['view', 'create', 'update', 'delete'],
     employees: ['view', 'create', 'update', 'delete'],
     units: ['view', 'create', 'update', 'delete'],
     customers: ['view', 'create', 'update', 'delete'],
     products: ['view', 'create', 'update', 'delete'],
-    payments: ['view', 'create', 'update', 'delete'],
+    payments: ['view'],                                  // §6.4: chỉ xem, không nhập/sửa/xóa
   },
-  // Admin đơn vị — Nhập liệu HĐ/KH, theo dõi thanh toán (phạm vi đơn vị)
-  AdminUnit: {
-    contracts: ['view', 'create', 'update'],       // Không xóa
-    employees: ['view'],                             // Chỉ xem
-    units: ['view'],
-    customers: ['view', 'create', 'update'],        // Không xóa
-    products: ['view'],
-    payments: ['view', 'create'],                   // Chỉ nhập dự kiến, không sửa/xóa thực tế
-  },
-  // Lãnh đạo đơn vị — Quản lý đơn vị, xem báo cáo
+  // Lãnh đạo đơn vị — HĐ/KH/SP: VCU, payments: V+C (dự kiến), KHÔNG employees/units
   UnitLeader: {
-    contracts: ['view', 'create', 'update'],        // Sửa toàn bộ HĐ đơn vị, không xóa
-    employees: ['view', 'update'],                   // Sửa NV đơn vị mình, không tạo/xóa
-    units: ['view'],
-    customers: ['view', 'create', 'update'],        // Không xóa
-    products: ['view'],
-    payments: ['view', 'create'],                   // Chỉ nhập dự kiến
+    contracts: ['view', 'create', 'update'],
+    customers: ['view', 'create', 'update'],
+    products: ['view', 'create', 'update'],
+    payments: ['view', 'create'],                        // §6.4: chỉ nhập dự kiến
   },
-  // Nhân viên kinh doanh — Nhập liệu HĐ/KH (phạm vi đơn vị, chỉ HĐ của mình)
+  // Admin đơn vị — HĐ/KH/SP: VCU, payments: V+C (dự kiến), KHÔNG employees/units
+  AdminUnit: {
+    contracts: ['view', 'create', 'update'],
+    customers: ['view', 'create', 'update'],
+    products: ['view', 'create', 'update'],
+    payments: ['view', 'create'],                        // §6.4: chỉ nhập dự kiến
+  },
+  // Nhân viên kinh doanh — HĐ/KH/SP: VCU, payments: V+C (dự kiến), KHÔNG employees/units
   NVKD: {
-    contracts: ['view', 'create', 'update'],        // Chỉ sửa HĐ mình tạo/phân công
-    employees: ['view'],
-    units: ['view'],
-    customers: ['view', 'create', 'update'],        // Không xóa
-    products: ['view'],
-    payments: ['view', 'create'],                   // Chỉ nhập dự kiến
+    contracts: ['view', 'create', 'update'],             // §6.2: chỉ sửa HĐ mình tạo/phân công
+    customers: ['view', 'create', 'update'],
+    products: ['view', 'create', 'update'],
+    payments: ['view', 'create'],                        // §6.4: chỉ nhập dự kiến
   },
-  // Kế toán — Ghi nhận tài chính thực tế, xem toàn công ty
-  Accountant: {
-    contracts: ['view', 'update'],                  // Update = cập nhật thông tin tài chính
-    employees: ['view'],
-    units: ['view'],
-    customers: ['view'],
-    products: ['view'],
-    payments: ['view', 'create', 'update'],         // Thêm/sửa thực tế, không xóa
-  },
-  // Kế toán trưởng — Phê duyệt tài chính, xem toàn công ty
+  // Kế toán trưởng — Tài chính toàn quyền, xem NV, không units
   ChiefAccountant: {
-    contracts: ['view', 'update'],                  // Update = cập nhật thông tin tài chính
-    employees: ['view'],
-    units: ['view'],
-    customers: ['view'],
-    products: ['view'],
-    payments: ['view', 'create', 'update', 'delete'], // Toàn quyền thanh toán
+    contracts: ['view', 'update'],                       // §6.2: cập nhật thông tin tài chính
+    customers: ['view', 'create', 'update'],
+    products: ['view', 'create', 'update'],
+    payments: ['view', 'create', 'update', 'delete'],   // §6.4: toàn quyền thanh toán
+    employees: ['view'],                                 // Confirmed: ChiefAccountant xem NV
   },
-  // Pháp chế — Rà soát pháp lý, xem toàn công ty
+  // Kế toán — Ghi nhận tài chính, xem toàn công ty, KHÔNG employees
+  Accountant: {
+    contracts: ['view', 'update'],                       // §6.2: cập nhật thông tin tài chính
+    customers: ['view', 'create', 'update'],
+    products: ['view', 'create', 'update'],
+    payments: ['view', 'create', 'update'],              // §6.4: thêm/sửa thực tế, không xóa
+  },
+  // Pháp chế — Rà soát, KHÔNG employees/units
   Legal: {
-    contracts: ['view'],                            // Chỉ xem, rà soát pháp lý
-    employees: ['view'],
-    units: ['view'],
-    customers: ['view'],
-    products: ['view'],
+    contracts: ['view'],                                 // §6.2: chỉ xem
+    customers: ['view', 'create', 'update'],
+    products: ['view', 'create', 'update'],
     payments: ['view'],
   },
 };

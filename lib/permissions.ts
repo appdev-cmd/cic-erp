@@ -153,17 +153,19 @@ const HR_UNIT_CODE = 'HCNS';
 
 /**
  * Can VIEW the Personnel section at all?
- * Only: Admin, Leadership, AdminUnit of Phòng Tổng Hợp (HCNS)
+ * Only: Admin, Leadership, ChiefAccountant, AdminUnit of Phòng Tổng Hợp (HCNS)
  */
 export function canViewEmployees(role: UserRole, userUnitCode?: string): boolean {
-    if (role === 'Admin' || role === 'Leadership') return true;
+    if (role === 'Admin' || role === 'Leadership' || role === 'ChiefAccountant') return true;
     if (role === 'AdminUnit' && userUnitCode === HR_UNIT_CODE) return true;
     return false;
 }
 
-/** Can CREATE employees — Admin, Leadership, AdminUnit of HCNS */
+/** Can CREATE employees — Admin, Leadership, AdminUnit of HCNS (NOT ChiefAccountant) */
 export function canCreateEmployee(role: UserRole, userUnitCode?: string): boolean {
-    return canViewEmployees(role, userUnitCode);
+    if (role === 'Admin' || role === 'Leadership') return true;
+    if (role === 'AdminUnit' && userUnitCode === HR_UNIT_CODE) return true;
+    return false;
 }
 
 /**
@@ -182,9 +184,11 @@ export function canEditEmployee(
     return false;
 }
 
-/** Can DELETE employees — Admin, Leadership, AdminUnit of HCNS */
+/** Can DELETE employees — Admin, Leadership, AdminUnit of HCNS (NOT ChiefAccountant) */
 export function canDeleteEmployee(role: UserRole, userUnitCode?: string): boolean {
-    return canViewEmployees(role, userUnitCode);
+    if (role === 'Admin' || role === 'Leadership') return true;
+    if (role === 'AdminUnit' && userUnitCode === HR_UNIT_CODE) return true;
+    return false;
 }
 
 /**
