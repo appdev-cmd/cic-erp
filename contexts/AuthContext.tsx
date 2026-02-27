@@ -219,35 +219,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.log('[AuthContext.fetchProfile] data.role:', data.role, 'typeof:', typeof data.role);
 
                 // ===============================================
-                // SECURITY: Profile must be linked to an employee
-                // (Admin profiles created manually may not have employee_id)
+                // SECURITY: Verify employee exists in the system
+                // Check employees table directly by email (not profile.employee_id)
+                // This handles cases where profile was created before employee was added
                 // ===============================================
                 const SYSTEM_ROLES = ['Admin'];
-                const hasEmployeeLink = !!data.employee_id;
                 const isSystemRole = SYSTEM_ROLES.includes(data.role);
-
-                if (!hasEmployeeLink && !isSystemRole) {
-                    console.warn('[AuthContext.fetchProfile] REJECTED: Profile has no employee link:', userId, email);
-                    alert('Tài khoản của bạn chưa được gắn với nhân sự trong hệ thống. Vui lòng liên hệ quản trị viên.');
-                    await supabase.auth.signOut();
-                    setSession(null);
-                    setUser(null);
-                    setProfile(null);
-                    setIsLoading(false);
-                    return;
-                }
-
-                let userRole: UserRole = data.role as UserRole;
                 const userEmail = email || data.email || '';
+
+                let employeeId = data.employee_id;
+                let unitId = data.unit_id;
+                let userRole: UserRole = data.role as UserRole;
+                let fullName = data.full_name;
+
+                if (!isSystemRole) {
+                    // Look up employee by email directly
+                    const { data: empData, error: empError } = await dataClient
+                        .from('employees')
+                        .select('id, name, unit_id, role_code')
+                        .ilike('email', userEmail)
+                        .limit(1)
+                        .single();
+
+                    if (empError || !empData) {
+                        console.warn('[AuthContext.fetchProfile] REJECTED: No employee found for email:', userEmail);
+                        clearTimeout(timeoutId);
+                        alert('Tài khoản của bạn chưa được đăng ký trong hệ thống nhân sự. Vui lòng liên hệ quản trị viên.');
+                        await supabase.auth.signOut();
+                        setSession(null);
+                        setUser(null);
+                        setProfile(null);
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    // Employee found — auto-update profile if not linked yet
+                    employeeId = empData.id;
+                    unitId = empData.unit_id || unitId;
+                    fullName = empData.name || fullName;
+                    if (empData.role_code) userRole = empData.role_code as UserRole;
+
+                    if (!data.employee_id || data.employee_id !== empData.id) {
+                        console.log('[AuthContext.fetchProfile] Auto-linking profile to employee:', empData.id);
+                        await dataClient
+                            .from('profiles')
+                            .update({
+                                employee_id: empData.id,
+                                unit_id: empData.unit_id,
+                                full_name: empData.name,
+                                role: empData.role_code || data.role,
+                            })
+                            .eq('id', userId);
+                    }
+                }
 
                 setProfile({
                     id: data.id,
                     email: userEmail,
-                    fullName: data.full_name,
+                    fullName: fullName,
                     role: userRole,
-                    unitId: data.unit_id,
+                    unitId: unitId,
                     avatarUrl: data.avatar_url,
-                    employeeId: data.employee_id
+                    employeeId: employeeId
                 });
                 console.log('[AuthContext.fetchProfile] Profile set successfully');
             } else {
