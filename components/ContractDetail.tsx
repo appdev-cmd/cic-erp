@@ -860,9 +860,19 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                     auditLogs.slice(0, 10).map((log, i) => {
                       const { date, time } = AuditLogService.formatDateTime(log.created_at);
                       const eventText = AuditLogService.formatAction(log.action, log.old_data, log.new_data);
+
+                      // Action-specific colors
+                      const dotColor =
+                        log.action === 'INSERT' ? 'bg-emerald-500' :
+                          log.action === 'DELETE' ? 'bg-rose-500' :
+                            log.action === 'REJECT' ? 'bg-rose-500' :
+                              (log.action === 'APPROVE_LEGAL' || log.action === 'APPROVE_FINANCE') ? 'bg-emerald-500' :
+                                log.action === 'SUBMIT_LEGAL' ? 'bg-blue-500' :
+                                  'bg-orange-500';
+
                       return (
                         <div key={log.id} className="flex gap-4 relative">
-                          <div className="w-6 h-6 rounded-full border-4 border-white dark:border-slate-900 z-10 flex-shrink-0 flex items-center justify-center shadow-sm bg-orange-500">
+                          <div className={`w-6 h-6 rounded-full border-4 border-white dark:border-slate-900 z-10 flex-shrink-0 flex items-center justify-center shadow-sm ${dotColor}`}>
                             <ShieldCheck size={10} className="text-white" />
                           </div>
                           <div className="flex-1">
