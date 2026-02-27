@@ -13,7 +13,7 @@ const RESOURCE_LABELS: Record<PermissionResource, string> = {
     units: 'Đơn vị',
     customers: 'Khách hàng',
     products: 'Sản phẩm',
-    payments: 'Thanh toán',
+    payments: 'Tài chính',
     settings: 'Cài đặt',
     permissions: 'Phân quyền',
 };

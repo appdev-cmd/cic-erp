@@ -21,7 +21,7 @@ const RESOURCE_LABELS: Record<PermissionResource, string> = {
     contracts: 'Hợp đồng',
     customers: 'Khách hàng',
     products: 'Sản phẩm / DV',
-    payments: 'Thanh toán',
+    payments: 'Tài chính',
     employees: 'Nhân sự',
     units: 'Đơn vị',
     settings: 'Cài đặt',

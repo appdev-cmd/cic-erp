@@ -303,11 +303,11 @@ export interface Product {
 }
 
 /**
- * Payment status type - Vietnamese
- * Đã xuất HĐ = Invoiced but not paid
- * Tiền về = Cash received
+ * Payment status type — simplified 2-status workflow
+ * Đã xuất HĐ = Invoice issued (revenue recognized)
+ * Tiền về = Cash received in bank account
  */
-export type PaymentStatus = 'Chờ xuất HĐ' | 'Đã xuất HĐ' | 'Tiền về' | 'Quá hạn' | 'Paid' | 'Pending' | 'Overdue';
+export type PaymentStatus = 'Đã xuất HĐ' | 'Tiền về';
 
 /**
  * Payment method type
@@ -315,7 +315,7 @@ export type PaymentStatus = 'Chờ xuất HĐ' | 'Đã xuất HĐ' | 'Tiền v�
 export type PaymentMethod = 'Chuyển khoản' | 'Tiền mặt' | 'LC' | 'Khác';
 
 /**
- * Represents a payment record
+ * Represents a payment/financial record
  */
 export interface Payment {
   id: string;
@@ -325,12 +325,15 @@ export interface Payment {
   paymentDate: string;
   dueDate: string;
   amount: number;
-  paidAmount: number;
+  paidAmount: number; // Kept for backward compat, equals amount when Tiền về
   status: PaymentStatus;
   method: PaymentMethod;
   bankAccount?: string;
   reference?: string; // Số chứng từ, UNC
   invoiceNumber?: string;
+  invoiceDate?: string; // Ngày xuất HĐ
+  externalInvoiceId?: string; // ID from accounting software
+  source?: 'manual' | 'accounting_sync'; // Origin of the payment record
   notes?: string;
   paymentType: 'Revenue' | 'Expense'; // Thu hoặc Chi
   createdAt?: string;

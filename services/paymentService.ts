@@ -8,7 +8,7 @@ const mapPayment = (p: any): Payment => ({
     customerId: p.customer_id,
     phaseId: p.phase_id,
     amount: p.amount,
-    paidAmount: p.paid_amount,
+    paidAmount: p.paid_amount || 0,
     status: p.status,
     method: p.method,
     dueDate: p.due_date,
@@ -16,6 +16,9 @@ const mapPayment = (p: any): Payment => ({
     bankAccount: p.bank_account,
     reference: p.reference,
     invoiceNumber: p.invoice_number,
+    invoiceDate: p.invoice_date,
+    externalInvoiceId: p.external_invoice_id,
+    source: p.source || 'manual',
     notes: p.notes,
     paymentType: p.payment_type || 'Revenue'
 });
@@ -50,20 +53,12 @@ export const PaymentService = {
         if (type) {
             query = query.eq('payment_type', type);
         }
+        // Simplified 2-status filter
         if (status && status !== 'all') {
-            if (status === 'Tiền về' || status === 'Paid') {
-                query = query.in('status', ['Tiền về', 'Paid']);
-            } else if (status === 'Chờ xuất HĐ' || status === 'Pending') {
-                query = query.in('status', ['Chờ xuất HĐ', 'Pending', 'Chờ thu', 'Chờ chi']);
-            } else if (status === 'Quá hạn' || status === 'Overdue') {
-                query = query.in('status', ['Quá hạn', 'Overdue']);
-            } else {
-                query = query.eq('status', status);
-            }
+            query = query.eq('status', status);
         }
 
         if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
-            // Need to filter by contracts belonging to these units
             const { data: contracts } = await supabase
                 .from('contracts')
                 .select('id')
@@ -73,7 +68,6 @@ export const PaymentService = {
             if (contractIds.length > 0) {
                 query = query.in('contract_id', contractIds);
             } else {
-                // Return empty if no contracts found for these units
                 return { data: [], count: 0 };
             }
         }
@@ -108,25 +102,11 @@ export const PaymentService = {
         return data.map(mapPayment);
     },
 
-    getByStatus: async (status: string): Promise<Payment[]> => {
-        const { data, error } = await supabase.from('payments').select('*').eq('status', status);
-        if (error) throw error;
-        return data.map(mapPayment);
-    },
-
-    getOverdue: async (): Promise<Payment[]> => {
-        const { data, error } = await supabase.from('payments').select('*').eq('status', 'Quá hạn');
-        if (error) throw error;
-        return data.map(mapPayment);
-    },
-
-    getPending: async (): Promise<Payment[]> => {
-        // Includes 'Chờ xuất HĐ' or generally Pending
-        const { data, error } = await supabase.from('payments').select('*').eq('status', 'Chờ xuất HĐ');
-        if (error) throw error;
-        return data.map(mapPayment);
-    },
-
+    /**
+     * Get financial stats — simplified 2-status model
+     * invoicedAmount = sum of payments with status 'Đã xuất HĐ'
+     * cashReceivedAmount = sum of payments with status 'Tiền về'
+     */
     getStats: async (params: { type?: string; unitIds?: string[] | 'all' }) => {
         const { type, unitIds } = params;
         let query = supabase.from('payments').select('*');
@@ -145,42 +125,29 @@ export const PaymentService = {
             if (contractIds.length > 0) {
                 query = query.in('contract_id', contractIds);
             } else {
-                return { totalAmount: 0, paidAmount: 0, pendingAmount: 0, overdueAmount: 0, paidCount: 0, pendingCount: 0, overdueCount: 0 };
+                return { totalAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0 };
             }
         }
 
         const { data, error } = await query;
-        if (error || !data) return { totalAmount: 0, paidAmount: 0, pendingAmount: 0, overdueAmount: 0, paidCount: 0, pendingCount: 0, overdueCount: 0 };
+        if (error || !data) return { totalAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0 };
 
-        // Client-side aggregation
         const total = data.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-        // Tiền về / Đã chi
-        const paidQuery = data.filter(p => p.status === 'Tiền về' || p.status === 'Paid');
-        const paid = paidQuery.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
+        // Đã xuất HĐ
+        const invoicedData = data.filter(p => p.status === 'Đã xuất HĐ');
+        const invoiced = invoicedData.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-        // Đã xuất HĐ (invoiced but not yet received cash)
-        const invoicedQuery = data.filter(p => p.status === 'Đã xuất HĐ');
-        const invoiced = invoicedQuery.reduce((sum, p) => sum + (p.amount || 0), 0);
-
-        // Chờ xuất HĐ / Pending (NOT including 'Đã xuất HĐ')
-        const pendingQuery = data.filter(p => p.status === 'Chờ xuất HĐ' || p.status === 'Pending' || p.status === 'Chờ thu' || p.status === 'Chờ chi');
-        const pending = pendingQuery.reduce((sum, p) => sum + (p.amount || 0), 0);
-
-        // Quá hạn
-        const overdueQuery = data.filter(p => p.status === 'Quá hạn' || p.status === 'Overdue');
-        const overdue = overdueQuery.reduce((sum, p) => sum + ((p.amount || 0) - (p.paid_amount || 0)), 0);
+        // Tiền về
+        const cashData = data.filter(p => p.status === 'Tiền về' || p.status === 'Paid');
+        const cash = cashData.reduce((sum, p) => sum + (p.amount || 0), 0);
 
         return {
             totalAmount: total,
-            paidAmount: paid,
             invoicedAmount: invoiced,
-            pendingAmount: pending,
-            overdueAmount: overdue,
-            paidCount: paidQuery.length,
-            invoicedCount: invoicedQuery.length,
-            pendingCount: pendingQuery.length,
-            overdueCount: overdueQuery.length,
+            cashReceivedAmount: cash,
+            invoicedCount: invoicedData.length,
+            cashReceivedCount: cashData.length,
         };
     },
 
@@ -191,14 +158,17 @@ export const PaymentService = {
             customer_id: data.customerId || null,
             phase_id: data.phaseId || null,
             amount: data.amount,
-            paid_amount: data.paidAmount || 0,
-            status: data.status,
+            paid_amount: data.status === 'Tiền về' ? data.amount : 0,
+            status: data.status || 'Đã xuất HĐ',
             method: data.method || null,
             due_date: data.dueDate || null,
-            payment_date: data.paymentDate || null, // Convert empty string to null
+            payment_date: data.paymentDate || null,
             bank_account: data.bankAccount || null,
             reference: data.reference || null,
             invoice_number: data.invoiceNumber || null,
+            invoice_date: data.invoiceDate || null,
+            external_invoice_id: data.externalInvoiceId || null,
+            source: data.source || 'manual',
             notes: data.notes || null,
             payment_type: data.paymentType || 'Revenue'
         };
@@ -213,14 +183,20 @@ export const PaymentService = {
         if (data.customerId) payload.customer_id = data.customerId;
         if (data.phaseId) payload.phase_id = data.phaseId;
         if (data.amount !== undefined) payload.amount = data.amount;
-        if (data.paidAmount !== undefined) payload.paid_amount = data.paidAmount;
-        if (data.status) payload.status = data.status;
+        if (data.status) {
+            payload.status = data.status;
+            // When status changes to Tiền về, set paid_amount = amount
+            if (data.status === 'Tiền về') {
+                payload.paid_amount = data.amount;
+            }
+        }
         if (data.method) payload.method = data.method;
         if (data.dueDate) payload.due_date = data.dueDate;
         if (data.paymentDate) payload.payment_date = data.paymentDate;
         if (data.bankAccount) payload.bank_account = data.bankAccount;
         if (data.reference) payload.reference = data.reference;
         if (data.invoiceNumber) payload.invoice_number = data.invoiceNumber;
+        if (data.invoiceDate) payload.invoice_date = data.invoiceDate;
         if (data.notes) payload.notes = data.notes;
 
         const { data: res, error } = await supabase.from('payments').update(payload).eq('id', id).select().single();

@@ -127,16 +127,9 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const getStatusConfig = (status: PaymentStatus) => {
         switch (status) {
             case 'Tiền về':
-            case 'Paid':
                 return { color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', icon: CheckCircle2, label: typeFilter === 'Revenue' ? 'Tiền về' : 'Đã chi' };
             case 'Đã xuất HĐ':
                 return { color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: FileCheck, label: 'Đã xuất HĐ' };
-            case 'Chờ xuất HĐ':
-            case 'Pending':
-                return { color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: Clock, label: typeFilter === 'Revenue' ? 'Chờ thu' : 'Chờ chi' };
-            case 'Quá hạn':
-            case 'Overdue':
-                return { color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400', icon: AlertCircle, label: 'Quá hạn' };
             default:
                 return { color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400', icon: Clock, label: status };
         }
@@ -160,11 +153,11 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     };
 
     const handleDelete = async (id: string) => {
-        if (window.confirm('Bạn có chắc muốn xóa khoản thanh toán này?')) {
+        if (window.confirm('Bạn có chắc muốn xóa phiếu tài chính này?')) {
             try {
                 await PaymentService.delete(id);
                 setPayments(payments.filter(p => p.id !== id));
-                toast.success("Đã xóa khoản thanh toán");
+                toast.success("Đã xóa phiếu tài chính");
             } catch (error) {
                 console.error("Failed to delete payment:", error);
                 toast.error("Xóa thất bại");
@@ -192,7 +185,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             setIsFormOpen(false);
             setEditingPayment(undefined);
             resetInfiniteScroll(); // Refresh to ensure data consistency
-            toast.success("Lưu khoản thanh toán thành công");
+            toast.success(paymentData.id ? "Cập nhật thành công" : "Tạo phiếu tài chính thành công");
         } catch (error) {
             console.error("Failed to save payment:", error);
             toast.error("Lưu thất bại");
@@ -228,8 +221,10 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             </div>
 
             {(() => {
-                // Spec §6.4: Chỉ Accountant, ChiefAccountant, Admin mới được thêm thu/chi thực tế
-                const canAdd = can('payments', 'create');
+                // Spec §6.4: Kế toán, KTT, Admin được thêm phiếu tài chính thực tế
+                // Fallback theo role nếu DB chưa có permission record (vd: impersonate)
+                const canAdd = can('payments', 'create') ||
+                    (['Accountant', 'ChiefAccountant', 'Admin'].includes(profile?.role || ''));
 
                 if (!canAdd) return null;
 
@@ -239,7 +234,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         className={`px-5 py-2.5 text-white rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg ${typeFilter === 'Revenue' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'}`}
                     >
                         <Plus size={18} />
-                        Thêm {typeFilter === 'Revenue' ? 'khoản thu' : 'khoản chi'}
+                        Thêm {typeFilter === 'Revenue' ? 'phiếu thu' : 'phiếu chi'}
                     </button>
                 );
             })()}
@@ -248,50 +243,37 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             {/* Stats Cards */}
             {
                 stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                    <FileCheck size={20} className="text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-black text-blue-600">{formatCurrency(stats.invoicedAmount || 0)}</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Đã xuất HĐ ({stats.invoicedCount || 0})</p>
+                                </div>
+                            </div>
+                        </div>
                         <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
                                     <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
                                 </div>
                                 <div>
-                                    <p className="text-2xl font-black text-emerald-600">{formatCurrency(stats.paidAmount)}</p>
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{typeFilter === 'Revenue' ? 'Tiền về' : 'Đã chi'} ({stats.paidCount})</p>
+                                    <p className="text-2xl font-black text-emerald-600">{formatCurrency(stats.cashReceivedAmount || 0)}</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{typeFilter === 'Revenue' ? 'Tiền về' : 'Đã chi'} ({stats.cashReceivedCount || 0})</p>
                                 </div>
                             </div>
                         </div>
-                        {typeFilter === 'Revenue' && (
-                            <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                                        <FileCheck size={20} className="text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                    <div>
-                                        <p className="text-2xl font-black text-blue-600">{formatCurrency(stats.invoicedAmount || 0)}</p>
-                                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Đã xuất HĐ</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                         <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                                    <Clock size={20} className="text-amber-600 dark:text-amber-400" />
+                                    <DollarSign size={20} className="text-amber-600 dark:text-amber-400" />
                                 </div>
                                 <div>
-                                    <p className="text-2xl font-black text-amber-600">{formatCurrency(stats.pendingAmount)}</p>
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{typeFilter === 'Revenue' ? 'Chờ thu' : 'Chờ chi'} ({stats.pendingCount})</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
-                                    <AlertCircle size={20} className="text-rose-600 dark:text-rose-400" />
-                                </div>
-                                <div>
-                                    <p className="text-2xl font-black text-rose-600">{formatCurrency(stats.overdueAmount)}</p>
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Quá hạn ({stats.overdueCount})</p>
+                                    <p className="text-2xl font-black text-amber-600">{formatCurrency((stats.invoicedAmount || 0))}</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{typeFilter === 'Revenue' ? 'Công nợ' : 'Chờ chi'}</p>
                                 </div>
                             </div>
                         </div>
@@ -338,10 +320,8 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         className="bg-transparent text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none"
                     >
                         <option value="all">Tất cả trạng thái</option>
-                        <option value="Tiền về">Tiền về</option>
                         <option value="Đã xuất HĐ">Đã xuất HĐ</option>
-                        <option value="Chờ xuất HĐ">Chờ xuất HĐ</option>
-                        <option value="Quá hạn">Quá hạn</option>
+                        <option value="Tiền về">Tiền về</option>
                     </select>
                 </div>
             </div>

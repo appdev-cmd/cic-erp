@@ -173,7 +173,7 @@ export const MOCK_SALESPEOPLE: Employee[] = [
 export const NAV_ITEMS = [
   { id: 'dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
   { id: 'contracts', label: 'Hợp đồng', icon: <FileText size={20} /> },
-  { id: 'payments', label: 'Thanh toán', icon: <Package size={20} /> },
+  { id: 'payments', label: 'Tài chính', icon: <Package size={20} /> },
   { id: 'analytics', label: 'Thống kê', icon: <PieChart size={20} /> },
   { id: 'ai-assistant', label: 'AI Phân tích', icon: <BrainCircuit size={20} /> },
   { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} /> },
@@ -283,16 +283,12 @@ const generateMockPayments = (): Payment[] => {
       const paymentDate = new Date(dueDate);
       paymentDate.setDate(paymentDate.getDate() - Math.floor(Math.random() * 10));
 
-      // Status: Tiền về (cash received), Đã xuất HĐ (invoiced), Chờ xuất HĐ (pending), Quá hạn (overdue)
+      // Status: Tiền về (cash received) or Đã xuất HĐ (invoiced)
       let status: PaymentStatus;
       if (isCashReceived) {
         status = 'Tiền về';
-      } else if (dueDate < new Date()) {
-        status = 'Quá hạn';
-      } else if (i % 3 === 0) {
-        status = 'Đã xuất HĐ';
       } else {
-        status = 'Chờ xuất HĐ';
+        status = 'Đã xuất HĐ';
       }
 
       payments.push({
@@ -302,7 +298,7 @@ const generateMockPayments = (): Payment[] => {
         paymentDate: isCashReceived ? paymentDate.toISOString().split('T')[0] : '',
         dueDate: dueDate.toISOString().split('T')[0],
         amount: paymentAmount,
-        paidAmount: isCashReceived ? paymentAmount : (status === 'Quá hạn' ? paymentAmount * 0.5 : 0),
+        paidAmount: isCashReceived ? paymentAmount : 0,
         status,
         paymentType: 'Revenue',
         method: methods[i % methods.length],

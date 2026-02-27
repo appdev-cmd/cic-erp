@@ -20,7 +20,7 @@ interface SearchResult {
 const staticPages: SearchResult[] = [
     { id: 'dashboard', type: 'page', title: 'Dashboard', icon: <LayoutDashboard size={16} />, route: ROUTES.DASHBOARD },
     { id: 'contracts', type: 'page', title: 'Hợp đồng', icon: <FileText size={16} />, route: ROUTES.CONTRACTS },
-    { id: 'payments', type: 'page', title: 'Thanh toán', icon: <CreditCard size={16} />, route: ROUTES.PAYMENTS },
+    { id: 'payments', type: 'page', title: 'Tài chính', icon: <CreditCard size={16} />, route: ROUTES.PAYMENTS },
     { id: 'analytics', type: 'page', title: 'Phân tích', icon: <BarChart3 size={16} />, route: ROUTES.ANALYTICS },
     { id: 'ai', type: 'page', title: 'AI Assistant', icon: <Bot size={16} />, route: ROUTES.AI_ASSISTANT },
     { id: 'personnel', type: 'page', title: 'Nhân sự', icon: <Users size={16} />, route: ROUTES.PERSONNEL },

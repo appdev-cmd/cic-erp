@@ -277,8 +277,6 @@ export const ContractService = {
                     let newStatus = phase.status;
                     if (linkedPayment.status === 'Tiền về' || linkedPayment.status === 'Paid') {
                         newStatus = 'Paid';
-                    } else if (linkedPayment.status === 'Quá hạn' || linkedPayment.status === 'Overdue') {
-                        newStatus = 'Overdue';
                     }
                     return { ...phase, status: newStatus as any };
                 }

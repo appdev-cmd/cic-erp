@@ -114,13 +114,13 @@ const UserGuide: React.FC = () => {
         },
         {
             id: 'payments',
-            title: 'Thanh toán',
+            title: 'Tài chính',
             icon: <CreditCard size={18} />,
             color: 'emerald',
             path: ROUTES.PAYMENTS,
             guides: [
-                { title: 'Theo dõi thanh toán', steps: ['Vào module Thanh toán', 'Xem danh sách đợt thu/chi', 'Lọc theo trạng thái'] },
-                { title: 'Ghi nhận tiền về', steps: ['Tìm đợt thanh toán cần ghi nhận', 'Nhấn nút "Ghi nhận"', 'Nhập số tiền thực nhận'] },
+                { title: 'Theo dõi tài chính', steps: ['Vào module Tài chính', 'Xem danh sách phiếu thu/chi', 'Lọc theo trạng thái: Đã xuất HĐ / Tiền về'] },
+                { title: 'Ghi nhận tiền về', steps: ['Tìm phiếu tài chính cần ghi nhận', 'Chuyển trạng thái sang \"Tiền về\"', 'Doanh thu tự động cập nhật'] },
             ]
         },
         {

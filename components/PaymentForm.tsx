@@ -30,10 +30,11 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
     const [paymentDate, setPaymentDate] = useState(payment?.paymentDate || '');
     const [amount, setAmount] = useState(payment?.amount || 0);
     const [paidAmount, setPaidAmount] = useState(payment?.paidAmount || 0);
-    const [status, setStatus] = useState<PaymentStatus>(payment?.status || 'Chờ xuất HĐ');
+    const [status, setStatus] = useState<PaymentStatus>(payment?.status || 'Đã xuất HĐ');
     const [method, setMethod] = useState<PaymentMethod>(payment?.method || 'Chuyển khoản');
     const [paymentType, setPaymentType] = useState<'Revenue' | 'Expense'>(payment?.paymentType || initialPaymentType);
     const [invoiceNumber, setInvoiceNumber] = useState(payment?.invoiceNumber || '');
+    const [invoiceDate, setInvoiceDate] = useState(payment?.invoiceDate || '');
     const [reference, setReference] = useState(payment?.reference || '');
     const [notes, setNotes] = useState(payment?.notes || '');
 
@@ -89,12 +90,13 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
             contractId,
             customerId,
             dueDate,
-            paymentDate,
+            paymentDate: status === 'Tiền về' && !paymentDate ? new Date().toISOString().split('T')[0] : paymentDate,
             amount,
-            paidAmount,
+            paidAmount: status === 'Tiền về' ? amount : 0,
             status,
             method,
             invoiceNumber,
+            invoiceDate,
             reference,
             notes,
             paymentType,
@@ -104,7 +106,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
 
     const formatCurrency = (val: number) => formatNumber(val);
 
-    const statuses: PaymentStatus[] = ['Chờ xuất HĐ', 'Đã xuất HĐ', 'Tiền về', 'Quá hạn'];
+    const statuses: PaymentStatus[] = ['Đã xuất HĐ', 'Tiền về'];
     const methods: PaymentMethod[] = ['Chuyển khoản', 'Tiền mặt', 'LC', 'Khác'];
 
     return (
@@ -118,9 +120,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
                         </div>
                         <div>
                             <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">
-                                {payment ? 'Sửa thanh toán' : 'Thêm thanh toán'}
+                                {payment ? 'Sửa phiếu tài chính' : 'Thêm phiếu tài chính'}
                             </h2>
-                            <p className="text-xs text-slate-500">Quản lý khoản thanh toán hợp đồng</p>
+                            <p className="text-xs text-slate-500">Quản lý phiếu tài chính hợp đồng</p>
                         </div>
                     </div>
                     <button onClick={onCancel} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
@@ -241,33 +243,20 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
                         </div>
                     </div>
 
-                    {/* Amount & Status */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
-                                <DollarSign size={12} /> Số tiền *
-                            </label>
-                            <NumberInput
-                                value={amount}
-                                onChange={(value) => setAmount(value)}
-                                placeholder="0"
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                            {amount > 0 && (
-                                <p className="text-xs text-slate-400">{formatCurrency(amount)} VND</p>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
-                                <DollarSign size={12} /> Đã thu
-                            </label>
-                            <NumberInput
-                                value={paidAmount}
-                                onChange={(value) => setPaidAmount(value)}
-                                placeholder="0"
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            />
-                        </div>
+                    {/* Amount */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                            <DollarSign size={12} /> Số tiền *
+                        </label>
+                        <NumberInput
+                            value={amount}
+                            onChange={(value) => setAmount(value)}
+                            placeholder="0"
+                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        {amount > 0 && (
+                            <p className="text-xs text-slate-400">{formatCurrency(amount)} VND</p>
+                        )}
                     </div>
 
                     {/* Status & Method */}
@@ -281,16 +270,13 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
                                         type="button"
                                         onClick={() => {
                                             setStatus(s);
-                                            // Auto-fill Paid Amount if switching to 'Tiền về' (Paid) and it's currently 0
-                                            if ((s === 'Tiền về' || s === 'Paid') && paidAmount === 0 && amount > 0) {
-                                                setPaidAmount(amount);
+                                            if (s === 'Tiền về' && !paymentDate) {
+                                                setPaymentDate(new Date().toISOString().split('T')[0]);
                                             }
                                         }}
                                         className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${status === s
                                             ? s === 'Tiền về' ? 'bg-emerald-600 text-white'
-                                                : s === 'Đã xuất HĐ' ? 'bg-blue-600 text-white'
-                                                    : s === 'Quá hạn' ? 'bg-rose-600 text-white'
-                                                        : 'bg-amber-600 text-white'
+                                                : 'bg-blue-600 text-white'
                                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                                             }`}
                                     >
