@@ -73,6 +73,9 @@ interface EmployeeUser extends UserProfile {
 // ─── Component ─────────────────────────────────────────
 const PermissionManager: React.FC = () => {
     const { profile: adminProfile } = useAuth();
+    // audit_logs.user_id is UUID — dev IDs like "dev-admin-000" are invalid
+    const isValidUUID = (s?: string | null) => !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+    const safeAdminId = isValidUUID(adminProfile?.id) ? adminProfile!.id : null;
     const [users, setUsers] = useState<EmployeeUser[]>([]);
     const [selectedUserId, setSelectedUserId] = useState<string>('');
     const [userPermissions, setUserPermissions] = useState<Record<PermissionResource, PermissionAction[]>>({} as any);
@@ -198,7 +201,7 @@ const PermissionManager: React.FC = () => {
 
             // Audit log
             await AuditLogService.create({
-                user_id: adminProfile?.id || null,
+                user_id: safeAdminId,
                 table_name: 'user_permissions',
                 record_id: selectedUserId,
                 action: 'UPDATE',
@@ -251,7 +254,7 @@ const PermissionManager: React.FC = () => {
 
             // Audit log
             await AuditLogService.create({
-                user_id: adminProfile?.id || null,
+                user_id: safeAdminId,
                 table_name: 'employees',
                 record_id: selectedUserId,
                 action: 'UPDATE',
@@ -502,7 +505,7 @@ const PermissionManager: React.FC = () => {
 
                                                             // Audit log
                                                             await AuditLogService.create({
-                                                                user_id: adminProfile?.id || null,
+                                                                user_id: safeAdminId,
                                                                 table_name: 'cross_unit_visibility',
                                                                 record_id: selectedUserId,
                                                                 action: isGranted ? 'DELETE' : 'INSERT',
