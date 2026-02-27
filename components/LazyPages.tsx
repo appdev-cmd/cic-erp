@@ -13,25 +13,58 @@ import {
     AnalyticsSkeleton,
 } from './ui/PageSkeletons';
 
-// Lazy load heavy components
-const Dashboard = lazy(() => import('./Dashboard'));
-const ContractList = lazy(() => import('./ContractList'));
-const ContractDetail = lazy(() => import('./ContractDetail'));
-const ContractForm = lazy(() => import('./ContractForm'));
-const PaymentList = lazy(() => import('./PaymentList'));
-const Analytics = lazy(() => import('./Analytics'));
-const AIAssistant = lazy(() => import('./AIAssistant'));
-const PersonnelList = lazy(() => import('./PersonnelList'));
-const PersonnelDetail = lazy(() => import('./PersonnelDetail'));
-const CustomerList = lazy(() => import('./CustomerList'));
-const CustomerDetail = lazy(() => import('./CustomerDetail'));
-const ProductList = lazy(() => import('./ProductList'));
-const ProductDetail = lazy(() => import('./ProductDetail'));
-const UnitList = lazy(() => import('./UnitList'));
-const UnitDetail = lazy(() => import('./UnitDetail'));
-const Settings = lazy(() => import('./Settings'));
-const UserGuide = lazy(() => import('./UserGuide'));
-const DocumentManager = lazy(() => import('./DocumentManager'));
+// Helper: retry dynamic import with auto-reload on chunk load failure
+// After a new Vercel deployment, old chunk files are deleted.
+// If a user has a stale tab open, lazy imports will fail with
+// "Failed to fetch dynamically imported module". This helper
+// auto-reloads the page ONCE to fetch the new HTML with correct chunk refs.
+function lazyWithRetry<T extends React.ComponentType<any>>(
+    importFn: () => Promise<{ default: T }>
+) {
+    return lazy(() =>
+        importFn().catch((error: Error) => {
+            const isChunkError =
+                error.message.includes('Failed to fetch dynamically imported module') ||
+                error.message.includes('Importing a module script failed') ||
+                error.message.includes('error loading dynamically imported module');
+
+            const RELOAD_KEY = 'chunk_reload_ts';
+            const lastReload = sessionStorage.getItem(RELOAD_KEY);
+            const now = Date.now();
+
+            // Only auto-reload once per 30 seconds to prevent infinite loops
+            if (isChunkError && (!lastReload || now - Number(lastReload) > 30_000)) {
+                sessionStorage.setItem(RELOAD_KEY, String(now));
+                window.location.reload();
+                // Return a never-resolving promise so React doesn't try to render
+                return new Promise(() => { });
+            }
+
+            // If not a chunk error or already reloaded, re-throw
+            throw error;
+        })
+    );
+}
+
+// Lazy load heavy components (with auto-retry on chunk failure)
+const Dashboard = lazyWithRetry(() => import('./Dashboard'));
+const ContractList = lazyWithRetry(() => import('./ContractList'));
+const ContractDetail = lazyWithRetry(() => import('./ContractDetail'));
+const ContractForm = lazyWithRetry(() => import('./ContractForm'));
+const PaymentList = lazyWithRetry(() => import('./PaymentList'));
+const Analytics = lazyWithRetry(() => import('./Analytics'));
+const AIAssistant = lazyWithRetry(() => import('./AIAssistant'));
+const PersonnelList = lazyWithRetry(() => import('./PersonnelList'));
+const PersonnelDetail = lazyWithRetry(() => import('./PersonnelDetail'));
+const CustomerList = lazyWithRetry(() => import('./CustomerList'));
+const CustomerDetail = lazyWithRetry(() => import('./CustomerDetail'));
+const ProductList = lazyWithRetry(() => import('./ProductList'));
+const ProductDetail = lazyWithRetry(() => import('./ProductDetail'));
+const UnitList = lazyWithRetry(() => import('./UnitList'));
+const UnitDetail = lazyWithRetry(() => import('./UnitDetail'));
+const Settings = lazyWithRetry(() => import('./Settings'));
+const UserGuide = lazyWithRetry(() => import('./UserGuide'));
+const DocumentManager = lazyWithRetry(() => import('./DocumentManager'));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
