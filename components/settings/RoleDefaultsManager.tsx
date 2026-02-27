@@ -245,10 +245,10 @@ const RoleDefaultsManager: React.FC = () => {
             </div>
 
             {/* ─── Permission Matrix ─── */}
-            <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600">
+            <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600/50">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="border-b border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800">
+                        <tr className="border-b border-slate-200 dark:border-slate-600/50 bg-slate-100 dark:bg-slate-800/80">
                             <th className="text-left py-3 px-4 font-bold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
                                 Module
                             </th>
@@ -275,10 +275,10 @@ const RoleDefaultsManager: React.FC = () => {
                             return (
                                 <tr
                                     key={resource}
-                                    className={`border-b border-slate-100 dark:border-slate-700/50 last:border-b-0 transition-colors ${idx % 2 === 0
-                                        ? 'bg-white dark:bg-slate-900'
-                                        : 'bg-slate-50/50 dark:bg-slate-800/40'
-                                        } hover:bg-orange-50/30 dark:hover:bg-slate-700/40`}
+                                    className={`border-b border-slate-100 dark:border-slate-700/30 last:border-b-0 transition-colors duration-150 ${idx % 2 === 0
+                                        ? 'bg-transparent dark:bg-transparent'
+                                        : 'bg-slate-50/50 dark:bg-slate-800/30'
+                                        } hover:bg-orange-50/30 dark:hover:bg-slate-600/20`}
                                 >
                                     <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200">
                                         {RESOURCE_LABELS[resource]}
@@ -334,7 +334,7 @@ const RoleDefaultsManager: React.FC = () => {
             {/* ─── Apply Confirm Dialog ─── */}
             {showApplyConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl border border-slate-200 dark:border-slate-700">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl dark:shadow-black/40 border border-slate-200 dark:border-slate-600/50">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                                 <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400" />

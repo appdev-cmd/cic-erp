@@ -36,14 +36,14 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+            <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl border border-transparent dark:border-slate-700/40">
                 {visibleTabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all flex-1 justify-center ${activeTab === tab.id
-                            ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 flex-1 justify-center cursor-pointer ${activeTab === tab.id
+                            ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm dark:shadow-slate-900/40'
+                            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/40'
                             }`}
                     >
                         {tab.icon}
@@ -53,7 +53,7 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="bg-white dark:bg-slate-900/50 p-6 md:p-8 rounded-lg border border-slate-200 dark:border-slate-700/50 shadow-sm dark:shadow-none">
+            <div className="bg-white dark:bg-slate-800/40 p-6 md:p-8 rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-sm dark:shadow-none backdrop-blur-sm">
                 {activeTab === 'system' && (
                     <div className="space-y-6">
                         {/* Theme Mode */}
@@ -65,9 +65,9 @@ const Settings: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <button
                                     onClick={() => setTheme('light')}
-                                    className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all ${theme === 'light'
+                                    className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${theme === 'light'
                                         ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-900/20 dark:border-orange-500 dark:text-orange-400'
-                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-500'
+                                        : 'bg-white dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
                                         }`}
                                 >
                                     <Sun size={20} />
@@ -75,9 +75,9 @@ const Settings: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={() => setTheme('dark')}
-                                    className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all ${theme === 'dark'
+                                    className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${theme === 'dark'
                                         ? 'bg-orange-900/30 border-orange-500 text-orange-400'
-                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-500'
+                                        : 'bg-white dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
                                         }`}
                                 >
                                     <Moon size={20} />
@@ -95,9 +95,9 @@ const Settings: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <button
                                     onClick={() => setAccent('orange')}
-                                    className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all ${accent === 'orange'
+                                    className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${accent === 'orange'
                                         ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-900/20 dark:border-orange-500 dark:text-orange-400'
-                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-500'
+                                        : 'bg-white dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
                                         }`}
                                 >
                                     <div className="w-5 h-5 rounded-full bg-orange-500" />
@@ -105,9 +105,9 @@ const Settings: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={() => setAccent('blue')}
-                                    className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all ${accent === 'blue'
+                                    className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${accent === 'blue'
                                         ? 'bg-sky-50 border-sky-500 text-sky-700 dark:bg-sky-900/20 dark:border-sky-500 dark:text-sky-400'
-                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-500'
+                                        : 'bg-white dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
                                         }`}
                                 >
                                     <div className="w-5 h-5 rounded-full bg-sky-500" />
@@ -116,7 +116,7 @@ const Settings: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                        <div className="border-t border-slate-200 dark:border-slate-700/50 pt-6">
                             <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-4">Dữ liệu & Hệ thống</h3>
                             <DataSeeder />
                         </div>
@@ -175,7 +175,7 @@ const Settings: React.FC = () => {
                         )}
 
                         {/* Separator if admin */}
-                        {isAdmin && <div className="border-t border-slate-200 dark:border-slate-800" />}
+                        {isAdmin && <div className="border-t border-slate-200 dark:border-slate-700/50" />}
 
                         {/* Pilot Runner */}
                         <div>

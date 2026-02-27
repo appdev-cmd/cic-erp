@@ -171,7 +171,7 @@ const UserImpersonator: React.FC = () => {
                                 {RESOURCES.map(resource => {
                                     const actions = permissions[resource] || [];
                                     return (
-                                        <div key={resource} className={`rounded-lg p-2 text-xs ${actions.length > 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-100 dark:bg-slate-900 opacity-50'}`}>
+                                        <div key={resource} className={`rounded-lg p-2 text-xs ${actions.length > 0 ? 'bg-white dark:bg-slate-700/50' : 'bg-slate-100 dark:bg-slate-800/50 opacity-50'}`}>
                                             <span className="font-semibold text-slate-700 dark:text-slate-300 block">
                                                 {RESOURCE_LABELS[resource]}
                                             </span>
@@ -197,7 +197,7 @@ const UserImpersonator: React.FC = () => {
                     type="button"
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     disabled={loading}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-indigo-400 transition-all"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-600 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-all duration-200 cursor-pointer"
                 >
                     <span className={loading ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}>
                         {loading ? 'Đang tải danh sách...' : `${users.length} nhân viên có sẵn`}
@@ -207,9 +207,9 @@ const UserImpersonator: React.FC = () => {
 
                 {/* Dropdown Content */}
                 {isDropdownOpen && !loading && (
-                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg shadow-2xl overflow-hidden">
+                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-2xl dark:shadow-black/40 overflow-hidden">
                         {/* Search inside dropdown */}
-                        <div className="p-3 border-b border-slate-100 dark:border-slate-800">
+                        <div className="p-3 border-b border-slate-100 dark:border-slate-700">
                             <div className="relative">
                                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
