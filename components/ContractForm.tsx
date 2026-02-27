@@ -9,7 +9,7 @@ import {
   MapPin, UserCheck, Hash, Percent
 } from 'lucide-react';
 import {
-  Unit, ContractType, LineItem, UnitAllocation,
+  Unit, ContractType, LineItem, UnitAllocation, EmployeeAllocation,
   ContractContact, PaymentSchedule,
   RevenueSchedule, AdministrativeCosts,
   Contract, Employee, Customer, Product, DirectCostDetail
@@ -97,6 +97,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     contract?.unitAllocations || []
   );
   const [salespersonId, setSalespersonId] = useState(contract?.salespersonId || '');
+  const [employeeAllocations, setEmployeeAllocations] = useState<EmployeeAllocation[]>(
+    contract?.employeeAllocations || []
+  );
   const [customerId, setCustomerId] = useState(contract?.customerId || null);
   const [title, setTitle] = useState(contract?.title || '');
   const [clientName, setClientName] = useState(contract?.partyA || '');
@@ -117,6 +120,12 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       setUnitId(contract.unitId || '');
       setCoordinatingUnitId(contract.coordinatingUnitId || '');
       setSalespersonId(contract.salespersonId || '');
+      // Load employee allocations (backward compat: if no allocations, create from salespersonId)
+      if (contract.employeeAllocations && contract.employeeAllocations.length > 0) {
+        setEmployeeAllocations(contract.employeeAllocations);
+      } else if (contract.salespersonId) {
+        setEmployeeAllocations([{ employeeId: contract.salespersonId, percent: 100, role: 'lead' }]);
+      }
       setCustomerId(contract.customerId || null);
       setTitle(contract.title || '');
       setClientName(contract.partyA || '');
@@ -132,9 +141,14 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
         setContacts(contract.contacts);
       }
 
-      // Step 2 fields - Line Items
+      // Step 2 fields - Line Items (backward compat: add vatRate/supplierDiscount if missing)
       if (contract.lineItems && contract.lineItems.length > 0) {
-        setLineItems(contract.lineItems);
+        const contractVat = contract.vatRate ?? 10;
+        setLineItems(contract.lineItems.map(item => ({
+          ...item,
+          vatRate: item.vatRate ?? contractVat,
+          supplierDiscount: item.supplierDiscount ?? 0,
+        })));
       }
 
       // Admin Costs
@@ -172,7 +186,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
 
   // 3. Line Items (Sản phẩm/Dịch vụ chi tiết)
   const [lineItems, setLineItems] = useState<LineItem[]>(contract?.lineItems || [{
-    id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0
+    id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10, supplierDiscount: 0
   }]);
 
   // 4. Financial Schedules (Hóa đơn & Tiền về & Chi trả NCC)
@@ -241,8 +255,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     setExecutionCosts(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
   };
 
-  // Supplier Discount - separate from admin costs, ADDS to revenue
-  const [supplierDiscount, setSupplierDiscount] = useState<number>(0);
+  // Supplier Discount is now per-line-item (no contract-level state needed)
 
   // 6. Direct Costs Modal State
   const [activeCostModalIndex, setActiveCostModalIndex] = useState<number | null>(null);
@@ -442,35 +455,42 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     return () => clearTimeout(timer);
   }, [unitId, clientName, signedDate, units, isEditing, isIdTouched]);
 
-  // Logic tính toán chuyên sâu
+  // Logic tính toán chuyên sâu (VAT & CK NCC per line item)
   const totals = useMemo(() => {
-    // Line items output (giá đầu ra từ sản phẩm)
-    const lineItemsOutput = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0);
+    // Per-item calculations
+    let signingValue = 0;
+    let totalInput = 0;
+    let totalDirectCosts = 0;
+    let totalSupplierDiscount = 0;
+    let estimatedRevenue = 0;
 
-    // SIGNING VALUE = Line items output (không cộng chiết khấu nữa)
-    const signingValue = lineItemsOutput;
+    lineItems.forEach(item => {
+      const itemOutputTotal = item.quantity * item.outputPrice;
+      const itemInputTotal = item.quantity * item.inputPrice;
+      const itemVatRate = item.vatRate ?? 10;
+      const itemDiscount = item.supplierDiscount ?? 0;
 
-    const totalInput = lineItems.reduce((acc, item) => acc + (item.quantity * item.inputPrice), 0);
-    const totalDirectCosts = lineItems.reduce((acc, item) => acc + item.directCosts, 0);
+      signingValue += itemOutputTotal;
+      totalInput += itemInputTotal;
+      totalDirectCosts += item.directCosts;
+      totalSupplierDiscount += itemInputTotal * (itemDiscount / 100);
+      // Doanh thu = giá đầu ra / (1 + VAT%) cho từng SP
+      estimatedRevenue += itemVatRate > 0 ? itemOutputTotal / (1 + itemVatRate / 100) : itemOutputTotal;
+    });
 
-    // Admin costs (không bao gồm supplierDiscount)
+    // Admin costs (legacy)
     const adminSum = (Object.values(adminCosts) as number[]).reduce((acc: number, val: number) => acc + val, 0);
 
     // Execution costs (Chi phí thực hiện hợp đồng - dynamic list)
     const executionCostsSum = executionCosts.reduce((acc, c) => acc + (c.amount || 0), 0);
 
-    // Supplier Discount = hệ số % x tổng đầu vào => GIẢM chi phí
-    const supplierDiscountAmount = totalInput * (supplierDiscount / 100);
-
-    const estimatedRevenue = hasVat ? signingValue / (1 + vatRate / 100) : signingValue; // Doanh thu trước thuế
-    // Total costs = Đầu vào + Chi phí trực tiếp (line items) + Chi phí thực hiện (dynamic) - Chiết khấu NCC
-    // Note: adminSum is legacy and mostly unused now, execution costs are the main additional costs
-    const totalCosts = totalInput + totalDirectCosts + executionCostsSum - supplierDiscountAmount;
+    // Total costs = Đầu vào + CP trực tiếp + CP thực hiện - Chiết khấu NCC (per item)
+    const totalCosts = totalInput + totalDirectCosts + executionCostsSum - totalSupplierDiscount;
     const grossProfit = signingValue - totalCosts;
     const profitMargin = signingValue > 0 ? (grossProfit / signingValue) * 100 : 0;
 
-    return { signingValue, estimatedRevenue, totalCosts, grossProfit, profitMargin, totalInput, totalDirectCosts, adminSum, executionCostsSum, supplierDiscount, supplierDiscountAmount };
-  }, [lineItems, adminCosts, executionCosts, supplierDiscount, hasVat, vatRate]);
+    return { signingValue, estimatedRevenue, totalCosts, grossProfit, profitMargin, totalInput, totalDirectCosts, adminSum, executionCostsSum, supplierDiscountAmount: totalSupplierDiscount };
+  }, [lineItems, adminCosts, executionCosts]);
 
   const formatVND = (val: number) => new Intl.NumberFormat('vi-VN').format(Math.round(val));
 
@@ -478,7 +498,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const addContact = () => setContacts([...contacts, { id: Date.now().toString(), name: '', role: '' }]);
   const removeContact = (id: string) => setContacts(contacts.filter(c => c.id !== id));
 
-  const addLineItem = () => setLineItems([...lineItems, { id: Date.now().toString(), name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0 }]);
+  const addLineItem = () => setLineItems([...lineItems, { id: Date.now().toString(), name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10, supplierDiscount: 0 }]);
   const removeLineItem = (id: string) => setLineItems(lineItems.filter(i => i.id !== id));
 
   const handleSave = () => {
@@ -504,20 +524,22 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       unitId,
       coordinatingUnitId: coordinatingUnitId || null,
       unitAllocations: unitAllocations.length > 0 ? unitAllocations : null,
-      salespersonId,
+      salespersonId: salespersonId || (employeeAllocations.length > 0 ? employeeAllocations[0].employeeId : ''),
+      employeeAllocations: employeeAllocations.length > 0 ? employeeAllocations : undefined,
       value: totals.signingValue,
       estimatedCost: totals.totalCosts,
-      actualRevenue: 0,
+      // Edit mode: preserve existing values; New mode: set defaults
+      actualRevenue: isEditing ? (contract?.actualRevenue ?? 0) : 0,
       actualCost: totals.totalCosts,
-      status: 'Pending',
-      stage: 'New',
-      category: 'Project',
+      status: isEditing ? (contract?.status || 'Pending') : 'Pending',
+      stage: isEditing ? (contract?.stage || 'Signed') : 'Signed',
+      category: isEditing ? (contract?.category || 'Project') : 'Project',
       signedDate,
-      startDate: signedDate,
-      endDate: signedDate,
+      startDate: isEditing ? (contract?.startDate || signedDate) : signedDate,
+      endDate: isEditing ? (contract?.endDate || signedDate) : signedDate,
       content: title, // Simplified
       contacts: contacts,
-      milestones: [],
+      milestones: isEditing ? (contract?.milestones || []) : [],
       // Map PaymentSchedule (date, description) → PaymentPhase (dueDate, name)
       paymentPhases: [...paymentSchedules, ...supplierSchedules].map(p => ({
         id: p.id,
@@ -565,7 +587,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 // === STEP 1: Đơn vị & Nhân sự ===
                 if (units.length > 0) setUnitId(units[0].id);
                 if (units.length > 1) setCoordinatingUnitId(units[1].id);
-                if (salespeople.length > 0) setSalespersonId(salespeople[0].id);
+                if (salespeople.length > 0) {
+                  setSalespersonId(salespeople[0].id);
+                  setEmployeeAllocations([{ employeeId: salespeople[0].id, percent: 100, role: 'lead' }]);
+                }
 
                 // Tiêu đề và ngày ký
                 setTitle('Hợp đồng Tư vấn Giải pháp chuyển đổi số BIM - Dự án Trụ sở ABC');
@@ -587,7 +612,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                     supplier: '',
                     inputPrice: 0,
                     outputPrice: 50000000,
-                    directCosts: 0
+                    directCosts: 0,
+                    vatRate: 10,
+                    supplierDiscount: 0
                   },
                   {
                     id: 'item-2',
@@ -596,7 +623,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                     supplier: 'Autodesk',
                     inputPrice: 8000000,
                     outputPrice: 12000000,
-                    directCosts: 0
+                    directCosts: 0,
+                    vatRate: 8,
+                    supplierDiscount: 5
                   },
                   {
                     id: 'item-3',
@@ -609,7 +638,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                     directCostDetails: [
                       { id: 'd1', name: 'Thuê giảng viên', amount: 8000000 },
                       { id: 'd2', name: 'Tài liệu đào tạo', amount: 2000000 }
-                    ]
+                    ],
+                    vatRate: 10,
+                    supplierDiscount: 0
                   }
                 ]);
 
@@ -622,8 +653,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                   documentProcessing: 150000
                 });
 
-                // Chiết khấu NCC (% x tổng đầu vào)
-                setSupplierDiscount(5); // 5%
+                // Supplier discount removed from contract level (now per line item)
 
                 // === STEP 3: Tài chính & Hoàn tất ===
                 const today = new Date();
@@ -697,7 +727,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                     </label>
                     <select
                       value={unitId}
-                      onChange={(e) => { setUnitId(e.target.value); setSalespersonId(''); }}
+                      onChange={(e) => { setUnitId(e.target.value); setSalespersonId(''); setEmployeeAllocations([]); }}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:border-indigo-500 transition-all"
                     >
                       {(() => {
@@ -714,28 +744,121 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                     </select>
                   </div>
 
-                  {/* Employee Dropdown */}
-                  <div className="space-y-2">
+                  {/* Employee Allocations - Multi-employee with % */}
+                  <div className="col-span-2 space-y-2">
                     <label className="text-[11px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
                       <User size={10} /> Nhân viên thực hiện
                     </label>
-                    <select
-                      value={salespersonId}
-                      onChange={(e) => setSalespersonId(e.target.value)}
-                      className="w-full px-4 py-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-700 rounded-lg text-sm font-bold text-indigo-700 dark:text-indigo-300 outline-none focus:border-indigo-500 transition-all"
-                    >
-                      <option value="">-- Chọn NV --</option>
-                      {filteredSales.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                  </div>
+                    <div className="space-y-2">
+                      {employeeAllocations.map((alloc, idx) => {
+                        const isLead = idx === 0;
+                        // Lead % is auto-calculated = 100 - sum of others
+                        const othersTotal = employeeAllocations.filter((_, i) => i !== 0).reduce((s, a) => s + a.percent, 0);
+                        const displayPercent = isLead ? (100 - othersTotal) : alloc.percent;
 
-                  {/* Percentage Display */}
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
-                      <Percent size={10} /> Tỷ lệ %
-                    </label>
-                    <div className="w-full px-4 py-3 bg-indigo-100 dark:bg-indigo-800/50 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm font-black text-indigo-700 dark:text-indigo-300 text-center">
-                      {100 - unitAllocations.filter(a => a.role === 'support').reduce((s, a) => s + a.percent, 0)} %
+                        return (
+                          <div key={idx} className="flex items-center gap-2">
+                            <select
+                              value={alloc.employeeId}
+                              onChange={(e) => {
+                                const newAllocs = [...employeeAllocations];
+                                newAllocs[idx].employeeId = e.target.value;
+                                if (isLead) newAllocs[idx].percent = 100 - othersTotal;
+                                setEmployeeAllocations(newAllocs);
+                                if (isLead) setSalespersonId(e.target.value);
+                              }}
+                              className="flex-1 px-3 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-700 rounded-lg text-sm font-bold text-indigo-700 dark:text-indigo-300 outline-none focus:border-indigo-500 transition-all"
+                            >
+                              <option value="">-- Chọn NV --</option>
+                              {filteredSales.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                            </select>
+                            <div className="relative w-20">
+                              {isLead ? (
+                                // Lead: read-only, auto-calculated
+                                <div className="w-full px-2 py-2.5 bg-indigo-200 dark:bg-indigo-700/50 border border-indigo-300 dark:border-indigo-600 rounded-lg text-sm font-black text-indigo-700 dark:text-indigo-300 text-center">
+                                  {displayPercent}
+                                </div>
+                              ) : (
+                                // Members: editable
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max={99}
+                                  value={alloc.percent || ''}
+                                  onChange={(e) => {
+                                    const val = Math.min(99, Math.max(0, Number(e.target.value)));
+                                    const newAllocs = [...employeeAllocations];
+                                    newAllocs[idx].percent = val;
+                                    // Auto-adjust lead
+                                    const newOthersTotal = newAllocs.filter((_, i) => i !== 0).reduce((s, a) => s + a.percent, 0);
+                                    newAllocs[0].percent = Math.max(0, 100 - newOthersTotal);
+                                    setEmployeeAllocations(newAllocs);
+                                  }}
+                                  className="w-full px-2 py-2.5 bg-indigo-100 dark:bg-indigo-800/50 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm font-black text-indigo-700 dark:text-indigo-300 text-center outline-none focus:border-indigo-500"
+                                />
+                              )}
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-indigo-400">%</span>
+                            </div>
+                            {employeeAllocations.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newAllocs = employeeAllocations.filter((_, i) => i !== idx);
+                                  // Recalculate lead percent
+                                  const newOthersTotal = newAllocs.filter((_, i) => i !== 0).reduce((s, a) => s + a.percent, 0);
+                                  if (newAllocs.length > 0) newAllocs[0].percent = Math.max(0, 100 - newOthersTotal);
+                                  setEmployeeAllocations(newAllocs);
+                                  if (idx === 0 && newAllocs.length > 0) {
+                                    setSalespersonId(newAllocs[0].employeeId);
+                                  }
+                                }}
+                                className="text-slate-300 hover:text-rose-500 transition-colors p-1"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                            {isLead && (
+                              <span className="text-[9px] font-bold text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">CHÍNH</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {employeeAllocations.length === 0 && (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setEmployeeAllocations([{ employeeId: e.target.value, percent: 100, role: 'lead' }]);
+                                setSalespersonId(e.target.value);
+                              }
+                            }}
+                            className="flex-1 px-3 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-700 rounded-lg text-sm font-bold text-indigo-700 dark:text-indigo-300 outline-none"
+                          >
+                            <option value="">-- Chọn NV --</option>
+                            {filteredSales.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (employeeAllocations.length === 0) {
+                            setEmployeeAllocations([{ employeeId: '', percent: 100, role: 'lead' }]);
+                          } else {
+                            // New member gets 30% by default, lead auto-adjusts
+                            const newAllocs = [...employeeAllocations];
+                            const currentOthersTotal = newAllocs.filter((_, i) => i !== 0).reduce((s, a) => s + a.percent, 0);
+                            const defaultPercent = Math.min(30, Math.max(1, 100 - currentOthersTotal - 1)); // leave at least 1% for lead
+                            newAllocs.push({ employeeId: '', percent: defaultPercent, role: 'member' });
+                            newAllocs[0].percent = Math.max(0, 100 - currentOthersTotal - defaultPercent);
+                            setEmployeeAllocations(newAllocs);
+                          }
+                        }}
+                        className="text-indigo-600 dark:text-indigo-400 text-[10px] font-bold flex items-center gap-1 hover:text-indigo-800 transition-colors"
+                      >
+                        <Plus size={10} /> Thêm nhân viên
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -764,6 +887,31 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                   </h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">Loại hồ sơ</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setContractType('HĐ')}
+                        className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all border ${contractType === 'HĐ'
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200 dark:shadow-none'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
+                          }`}
+                      >
+                        📋 Hợp đồng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setContractType('VV')}
+                        className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all border ${contractType === 'VV'
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-200 dark:shadow-none'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:border-amber-400'
+                          }`}
+                      >
+                        📁 Vụ việc
+                      </button>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">Số hợp đồng (ID)</label>
                     <input
@@ -839,45 +987,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 </div>
                 {/* Options Row: VAT Toggle + Dealer Sale */}
                 <div className="flex flex-wrap items-start gap-6 mt-2">
-                  {/* VAT Toggle */}
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${hasVat
-                      ? 'bg-emerald-500 border-emerald-500 text-white'
-                      : 'border-slate-300 dark:border-slate-600 group-hover:border-emerald-400'
-                      }`}
-                      onClick={() => setHasVat(!hasVat)}
-                    >
-                      {hasVat && (
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Có VAT</span>
-                    {hasVat && (
-                      <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5">
-                        {[8, 10].map(rate => (
-                          <button
-                            key={rate}
-                            type="button"
-                            onClick={(e) => { e.preventDefault(); setVatRate(rate); }}
-                            className={`px-2.5 py-1 rounded-md text-[11px] font-black transition-all ${vatRate === rate
-                              ? 'bg-emerald-500 text-white shadow-sm'
-                              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                              }`}
-                          >
-                            {rate}%
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <span className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase ${hasVat
-                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                      : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
-                      }`}>
-                      {hasVat ? `DT = Ký kết / ${(1 + vatRate / 100).toFixed(2)}` : 'DT = Ký kết'}
-                    </span>
-                  </label>
+                  {/* VAT note - now per line item in Step 2 */}
+                  <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-[10px] font-bold flex items-center gap-1.5">
+                    <Percent size={10} /> VAT được thiết lập riêng cho từng SP/DV ở Bước 2
+                  </span>
 
                   {/* Dealer Sale Checkbox + End User */}
                   <div className="space-y-3">
@@ -1065,6 +1178,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                     rate: item.foreignCurrency.rate,
                                     currency: item.foreignCurrency.currency,
                                   } : undefined,
+                                  vatRate: 10,
+                                  supplierDiscount: 0,
                                 });
                               }
 
@@ -1079,18 +1194,19 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                 documentProcessing: data.adminCosts.documentFee || 0,
                               });
 
-                              // Supplier discount from Excel is MONEY (VND), not %.
-                              // Calculate % = (discountAmount / totalInput) * 100
-                              // Use high precision to avoid rounding errors
-                              const supplierDiscountAmount = data.adminCosts.supplierDiscount || 0;
+                              // Supplier discount from Excel - now stored per line item
+                              const supplierDiscountFromExcel = data.adminCosts.supplierDiscount || 0;
                               const importedTotalInput = processedItems.reduce(
                                 (acc, item) => acc + (item.quantity * item.inputPrice), 0
                               );
-                              const supplierDiscountPercent = importedTotalInput > 0
-                                ? (supplierDiscountAmount / importedTotalInput) * 100
-                                : 0;
-                              // Use 6 decimal places for accuracy, UI will display rounded
-                              setSupplierDiscount(Number(supplierDiscountPercent.toFixed(6)));
+                              if (supplierDiscountFromExcel > 0) {
+                                const discountPct = importedTotalInput > 0
+                                  ? Number(((supplierDiscountFromExcel / importedTotalInput) * 100).toFixed(2))
+                                  : 0;
+                                // Apply same discount % to all items
+                                processedItems.forEach(item => { item.supplierDiscount = discountPct; });
+                                setLineItems([...processedItems]); // trigger re-render
+                              }
 
                               // Import execution costs from PAKD
                               if (data.executionCosts && data.executionCosts.length > 0) {
@@ -1128,7 +1244,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                     </div>
 
                     <div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-800">
-                      <table className="w-full text-left text-xs min-w-[1200px]">
+                      <table className="w-full text-left text-xs">
                         <thead className="bg-slate-50 dark:bg-slate-800">
                           <tr>
                             <th className="px-4 py-4 font-black text-slate-400 uppercase tracking-tighter w-[320px]">Sản phẩm/Dịch vụ</th>
@@ -1137,6 +1253,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                             <th className="px-3 py-4 font-black text-slate-400 uppercase tracking-tighter text-right w-[120px] whitespace-nowrap">Giá Đầu vào</th>
                             <th className="px-3 py-4 font-black text-cyan-500 uppercase tracking-tighter text-right w-[120px] whitespace-nowrap">TT Đầu vào</th>
                             <th className="px-3 py-4 font-black text-slate-400 uppercase tracking-tighter text-right w-[120px] whitespace-nowrap">Giá Đầu ra</th>
+                            <th className="px-2 py-4 font-black text-emerald-500 uppercase tracking-tighter text-center w-14 whitespace-nowrap">VAT</th>
                             <th className="px-3 py-4 font-black text-indigo-400 uppercase tracking-tighter text-right w-[120px] whitespace-nowrap">TT Đầu ra</th>
                             <th className="px-3 py-4 font-black text-slate-400 uppercase tracking-tighter text-right w-[110px] whitespace-nowrap">CP Trực tiếp</th>
                             <th className="px-3 py-4 font-black text-slate-400 uppercase tracking-tighter text-right w-[110px] whitespace-nowrap">Chênh lệch</th>
@@ -1273,6 +1390,22 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                     className="w-full bg-transparent font-bold text-indigo-600 text-right outline-none"
                                   />
                                 </td>
+                                {/* VAT % dropdown */}
+                                <td className="px-2 py-3 text-center">
+                                  <select
+                                    value={item.vatRate ?? 10}
+                                    onChange={(e) => {
+                                      const newList = [...lineItems];
+                                      newList[index].vatRate = Number(e.target.value);
+                                      setLineItems(newList);
+                                    }}
+                                    className="w-full bg-transparent text-center font-bold text-emerald-600 dark:text-emerald-400 text-[11px] outline-none cursor-pointer border border-transparent hover:border-emerald-300 dark:hover:border-emerald-600 rounded px-0.5 py-0.5"
+                                  >
+                                    <option value={0}>0%</option>
+                                    <option value={8}>8%</option>
+                                    <option value={10}>10%</option>
+                                  </select>
+                                </td>
                                 <td className="px-3 py-3 text-right">
                                   <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatVND(outputTotal)}</span>
                                 </td>
@@ -1336,6 +1469,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                             <td className="px-4 py-4 text-right text-indigo-600">
                               {formatVND(totals.signingValue)}
                             </td>
+                            <td className="px-2 py-4"></td>{/* VAT spacer */}
                             <td className="px-3 py-4 text-right text-indigo-600 font-black">
                               {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0))}
                             </td>
@@ -1355,145 +1489,115 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                   </div>
 
 
-                  {/* 3.2 CHI PHÍ THỰC HIỆN HỢP ĐỒNG (Dynamic list) */}
-                  <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-100 dark:border-slate-800 space-y-2 max-w-[50%]">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <Calculator size={14} /> Chi phí thực hiện hợp đồng
-                      </h4>
-                      <button
-                        onClick={addExecutionCost}
-                        className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5 border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 transition-colors"
-                      >
-                        <Plus size={12} /> Thêm hạng mục
-                      </button>
-                    </div>
-
-                    {/* Dynamic Cost Items - Compact Table */}
-                    {executionCosts.length === 0 ? (
-                      <div className="text-center py-4 text-slate-400 dark:text-slate-500 text-xs">
-                        <p>Chưa có chi phí thực hiện. Nhấn "Thêm hạng mục" để bắt đầu.</p>
+                  {/* 3.2 CHI PHÍ THỰC HIỆN & CHIẾT KHẤU */}
+                  <div className="flex flex-wrap items-start gap-6 mt-10">
+                    {/* Chi phí thực hiện HĐ */}
+                    <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-100 dark:border-slate-800 space-y-2 flex-1 min-w-[320px] max-w-xl">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                          <Calculator size={14} /> Chi phí thực hiện hợp đồng
+                        </h4>
+                        <button
+                          onClick={addExecutionCost}
+                          className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5 border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 transition-colors"
+                        >
+                          <Plus size={12} /> Thêm hạng mục
+                        </button>
                       </div>
-                    ) : (
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="text-slate-400 text-[10px] uppercase">
-                            <th className="text-left py-1 px-1 w-6">#</th>
-                            <th className="text-left py-1 px-1">Hạng mục</th>
-                            <th className="text-right py-1 px-1 w-16">%</th>
-                            <th className="text-right py-1 px-1 w-28">Số tiền</th>
-                            <th className="w-6"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {executionCosts.map((cost, idx) => (
-                            <tr key={cost.id} className="group border-b border-slate-100 dark:border-slate-800 last:border-0">
-                              <td className="py-1 px-1 text-slate-400 font-medium">{idx + 1}</td>
-                              <td className="py-2 px-2">
-                                <input
-                                  type="text"
-                                  list="execution-cost-names"
-                                  placeholder="Tên chi phí..."
-                                  value={cost.name}
-                                  onChange={(e) => updateExecutionCost(cost.id, 'name', e.target.value)}
-                                  onBlur={(e) => {
-                                    const name = e.target.value;
-                                    if (name && name.trim() !== '') {
-                                      ExecutionCostService.findOrCreate(name).then(() => {
-                                        ExecutionCostService.getAll().then(setExecutionCostTypes);
-                                      });
-                                    }
-                                  }}
-                                  className="w-full px-2 py-1 bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-indigo-500 text-xs font-medium outline-none transition-colors"
-                                />
-                              </td>
-                              <td className="py-2 px-2">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  placeholder="0"
-                                  value={cost.percentage || ''}
-                                  onChange={(e) => {
-                                    const pct = Number(e.target.value);
-                                    updateExecutionCost(cost.id, 'percentage', pct);
-                                    const amount = Math.round((pct / 100) * totals.totalInput);
-                                    updateExecutionCost(cost.id, 'amount', amount);
-                                  }}
-                                  className="w-full px-2 py-1 bg-transparent border-0 text-xs font-bold text-center outline-none"
-                                />
-                              </td>
-                              <td className="py-2 px-2">
-                                <input
-                                  type="text"
-                                  value={cost.amount ? formatVND(cost.amount) : '0'}
-                                  onChange={(e) => {
-                                    const raw = e.target.value.replace(/\./g, '');
-                                    if (!/^\d*$/.test(raw)) return;
-                                    const val = Number(raw);
-                                    updateExecutionCost(cost.id, 'amount', val);
-                                    if (totals.totalInput > 0) {
-                                      const pct = (val / totals.totalInput) * 100;
-                                      updateExecutionCost(cost.id, 'percentage', Number(pct.toFixed(2)));
-                                    }
-                                  }}
-                                  className="w-full px-2 py-1 bg-transparent border-0 text-xs font-black text-right outline-none"
-                                />
-                              </td>
-                              <td className="py-2 px-1">
-                                <button
-                                  onClick={() => removeExecutionCost(cost.id)}
-                                  className="p-1 text-slate-300 hover:text-rose-500 rounded opacity-0 group-hover:opacity-100 transition-all"
-                                  title="Xóa"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="border-t border-slate-200 dark:border-slate-600">
-                            <td colSpan={3} className="py-2 px-2 text-right text-[10px] font-bold text-slate-400 uppercase">Tổng chi phí thực hiện:</td>
-                            <td className="py-2 px-2 text-right text-sm font-black text-rose-600 dark:text-rose-400">
-                              {formatVND(executionCosts.reduce((sum, c) => sum + (c.amount || 0), 0))}
-                            </td>
-                            <td></td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    )}
 
-                    {/* Chiết khấu NCC */}
-                    <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                      <div className="flex items-center gap-4">
-                        <label className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase flex items-center gap-1 whitespace-nowrap">
-                          <TrendingDown size={10} /> Chiết khấu từ NCC
-                        </label>
-                        <div className="flex items-center gap-2 flex-1 max-w-md">
-                          <div className="relative w-20">
-                            <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
-                              <Percent size={10} className="text-emerald-500" />
-                            </div>
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              max="100"
-                              placeholder="%"
-                              value={supplierDiscount || ''}
-                              onChange={(e) => setSupplierDiscount(Number(e.target.value))}
-                              className="w-full pl-6 pr-1 py-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-300 dark:border-emerald-600 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-300 focus:ring-2 focus:ring-emerald-500 outline-none text-center"
-                            />
-                          </div>
-                          <span className="text-emerald-600 dark:text-emerald-400 font-black text-sm">
-                            = {formatVND(totals.supplierDiscountAmount || 0)}
-                          </span>
-                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 italic">
-                            (x {formatVND(totals.totalInput)} đầu vào)
-                          </span>
+                      {executionCosts.length === 0 ? (
+                        <div className="text-center py-3 text-slate-400 dark:text-slate-500 text-xs">
+                          <p>Chưa có chi phí thực hiện. Nhấn "Thêm hạng mục" để bắt đầu.</p>
                         </div>
-                      </div>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-slate-400 text-[10px] uppercase">
+                              <th className="text-left py-1 px-1 w-6">#</th>
+                              <th className="text-left py-1 px-1">Hạng mục</th>
+                              <th className="text-right py-1 px-1 w-24">%</th>
+                              <th className="text-right py-1 px-1 w-28">Số tiền</th>
+                              <th className="w-6"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {executionCosts.map((cost, idx) => (
+                              <tr key={cost.id} className="group border-b border-slate-100 dark:border-slate-800 last:border-0">
+                                <td className="py-1 px-1 text-slate-400 font-medium">{idx + 1}</td>
+                                <td className="py-2 px-2">
+                                  <input
+                                    type="text"
+                                    list="execution-cost-names"
+                                    placeholder="Tên chi phí..."
+                                    value={cost.name}
+                                    onChange={(e) => updateExecutionCost(cost.id, 'name', e.target.value)}
+                                    onBlur={(e) => {
+                                      const name = e.target.value;
+                                      if (name && name.trim() !== '') {
+                                        ExecutionCostService.findOrCreate(name).then(() => {
+                                          ExecutionCostService.getAll().then(setExecutionCostTypes);
+                                        });
+                                      }
+                                    }}
+                                    className="w-full px-2 py-1 bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-indigo-500 text-xs font-medium outline-none transition-colors"
+                                  />
+                                </td>
+                                <td className="py-2 px-2">
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      placeholder="0"
+                                      value={cost.percentage || ''}
+                                      onChange={(e) => {
+                                        const pct = Number(e.target.value);
+                                        const amount = Math.round((pct / 100) * totals.totalInput);
+                                        setExecutionCosts(prev => prev.map(c => c.id === cost.id ? { ...c, percentage: pct, amount } : c));
+                                      }}
+                                      className="w-full px-1 py-1 bg-transparent border-0 text-xs font-bold text-right outline-none"
+                                    />
+                                    <span className="text-[10px] text-slate-400 font-bold flex-shrink-0">%</span>
+                                  </div>
+                                </td>
+                                <td className="py-2 px-2">
+                                  <input
+                                    type="text"
+                                    value={cost.amount ? formatVND(cost.amount) : '0'}
+                                    onChange={(e) => {
+                                      const raw = e.target.value.replace(/\./g, '');
+                                      if (!/^\d*$/.test(raw)) return;
+                                      const val = Number(raw);
+                                      const pct = totals.totalInput > 0 ? Number(((val / totals.totalInput) * 100).toFixed(2)) : 0;
+                                      setExecutionCosts(prev => prev.map(c => c.id === cost.id ? { ...c, amount: val, percentage: pct } : c));
+                                    }}
+                                    className="w-full px-2 py-1 bg-transparent border-0 text-xs font-black text-right outline-none"
+                                  />
+                                </td>
+                                <td className="py-2 px-1">
+                                  <button
+                                    onClick={() => removeExecutionCost(cost.id)}
+                                    className="p-1 text-slate-300 hover:text-rose-500 rounded opacity-0 group-hover:opacity-100 transition-all"
+                                    title="Xóa"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t border-slate-200 dark:border-slate-600">
+                              <td colSpan={3} className="py-2 px-2 text-right text-[10px] font-bold text-slate-400 uppercase">Tổng chi phí thực hiện:</td>
+                              <td className="py-2 px-2 text-right text-sm font-black text-rose-600 dark:text-rose-400">
+                                {formatVND(executionCosts.reduce((sum, c) => sum + (c.amount || 0), 0))}
+                              </td>
+                              <td></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      )}
                     </div>
+
                   </div>
                 </div>
               </section >

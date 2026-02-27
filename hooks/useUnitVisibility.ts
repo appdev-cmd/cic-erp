@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UnitVisibilityService } from '../services/unitVisibilityService';
 import { useAuth } from '../contexts/AuthContext';
@@ -65,20 +66,21 @@ export function useCurrentUserVisibleUnits(): {
         staleTime: 10 * 60 * 1000,
     });
 
-    if (isGlobalRole) {
-        return { visibleUnits: 'all', isLoading: false };
-    }
-
-    // Build list: own unit + granted units
-    const unitSet = new Set<string>();
-    if (effectiveOwnUnitId) unitSet.add(effectiveOwnUnitId);
-    if (grantedUnits) {
-        grantedUnits.forEach(id => unitSet.add(id));
-    }
+    // Build list: own unit + granted units (memoized for referential stability)
+    // MUST be called before any conditional return to satisfy React Hook rules
+    const visibleUnits = useMemo(() => {
+        if (isGlobalRole) return 'all' as const;
+        const unitSet = new Set<string>();
+        if (effectiveOwnUnitId) unitSet.add(effectiveOwnUnitId);
+        if (grantedUnits) {
+            grantedUnits.forEach(id => unitSet.add(id));
+        }
+        return Array.from(unitSet);
+    }, [isGlobalRole, effectiveOwnUnitId, grantedUnits]);
 
     return {
-        visibleUnits: Array.from(unitSet),
-        isLoading,
+        visibleUnits,
+        isLoading: isGlobalRole ? false : isLoading,
     };
 }
 

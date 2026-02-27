@@ -123,6 +123,8 @@ export interface LineItem {
   directCosts: number;
   directCostDetails?: DirectCostDetail[];
   foreignCurrency?: ForeignCurrencyInfo; // Thông tin ngoại tệ (nếu có)
+  vatRate: number;            // Thuế suất VAT (0, 8, 10) - mỗi SP có thể khác
+  supplierDiscount: number;   // % chiết khấu từ NCC cho SP này
 }
 
 /**
@@ -181,6 +183,15 @@ export interface UnitAllocation {
   percent: number;        // % phân bổ (0-100)
   role: 'lead' | 'support'; // Vai trò: lead = đơn vị thực hiện, support = đơn vị phối hợp
 }
+/**
+ * Represents an employee allocation for multi-person assignment
+ * Allows multiple employees to share contract work with percentage distribution
+ */
+export interface EmployeeAllocation {
+  employeeId: string;   // ID nhân viên
+  percent: number;      // % phân bổ (0-100)
+  role: 'lead' | 'member'; // lead = NV chính, member = NV phối hợp
+}
 
 
 export interface Contract {
@@ -213,7 +224,8 @@ export interface Contract {
   unitId: string;
   coordinatingUnitId?: string; // Đơn vị phối hợp (Legacy - backward compatibility)
   unitAllocations?: UnitAllocation[]; // Phân bổ đơn vị phối hợp với % (QĐ 09.2024)
-  salespersonId: string;
+  salespersonId: string;              // Legacy: NV chính (backward compat)
+  employeeAllocations?: EmployeeAllocation[]; // Phân bổ NV thực hiện với %
   lineItems?: LineItem[];
   adminCosts?: AdministrativeCosts;        // Legacy: fixed fields
   executionCosts?: ExecutionCostItem[];    // New: dynamic list of execution costs
