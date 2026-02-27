@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
   XAxis,
@@ -107,7 +107,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
   // Dashboard Metrics
   const [stats, setStats] = useState({
-    actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0, netCashflow: 0 },
+    actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
     statusCounts: { active: 0, pending: 0, expired: 0, completed: 0 }
   });
 
@@ -126,8 +126,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   // Recent Activity (Light Fetch)
   const [recentContracts, setRecentContracts] = useState<Contract[]>([]);
 
-  // Company-wide target (fetched from DB when viewing 'all')
-  const [companyTarget, setCompanyTarget] = useState<any>(null);
+
 
 
 
@@ -172,8 +171,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
               revenue: Number(statsData?.totalRevenue) || 0,
               adminProfit: Number(statsData?.totalSigningProfit) || 0,
               revProfit: Number(statsData?.totalRevenueProfit) || 0,
-              cash: Number(statsData?.totalCash) || 0,
-              netCashflow: 0
+              cash: Number(statsData?.totalCash) || 0
             },
             statusCounts: {
               active: Number(statsData?.activeCount) || 0,
@@ -206,16 +204,6 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         }
         if (!isCancelled) setRawDistData(distData || []);
 
-        // STEP 5: Fetch company-wide target if viewing 'all'
-        if (unitId === 'all') {
-          console.log('[Dashboard] Step 5: Fetching company-wide target...');
-          const companyUnit = await UnitService.getById('all');
-          if (!isCancelled && companyUnit) {
-            setCompanyTarget(companyUnit.target);
-          }
-        } else {
-          if (!isCancelled) setCompanyTarget(null);
-        }
 
         // STEP 6: Fetch Recent Contracts
         console.log('[Dashboard] Step 6: Fetching recent contracts...');
@@ -234,7 +222,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         // Set empty defaults on error
         if (!isCancelled) {
           setStats({
-            actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0, netCashflow: 0 },
+            actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
             statusCounts: { active: 0, pending: 0, expired: 0, completed: 0 }
           });
         }
@@ -399,14 +387,25 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
     target: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
   };
 
-  // When viewing company-wide ('all'), use the target from the DB 'all' unit
-  // When viewing a specific unit, use that unit's target
-  const displayTarget = (() => {
-    if (safeUnit.id === 'all' && companyTarget) {
-      return companyTarget;
+  // Khi xem toàn công ty: cộng dồn chỉ tiêu từ các đơn vị
+  // Khi xem đơn vị cụ thể: dùng chỉ tiêu của đơn vị đó
+  const displayTarget = useMemo(() => {
+    if (safeUnit.id === 'all' && rawDistData.length > 0) {
+      const sumTarget: any = { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+      rawDistData.forEach((u: any) => {
+        if (u.id === 'all') return;
+        sumTarget.signing += u.target?.signing || 0;
+        sumTarget.revenue += u.target?.revenue || 0;
+        sumTarget.adminProfit += u.target?.adminProfit || 0;
+        sumTarget.cash += u.target?.cash || 0;
+      });
+      // Chỉ tiêu LNG Doanh thu = Chỉ tiêu LNG Quản trị
+      sumTarget.revProfit = sumTarget.adminProfit;
+      return sumTarget;
     }
-    return safeUnit.target;
-  })();
+    // Đơn vị cụ thể: revProfit target cũng lấy bằng adminProfit
+    return { ...safeUnit.target, revProfit: safeUnit.target.adminProfit };
+  }, [safeUnit, rawDistData]);
 
   if (loadingConfig || !selectedUnit) {
     return <DashboardSkeleton />;
@@ -458,7 +457,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           <KPIItem title="Doanh thu" metric="revenue" stats={stats.actual} target={displayTarget} yoy={getYoY('revenue')} color="emerald" icon={<CreditCard size={20} />} />
           <KPIItem title="LNG Quản trị" metric="adminProfit" stats={stats.actual} target={displayTarget} yoy={getYoY('adminProfit')} color="purple" icon={<TrendingUp size={20} />} />
           <KPIItem title="LNG Doanh thu" metric="revProfit" stats={stats.actual} target={displayTarget} yoy={getYoY('revProfit')} color="amber" icon={<Target size={20} />} />
-          <KPIItem title="Dòng tiền ròng" metric="netCashflow" stats={stats.actual} target={displayTarget} yoy={{ value: '0', isUp: true }} color="cyan" icon={<Wallet size={20} />} />
+          <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={displayTarget} yoy={{ value: '0', isUp: true }} color="cyan" icon={<Wallet size={20} />} />
         </div>
 
         {/* Status Highlights */}
