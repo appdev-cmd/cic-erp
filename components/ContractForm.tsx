@@ -749,15 +749,21 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                     <label className="text-[11px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
                       <User size={10} /> Nhân viên thực hiện
                     </label>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {employeeAllocations.map((alloc, idx) => {
                         const isLead = idx === 0;
-                        // Lead % is auto-calculated = 100 - sum of others
                         const othersTotal = employeeAllocations.filter((_, i) => i !== 0).reduce((s, a) => s + a.percent, 0);
                         const displayPercent = isLead ? (100 - othersTotal) : alloc.percent;
 
+                        // Calculate effective % when unit allocations exist
+                        const supportUnitsTotal = unitAllocations.filter(a => a.role === 'support').reduce((s, a) => s + a.percent, 0);
+                        const leadUnitPercent = supportUnitsTotal > 0 ? (100 - supportUnitsTotal) : 100;
+                        const effectivePercent = Math.round((displayPercent * leadUnitPercent) / 100);
+                        const hasUnitSplit = supportUnitsTotal > 0;
+
                         return (
-                          <div key={idx} className="flex items-center gap-2">
+                          <div key={idx} className="grid items-center gap-2" style={{ gridTemplateColumns: hasUnitSplit ? '1fr 80px 60px 36px 48px' : '1fr 80px 36px 48px' }}>
+                            {/* Employee Name */}
                             <select
                               value={alloc.employeeId}
                               onChange={(e) => {
@@ -767,64 +773,84 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                 setEmployeeAllocations(newAllocs);
                                 if (isLead) setSalespersonId(e.target.value);
                               }}
-                              className="flex-1 px-3 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-700 rounded-lg text-sm font-bold text-indigo-700 dark:text-indigo-300 outline-none focus:border-indigo-500 transition-all"
+                              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold outline-none focus:border-indigo-500 transition-all"
                             >
                               <option value="">-- Chọn NV --</option>
                               {filteredSales.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                             </select>
-                            <div className="relative w-20">
+
+                            {/* Percentage */}
+                            <div className="relative">
                               {isLead ? (
-                                // Lead: read-only, auto-calculated
-                                <div className="w-full px-2 py-2.5 bg-indigo-200 dark:bg-indigo-700/50 border border-indigo-300 dark:border-indigo-600 rounded-lg text-sm font-black text-indigo-700 dark:text-indigo-300 text-center">
+                                <div className="w-full px-2 py-2.5 bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm font-black text-indigo-600 dark:text-indigo-300 text-center">
                                   {displayPercent}
+                                  <span className="text-[10px] font-bold text-indigo-400 ml-0.5">%</span>
                                 </div>
                               ) : (
-                                // Members: editable
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max={99}
-                                  value={alloc.percent || ''}
-                                  onChange={(e) => {
-                                    const val = Math.min(99, Math.max(0, Number(e.target.value)));
-                                    const newAllocs = [...employeeAllocations];
-                                    newAllocs[idx].percent = val;
-                                    // Auto-adjust lead
-                                    const newOthersTotal = newAllocs.filter((_, i) => i !== 0).reduce((s, a) => s + a.percent, 0);
-                                    newAllocs[0].percent = Math.max(0, 100 - newOthersTotal);
-                                    setEmployeeAllocations(newAllocs);
-                                  }}
-                                  className="w-full px-2 py-2.5 bg-indigo-100 dark:bg-indigo-800/50 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm font-black text-indigo-700 dark:text-indigo-300 text-center outline-none focus:border-indigo-500"
-                                />
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max={99}
+                                    value={alloc.percent || ''}
+                                    onChange={(e) => {
+                                      const val = Math.min(99, Math.max(0, Number(e.target.value)));
+                                      const newAllocs = [...employeeAllocations];
+                                      newAllocs[idx].percent = val;
+                                      const newOthersTotal = newAllocs.filter((_, i) => i !== 0).reduce((s, a) => s + a.percent, 0);
+                                      newAllocs[0].percent = Math.max(0, 100 - newOthersTotal);
+                                      setEmployeeAllocations(newAllocs);
+                                    }}
+                                    className="w-full px-2 py-2.5 bg-indigo-50 dark:bg-indigo-800/40 border border-indigo-200 dark:border-indigo-700 rounded-lg text-sm font-black text-indigo-600 dark:text-indigo-300 text-center outline-none focus:border-indigo-500"
+                                  />
+                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-indigo-400">%</span>
+                                </div>
                               )}
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-indigo-400">%</span>
                             </div>
-                            {employeeAllocations.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newAllocs = employeeAllocations.filter((_, i) => i !== idx);
-                                  // Recalculate lead percent
-                                  const newOthersTotal = newAllocs.filter((_, i) => i !== 0).reduce((s, a) => s + a.percent, 0);
-                                  if (newAllocs.length > 0) newAllocs[0].percent = Math.max(0, 100 - newOthersTotal);
-                                  setEmployeeAllocations(newAllocs);
-                                  if (idx === 0 && newAllocs.length > 0) {
-                                    setSalespersonId(newAllocs[0].employeeId);
-                                  }
-                                }}
-                                className="text-slate-300 hover:text-rose-500 transition-colors p-1"
-                              >
-                                <Trash2 size={14} />
-                              </button>
+
+                            {/* Effective % - only when unit split exists */}
+                            {hasUnitSplit && (
+                              <div className="text-center">
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-1 rounded whitespace-nowrap">
+                                  → {effectivePercent}%
+                                </span>
+                              </div>
                             )}
-                            {isLead && (
-                              <span className="text-[9px] font-bold text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">CHÍNH</span>
-                            )}
+
+                            {/* Delete Button */}
+                            <div className="flex items-center justify-center">
+                              {employeeAllocations.length > 1 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newAllocs = employeeAllocations.filter((_, i) => i !== idx);
+                                    const newOthersTotal = newAllocs.filter((_, i) => i !== 0).reduce((s, a) => s + a.percent, 0);
+                                    if (newAllocs.length > 0) newAllocs[0].percent = Math.max(0, 100 - newOthersTotal);
+                                    setEmployeeAllocations(newAllocs);
+                                    if (idx === 0 && newAllocs.length > 0) {
+                                      setSalespersonId(newAllocs[0].employeeId);
+                                    }
+                                  }}
+                                  className="text-slate-300 hover:text-rose-500 transition-colors p-1"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              ) : <div className="w-[14px]" />}
+                            </div>
+
+                            {/* Role Badge */}
+                            <div className="flex items-center justify-center">
+                              {isLead ? (
+                                <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-1 rounded whitespace-nowrap">CHÍNH</span>
+                              ) : (
+                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800 px-1.5 py-1 rounded whitespace-nowrap">PHỤ</span>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
                       {employeeAllocations.length === 0 && (
-                        <div className="flex items-center gap-2">
+                        <div className="grid items-center gap-2" style={{ gridTemplateColumns: '1fr 80px 36px 48px' }}>
                           <select
                             value=""
                             onChange={(e) => {
@@ -833,11 +859,12 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                 setSalespersonId(e.target.value);
                               }
                             }}
-                            className="flex-1 px-3 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-700 rounded-lg text-sm font-bold text-indigo-700 dark:text-indigo-300 outline-none"
+                            className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold outline-none"
                           >
                             <option value="">-- Chọn NV --</option>
                             {filteredSales.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                           </select>
+                          <div /><div /><div />
                         </div>
                       )}
                       <button
@@ -846,16 +873,15 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                           if (employeeAllocations.length === 0) {
                             setEmployeeAllocations([{ employeeId: '', percent: 100, role: 'lead' }]);
                           } else {
-                            // New member gets 30% by default, lead auto-adjusts
                             const newAllocs = [...employeeAllocations];
                             const currentOthersTotal = newAllocs.filter((_, i) => i !== 0).reduce((s, a) => s + a.percent, 0);
-                            const defaultPercent = Math.min(30, Math.max(1, 100 - currentOthersTotal - 1)); // leave at least 1% for lead
+                            const defaultPercent = Math.min(30, Math.max(1, 100 - currentOthersTotal - 1));
                             newAllocs.push({ employeeId: '', percent: defaultPercent, role: 'member' });
                             newAllocs[0].percent = Math.max(0, 100 - currentOthersTotal - defaultPercent);
                             setEmployeeAllocations(newAllocs);
                           }
                         }}
-                        className="text-indigo-600 dark:text-indigo-400 text-[10px] font-bold flex items-center gap-1 hover:text-indigo-800 transition-colors"
+                        className="text-indigo-600 dark:text-indigo-400 text-[10px] font-bold flex items-center gap-1 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors mt-1"
                       >
                         <Plus size={10} /> Thêm nhân viên
                       </button>

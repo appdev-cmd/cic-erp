@@ -129,6 +129,21 @@ export default function UnitAllocationsInput({
 
     return (
         <div className="space-y-4">
+            {/* Lead Unit Summary - show when there are support units */}
+            {supportAllocations.length > 0 && (
+                <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 rounded-lg px-4 py-2.5 border border-indigo-100 dark:border-indigo-800">
+                    <div className="flex items-center gap-2">
+                        <Users size={14} className="text-indigo-500" />
+                        <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                            Đơn vị thực hiện: {getUnitName(leadUnitId)}
+                        </span>
+                    </div>
+                    <div className={`text-sm font-black px-3 py-1 rounded-lg ${isValid ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-800/40' : 'text-red-600 bg-red-100 dark:bg-red-900/40'}`}>
+                        {leadPercent}%
+                    </div>
+                </div>
+            )}
+
             {/* Support Units */}
             {supportAllocations.map((allocation, index) => (
                 <div
