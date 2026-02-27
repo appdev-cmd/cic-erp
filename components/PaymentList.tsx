@@ -22,7 +22,7 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
-import { canCreatePaymentActual, canDeletePayment } from '../lib/permissions';
+import { usePermissionCheck } from '../hooks/usePermissions';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 
 interface PaymentListProps {
@@ -33,6 +33,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const { profile: realProfile } = useAuth();
     const { impersonatedUser, isImpersonating } = useImpersonation();
     const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
+    const { can } = usePermissionCheck();
     const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -228,7 +229,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
             {(() => {
                 // Spec §6.4: Chỉ Accountant, ChiefAccountant, Admin mới được thêm thu/chi thực tế
-                const canAdd = profile ? canCreatePaymentActual(profile.role) : false;
+                const canAdd = can('payments', 'create');
 
                 if (!canAdd) return null;
 

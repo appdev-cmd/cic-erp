@@ -21,19 +21,15 @@ import ProductForm from './ProductForm';
 import ImportProductModal from './ImportProductModal';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import ScrollToTop from './ui/ScrollToTop';
-import { useAuth } from '../contexts/AuthContext';
-import { useImpersonation } from '../contexts/ImpersonationContext';
-import { canDeleteProduct } from '../lib/permissions';
+import { usePermissionCheck } from '../hooks/usePermissions';
 
 interface ProductListProps {
     onSelectProduct?: (id: string) => void;
 }
 
 const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
-    const { profile: realProfile } = useAuth();
-    const { impersonatedUser, isImpersonating } = useImpersonation();
-    const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
-    const allowDelete = profile ? canDeleteProduct(profile.role) : false;
+    const { can } = usePermissionCheck();
+    const allowDelete = can('products', 'delete');
 
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');

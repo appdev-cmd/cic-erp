@@ -8,7 +8,7 @@ import EmployeeDetailModal from './EmployeeDetailModal';
 import ImportEmployeeModal from './ImportEmployeeModal';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
-import { canCreateEmployee, canEditEmployee, canDeleteEmployee } from '../lib/permissions';
+import { usePermissionCheck } from '../hooks/usePermissions';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 
 interface PersonnelListProps {
@@ -20,6 +20,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     const { profile: realProfile } = useAuth();
     const { impersonatedUser, isImpersonating } = useImpersonation();
     const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
+    const { can } = usePermissionCheck();
     const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -286,7 +287,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                     </div>
 
                     {/* Import & Template — only Admin/Leadership */}
-                    {profile && canCreateEmployee(profile.role) && (
+                    {can('employees', 'create') && (
                         <>
                             <button
                                 onClick={() => setIsImportOpen(true)}
@@ -308,7 +309,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
 
                     {/* Add Button — Spec §6.5: only Admin/Leadership */}
                     {(() => {
-                        const canAdd = profile ? canCreateEmployee(profile.role) : false;
+                        const canAdd = can('employees', 'create');
 
                         if (!canAdd) return null;
 
@@ -492,8 +493,8 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                         {/* Actions */}
                                         <td className="py-4 px-6">
                                             {(() => {
-                                                const showEdit = profile ? canEditEmployee(profile.role, person.unitId, profile.unitId) : false;
-                                                const showDelete = profile ? canDeleteEmployee(profile.role) : false;
+                                                const showEdit = can('employees', 'update');
+                                                const showDelete = can('employees', 'delete');
 
                                                 if (!showEdit && !showDelete) return null;
 

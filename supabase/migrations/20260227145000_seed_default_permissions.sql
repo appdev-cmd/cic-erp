@@ -119,7 +119,7 @@ BEGIN
     LOOP
         FOREACH v_resource IN ARRAY v_resources
         LOOP
-            v_actions := _tmp_get_default_actions(v_profile.role, v_resource);
+            v_actions := _tmp_get_default_actions(v_profile.role::TEXT, v_resource);
             IF v_actions IS NOT NULL THEN
                 INSERT INTO user_permissions (user_id, resource, actions)
                 VALUES (v_profile.id, v_resource, v_actions)

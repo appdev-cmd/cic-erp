@@ -22,19 +22,15 @@ import CustomerForm from './CustomerForm';
 import ImportCustomerModal from './ImportCustomerModal';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import ScrollToTop from './ui/ScrollToTop';
-import { useAuth } from '../contexts/AuthContext';
-import { useImpersonation } from '../contexts/ImpersonationContext';
-import { canDeleteCustomer } from '../lib/permissions';
+import { usePermissionCheck } from '../hooks/usePermissions';
 
 interface CustomerListProps {
     onSelectCustomer?: (id: string) => void;
 }
 
 const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
-    const { profile: realProfile } = useAuth();
-    const { impersonatedUser, isImpersonating } = useImpersonation();
-    const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
-    const allowDelete = profile ? canDeleteCustomer(profile.role) : false;
+    const { can } = usePermissionCheck();
+    const allowDelete = can('customers', 'delete');
 
     const [searchQuery, setSearchQuery] = useState('');
     const [industryFilter, setIndustryFilter] = useState<string>('all');

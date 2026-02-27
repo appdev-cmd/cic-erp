@@ -11,7 +11,7 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
-import { canCreateContract, canViewAllUnits } from '../lib/permissions';
+import { usePermissionCheck } from '../hooks/usePermissions';
 
 // Inline debounce hook if not exists, but better to check. 
 // For now, I'll use a simple useEffect debounce logic.
@@ -30,6 +30,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const { impersonatedUser, isImpersonating } = useImpersonation();
   // Use impersonated profile for permission checks
   const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
+  const { can, isGlobalScope } = usePermissionCheck();
 
   // Params state
   const [statusFilter, setStatusFilter] = useState<ContractStatus | 'All'>('All');
@@ -55,18 +56,15 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-  // Permissions logic (centralized from lib/permissions.ts)
-  const isGlobalRole = profile ? canViewAllUnits(profile.role) : false;
-
-  // Can create: only roles from spec §6.2 (NVKD, AdminUnit, UnitLeader, Leadership, Admin)
+  // Can create: check DB permission + scope
   const canCreate = useMemo(() => {
     if (!profile) return false;
-    if (!canCreateContract(profile.role)) return false;
+    if (!can('contracts', 'create')) return false;
     // Global roles (Leadership/Admin) can always create
-    if (isGlobalRole) return true;
+    if (isGlobalScope) return true;
     // Unit-scoped roles: can only create when viewing their own unit
     return unitFilter === profile.unitId || (unitFilter === 'All' && !isImpersonating && profile.unitId !== 'all');
-  }, [profile, isGlobalRole, unitFilter, isImpersonating]);
+  }, [profile, isGlobalScope, unitFilter, isImpersonating, can]);
 
   // Debounce search
   useEffect(() => {
@@ -743,7 +741,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   </td>
                   <td className="px-4 py-5 text-right bg-white dark:bg-slate-900">
                     <div className="flex items-center justify-end gap-1">
-                      {(onClone && (isGlobalRole || contract.unitId === profile?.unitId)) && (
+                      {(onClone && (isGlobalScope || contract.unitId === profile?.unitId)) && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
