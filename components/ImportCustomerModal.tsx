@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { X, Upload, Download, AlertCircle, CheckCircle, FileSpreadsheet, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { CustomerService } from '../services';
+import { INDUSTRIES } from '../constants';
 import { toast } from 'sonner';
 
 interface ImportCustomerModalProps {
@@ -28,7 +29,7 @@ interface ParsedRow extends ImportRow {
     isValid: boolean;
 }
 
-const VALID_INDUSTRIES = ['Xây dựng', 'Bất động sản', 'Năng lượng', 'Công nghệ', 'Sản xuất', 'Khác'];
+const VALID_INDUSTRIES = [...INDUSTRIES];
 const VALID_TYPES = ['Customer', 'Supplier'];
 
 const ImportCustomerModal: React.FC<ImportCustomerModalProps> = ({ isOpen, onClose, onSuccess }) => {
@@ -70,7 +71,7 @@ const ImportCustomerModal: React.FC<ImportCustomerModalProps> = ({ isOpen, onClo
         }
 
         // Industry validation
-        if (row.industry && !VALID_INDUSTRIES.includes(row.industry)) {
+        if (row.industry && !(VALID_INDUSTRIES as readonly string[]).includes(row.industry)) {
             errors.push(`Ngành nghề không hợp lệ. Chọn: ${VALID_INDUSTRIES.join(', ')}`);
         }
 
@@ -167,7 +168,7 @@ const ImportCustomerModal: React.FC<ImportCustomerModalProps> = ({ isOpen, onClo
                     name: row.name,
                     shortName: row.shortName,
                     taxCode: row.taxCode,
-                    industry: (VALID_INDUSTRIES.includes(row.industry) ? row.industry : 'Khác') as 'Xây dựng' | 'Bất động sản' | 'Năng lượng' | 'Công nghệ' | 'Sản xuất' | 'Khác',
+                    industry: [(VALID_INDUSTRIES as readonly string[]).includes(row.industry) ? row.industry : 'Khác'],
                     type: row.type,
                     address: row.address || '',
                     phone: row.phone || '',

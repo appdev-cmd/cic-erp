@@ -35,6 +35,11 @@ export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
 
 export const NON_BUSINESS_UNIT_CODES = ['HCNS', 'TCKT'];
 
+export const INDUSTRIES = [
+  'Xây dựng', 'Bất động sản', 'Năng lượng', 'Công nghệ', 'Sản xuất',
+  'Thương mại', 'Dịch vụ', 'Giáo dục', 'Y tế', 'Khác'
+] as const;
+
 export const CONTRACT_STATUS_LABELS: Record<string, string> = {
   // Trạng thái chính
   'Active': 'Đang hiệu lực',
@@ -185,18 +190,18 @@ export const NAV_ITEMS = [
 ];
 
 export const MOCK_CUSTOMERS: Customer[] = [
-  { id: 'c1', name: 'FECON Corporation', shortName: 'FECON', industry: 'Xây dựng', contactPerson: 'Nguyễn Văn Hùng', phone: '024 3784 5678', email: 'hung.nv@fecon.com.vn', address: 'Tầng 15, Tòa nhà FECON, Cầu Giấy, Hà Nội', taxCode: '0100102030', bankName: 'Vietcombank', bankAccount: '1234567890123' },
-  { id: 'c2', name: 'Vingroup JSC', shortName: 'VIN', industry: 'Bất động sản', contactPerson: 'Trần Minh Đức', phone: '024 3974 9999', email: 'duc.tm@vingroup.net', address: 'Tòa nhà Vinhomes Metropolis, Ba Đình, Hà Nội', taxCode: '0100103040', bankName: 'BIDV', bankAccount: '2345678901234' },
-  { id: 'c3', name: 'Sun Group', shortName: 'SUN', industry: 'Bất động sản', contactPerson: 'Lê Thị Hương', phone: '024 3222 8888', email: 'huong.lt@sungroup.com.vn', address: 'Tầng 25, Sunshine Tower, Hai Bà Trưng, Hà Nội', taxCode: '0100104050', bankName: 'Vietinbank', bankAccount: '3456789012345' },
-  { id: 'c4', name: 'COTECCONS Construction', shortName: 'COTEC', industry: 'Xây dựng', contactPerson: 'Phạm Quốc Bảo', phone: '028 3822 6666', email: 'bao.pq@coteccons.vn', address: 'Tầng 18, Vincom Center, Quận 1, TP.HCM', taxCode: '0302345678', bankName: 'ACB', bankAccount: '4567890123456' },
-  { id: 'c5', name: 'Delta Group', shortName: 'DELTA', industry: 'Xây dựng', contactPerson: 'Hoàng Văn Tiến', phone: '028 3930 5555', email: 'tien.hv@delta.com.vn', address: 'Quận 7, TP.HCM', taxCode: '0302456789', bankName: 'Techcombank', bankAccount: '5678901234567' },
-  { id: 'c6', name: 'Novaland Group', shortName: 'NOVA', industry: 'Bất động sản', contactPerson: 'Vũ Thị Mai', phone: '028 3821 7777', email: 'mai.vt@novaland.com.vn', address: 'Tầng 20, The Manor, Quận Bình Thạnh, TP.HCM', taxCode: '0302567890', bankName: 'MB Bank', bankAccount: '6789012345678' },
-  { id: 'c7', name: 'GELEX Group', shortName: 'GELEX', industry: 'Năng lượng', contactPerson: 'Đặng Minh Tuấn', phone: '024 3512 4444', email: 'tuan.dm@gelex.com.vn', address: 'Tầng 10, Gelex Tower, Hoàng Mai, Hà Nội', taxCode: '0100205060', bankName: 'VPBank', bankAccount: '7890123456789' },
-  { id: 'c8', name: 'Ree Corporation', shortName: 'REEE', industry: 'Năng lượng', contactPerson: 'Bùi Văn Long', phone: '028 3829 3333', email: 'long.bv@reecorp.com', address: 'Quận 4, TP.HCM', taxCode: '0302678901', bankName: 'Sacombank', bankAccount: '8901234567890' },
-  { id: 'c9', name: 'MAS Group', shortName: 'MAS', industry: 'Công nghệ', contactPerson: 'Lý Thị Ngọc', phone: '024 3636 2222', email: 'ngoc.lt@masgroup.vn', address: 'Cầu Giấy, Hà Nội', taxCode: '0100306070', bankName: 'TPBank', bankAccount: '9012345678901' },
-  { id: 'c10', name: 'FPT Corporation', shortName: 'FPT', industry: 'Công nghệ', contactPerson: 'Ngô Văn Khoa', phone: '024 7300 8888', email: 'khoa.nv@fpt.com.vn', address: 'Tòa nhà FPT Tower, Nam Từ Liêm, Hà Nội', taxCode: '0100407080', bankName: 'Vietcombank', bankAccount: '0123456789012' },
-  { id: 'c11', name: 'Hòa Phát Group', shortName: 'HPG', industry: 'Sản xuất', contactPerson: 'Mai Văn Thành', phone: '024 3628 1111', email: 'thanh.mv@hoaphat.com.vn', address: 'Khu CN Phố Nối, Hưng Yên', taxCode: '0500123456', bankName: 'BIDV', bankAccount: '1234509876543' },
-  { id: 'c12', name: 'Tập đoàn Xây dựng Hà Nội', shortName: 'HANCORP', industry: 'Xây dựng', contactPerson: 'Trịnh Công Sơn', phone: '024 3825 0000', email: 'son.tc@hancorp.com.vn', address: 'Đống Đa, Hà Nội', taxCode: '0100508090', bankName: 'Agribank', bankAccount: '2345609876543' },
+  { id: 'c1', name: 'FECON Corporation', shortName: 'FECON', industry: ['Xây dựng'], contactPerson: 'Nguyễn Văn Hùng', phone: '024 3784 5678', email: 'hung.nv@fecon.com.vn', address: 'Tầng 15, Tòa nhà FECON, Cầu Giấy, Hà Nội', taxCode: '0100102030', bankName: 'Vietcombank', bankAccount: '1234567890123' },
+  { id: 'c2', name: 'Vingroup JSC', shortName: 'VIN', industry: ['Bất động sản'], contactPerson: 'Trần Minh Đức', phone: '024 3974 9999', email: 'duc.tm@vingroup.net', address: 'Tòa nhà Vinhomes Metropolis, Ba Đình, Hà Nội', taxCode: '0100103040', bankName: 'BIDV', bankAccount: '2345678901234' },
+  { id: 'c3', name: 'Sun Group', shortName: 'SUN', industry: ['Bất động sản'], contactPerson: 'Lê Thị Hương', phone: '024 3222 8888', email: 'huong.lt@sungroup.com.vn', address: 'Tầng 25, Sunshine Tower, Hai Bà Trưng, Hà Nội', taxCode: '0100104050', bankName: 'Vietinbank', bankAccount: '3456789012345' },
+  { id: 'c4', name: 'COTECCONS Construction', shortName: 'COTEC', industry: ['Xây dựng'], contactPerson: 'Phạm Quốc Bảo', phone: '028 3822 6666', email: 'bao.pq@coteccons.vn', address: 'Tầng 18, Vincom Center, Quận 1, TP.HCM', taxCode: '0302345678', bankName: 'ACB', bankAccount: '4567890123456' },
+  { id: 'c5', name: 'Delta Group', shortName: 'DELTA', industry: ['Xây dựng'], contactPerson: 'Hoàng Văn Tiến', phone: '028 3930 5555', email: 'tien.hv@delta.com.vn', address: 'Quận 7, TP.HCM', taxCode: '0302456789', bankName: 'Techcombank', bankAccount: '5678901234567' },
+  { id: 'c6', name: 'Novaland Group', shortName: 'NOVA', industry: ['Bất động sản'], contactPerson: 'Vũ Thị Mai', phone: '028 3821 7777', email: 'mai.vt@novaland.com.vn', address: 'Tầng 20, The Manor, Quận Bình Thạnh, TP.HCM', taxCode: '0302567890', bankName: 'MB Bank', bankAccount: '6789012345678' },
+  { id: 'c7', name: 'GELEX Group', shortName: 'GELEX', industry: ['Năng lượng'], contactPerson: 'Đặng Minh Tuấn', phone: '024 3512 4444', email: 'tuan.dm@gelex.com.vn', address: 'Tầng 10, Gelex Tower, Hoàng Mai, Hà Nội', taxCode: '0100205060', bankName: 'VPBank', bankAccount: '7890123456789' },
+  { id: 'c8', name: 'Ree Corporation', shortName: 'REEE', industry: ['Năng lượng'], contactPerson: 'Bùi Văn Long', phone: '028 3829 3333', email: 'long.bv@reecorp.com', address: 'Quận 4, TP.HCM', taxCode: '0302678901', bankName: 'Sacombank', bankAccount: '8901234567890' },
+  { id: 'c9', name: 'MAS Group', shortName: 'MAS', industry: ['Công nghệ'], contactPerson: 'Lý Thị Ngọc', phone: '024 3636 2222', email: 'ngoc.lt@masgroup.vn', address: 'Cầu Giấy, Hà Nội', taxCode: '0100306070', bankName: 'TPBank', bankAccount: '9012345678901' },
+  { id: 'c10', name: 'FPT Corporation', shortName: 'FPT', industry: ['Công nghệ'], contactPerson: 'Ngô Văn Khoa', phone: '024 7300 8888', email: 'khoa.nv@fpt.com.vn', address: 'Tòa nhà FPT Tower, Nam Từ Liêm, Hà Nội', taxCode: '0100407080', bankName: 'Vietcombank', bankAccount: '0123456789012' },
+  { id: 'c11', name: 'Hòa Phát Group', shortName: 'HPG', industry: ['Sản xuất'], contactPerson: 'Mai Văn Thành', phone: '024 3628 1111', email: 'thanh.mv@hoaphat.com.vn', address: 'Khu CN Phố Nối, Hưng Yên', taxCode: '0500123456', bankName: 'BIDV', bankAccount: '1234509876543' },
+  { id: 'c12', name: 'Tập đoàn Xây dựng Hà Nội', shortName: 'HANCORP', industry: ['Xây dựng'], contactPerson: 'Trịnh Công Sơn', phone: '024 3825 0000', email: 'son.tc@hancorp.com.vn', address: 'Đống Đa, Hà Nội', taxCode: '0100508090', bankName: 'Agribank', bankAccount: '2345609876543' },
 ];
 
 // Customer shortName to ID mapping

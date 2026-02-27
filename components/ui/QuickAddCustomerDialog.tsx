@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, User, Building2, Phone, Mail, Loader2, CheckCircle, Hash, MapPin } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, User, Building2, Phone, Mail, Loader2, CheckCircle, Hash, MapPin, ChevronDown } from 'lucide-react';
 import { CustomerService } from '../../services/customerService';
 import { Customer } from '../../types';
+import { INDUSTRIES } from '../../constants';
 
 interface QuickAddCustomerDialogProps {
     isOpen: boolean;
@@ -9,11 +10,6 @@ interface QuickAddCustomerDialogProps {
     onCreated: (customer: Customer) => void;
     initialName?: string;
 }
-
-const INDUSTRIES = [
-    'Xây dựng', 'Bất động sản', 'Công nghệ', 'Sản xuất',
-    'Thương mại', 'Dịch vụ', 'Giáo dục', 'Y tế', 'Khác'
-];
 
 const QuickAddCustomerDialog: React.FC<QuickAddCustomerDialogProps> = ({
     isOpen,
@@ -23,7 +19,7 @@ const QuickAddCustomerDialog: React.FC<QuickAddCustomerDialogProps> = ({
 }) => {
     const [name, setName] = useState(initialName);
     const [shortName, setShortName] = useState('');
-    const [industry, setIndustry] = useState('');
+    const [industry, setIndustry] = useState<string[]>([]);
     const [contactPerson, setContactPerson] = useState('');
     const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
@@ -31,17 +27,35 @@ const QuickAddCustomerDialog: React.FC<QuickAddCustomerDialogProps> = ({
     const [address, setAddress] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [showDropdown, setShowDropdown] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     const resetForm = () => {
         setName('');
         setShortName('');
-        setIndustry('');
+        setIndustry([]);
         setContactPerson('');
         setPhone('');
         setEmail('');
         setTaxCode('');
         setAddress('');
         setError('');
+        setShowDropdown(false);
+    };
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setShowDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleIndustry = (ind: string) => {
+        setIndustry(prev => prev.includes(ind) ? prev.filter(i => i !== ind) : [...prev, ind]);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -59,7 +73,7 @@ const QuickAddCustomerDialog: React.FC<QuickAddCustomerDialogProps> = ({
             const newCustomer = await CustomerService.create({
                 name: name.trim(),
                 shortName: shortName.trim(),
-                industry: (industry as any) || undefined,
+                industry: industry.length > 0 ? industry : ['Khác'],
                 contactPerson: contactPerson.trim(),
                 phone: phone.trim(),
                 email: email.trim(),
@@ -139,18 +153,44 @@ const QuickAddCustomerDialog: React.FC<QuickAddCustomerDialogProps> = ({
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium focus:border-indigo-500 outline-none transition-all"
                             />
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 relative" ref={dropdownRef}>
                             <label className="text-xs font-bold text-slate-500 uppercase">Ngành nghề</label>
-                            <select
-                                value={industry}
-                                onChange={(e) => setIndustry(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium focus:border-indigo-500 outline-none transition-all"
+                            <button
+                                type="button"
+                                onClick={() => setShowDropdown(!showDropdown)}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium focus:border-indigo-500 outline-none transition-all text-left flex items-center justify-between"
                             >
-                                <option value="">-- Chọn --</option>
-                                {INDUSTRIES.map(ind => (
-                                    <option key={ind} value={ind}>{ind}</option>
-                                ))}
-                            </select>
+                                <span className={industry.length > 0 ? 'text-slate-900 dark:text-slate-100 truncate' : 'text-slate-400'}>
+                                    {industry.length > 0 ? industry.join(', ') : '-- Chọn --'}
+                                </span>
+                                <ChevronDown size={14} className={`text-slate-400 flex-shrink-0 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+                            </button>
+                            {/* Selected tags */}
+                            {industry.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {industry.map(ind => (
+                                        <span key={ind} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded text-[10px] font-bold">
+                                            {ind}
+                                            <button type="button" onClick={() => toggleIndustry(ind)} className="hover:text-rose-500"><X size={8} /></button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {showDropdown && (
+                                <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                                    {INDUSTRIES.map(ind => (
+                                        <label key={ind} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer text-sm">
+                                            <input
+                                                type="checkbox"
+                                                checked={industry.includes(ind)}
+                                                onChange={() => toggleIndustry(ind)}
+                                                className="w-3.5 h-3.5 rounded text-indigo-600"
+                                            />
+                                            <span className="text-slate-700 dark:text-slate-300">{ind}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
 

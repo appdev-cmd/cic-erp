@@ -1,12 +1,36 @@
 import { dataClient as supabase } from '../lib/dataClient';
 import { Customer } from '../types';
 
+// Normalize industry: DB may store string or JSON array string
+// Old data: "Xây dựng" -> ["Xây dựng"]
+// New data: ["Xây dựng","Công nghệ"] -> ["Xây dựng","Công nghệ"]
+const normalizeIndustry = (raw: any): string[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+        // Try parse JSON array
+        if (raw.startsWith('[')) {
+            try { return JSON.parse(raw); } catch { /* fall through */ }
+        }
+        // Single string value
+        return raw.trim() ? [raw.trim()] : [];
+    }
+    return [];
+};
+
+// Serialize industry array for DB storage (as JSON string)
+const serializeIndustry = (industry: string[] | string | undefined): string => {
+    if (!industry) return '[]';
+    if (typeof industry === 'string') return JSON.stringify([industry]);
+    return JSON.stringify(industry);
+};
+
 // Helper to map DB Customer to Frontend Customer
 const mapCustomer = (c: any): Customer => ({
     id: c.id,
     name: c.name,
     shortName: c.short_name || c.shortName, // Handle both snake_case (RPC) and camelCase (if any)
-    industry: c.industry,
+    industry: normalizeIndustry(c.industry),
     contactPerson: c.contact_person || c.contactPerson,
     phone: c.phone,
     email: c.email,
@@ -69,7 +93,7 @@ export const CustomerService = {
         const payload = {
             name: data.name,
             short_name: data.shortName,
-            industry: data.industry,
+            industry: serializeIndustry(data.industry),
             contact_person: data.contactPerson,
             phone: data.phone,
             email: data.email,
@@ -92,7 +116,7 @@ export const CustomerService = {
         const payload: any = {};
         if (data.name) payload.name = data.name;
         if (data.shortName) payload.short_name = data.shortName;
-        if (data.industry) payload.industry = data.industry;
+        if (data.industry) payload.industry = serializeIndustry(data.industry);
         if (data.contactPerson) payload.contact_person = data.contactPerson;
         if (data.phone) payload.phone = data.phone;
         if (data.email) payload.email = data.email;
@@ -164,7 +188,7 @@ export const CustomerService = {
         const newSupplier = {
             name: name.trim(),
             short_name: name.trim().substring(0, 20),
-            industry: 'Technology',
+            industry: '["Công nghệ"]',
             type: 'Supplier',
             contact_person: '',
             phone: '',

@@ -172,7 +172,7 @@ const MainLayout: React.FC = () => {
 
                 {/* Development Tools */}
                 {profile?.role === 'Admin' && !isImpersonating && <RoleSwitcher />}
-                <DebugPanel />
+                {/* <DebugPanel /> */}
 
                 {/* Global Search (Cmd+K) */}
                 <CommandPalette />

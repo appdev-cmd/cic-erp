@@ -55,6 +55,8 @@ export interface PAKDFinancials {
     costs: number;         // Tổng chi phí
     profit: number;        // Lợi nhuận
     margin: number;        // Hệ số LN/SL (%)
+    vatRate?: number;      // Thuế VAT (8 | 10) - auto-detected from Sản lượng / Doanh thu
+    signingValue?: number; // Sản lượng (Giá trị ký kết = Đầu ra + VAT)
 }
 
 export interface PAKDHeader {
@@ -646,6 +648,26 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
         return 0;
     };
 
+    // --- Known summary row labels to SKIP (not execution costs) ---
+    const SKIP_LABELS = [
+        'đầu vào', 'dau vao',
+        'tổng chi phí', 'tong chi phi',
+        'lợi nhuận', 'loi nhuan',
+        'hệ số', 'he so',
+        'tổng hợp', 'tong hop',
+        'tổng cộng', 'tong cong',
+        'chi phí khác', 'chi phi khac',
+        'thanh toán hợp đồng', 'thanh toan hop dong',
+        'tạm ứng', 'tam ung',
+        'thanh toán của', 'thanh toan cua',
+        'thanh toán cho', 'thanh toan cho',
+        'dự kiến', 'du kien',
+    ];
+
+    let inSummarySection = false;
+    let parsedSanLuong = 0;  // Sản lượng (= Đầu ra + VAT = Giá trị ký kết)
+    let parsedDoanhThu = 0;  // Doanh thu (= Đầu ra trước VAT)
+
     for (let i = DATA_START_ROW; i < jsonData.length; i++) {
         const row = jsonData[i];
         if (!row || row.length === 0) continue;
@@ -654,56 +676,99 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
         const labelText = row.slice(0, 5).map(c => String(c || '').trim()).join(' ').toLowerCase();
         if (!labelText) continue;
 
+        // Detect when we enter summary section (after "Tổng hợp tài chính" or "Tổng cộng")
+        if (labelText.includes('tổng hợp') || labelText.includes('tổng cộng') || labelText.includes('tong hop') || labelText.includes('tong cong')) {
+            inSummarySection = true;
+            continue;
+        }
+
+        // Stop if we hit payment schedule section
+        if (labelText.includes('thanh toán hợp đồng') || labelText.includes('thanh toan hop dong')) {
+            break;
+        }
+
+        // Only parse execution costs from summary section
+        if (!inSummarySection) continue;
+
         const value = findNumericInRow(row);
 
+        // Capture Sản lượng and Doanh thu for VAT detection (even if value is 0 or skipped)
+        if (labelText.includes('sản lượng') || labelText.includes('san luong')) {
+            parsedSanLuong = value;
+            continue;
+        }
+        if (labelText.includes('doanh thu')) {
+            parsedDoanhThu = value;
+            continue;
+        }
+
+        if (value <= 0) continue;
+
+        // Skip known summary rows (total costs, profit, margin ratios)
+        const isSkipRow = SKIP_LABELS.some(skip => labelText.includes(skip));
+        if (isSkipRow) continue;
+
+        // --- Categorize the cost ---
         // 1. Expert Fees (including support/hỗ trợ)
         if (labelText.includes('chuyên gia')) {
-            if (value > 0) {
-                const name = labelText.includes('hỗ trợ') ? 'Phí hỗ trợ chuyên gia' : 'Phí thuê chuyên gia (net)';
-                executionCosts.push({
-                    id: `pakd-expert-${Date.now()}-${i}`,
-                    name,
-                    amount: value
-                });
-                adminCosts.expertFee += value;
-            }
+            const name = labelText.includes('hỗ trợ') ? 'Phí hỗ trợ chuyên gia' : 'Phí thuê chuyên gia (net)';
+            executionCosts.push({
+                id: `pakd-expert-${Date.now()}-${i}`,
+                name,
+                amount: value
+            });
+            adminCosts.expertFee += value;
         }
         // 2. Document Fees
         else if (labelText.includes('phí thanh toán') || labelText.includes('chứng từ') || labelText.includes('biên bản')) {
-            if (value > 0) {
-                executionCosts.push({
-                    id: `pakd-document-${Date.now()}-${i}`,
-                    name: 'Phí thanh toán chứng từ',
-                    amount: value
-                });
-                adminCosts.documentFee += value;
-            }
+            executionCosts.push({
+                id: `pakd-document-${Date.now()}-${i}`,
+                name: 'Phí thanh toán chứng từ',
+                amount: value
+            });
+            adminCosts.documentFee += value;
         }
         // 3. Supplier Discount
         else if (labelText.includes('chiết khấu') || labelText.includes('chiet khau')) {
-            if (value > 0) adminCosts.supplierDiscount = value;
+            adminCosts.supplierDiscount = value;
         }
-        // 4. Other Execution Costs (logistics, thuê ngoài - but NOT 'chi phí khác' as it's already in line items)
-        // Bỏ qua 'chi phí khác' vì nó đã là chi phí trực tiếp trong line items
-        else if ((labelText.includes('logistics') || labelText.includes('thuê ngoài')) && !labelText.includes('chi phí khác')) {
-            if (value > 0 && !labelText.includes('chuyên gia')) {
-                executionCosts.push({
-                    id: `pakd-other-${Date.now()}-${i}`,
-                    name: String(row[0] || row[1] || 'Chi phí thực hiện').trim(),
-                    amount: value
-                });
-            }
+        // 4. Generic execution cost — capture ALL other cost items dynamically
+        //    (e.g., Thưởng hoàn thành dự án, Xúc tiến hợp đồng, Ban lãnh đạo hỗ trợ, logistics, etc.)
+        else {
+            // Find the best label from the row cells
+            const costName = String(row[1] || row[0] || 'Chi phí thực hiện').trim();
+            executionCosts.push({
+                id: `pakd-exec-${Date.now()}-${i}`,
+                name: costName,
+                amount: value
+            });
         }
     }
 
     const totalAdminCosts = adminCosts.bankFee + adminCosts.subcontractorFee + adminCosts.importLogistics + adminCosts.expertFee + adminCosts.documentFee;
     const otherExecutionCosts = executionCosts.filter(c => !c.name.includes('chuyên gia') && !c.name.includes('chứng từ')).reduce((sum, c) => sum + c.amount, 0);
 
+    // Detect VAT rate from Sản lượng / Doanh thu ratio
+    // Sản lượng = Doanh thu × (1 + VAT) → VAT = (Sản lượng / Doanh thu) - 1
+    let detectedVatRate: number | undefined;
+    const signingValue = parsedSanLuong || totalPriceSum;
+    if (parsedSanLuong > 0 && parsedDoanhThu > 0) {
+        const ratio = parsedSanLuong / parsedDoanhThu;
+        // ratio ≈ 1.08 → 8%, ratio ≈ 1.10 → 10%, ratio ≈ 1.0 → 0%
+        if (Math.abs(ratio - 1.08) < 0.005) detectedVatRate = 8;
+        else if (Math.abs(ratio - 1.10) < 0.005) detectedVatRate = 10;
+        else if (Math.abs(ratio - 1.0) < 0.005) detectedVatRate = 0;
+        else detectedVatRate = Math.round((ratio - 1) * 100); // fallback
+        console.log(`[PAKD Parser] VAT detected: ${detectedVatRate}% (SL=${parsedSanLuong}, DT=${parsedDoanhThu}, ratio=${ratio.toFixed(4)})`);
+    }
+
     const financials: PAKDFinancials = {
         revenue: totalPriceSum,
         costs: totalCostSum + totalAdminCosts + otherExecutionCosts,
         profit: totalPriceSum - totalCostSum - totalAdminCosts - otherExecutionCosts,
         margin: totalPriceSum > 0 ? Math.round(((totalPriceSum - totalCostSum - totalAdminCosts - otherExecutionCosts) / totalPriceSum) * 100 * 100) / 100 : 0,
+        vatRate: detectedVatRate,
+        signingValue,
     };
 
     return { header, lineItems, adminCosts, executionCosts, financials };

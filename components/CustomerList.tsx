@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Customer } from '../types';
 import { CustomerService } from '../services';
+import { INDUSTRIES } from '../constants';
 import CustomerForm from './CustomerForm';
 import ImportCustomerModal from './ImportCustomerModal';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
@@ -87,7 +88,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
         resetDeps: [debouncedSearch, typeFilter, industryFilter]
     });
 
-    const industries = ['all', 'Xây dựng', 'Bất động sản', 'Năng lượng', 'Công nghệ', 'Sản xuất', 'Khác']; // Hardcoded for filter UI
+    const industries = ['all', ...INDUSTRIES];
 
     const formatCurrency = (val: number) => {
         if (val >= 1e9) return `${(val / 1e9).toFixed(1)} tỷ`;
@@ -102,6 +103,10 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
             case 'Năng lượng': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
             case 'Công nghệ': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
             case 'Sản xuất': return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400';
+            case 'Thương mại': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+            case 'Dịch vụ': return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400';
+            case 'Giáo dục': return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400';
+            case 'Y tế': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
             default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400';
         }
     };
@@ -351,9 +356,13 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                                                 </div>
                                             </td>
                                             <td className="py-4 px-6 hidden md:table-cell">
-                                                <span className={`px-3 py-1 rounded-lg text-[10px] font-bold ${getIndustryColor(customer.industry || '')}`}>
-                                                    {customer.industry || 'Khác'}
-                                                </span>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {(Array.isArray(customer.industry) ? customer.industry : [customer.industry || 'Khác']).map((ind: string) => (
+                                                        <span key={ind} className={`px-3 py-1 rounded-lg text-[10px] font-bold ${getIndustryColor(ind)}`}>
+                                                            {ind}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             </td>
                                             <td className="py-4 px-6 hidden lg:table-cell">
                                                 <div className="space-y-1">

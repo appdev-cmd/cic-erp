@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Save, Loader2 } from 'lucide-react';
+import { Save, Loader2, ChevronDown, X } from 'lucide-react';
 import Modal from './ui/Modal';
 import { Customer } from '../types';
+import { INDUSTRIES } from '../constants';
 
 interface CustomerFormProps {
     isOpen: boolean;
@@ -12,14 +13,14 @@ interface CustomerFormProps {
     defaultType?: 'Customer' | 'Supplier' | 'Both' | 'all';
 }
 
-const INDUSTRIES = ['Xây dựng', 'Bất động sản', 'Năng lượng', 'Công nghệ', 'Sản xuất', 'Khác'];
-
 const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, customer, defaultType = 'Customer' }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
     const [formData, setFormData] = useState({
         name: '',
         shortName: '',
-        industry: 'Xây dựng',
+        industry: [] as string[],
         contactPerson: '',
         phone: '',
         email: '',
@@ -35,7 +36,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
             setFormData({
                 name: customer.name,
                 shortName: customer.shortName,
-                industry: customer.industry,
+                industry: Array.isArray(customer.industry) ? customer.industry : (customer.industry ? [customer.industry as string] : []),
                 contactPerson: customer.contactPerson || '',
                 phone: customer.phone || '',
                 email: customer.email || '',
@@ -49,7 +50,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
             setFormData({
                 name: '',
                 shortName: '',
-                industry: 'Xây dựng',
+                industry: [],
                 contactPerson: '',
                 phone: '',
                 email: '',
@@ -61,6 +62,26 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
             });
         }
     }, [customer, isOpen, defaultType]);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setShowIndustryDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const toggleIndustry = (ind: string) => {
+        setFormData(prev => ({
+            ...prev,
+            industry: prev.industry.includes(ind)
+                ? prev.industry.filter(i => i !== ind)
+                : [...prev.industry, ind]
+        }));
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -153,20 +174,50 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
                     </div>
                 </div>
 
-                {/* Row 2: Industry + Tax Code */}
+                {/* Row 2: Industry (Multi-select) + Tax Code */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                    <div ref={dropdownRef} className="relative">
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Ngành nghề *</label>
-                        <select
-                            required
-                            value={formData.industry}
-                            onChange={e => setFormData(prev => ({ ...prev, industry: e.target.value }))}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                        <button
+                            type="button"
+                            onClick={() => setShowIndustryDropdown(!showIndustryDropdown)}
+                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-left flex items-center justify-between"
                         >
-                            {INDUSTRIES.map(ind => (
-                                <option key={ind} value={ind}>{ind}</option>
-                            ))}
-                        </select>
+                            <span className={formData.industry.length > 0 ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400'}>
+                                {formData.industry.length > 0 ? formData.industry.join(', ') : 'Chọn ngành nghề...'}
+                            </span>
+                            <ChevronDown size={16} className={`text-slate-400 transition-transform ${showIndustryDropdown ? 'rotate-180' : ''}`} />
+                        </button>
+                        {/* Selected tags */}
+                        {formData.industry.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                                {formData.industry.map(ind => (
+                                    <span key={ind} className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded text-[10px] font-bold">
+                                        {ind}
+                                        <button type="button" onClick={() => toggleIndustry(ind)} className="hover:text-rose-500"><X size={10} /></button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        {/* Dropdown */}
+                        {showIndustryDropdown && (
+                            <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                                {INDUSTRIES.map(ind => (
+                                    <label
+                                        key={ind}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.industry.includes(ind)}
+                                            onChange={() => toggleIndustry(ind)}
+                                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-sm text-slate-700 dark:text-slate-300">{ind}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Mã số thuế</label>

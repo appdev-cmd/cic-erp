@@ -1112,6 +1112,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                             toast.loading('Đang xử lý import PAKD...');
 
                             try {
+                              // Detect VAT rate from PAKD (Sản lượng / Doanh thu ratio)
+                              const detectedVat = data.financials?.vatRate ?? 10;
+                              console.log(`[PAKD Import] VAT rate: ${detectedVat}%`);
+
                               // Process each line item - findOrCreate products and suppliers
                               const processedItems: LineItem[] = [];
 
@@ -1171,7 +1175,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                     rate: item.foreignCurrency.rate,
                                     currency: item.foreignCurrency.currency,
                                   } : undefined,
-                                  vatRate: 10,
+                                  vatRate: detectedVat,
                                   supplierDiscount: 0,
                                 });
                               }

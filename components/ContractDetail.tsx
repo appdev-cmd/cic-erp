@@ -56,7 +56,7 @@ interface ContractDetailProps {
 }
 
 const formatVND = (amount: number) => {
-  return new Intl.NumberFormat('vi-VN').format(Math.round(amount));
+  return new Intl.NumberFormat('vi-VN').format(Math.round(amount / 1000) * 1000);
 };
 
 const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContract, contractId, onBack, onEdit, onDelete }) => {

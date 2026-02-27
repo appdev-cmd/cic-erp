@@ -257,7 +257,7 @@ export interface Customer {
   id: string;
   name: string;
   shortName: string;
-  industry: 'Xây dựng' | 'Bất động sản' | 'Năng lượng' | 'Công nghệ' | 'Sản xuất' | 'Khác';
+  industry: string[];
   contactPerson: string;
   phone: string;
   email: string;

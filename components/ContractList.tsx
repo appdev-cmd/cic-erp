@@ -265,7 +265,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   };
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('vi-VN').format(Math.round(val));
+    return new Intl.NumberFormat('vi-VN').format(Math.round(val / 1000) * 1000);
   };
 
   const formatCompactNumber = (number: number) => {

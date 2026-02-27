@@ -138,7 +138,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
     }, [lineItems, adminCosts]);
 
     // Format VND helper
-    const formatVND = (value: number) => new Intl.NumberFormat('vi-VN').format(Math.round(value));
+    const formatVND = (value: number) => new Intl.NumberFormat('vi-VN').format(Math.round(value / 1000) * 1000);
 
     // Helper functions for editing
     const addLineItem = () => {
