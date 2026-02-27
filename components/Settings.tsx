@@ -3,6 +3,7 @@ import { Moon, Sun, Shield, Settings2, FlaskConical, Users, Palette, HardDrive }
 import DataSeeder from './admin/DataSeeder';
 import PilotRunner from './admin/PilotRunner';
 import PermissionManager from './settings/PermissionManager';
+import RoleDefaultsManager from './settings/RoleDefaultsManager';
 import UserImpersonator from './settings/UserImpersonator';
 import DriveSettings from './settings/DriveSettings';
 import { useLayoutContext } from './layout/MainLayout';
@@ -52,7 +53,7 @@ const Settings: React.FC = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="bg-white dark:bg-slate-900/50 p-6 md:p-8 rounded-lg border border-slate-200 dark:border-slate-700/50 shadow-sm dark:shadow-none">
                 {activeTab === 'system' && (
                     <div className="space-y-6">
                         {/* Theme Mode */}
@@ -134,6 +135,20 @@ const Settings: React.FC = () => {
                             </div>
                         </div>
                         <PermissionManager />
+
+                        {/* Role Defaults Section */}
+                        <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                                    <Shield size={20} className="text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 dark:text-slate-200">Quyền mặc định theo Role</h3>
+                                    <p className="text-xs text-slate-500">Cấu hình quyền cơ bản cho từng vai trò trong hệ thống</p>
+                                </div>
+                            </div>
+                            <RoleDefaultsManager />
+                        </div>
                     </div>
                 )}
 
