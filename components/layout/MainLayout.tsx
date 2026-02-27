@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, UserX, ShieldAlert } from 'lucide-react';
 import Sidebar from '../Sidebar';
 import Header from '../Header';
 import { RoleSwitcher } from '../RoleSwitcher';
@@ -21,7 +21,7 @@ const MainLayout: React.FC = () => {
     const location = useLocation();
     const { session, isLoading: isLoadingSession, profile } = useAuth();
     const { visibleUnits } = useCurrentUserVisibleUnits();
-    const { impersonatedUser, isImpersonating } = useImpersonation();
+    const { impersonatedUser, isImpersonating, stopImpersonation } = useImpersonation();
 
     // Sidebar state
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -162,7 +162,7 @@ const MainLayout: React.FC = () => {
                     />
 
                     {/* Page Content */}
-                    <main className="mt-16 p-4 md:p-6 lg:p-8">
+                    <main className={`mt-16 p-4 md:p-6 lg:p-8 ${isImpersonating ? 'pb-20' : ''}`}>
                         <div className={`${contentMaxWidthClass} mx-auto`}>
                             {/* Pass context to child routes via Outlet */}
                             <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, theme, setTheme, accent, setAccent }} />
@@ -171,11 +171,42 @@ const MainLayout: React.FC = () => {
                 </div>
 
                 {/* Development Tools */}
-                {profile?.role === 'Admin' && <RoleSwitcher />}
+                {profile?.role === 'Admin' && !isImpersonating && <RoleSwitcher />}
                 <DebugPanel />
 
                 {/* Global Search (Cmd+K) */}
                 <CommandPalette />
+
+                {/* ═══ Floating Impersonation Banner ═══ */}
+                {isImpersonating && impersonatedUser && (
+                    <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom-4 duration-300">
+                        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-2xl shadow-orange-500/30">
+                            <div className="max-w-screen-xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <ShieldAlert size={18} className="text-white/80 flex-shrink-0" />
+                                    <div className="text-sm">
+                                        <span className="font-medium opacity-90">Đang đóng vai: </span>
+                                        <span className="font-black">{impersonatedUser.fullName}</span>
+                                        <span className="ml-2 px-2 py-0.5 bg-white/20 rounded text-[11px] font-bold backdrop-blur-sm">
+                                            {impersonatedUser.role}
+                                        </span>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        stopImpersonation();
+                                        // Navigate to dashboard in case current page is restricted
+                                        navigate('/');
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-1.5 bg-white text-orange-700 rounded-lg text-sm font-black hover:bg-orange-50 transition-all shadow-lg flex-shrink-0"
+                                >
+                                    <UserX size={16} />
+                                    Thoát đóng vai
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </ErrorBoundary>
     );

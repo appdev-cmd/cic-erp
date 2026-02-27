@@ -22,13 +22,17 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
+import { canCreatePaymentActual, canDeletePayment } from '../lib/permissions';
+import { useImpersonation } from '../contexts/ImpersonationContext';
 
 interface PaymentListProps {
     onSelectContract?: (id: string) => void;
 }
 
 const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
-    const { profile } = useAuth();
+    const { profile: realProfile } = useAuth();
+    const { impersonatedUser, isImpersonating } = useImpersonation();
+    const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
     const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -223,9 +227,8 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             </div>
 
             {(() => {
-                const GLOBAL_ROLES = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
-                const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
-                const canAdd = isGlobal || (unitFilter === profile?.unitId) || (unitFilter === 'all' && profile?.unitId !== 'all');
+                // Spec §6.4: Chỉ Accountant, ChiefAccountant, Admin mới được thêm thu/chi thực tế
+                const canAdd = profile ? canCreatePaymentActual(profile.role) : false;
 
                 if (!canAdd) return null;
 

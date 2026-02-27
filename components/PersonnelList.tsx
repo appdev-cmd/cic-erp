@@ -8,6 +8,8 @@ import EmployeeDetailModal from './EmployeeDetailModal';
 import ImportEmployeeModal from './ImportEmployeeModal';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
+import { canCreateEmployee, canEditEmployee, canDeleteEmployee } from '../lib/permissions';
+import { useImpersonation } from '../contexts/ImpersonationContext';
 
 interface PersonnelListProps {
     selectedUnit: Unit;
@@ -15,7 +17,9 @@ interface PersonnelListProps {
 }
 
 const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPersonnel }) => {
-    const { profile } = useAuth();
+    const { profile: realProfile } = useAuth();
+    const { impersonatedUser, isImpersonating } = useImpersonation();
+    const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
     const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -281,30 +285,30 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         />
                     </div>
 
-                    {/* Import Button */}
-                    <button
-                        onClick={() => setIsImportOpen(true)}
-                        className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-indigo-300 transition-all"
-                    >
-                        <Upload size={18} />
-                        <span className="hidden sm:inline">Import</span>
-                    </button>
+                    {/* Import & Template — only Admin/Leadership */}
+                    {profile && canCreateEmployee(profile.role) && (
+                        <>
+                            <button
+                                onClick={() => setIsImportOpen(true)}
+                                className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-indigo-300 transition-all"
+                            >
+                                <Upload size={18} />
+                                <span className="hidden sm:inline">Import</span>
+                            </button>
+                            <a
+                                href="/templates/employeeImportTemplate.xlsx"
+                                download
+                                className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-emerald-300 transition-all"
+                            >
+                                <Download size={18} />
+                                <span className="hidden sm:inline">Template</span>
+                            </a>
+                        </>
+                    )}
 
-                    {/* Download Template */}
-                    <a
-                        href="/templates/employeeImportTemplate.xlsx"
-                        download
-                        className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-emerald-300 transition-all"
-                    >
-                        <Download size={18} />
-                        <span className="hidden sm:inline">Template</span>
-                    </a>
-
-                    {/* Add Button */}
+                    {/* Add Button — Spec §6.5: only Admin/Leadership */}
                     {(() => {
-                        const GLOBAL_ROLES = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
-                        const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
-                        const canAdd = isGlobal || (profile?.unitId && (unitFilter === profile.unitId || unitFilter === 'all'));
+                        const canAdd = profile ? canCreateEmployee(profile.role) : false;
 
                         if (!canAdd) return null;
 
@@ -488,11 +492,10 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                         {/* Actions */}
                                         <td className="py-4 px-6">
                                             {(() => {
-                                                const GLOBAL_ROLES = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
-                                                const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
-                                                const isOwnUnit = profile?.unitId === person.unitId;
+                                                const showEdit = profile ? canEditEmployee(profile.role, person.unitId, profile.unitId) : false;
+                                                const showDelete = profile ? canDeleteEmployee(profile.role) : false;
 
-                                                if (!isGlobal && !isOwnUnit) return null;
+                                                if (!showEdit && !showDelete) return null;
 
                                                 return (
                                                     <div className="relative">
@@ -506,18 +509,22 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                                             <>
                                                                 <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
                                                                 <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg z-20 overflow-hidden">
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); setEditingPerson(person); setIsFormOpen(true); setActionMenuId(null); }}
-                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                                                                    >
-                                                                        <Pencil size={14} /> Chỉnh sửa
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); handleDelete(person.id); }}
-                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                                    >
-                                                                        <Trash2 size={14} /> Xóa
-                                                                    </button>
+                                                                    {showEdit && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); setEditingPerson(person); setIsFormOpen(true); setActionMenuId(null); }}
+                                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                                                        >
+                                                                            <Pencil size={14} /> Chỉnh sửa
+                                                                        </button>
+                                                                    )}
+                                                                    {showDelete && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleDelete(person.id); }}
+                                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                        >
+                                                                            <Trash2 size={14} /> Xóa
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             </>
                                                         )}

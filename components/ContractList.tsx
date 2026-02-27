@@ -11,6 +11,7 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
+import { canCreateContract, canViewAllUnits } from '../lib/permissions';
 
 // Inline debounce hook if not exists, but better to check. 
 // For now, I'll use a simple useEffect debounce logic.
@@ -24,9 +25,11 @@ interface ContractListProps {
 }
 
 const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContract, onAdd, onClone, onEdit }) => {
-  const { profile } = useAuth();
+  const { profile: realProfile } = useAuth();
   // Impersonation - để filter theo đơn vị của user đang giả làm
   const { impersonatedUser, isImpersonating } = useImpersonation();
+  // Use impersonated profile for permission checks
+  const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
 
   // Params state
   const [statusFilter, setStatusFilter] = useState<ContractStatus | 'All'>('All');
@@ -52,18 +55,16 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-  // Permissions logic
-  const GLOBAL_ROLES: UserRole[] = ['Leadership', 'Admin', 'Legal', 'Accountant', 'ChiefAccountant'];
-  const isGlobalRole = profile ? GLOBAL_ROLES.includes(profile.role) : false;
+  // Permissions logic (centralized from lib/permissions.ts)
+  const isGlobalRole = profile ? canViewAllUnits(profile.role) : false;
 
-  // Can create if admin/leadership OR filtering specifically for their own unit
+  // Can create: only roles from spec §6.2 (NVKD, AdminUnit, UnitLeader, Leadership, Admin)
   const canCreate = useMemo(() => {
     if (!profile) return false;
+    if (!canCreateContract(profile.role)) return false;
+    // Global roles (Leadership/Admin) can always create
     if (isGlobalRole) return true;
-
-    // Non-global roles can only create if specifically viewing their own unit
-    // effectiveUnitId handles selectedUnit, impersonation and unitFilter
-    // but for simplicity, we check if they are in their own unit scope
+    // Unit-scoped roles: can only create when viewing their own unit
     return unitFilter === profile.unitId || (unitFilter === 'All' && !isImpersonating && profile.unitId !== 'all');
   }, [profile, isGlobalRole, unitFilter, isImpersonating]);
 

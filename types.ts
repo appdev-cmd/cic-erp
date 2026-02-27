@@ -414,6 +414,7 @@ export interface UserPermission {
 
 // Default permissions by role
 export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<PermissionResource, PermissionAction[]>>> = {
+  // Quản trị hệ thống — Toàn quyền
   Admin: {
     contracts: ['view', 'create', 'update', 'delete'],
     employees: ['view', 'create', 'update', 'delete'],
@@ -424,6 +425,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     settings: ['view', 'create', 'update', 'delete'],
     permissions: ['view', 'create', 'update', 'delete'],
   },
+  // Ban lãnh đạo — Toàn quyền trên dữ liệu, KHÔNG truy cập settings/permissions
   Leadership: {
     contracts: ['view', 'create', 'update', 'delete'],
     employees: ['view', 'create', 'update', 'delete'],
@@ -431,61 +433,59 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     customers: ['view', 'create', 'update', 'delete'],
     products: ['view', 'create', 'update', 'delete'],
     payments: ['view', 'create', 'update', 'delete'],
-    settings: ['view'],
-    permissions: ['view'],
   },
+  // Admin đơn vị — Nhập liệu HĐ/KH, theo dõi thanh toán (phạm vi đơn vị)
   AdminUnit: {
-    contracts: ['view', 'create', 'update', 'delete'],
-    employees: ['view', 'create', 'update', 'delete'],
+    contracts: ['view', 'create', 'update'],       // Không xóa
+    employees: ['view'],                             // Chỉ xem
     units: ['view'],
-    customers: ['view', 'create', 'update', 'delete'],
+    customers: ['view', 'create', 'update'],        // Không xóa
     products: ['view'],
-    payments: ['view', 'create', 'update', 'delete'],
-    settings: ['view'],
+    payments: ['view', 'create'],                   // Chỉ nhập dự kiến, không sửa/xóa thực tế
   },
+  // Lãnh đạo đơn vị — Quản lý đơn vị, xem báo cáo
   UnitLeader: {
-    contracts: ['view', 'create', 'update', 'delete'],
-    employees: ['view'],
+    contracts: ['view', 'create', 'update'],        // Sửa toàn bộ HĐ đơn vị, không xóa
+    employees: ['view', 'update'],                   // Sửa NV đơn vị mình, không tạo/xóa
     units: ['view'],
-    customers: ['view', 'create', 'update', 'delete'],
+    customers: ['view', 'create', 'update'],        // Không xóa
     products: ['view'],
-    payments: ['view'],
-    settings: ['view'],
+    payments: ['view', 'create'],                   // Chỉ nhập dự kiến
   },
+  // Nhân viên kinh doanh — Nhập liệu HĐ/KH (phạm vi đơn vị, chỉ HĐ của mình)
   NVKD: {
-    contracts: ['view', 'create', 'update'],
+    contracts: ['view', 'create', 'update'],        // Chỉ sửa HĐ mình tạo/phân công
     employees: ['view'],
     units: ['view'],
-    customers: ['view', 'create', 'update'],
+    customers: ['view', 'create', 'update'],        // Không xóa
     products: ['view'],
-    payments: ['view'],
-    settings: ['view'],
+    payments: ['view', 'create'],                   // Chỉ nhập dự kiến
   },
+  // Kế toán — Ghi nhận tài chính thực tế, xem toàn công ty
   Accountant: {
-    contracts: ['view'],
+    contracts: ['view', 'update'],                  // Update = cập nhật thông tin tài chính
     employees: ['view'],
     units: ['view'],
     customers: ['view'],
     products: ['view'],
-    payments: ['view', 'create', 'update', 'delete'],
-    settings: ['view'],
+    payments: ['view', 'create', 'update'],         // Thêm/sửa thực tế, không xóa
   },
+  // Kế toán trưởng — Phê duyệt tài chính, xem toàn công ty
   ChiefAccountant: {
-    contracts: ['view', 'create', 'update'],
+    contracts: ['view', 'update'],                  // Update = cập nhật thông tin tài chính
     employees: ['view'],
     units: ['view'],
     customers: ['view'],
     products: ['view'],
-    payments: ['view', 'create', 'update', 'delete'],
-    settings: ['view'],
+    payments: ['view', 'create', 'update', 'delete'], // Toàn quyền thanh toán
   },
+  // Pháp chế — Rà soát pháp lý, xem toàn công ty
   Legal: {
-    contracts: ['view', 'create', 'update'],
+    contracts: ['view'],                            // Chỉ xem, rà soát pháp lý
     employees: ['view'],
     units: ['view'],
     customers: ['view'],
     products: ['view'],
     payments: ['view'],
-    settings: ['view'],
   },
 };

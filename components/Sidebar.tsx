@@ -3,6 +3,9 @@ import React from 'react';
 import { NAV_ITEMS } from '../constants';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import CICLogo, { CICLogoIcon } from './CICLogo';
+import { useAuth } from '../contexts/AuthContext';
+import { useImpersonation } from '../contexts/ImpersonationContext';
+import { getHiddenNavItems } from '../lib/permissions';
 
 interface SidebarProps {
   activeTab: string;
@@ -50,9 +53,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   setIsCollapsed,
   onClose,
 }) => {
-  const managementItems = NAV_ITEMS.filter(item => ['dashboard', 'contracts', 'payments', 'analytics', 'ai-assistant'].includes(item.id));
-  const categoryItems = NAV_ITEMS.filter(item => ['units', 'documents', 'personnel', 'products', 'customers', 'user-guide'].includes(item.id));
-  const settingsItem = NAV_ITEMS.find(item => item.id === 'settings');
+  const { profile } = useAuth();
+  const { impersonatedUser, isImpersonating } = useImpersonation();
+  // Use impersonated role for nav filtering when impersonating
+  const effectiveProfile = isImpersonating && impersonatedUser ? impersonatedUser : profile;
+  const hiddenItems = effectiveProfile ? getHiddenNavItems(effectiveProfile.role) : new Set<string>();
+
+  const managementItems = NAV_ITEMS.filter(item => ['dashboard', 'contracts', 'payments', 'analytics', 'ai-assistant'].includes(item.id) && !hiddenItems.has(item.id));
+  const categoryItems = NAV_ITEMS.filter(item => ['units', 'documents', 'personnel', 'products', 'customers', 'user-guide'].includes(item.id) && !hiddenItems.has(item.id));
+  const settingsItem = NAV_ITEMS.find(item => item.id === 'settings' && !hiddenItems.has(item.id));
 
   return (
     <>

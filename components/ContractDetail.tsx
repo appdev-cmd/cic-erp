@@ -45,6 +45,7 @@ import { useImpersonation } from '../contexts/ImpersonationContext';
 import { ContractReviewPanel } from './workflow/ContractReviewPanel';
 import { SubmitLegalDialog } from './workflow/SubmitLegalDialog';
 import { AddDocumentLinkDialog } from './workflow/AddDocumentLinkDialog';
+import { canEditContract, canDeleteContract } from '../lib/permissions';
 
 interface ContractDetailProps {
   contract?: Contract;
@@ -63,11 +64,14 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [loading, setLoading] = useState(!initialContract);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'pakd'>('overview');
-  const { canEdit, profile } = useAuth();
+  const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
 
-  // When impersonating, use impersonated user's role for approval workflow
+  // Effective role (impersonation-aware)
   const effectiveRole = isImpersonating && impersonatedUser ? impersonatedUser.role : profile?.role;
+  const effectiveUnitId = isImpersonating && impersonatedUser ? impersonatedUser.unitId : profile?.unitId;
+  const effectiveEmployeeId = isImpersonating && impersonatedUser ? impersonatedUser.employeeId : profile?.employeeId;
+
 
   // Reference Names State
   const [unitName, setUnitName] = useState('...');
@@ -382,7 +386,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
           </div>
           <div className="flex items-center gap-2">
             {/* ... (Keep Action Buttons) ... */}
-            {canEdit('contract', contract?.unitId) && (
+            {effectiveRole && canDeleteContract(effectiveRole) && (
               <button
                 onClick={() => {
                   if (window.confirm("Bạn có chắc chắn muốn xóa hợp đồng này không? hành động này không thể hoàn tác.")) {
@@ -396,7 +400,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
               </button>
             )}
 
-            {canEdit('contract', contract?.unitId) && (
+            {effectiveRole && canEditContract(effectiveRole, contract?.unitId, contract?.salespersonId, effectiveUnitId, effectiveEmployeeId) && (
               <button
                 onClick={() => contract && onEdit(contract)}
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
