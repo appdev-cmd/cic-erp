@@ -63,15 +63,20 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
 
         // Set default unit if creating new and no unit selected yet
         if (!isEditing && !unitId && unitsData.length > 0) {
-          // If profile exists and not global, use their unit. Otherwise default to first operational unit.
-          const GLOBAL_ROLES = ['Leadership', 'Admin', 'Legal', 'Accountant', 'ChiefAccountant'];
-          const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
-
-          if (profile?.unitId && !isGlobal) {
+          // Always default to user's unit if possible
+          if (profile?.unitId) {
             setUnitId(profile.unitId);
           } else {
             const operationalUnits = unitsData.filter(u => u.id !== 'all' && u.type !== 'Company' && u.type !== 'BackOffice');
             if (operationalUnits.length > 0) setUnitId(operationalUnits[0].id);
+          }
+          
+          // Also set default salesperson to current user
+          if (profile?.id) {
+            const isEmployee = peopleData.some(p => p.id === profile.id);
+            if (isEmployee) {
+              setSalespersonId(profile.id);
+            }
           }
         }
       } catch (error) {

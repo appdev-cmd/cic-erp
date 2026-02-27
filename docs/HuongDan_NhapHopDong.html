@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hướng dẫn Nhập Hợp đồng - CIC ERP</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f172a;--card:#1e293b;--card2:#334155;--border:#475569;--text:#e2e8f0;--text2:#94a3b8;--accent:#6366f1;--accent2:#818cf8;--green:#10b981;--green2:#34d399;--amber:#f59e0b;--red:#ef4444;--cyan:#06b6d4;--rose:#f43f5e}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.7;padding:0}
+.container{max-width:1100px;margin:0 auto;padding:40px 24px 80px}
+h1{font-size:2.2rem;font-weight:900;background:linear-gradient(135deg,var(--accent2),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.subtitle{color:var(--text2);font-size:.85rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:40px}
+h2{font-size:1.4rem;font-weight:800;color:var(--accent2);margin:48px 0 20px;padding-bottom:10px;border-bottom:2px solid var(--accent);display:flex;align-items:center;gap:10px}
+h3{font-size:1.1rem;font-weight:700;color:var(--green2);margin:28px 0 14px;display:flex;align-items:center;gap:8px}
+h4{font-size:.95rem;font-weight:700;color:var(--amber);margin:20px 0 10px}
+.toc{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px 32px;margin-bottom:40px}
+.toc h3{margin-top:0;color:var(--text)}
+.toc ol{padding-left:20px;columns:2;column-gap:32px}
+.toc li{margin:6px 0}
+.toc a{color:var(--accent2);text-decoration:none;font-weight:600;font-size:.9rem}
+.toc a:hover{text-decoration:underline}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;margin:16px 0}
+.card.green{border-left:4px solid var(--green)}
+.card.amber{border-left:4px solid var(--amber)}
+.card.red{border-left:4px solid var(--red)}
+.card.accent{border-left:4px solid var(--accent)}
+.card.cyan{border-left:4px solid var(--cyan)}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.85rem}
+th{background:var(--card2);color:var(--accent2);font-weight:700;text-align:left;padding:10px 14px;border:1px solid var(--border);text-transform:uppercase;font-size:.75rem;letter-spacing:.5px}
+td{padding:10px 14px;border:1px solid var(--border);vertical-align:top}
+tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+.badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.7rem;font-weight:700;margin:0 2px}
+.badge.green{background:rgba(16,185,129,.15);color:var(--green2)}
+.badge.red{background:rgba(239,68,68,.15);color:#fca5a5}
+.badge.amber{background:rgba(245,158,11,.15);color:#fcd34d}
+.badge.blue{background:rgba(99,102,241,.15);color:var(--accent2)}
+.tip{background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.25);border-radius:10px;padding:14px 18px;margin:14px 0;font-size:.85rem;display:flex;gap:10px;align-items:flex-start}
+.tip .icon{font-size:1.2rem;flex-shrink:0}
+.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:14px 18px;margin:14px 0;font-size:.85rem;display:flex;gap:10px;align-items:flex-start}
+.steps{display:flex;gap:12px;margin:20px 0;flex-wrap:wrap}
+.step-box{flex:1;min-width:200px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:center;position:relative}
+.step-box .num{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;margin-bottom:8px}
+.step-box:nth-child(1) .num{background:var(--accent);color:#fff}
+.step-box:nth-child(2) .num{background:var(--amber);color:#000}
+.step-box:nth-child(3) .num{background:var(--green);color:#fff}
+.step-box .title{font-weight:700;font-size:.9rem;margin-bottom:4px}
+.step-box .desc{font-size:.75rem;color:var(--text2)}
+.arrow{display:flex;align-items:center;font-size:1.5rem;color:var(--text2);padding:0 4px}
+.formula{background:var(--card2);border-radius:10px;padding:16px 20px;font-family:'Courier New',monospace;font-size:.82rem;line-height:2;margin:12px 0;border:1px solid var(--border);overflow-x:auto}
+.formula .highlight{color:var(--green2);font-weight:700}
+.formula .cost{color:var(--rose);font-weight:700}
+.formula .val{color:var(--accent2);font-weight:700}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0}
+@media(max-width:768px){.grid2{grid-template-columns:1fr}.toc ol{columns:1}.steps{flex-direction:column}.arrow{transform:rotate(90deg);justify-content:center}}
+.tag{display:inline-block;background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:.75rem;font-weight:600;margin:1px}
+code{background:var(--card2);padding:2px 6px;border-radius:4px;font-size:.82rem;color:var(--cyan)}
+.header-bar{background:linear-gradient(135deg,#1e1b4b,#312e81,#1e293b);padding:40px 0;margin-bottom:0;border-bottom:2px solid var(--accent)}
+.header-bar .container{padding-top:0;padding-bottom:0;margin-bottom:0}
+.label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:4px}
+</style>
+</head>
+<body>
+
+<div class="header-bar">
+<div class="container" style="padding-bottom:0;margin-bottom:0">
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+<div style="width:52px;height:52px;background:var(--accent);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.5rem">📋</div>
+<div>
+<h1>Hướng dẫn Nhập Hợp đồng</h1>
+<p class="subtitle" style="margin-bottom:0">CIC ERP — Phiên bản 1.0 · Cập nhật 26/02/2026</p>
+</div>
+</div>
+</div>
+</div>
+
+<div class="container">
+
+<!-- TOC -->
+<div class="toc">
+<h3>📑 Mục lục</h3>
+<ol>
+<li><a href="#overview">Tổng quan 3 phương thức nhập</a></li>
+<li><a href="#manual">Nhập thủ công (Form 3 bước)</a></li>
+<li><a href="#excel">Import hàng loạt từ Excel</a></li>
+<li><a href="#pakd">Import từ file PAKD</a></li>
+<li><a href="#formulas">Công thức tính toán tài chính</a></li>
+<li><a href="#tips">Mẹo sử dụng & Xử lý lỗi</a></li>
+</ol>
+</div>
+
+<!-- 1. OVERVIEW -->
+<h2 id="overview">📌 1. Tổng quan</h2>
+<div class="card accent">
+<table>
+<tr><th>Phương thức</th><th>Mô tả</th><th>Khi nào dùng</th></tr>
+<tr><td><span class="badge blue">Form thủ công</span></td><td>Wizard 3 bước, nhập chi tiết từng hợp đồng</td><td>HĐ mới, cần nhập đầy đủ</td></tr>
+<tr><td><span class="badge green">Import Excel</span></td><td>Upload file <code>.xlsx</code> nhiều hợp đồng</td><td>Nhập hàng loạt từ Excel có sẵn</td></tr>
+<tr><td><span class="badge amber">Import PAKD</span></td><td>Import từ file Phương án Kinh doanh</td><td>Đã có file PAKD chuẩn nội bộ</td></tr>
+</table>
+</div>
+
+<h3>🔐 Phân quyền</h3>
+<div class="card">
+<table>
+<tr><th>Vai trò</th><th>Tạo mới</th><th>Chỉnh sửa</th><th>Xóa</th></tr>
+<tr><td>Admin, Leadership</td><td>✅</td><td>✅</td><td>✅</td></tr>
+<tr><td>AdminUnit, UnitLeader</td><td>✅</td><td>✅</td><td>✅</td></tr>
+<tr><td>NVKD</td><td>✅</td><td>✅</td><td>❌</td></tr>
+<tr><td>Accountant, Legal</td><td>❌</td><td>❌</td><td>❌</td></tr>
+</table>
+</div>
+
+<!-- 2. MANUAL FORM -->
+<h2 id="manual">📝 2. Nhập hợp đồng thủ công</h2>
+<p style="margin-bottom:8px"><strong>Cách mở:</strong> Sidebar → <span class="tag">Hợp đồng</span> → Nhấn <span class="tag" style="color:var(--green2)">+ Thêm mới</span></p>
+
+<h3>🧭 Tổng quan 3 bước</h3>
+<div class="steps">
+<div class="step-box"><div class="num">1</div><div class="title">Đơn vị & Khách hàng</div><div class="desc">Chọn đơn vị, nhân viên, khách hàng, ngày ký, VAT</div></div>
+<div class="arrow">→</div>
+<div class="step-box"><div class="num">2</div><div class="title">Phương án KD</div><div class="desc">Sản phẩm, chi phí thực hiện, chiết khấu NCC</div></div>
+<div class="arrow">→</div>
+<div class="step-box"><div class="num">3</div><div class="title">Doanh thu & Tiền về</div><div class="desc">Lịch hóa đơn, thu tiền KH, chi trả NCC</div></div>
+</div>
+
+<!-- STEP 1 -->
+<h3>🔷 Bước 1: Đơn vị & Nhân sự + Khách hàng</h3>
+<div class="card green">
+<h4>1.1 Đơn vị & Nhân sự thực hiện</h4>
+<table>
+<tr><th>Trường</th><th style="width:70px">Bắt buộc</th><th>Hướng dẫn nhập</th></tr>
+<tr><td><strong>Đơn vị thực hiện</strong></td><td><span class="badge green">✅ Có</span></td><td>Dropdown chọn Chi nhánh/Trung tâm. Không hiển thị BackOffice</td></tr>
+<tr><td><strong>Nhân viên thực hiện</strong></td><td><span class="badge green">✅ Có</span></td><td>Danh sách tự lọc theo đơn vị đã chọn</td></tr>
+<tr><td><strong>Tỷ lệ %</strong></td><td><span class="badge blue">Tự động</span></td><td>= 100% − tổng % đơn vị phối hợp</td></tr>
+</table>
+<div class="warn"><span class="icon">⚠️</span><span>Khi đổi đơn vị → nhân viên sẽ bị reset. Phải chọn lại nhân viên.</span></div>
+<p style="margin-top:12px"><strong>Phân bổ đơn vị phối hợp (QĐ 09.2024):</strong> Nhấn <span class="tag">+ Thêm đơn vị phối hợp</span> → chọn đơn vị, nhân viên, nhập % → Tổng luôn = 100%.</p>
+</div>
+
+<div class="card cyan">
+<h4>1.2 Thông tin Khách hàng & Nội dung</h4>
+<table>
+<tr><th>Trường</th><th style="width:70px">Bắt buộc</th><th>Hướng dẫn nhập</th></tr>
+<tr><td><strong>Số hợp đồng</strong></td><td><span class="badge blue">Tự tạo</span></td><td>Format: <code>HĐ_001/BIM_FECON_2026</code>. Có thể ghi đè thủ công</td></tr>
+<tr><td><strong>Tên khách hàng</strong></td><td><span class="badge green">✅ Có</span></td><td>Gõ để tìm. Nhấn <code>+ Thêm KH mới</code> nếu chưa có</td></tr>
+<tr><td><strong>Ngày ký kết</strong></td><td><span class="badge green">✅ Có</span></td><td>Mặc định hôm nay, chọn lại nếu cần</td></tr>
+<tr><td><strong>Nội dung HĐ</strong></td><td><span class="badge amber">Nên có</span></td><td>Mô tả ngắn: "Tư vấn BIM, Đào tạo Revit..."</td></tr>
+<tr><td><strong>Có VAT</strong></td><td>Tùy chọn</td><td>Mặc định ✅ VAT 10%. Có thể chọn 8% hoặc tắt</td></tr>
+<tr><td><strong>Bán qua đại lý</strong></td><td>Tùy chọn</td><td>Nếu tích → nhập thêm End User</td></tr>
+</table>
+
+<h4>1.3 Đầu mối liên hệ (phía KH)</h4>
+<p>Thêm đầu mối: nhập <strong>Họ tên</strong> + <strong>Vai trò</strong> (VD: Mua sắm, Kỹ thuật). Nhấn <span class="tag">+ Thêm đầu mối</span> nếu có nhiều người.</p>
+</div>
+
+<!-- STEP 2 -->
+<h3>🔶 Bước 2: Phương án Kinh doanh</h3>
+<div class="card amber">
+<h4>2.1 Bảng Sản phẩm & Dịch vụ</h4>
+<table>
+<tr><th>Cột</th><th>Cách nhập</th><th>Ghi chú</th></tr>
+<tr><td><strong>Sản phẩm</strong></td><td>Dropdown chọn từ danh mục</td><td>Giá tự điền khi chọn</td></tr>
+<tr><td><strong>SL</strong></td><td>Nhập số lượng</td><td>Mặc định: 1</td></tr>
+<tr><td><strong>Nhà cung cấp</strong></td><td>Dropdown chọn NCC</td><td>Chỉ hiện loại Supplier</td></tr>
+<tr><td><strong>Giá Đầu vào</strong></td><td>Nhập giá mua (VND/đơn vị)</td><td>Hover xem ngoại tệ</td></tr>
+<tr><td><strong>TT Đầu vào</strong></td><td><em>Tự tính = SL × Giá vào</em></td><td style="color:var(--cyan)">Tự động</td></tr>
+<tr><td><strong>Giá Đầu ra</strong></td><td>Nhập giá bán (VND/đơn vị)</td><td></td></tr>
+<tr><td><strong>TT Đầu ra</strong></td><td><em>Tự tính = SL × Giá ra</em></td><td style="color:var(--accent2)">Tự động</td></tr>
+<tr><td><strong>CP Trực tiếp</strong></td><td>Click → mở popup nhập chi tiết</td><td>VD: Vận chuyển, Tiếp khách</td></tr>
+<tr><td><strong>Chênh lệch</strong></td><td><em>= TT ra − TT vào − CP TT</em></td><td style="color:var(--green2)">Tự động (xanh/đỏ)</td></tr>
+</table>
+
+<h4>2.2 Chi phí thực hiện HĐ</h4>
+<p>Danh sách linh hoạt. Mỗi hạng mục có: <strong>Tên</strong> (gợi ý tự động), <strong>%</strong> (tính trên tổng đầu vào), <strong>Số tiền</strong>. Nhập % → tiền tự cập nhật và ngược lại.</p>
+
+<h4>2.3 Chiết khấu từ NCC</h4>
+<p>Nhập <strong>%</strong> chiết khấu → Hệ thống tính: <code>Chiết khấu = Tổng đầu vào × %</code>. Chiết khấu <strong>GIẢM</strong> tổng chi phí.</p>
+</div>
+
+<!-- STEP 3 -->
+<h3>🟢 Bước 3: Doanh thu & Tiền về</h3>
+<div class="card green">
+<div class="grid2">
+<div>
+<h4>3.1 Lịch xuất Hóa đơn DT</h4>
+<p>Mỗi đợt gồm: <strong>Ngày XHĐ</strong>, <strong>Giai đoạn</strong> (VD: Tạm ứng, Nghiệm thu), <strong>Tiền VAT</strong></p>
+<h4>3.2 Kế hoạch Tiền về (từ KH)</h4>
+<p>Mỗi đợt gồm: <strong>Ngày thanh toán</strong>, <strong>Nội dung</strong>, <strong>Số tiền</strong></p>
+</div>
+<div>
+<h4>3.3 Chi trả NCC</h4>
+<p>Mỗi đợt gồm: <strong>Hạn thanh toán</strong>, <strong>NCC/Nội dung</strong>, <strong>Số tiền chi</strong></p>
+<div class="tip"><span class="icon">💡</span><span>Nhấn <strong>"Tự động tính từ SP"</strong> để hệ thống tự tạo lịch thanh toán NCC từ sản phẩm Bước 2.</span></div>
+</div>
+</div>
+<p style="margin-top:16px;text-align:center;font-size:1rem">✅ Nhấn <strong style="color:var(--green2)">"Hoàn tất & Lưu"</strong> để tạo hợp đồng!</p>
+</div>
+
+<!-- 3. EXCEL IMPORT -->
+<h2 id="excel">📥 3. Import hàng loạt từ Excel</h2>
+<div class="card accent">
+<h4>Các bước thực hiện</h4>
+<ol style="padding-left:20px;line-height:2.2">
+<li>Trong danh sách HĐ → nhấn <span class="tag">📥 Import</span></li>
+<li>Nhấn <span class="tag" style="color:var(--green2)">Tải file Template mẫu</span> → tải file Excel mẫu</li>
+<li>Điền dữ liệu vào file theo bảng cột bên dưới</li>
+<li><strong>Kéo thả</strong> file hoặc nhấn <strong>Chọn file</strong></li>
+<li>Kiểm tra preview: ✅ hợp lệ / ⚠️ lỗi</li>
+<li>Nhấn <strong>"Import N hợp đồng"</strong></li>
+</ol>
+</div>
+
+<h3>📄 Cấu trúc 12 cột Template</h3>
+<div class="card">
+<table>
+<tr><th>Cột</th><th>Tên</th><th>Bắt buộc</th><th>Ví dụ</th></tr>
+<tr><td>A</td><td><strong>Tên hợp đồng</strong></td><td><span class="badge green">✅</span></td><td>HĐ Tư vấn dự án ABC</td></tr>
+<tr><td>B</td><td><strong>Loại HĐ</strong></td><td><span class="badge green">✅</span></td><td><code>HĐ</code> / <code>HĐNT</code> / <code>HĐPS</code> / <code>PL</code></td></tr>
+<tr><td>C</td><td><strong>Khách hàng</strong></td><td><span class="badge green">✅</span></td><td>Công ty ABC <em>(phải khớp hệ thống)</em></td></tr>
+<tr><td>D</td><td><strong>Mã đơn vị</strong></td><td><span class="badge green">✅</span></td><td><code>BIM</code>, <code>CSS</code>, <code>DCS</code>, <code>HCM</code></td></tr>
+<tr><td>E</td><td><strong>NVKD</strong></td><td><span class="badge amber">Nên có</span></td><td>Nguyễn Văn A</td></tr>
+<tr><td>F</td><td><strong>Giá trị</strong></td><td><span class="badge green">✅</span></td><td>500000000</td></tr>
+<tr><td>G</td><td><strong>Chi phí DK</strong></td><td><span class="badge amber">Nên có</span></td><td>350000000</td></tr>
+<tr><td>H</td><td><strong>Ngày ký</strong></td><td><span class="badge green">✅</span></td><td>2024-01-15 hoặc 15/01/2024</td></tr>
+<tr><td>I</td><td>Ngày BĐ</td><td>—</td><td>2024-01-20</td></tr>
+<tr><td>J</td><td>Ngày KT</td><td>—</td><td>2024-06-30</td></tr>
+<tr><td>K</td><td>Trạng thái</td><td>—</td><td>Active / Pending / Completed</td></tr>
+<tr><td>L</td><td>Loại</td><td>—</td><td>Mới / Tiếp nối / Phát sinh / Bảo hành</td></tr>
+</table>
+<div class="tip"><span class="icon">💡</span><span>Cột Trạng thái nhận cả tiếng Việt: "Hiệu lực" → Active, "Chờ" → Pending, "Hoàn thành" → Completed</span></div>
+</div>
+
+<!-- 4. PAKD -->
+<h2 id="pakd">📊 4. Import từ file PAKD</h2>
+<div class="card amber">
+<p><strong>PAKD</strong> (Phương Án Kinh Doanh) là file Excel chuẩn nội bộ CIC. Khi import sẽ tự động:</p>
+<div class="grid2" style="margin-top:12px">
+<div>
+<p>✅ Tạo <strong>sản phẩm</strong> mới nếu chưa có</p>
+<p>✅ Tạo <strong>nhà cung cấp</strong> mới nếu chưa có</p>
+<p>✅ Import chi tiết hạng mục + ngoại tệ</p>
+</div>
+<div>
+<p>✅ Import chi phí thực hiện HĐ</p>
+<p>✅ Tính chiết khấu NCC (tiền → %)</p>
+<p>✅ Điền vào form tự động</p>
+</div>
+</div>
+<p style="margin-top:12px"><strong>Cách dùng:</strong> Trong form → Bước 2 → nhấn <span class="tag" style="color:var(--amber)">Import PAKD</span> → chọn file .xlsx</p>
+<div class="warn"><span class="icon">⚠️</span><span>Import PAKD sẽ <strong>GHI ĐÈ</strong> toàn bộ sản phẩm & chi phí hiện tại trong form.</span></div>
+</div>
+
+<!-- 5. FORMULAS -->
+<h2 id="formulas">🧮 5. Công thức tính toán</h2>
+<div class="card cyan">
+<div class="formula">
+<span class="val">Giá trị Ký kết</span> = Σ (SL × Giá Đầu ra)<br>
+Tổng Đầu vào = Σ (SL × Giá Đầu vào)<br>
+<span class="cost">Tổng Chi phí</span> = Đầu vào + CP Trực tiếp + CP Thực hiện − Chiết khấu NCC<br>
+<span class="highlight">Lợi nhuận Gộp</span> = Ký kết − Tổng Chi phí<br>
+<span class="highlight">Tỷ suất LN</span> = (LN Gộp / Ký kết) × 100%<br>
+Doanh thu (có VAT) = Ký kết / (1 + VAT%)
+</div>
+<h4>Ví dụ</h4>
+<table>
+<tr><th>Hạng mục</th><th>SL</th><th>Giá vào</th><th>Giá ra</th><th>CP TT</th></tr>
+<tr><td>Phần mềm Revit</td><td>5</td><td>8,000,000</td><td>12,000,000</td><td>0</td></tr>
+<tr><td>Đào tạo BIM</td><td>2</td><td>5,000,000</td><td>15,000,000</td><td>10,000,000</td></tr>
+<tr><td>Tư vấn BEP</td><td>1</td><td>0</td><td>50,000,000</td><td>0</td></tr>
+</table>
+<div class="formula" style="margin-top:12px">
+<span class="val">Ký kết</span> = 60M + 30M + 50M = <span class="val">140,000,000</span><br>
+Đầu vào = 40M + 10M + 0 = 50,000,000<br>
+<span class="cost">CP TT</span> = 10,000,000 | Chiết khấu 5% = 2,500,000<br>
+<span class="cost">Tổng CP</span> = 50M + 10M − 2.5M = <span class="cost">57,500,000</span><br>
+<span class="highlight">LN Gộp = 82,500,000 | Tỷ suất = 58.9%</span>
+</div>
+</div>
+
+<!-- 6. TIPS -->
+<h2 id="tips">💡 6. Mẹo sử dụng & Xử lý lỗi</h2>
+<div class="card green">
+<h4>Mẹo hữu ích</h4>
+<table>
+<tr><th style="width:160px">Tính năng</th><th>Chi tiết</th></tr>
+<tr><td>🔄 Tự lưu nháp</td><td>Form tự save mỗi 1 giây. Thoát giữa chừng → lần sau mở sẽ hỏi "Khôi phục?"</td></tr>
+<tr><td>📋 Dữ liệu mẫu</td><td>Nhấn <strong>"Data Mẫu"</strong> (góc trên phải form) để điền test data</td></tr>
+<tr><td>📑 Nhân bản HĐ</td><td>Từ danh sách → Clone HĐ → chỉ cần chỉnh sửa</td></tr>
+<tr><td>➕ Thêm KH nhanh</td><td>Nhấn <code>+ Thêm KH mới</code> ngay trong ô tìm kiếm, không cần thoát form</td></tr>
+<tr><td>⚡ Tự tạo lịch NCC</td><td>Bước 3 → "Tự động tính từ SP" → tạo lịch từ sản phẩm</td></tr>
+<tr><td>⌨️ Phím tắt</td><td><code>/</code> = focus tìm kiếm, <code>Esc</code> = cancel</td></tr>
+</table>
+</div>
+
+<div class="card red">
+<h4>Lỗi thường gặp</h4>
+<table>
+<tr><th>Lỗi</th><th>Nguyên nhân</th><th>Cách khắc phục</th></tr>
+<tr><td>"Vui lòng chọn Đơn vị và NV"</td><td>Chưa chọn ở Bước 1</td><td>Quay lại Bước 1, chọn đầy đủ</td></tr>
+<tr><td>"Thiếu thông tin bắt buộc"</td><td>Thiếu Đơn vị / Sale / KH</td><td>Kiểm tra các trường có ✅</td></tr>
+<tr><td>KH không tìm thấy (Import)</td><td>Tên không khớp hệ thống</td><td>Kiểm tra chính tả hoặc thêm KH trước</td></tr>
+<tr><td>Đơn vị không tồn tại</td><td>Mã đơn vị sai</td><td>Dùng: <code>BIM</code> <code>DCS</code> <code>CSS</code> <code>HCM</code> <code>HN</code></td></tr>
+<tr><td>Ngày không hợp lệ</td><td>Sai format</td><td>Dùng: <code>YYYY-MM-DD</code> hoặc <code>DD/MM/YYYY</code></td></tr>
+</table>
+</div>
+
+<div style="text-align:center;margin-top:48px;padding:24px;border-top:1px solid var(--border)">
+<p style="color:var(--text2);font-size:.8rem">📝 Tài liệu này được tạo dựa trên hệ thống CIC ERP v2026<br>Liên hệ Quản trị hệ thống (Admin) hoặc Phòng CNTT nếu cần hỗ trợ</p>
+</div>
+
+</div>
+</body>
+</html>
