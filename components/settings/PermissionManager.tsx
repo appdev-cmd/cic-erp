@@ -342,7 +342,7 @@ const PermissionManager: React.FC = () => {
                         <button
                             key={user.id}
                             onClick={() => setSelectedUserId(user.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all duration-200 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40 ${selectedUserId === user.id
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all duration-200 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 ${selectedUserId === user.id
                                 ? 'bg-orange-50 dark:bg-orange-950/30 border-l-[3px] border-l-orange-500'
                                 : ''
                                 }`}
