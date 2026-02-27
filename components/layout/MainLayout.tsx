@@ -119,8 +119,10 @@ const MainLayout: React.FC = () => {
         return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-400">Loading...</div>;
     }
 
-    // Auth required (skip if dev bypass)
-    if (!isDevBypass && !session) {
+    // Auth required: must have BOTH a session AND a valid profile
+    // If session exists but profile is null, the user was rejected by security checks
+    // (non-CIC email, no matching employee, etc.)
+    if (!isDevBypass && (!session || !profile)) {
         return (
             <ErrorBoundary>
                 <Auth />
