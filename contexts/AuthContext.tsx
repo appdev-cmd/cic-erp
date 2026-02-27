@@ -186,6 +186,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }, 3000); // Reduced to 3s
 
         try {
+            // ===============================================
+            // SECURITY: Email domain restriction (@cic.com.vn)
+            // ===============================================
+            if (email && !email.endsWith('@cic.com.vn')) {
+                console.warn('[AuthContext.fetchProfile] REJECTED: Non-CIC email:', email);
+                clearTimeout(timeoutId);
+                alert('Chỉ tài khoản @cic.com.vn mới được phép đăng nhập vào hệ thống.');
+                await supabase.auth.signOut();
+                setSession(null);
+                setUser(null);
+                setProfile(null);
+                setIsLoading(false);
+                return;
+            }
+
             console.log('[AuthContext.fetchProfile] Querying profiles table...');
             // Use dataClient for data operations (isolated from auth state)
             const { data: profiles, error } = await dataClient
@@ -198,8 +213,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (error) {
                 console.error("[AuthContext.fetchProfile] Error fetching profile:", error);
-                // If profile missing, maybe try to create one or set default?
-                // For now, leave null so UI knows it's an incomplete user
             } else if (profiles && profiles.length > 0) {
                 const data = profiles[0];
                 console.log('[AuthContext.fetchProfile] Raw data:', JSON.stringify(data));
@@ -218,6 +231,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     employeeId: data.employee_id
                 });
                 console.log('[AuthContext.fetchProfile] Profile set successfully');
+            } else {
+                // ===============================================
+                // SECURITY: Profile must exist in the system
+                // ===============================================
+                console.warn('[AuthContext.fetchProfile] REJECTED: No profile found for user:', userId, email);
+                alert('Tài khoản của bạn chưa được đăng ký trong hệ thống. Vui lòng liên hệ quản trị viên.');
+                await supabase.auth.signOut();
+                setSession(null);
+                setUser(null);
+                setProfile(null);
+                setIsLoading(false);
+                return;
             }
         } catch (e) {
             console.error('[AuthContext.fetchProfile] Exception:', e);

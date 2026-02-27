@@ -52,6 +52,7 @@ const Auth = () => {
                     queryParams: {
                         prompt: 'consent',       // Force re-consent to get new scope
                         access_type: 'offline',   // Request refresh token
+                        hd: 'cic.com.vn',        // Restrict to CIC Google Workspace domain
                     },
                 },
             });
