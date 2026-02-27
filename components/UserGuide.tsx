@@ -77,7 +77,7 @@ const UserGuide: React.FC = () => {
         { id: 'edit', q: 'Làm sao sửa hợp đồng?', a: 'Mở chi tiết hợp đồng rồi nhấn nút "Chỉnh sửa".' },
         { id: 'copy', q: 'Làm sao copy mã hợp đồng?', a: 'Click trực tiếp vào mã hợp đồng (ví dụ: HD_001/...). Hệ thống tự copy vào clipboard.' },
         { id: 'search', q: 'Làm sao tìm hợp đồng nhanh?', a: 'Nhấn Ctrl+K để mở tìm kiếm toàn cục, gõ mã HĐ hoặc tên khách hàng.' },
-        { id: 'approval', q: 'Quy trình phê duyệt hợp đồng?', a: 'Nháp → Chờ duyệt (Pháp lý + Tài chính SONG SONG) → Đã duyệt → Chờ ký → Có hiệu lực. Xem chi tiết ở mục "Hợp đồng".' },
+        // CRM: Approval FAQ hidden — will be re-enabled in CRM module
         { id: 'export', q: 'Làm sao xuất Excel?', a: 'Ở danh sách hợp đồng, nhấn nút "Xuất Excel" ở góc phải.' },
     ];
 
@@ -99,52 +99,7 @@ const UserGuide: React.FC = () => {
                 { title: 'Nhân bản hợp đồng', steps: ['Ở danh sách, nhấn icon 📋', 'Chỉnh sửa thông tin mới', 'Lưu như HĐ mới'] },
                 { title: 'Lọc & Xuất Excel', steps: ['Dùng bộ lọc: Năm, Đơn vị, Trạng thái', 'Click tiêu đề cột để sắp xếp', 'Nhấn "Xuất Excel"'] },
             ],
-            workflow: {
-                title: '📋 Quy trình phê duyệt hợp đồng (Song song)',
-                description: 'Pháp lý và Tài chính duyệt ĐỒNG THỜI. Khi cả 2 đã duyệt → trình ký lãnh đạo',
-                steps: [
-                    {
-                        status: 'Nháp',
-                        desc: 'HĐ mới tạo, chưa gửi duyệt',
-                        who: 'NVKD tạo',
-                        action: 'Nhấn "Gửi duyệt"',
-                        condition: 'Đã điền đầy đủ thông tin bắt buộc',
-                        icon: <Edit size={16} />
-                    },
-                    {
-                        status: 'Chờ duyệt',
-                        desc: '⚡ SONG SONG: Pháp lý + Tài chính duyệt cùng lúc',
-                        who: 'Legal + Kế toán (đồng thời)',
-                        action: 'Mỗi bên duyệt độc lập',
-                        condition: 'Cả 2 phải duyệt mới qua bước tiếp',
-                        icon: <Users size={16} />
-                    },
-                    {
-                        status: 'Đã duyệt',
-                        desc: 'Cả Pháp lý và Tài chính đã duyệt xong',
-                        who: 'Lãnh đạo trình ký',
-                        action: 'Nhấn "Trình ký"',
-                        condition: 'Tự động khi cả 2 duyệt xong',
-                        icon: <FileCheck size={16} />
-                    },
-                    {
-                        status: 'Chờ ký',
-                        desc: 'Đang chờ lãnh đạo ký',
-                        who: 'Lãnh đạo ký',
-                        action: 'Nhấn "Ký hợp đồng"',
-                        condition: 'Bản cứng đã in, sẵn sàng ký',
-                        icon: <Send size={16} />
-                    },
-                    {
-                        status: 'Có hiệu lực',
-                        desc: 'HĐ đã ký, đang thực hiện',
-                        who: 'Tự động',
-                        action: 'Theo dõi thanh toán',
-                        condition: 'Sau khi ký xong',
-                        icon: <CheckCircle2 size={16} />
-                    },
-                ]
-            }
+            // CRM: Approval workflow hidden — will be re-enabled in CRM module
         },
         {
             id: 'dashboard',

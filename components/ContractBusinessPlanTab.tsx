@@ -1039,7 +1039,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                         <AlertTriangle className="shrink-0 mt-0.5" size={18} />
                         <div className="text-sm">
                             <strong className="block mb-1">Cảnh báo Hiệu quả thấp</strong>
-                            Tỷ suất lợi nhuận dưới 30% (KPI chuẩn). PAKD này sẽ cần Lãnh đạo Công ty phê duyệt thủ công.
+                            Tỷ suất lợi nhuận dưới 30% (KPI chuẩn). Cần lưu ý khi triển khai hợp đồng.
                         </div>
                     </div>
                 )}

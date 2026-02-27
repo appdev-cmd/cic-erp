@@ -462,9 +462,9 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         </div>
 
         {/* Status Highlights */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
           <StatusCard label="Đang thực hiện" count={stats.statusCounts.active} icon={<Clock size={24} className="text-indigo-600" />} color="indigo" />
-          <StatusCard label="Chờ phê duyệt" count={stats.statusCounts.pending} icon={<ClipboardList size={24} className="text-amber-600" />} color="amber" />
+          {/* CRM: "Chờ phê duyệt" card hidden — will be re-enabled in CRM module */}
           <StatusCard label="Đã hoàn thành" count={stats.statusCounts.completed} icon={<CheckCircle2 size={24} className="text-emerald-600" />} color="emerald" />
           <StatusCard label="Hợp đồng quá hạn" count={stats.statusCounts.expired} icon={<AlertCircle size={24} className="text-rose-600" />} color="rose" />
         </div>

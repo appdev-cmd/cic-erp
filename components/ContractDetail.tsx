@@ -416,62 +416,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
           </div>
         </div>
 
-        {/* CONTRACT REVIEW PANEL - Workflow actions based on status and role */}
-        {profile?.role && contract?.status && (
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-            <ContractReviewPanel
-              contractId={contract.id}
-              currentStatus={contract.status}
-              userRole={effectiveRole || ''}
-              isOwnUnit={profile?.unitId === contract.unitId}
-              legalApproved={(contract as any).legal_approved || false}
-              financeApproved={(contract as any).finance_approved || false}
-              onAction={async (action) => {
-                const userId = profile?.id || '';
-                let result;
-                switch (action) {
-                  case 'SubmitReview':
-                    // Open dialog to get draft URL (reuse existing dialog)
-                    setShowLegalDialog(true);
-                    return; // Don't continue, dialog will handle submission
-                  case 'ApproveLegal':
-                    result = await WorkflowService.approveContractLegal(contract.id, userId);
-                    break;
-                  case 'RejectLegal':
-                    const legalReason = prompt('Lý do từ chối pháp lý:');
-                    if (!legalReason) return;
-                    result = await WorkflowService.rejectContractLegal(contract.id, userId, legalReason);
-                    break;
-                  case 'ApproveFinance':
-                    result = await WorkflowService.approveContractFinance(contract.id, userId);
-                    break;
-                  case 'RejectFinance':
-                    const financeReason = prompt('Lý do từ chối tài chính:');
-                    if (!financeReason) return;
-                    result = await WorkflowService.rejectContractFinance(contract.id, userId, financeReason);
-                    break;
-                  case 'SubmitSign':
-                    result = await WorkflowService.submitForSign(contract.id);
-                    break;
-                  case 'Sign':
-                    result = await WorkflowService.signContract(contract.id, userId);
-                    break;
-                }
-                if (result?.success) {
-                  toast.success('Thao tác thành công!');
-                  // Refresh contract data
-                  const refreshed = await ContractService.getById(contract.id);
-                  if (refreshed) setContract(refreshed);
-                  // Refresh audit logs to show new activity
-                  const logs = await AuditLogService.getByRecordId('contracts', contract.id);
-                  setAuditLogs(logs);
-                } else {
-                  toast.error(result?.error?.message || 'Có lỗi xảy ra');
-                }
-              }}
-            />
-          </div>
-        )}
+        {/* CRM: Contract approval panel hidden — will be re-enabled in CRM module */}
 
         {/* TABS */}
         <div className="flex border-b border-slate-200 dark:border-slate-800">
@@ -903,25 +848,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
         )}
       </div>
 
-      {/* Submit Legal Dialog */}
-      {contract && (
-        <SubmitLegalDialog
-          isOpen={showLegalDialog}
-          onClose={() => setShowLegalDialog(false)}
-          onSubmit={async (draftUrl, draftName) => {
-            const result = await WorkflowService.submitContractForReview(contract.id, draftUrl);
-            if (result.success) {
-              toast.success('Đã gửi duyệt! Pháp lý + Tài chính sẽ xem xét song song.');
-              setShowLegalDialog(false);
-              const refreshed = await ContractService.getById(contract.id);
-              if (refreshed) setContract(refreshed);
-            } else {
-              toast.error(result.error?.message || 'Có lỗi xảy ra');
-            }
-          }}
-          contractName={contract.id}
-        />
-      )}
+      {/* CRM: Submit Legal Dialog hidden — will be re-enabled in CRM module */}
 
       {/* Add Document Link Dialog */}
       {contract && (

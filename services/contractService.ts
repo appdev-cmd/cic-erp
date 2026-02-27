@@ -545,7 +545,8 @@ export const ContractService = {
     }> => {
         console.log('[ContractService.getStatsFallback] Using direct query');
         // When filtering by unit, we need ALL contracts to check unit_allocations too
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, payments(paid_amount)');
+        // Include payment status+amount to calculate revenue from invoiced payments
+        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, payments(amount, paid_amount, status, payment_type)');
 
         // Only apply year filter at query level (unit filter is done in JS for allocation support)
         if (year && year !== 'All' && year !== 'all') {
@@ -570,10 +571,18 @@ export const ContractService = {
 
         return (data || []).reduce((acc: any, curr: any) => {
             const val = curr.value || 0;
-            const rev = curr.actual_revenue || 0;
             const cost = curr.estimated_cost || 0;
             const actCost = curr.actual_cost || 0;
-            const cash = curr.payments?.reduce((sum: number, p: any) => sum + (Number(p.paid_amount) || 0), 0) || 0;
+            // Revenue = sum of payments with status 'Đã xuất HĐ' or 'Tiền về' (recognized at invoice)
+            const revenuePayments: any[] = (curr.payments || []).filter(
+                (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
+                    ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status)
+            );
+            const rev = revenuePayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+            const cash = (curr.payments || []).filter(
+                (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
+                    ['Tiền về', 'Paid'].includes(p.status)
+            ).reduce((sum: number, p: any) => sum + (Number(p.paid_amount) || 0), 0);
 
             // Determine this unit's share percentage (0-100)
             let sharePct = 100; // Default: 100% for "all" view or lead unit without allocations

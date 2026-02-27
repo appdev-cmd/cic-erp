@@ -52,21 +52,20 @@ export const CONTRACT_STATUS_LABELS: Record<string, string> = {
   'Terminated': 'Đã chấm dứt',
   'Cancelled': 'Đã hủy',
   'Suspended': 'Tạm dừng',
-  // Trạng thái quy trình duyệt
-  'Pending_Legal': 'Chờ Pháp chế duyệt',
-  'Pending_Finance': 'Chờ Tài chính duyệt',
-  'Finance_Approved': 'Tài chính đã duyệt',
-  'Pending_Sign': 'Chờ ký hợp đồng',
-  'Pending_Unit': 'Chờ Đơn vị duyệt',
-  'Pending_Board': 'Chờ Ban LĐ duyệt',
-  'Approved': 'Đã phê duyệt',
-  'Rejected': 'Từ chối',
-  // Trạng thái duyệt kép
-  'BOTH_APPROVED': 'Đã duyệt',
-  'Both_Approved': 'Đã duyệt',
-  'Legal_Approved': 'Pháp chế đã duyệt',
-  'Unit_Approved': 'Đơn vị đã duyệt',
-  'Board_Approved': 'Ban LĐ đã duyệt',
+  // CRM: Approval workflow statuses — hidden, will be re-enabled in CRM module
+  // 'Pending_Legal': 'Chờ Pháp chế duyệt',
+  // 'Pending_Finance': 'Chờ Tài chính duyệt',
+  // 'Finance_Approved': 'Tài chính đã duyệt',
+  // 'Pending_Sign': 'Chờ ký hợp đồng',
+  // 'Pending_Unit': 'Chờ Đơn vị duyệt',
+  // 'Pending_Board': 'Chờ Ban LĐ duyệt',
+  // 'Approved': 'Đã phê duyệt',
+  // 'Rejected': 'Từ chối',
+  // 'BOTH_APPROVED': 'Đã duyệt',
+  // 'Both_Approved': 'Đã duyệt',
+  // 'Legal_Approved': 'Pháp chế đã duyệt',
+  // 'Unit_Approved': 'Đơn vị đã duyệt',
+  // 'Board_Approved': 'Ban LĐ đã duyệt',
 };
 
 export const MOCK_UNITS: Unit[] = [

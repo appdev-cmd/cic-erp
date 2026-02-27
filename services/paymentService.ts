@@ -155,23 +155,30 @@ export const PaymentService = {
         // Client-side aggregation
         const total = data.reduce((sum, p) => sum + (p.amount || 0), 0);
 
+        // Tiền về / Đã chi
         const paidQuery = data.filter(p => p.status === 'Tiền về' || p.status === 'Paid');
         const paid = paidQuery.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
 
-        // Pending set
-        const pendingQuery = data.filter(p => p.status === 'Chờ xuất HĐ' || p.status === 'Pending' || p.status === 'Đã xuất HĐ' || p.status === 'Chờ thu' || p.status === 'Chờ chi');
+        // Đã xuất HĐ (invoiced but not yet received cash)
+        const invoicedQuery = data.filter(p => p.status === 'Đã xuất HĐ');
+        const invoiced = invoicedQuery.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+        // Chờ xuất HĐ / Pending (NOT including 'Đã xuất HĐ')
+        const pendingQuery = data.filter(p => p.status === 'Chờ xuất HĐ' || p.status === 'Pending' || p.status === 'Chờ thu' || p.status === 'Chờ chi');
         const pending = pendingQuery.reduce((sum, p) => sum + (p.amount || 0), 0);
 
+        // Quá hạn
         const overdueQuery = data.filter(p => p.status === 'Quá hạn' || p.status === 'Overdue');
-        // Overdue count is remaining amount
         const overdue = overdueQuery.reduce((sum, p) => sum + ((p.amount || 0) - (p.paid_amount || 0)), 0);
 
         return {
             totalAmount: total,
             paidAmount: paid,
+            invoicedAmount: invoiced,
             pendingAmount: pending,
             overdueAmount: overdue,
             paidCount: paidQuery.length,
+            invoicedCount: invoicedQuery.length,
             pendingCount: pendingQuery.length,
             overdueCount: overdueQuery.length,
         };
