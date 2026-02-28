@@ -246,6 +246,50 @@ These are frequently overlooked issues that make UI look unprofessional:
 | **Muted text light** | Use `#475569` (slate-600) minimum | Use gray-400 or lighter |
 | **Border visibility** | Use `border-gray-200` in light mode | Use `border-white/10` (invisible) |
 
+### Dark Mode — Tailwind `dark:` Class Rules (BẮT BUỘC)
+
+> Mọi element PHẢI có dark variant đồng bộ. Đây là nguồn gốc phổ biến nhất của lỗi UI.
+
+**Quy tắc 1: Text — Luôn thêm `dark:text-` variant**
+```
+❌ text-indigo-600                         → text tối trên nền tối
+✅ text-indigo-600 dark:text-indigo-400    → đọc được trên dark
+```
+| Light | Dark |
+|-------|------|
+| `text-{color}-600` | `dark:text-{color}-400` |
+| `text-{color}-700` | `dark:text-{color}-400` |
+| `text-{color}-900` | `dark:text-slate-100` |
+| `text-slate-500` | `dark:text-slate-400` |
+
+**Quy tắc 2: Nền — KHÔNG dùng opacity cho `dark:bg-slate-*`**
+```
+❌ dark:bg-slate-800/50    → 50% opacity, lộ nền trắng bên dưới
+❌ dark:bg-slate-800/30    → gần như transparent
+✅ dark:bg-slate-800       → full opacity, nền tối rõ ràng
+```
+| Light | Dark |
+|-------|------|
+| `bg-white` | `dark:bg-slate-900` |
+| `bg-slate-50` | `dark:bg-slate-800` |
+| `bg-slate-100` | `dark:bg-slate-800` |
+| `bg-{color}-50` | `dark:bg-{color}-900/20` |
+| `bg-{color}-100` | `dark:bg-{color}-900/30` |
+
+> ⚠️ Chỉ dùng opacity cho `bg-{color}-900/xx` (color semantics), KHÔNG dùng cho `bg-slate-800/xx` (neutral backgrounds).
+
+**Quy tắc 3: Hover — Mọi hover PHẢI có `dark:hover:` variant**
+```
+❌ hover:bg-slate-50                              → nền sáng khi rê chuột
+✅ hover:bg-slate-50 dark:hover:bg-slate-800      → hover đồng bộ dark
+```
+
+**Quy tắc 4: Border — Luôn thêm `dark:border-`**
+```
+❌ border-slate-200
+✅ border-slate-200 dark:border-slate-800
+```
+
 ### Layout & Spacing
 
 | Rule | Do | Don't |
@@ -278,6 +322,12 @@ Before delivering UI code, verify these items:
 - [ ] Glass/transparent elements visible in light mode
 - [ ] Borders visible in both modes
 - [ ] Test both modes before delivery
+- [ ] Mọi `bg-white` có `dark:bg-slate-900`
+- [ ] Mọi `bg-slate-50/100` có `dark:bg-slate-800` (KHÔNG dùng opacity)
+- [ ] Mọi `text-{color}-600/700` có `dark:text-{color}-400`
+- [ ] Mọi `text-slate-900` có `dark:text-slate-100`
+- [ ] Mọi `hover:bg-*` có `dark:hover:bg-*` tương ứng (full opacity)
+- [ ] Mọi `border-slate-200` có `dark:border-slate-800`
 
 ### Layout
 - [ ] Floating elements have proper spacing from edges
