@@ -36,7 +36,7 @@ interface ParsedRow extends ImportRow {
 }
 
 const VALID_TYPES = ['HĐ', 'HĐNT', 'HĐPS', 'PL'];
-const VALID_STATUSES = ['Active', 'Pending', 'Reviewing', 'Completed', 'Expired', 'Terminated'];
+const VALID_STATUSES = ['Processing', 'Suspended', 'Acceptance', 'Liquidated', 'Completed'];
 const VALID_CATEGORIES = ['Mới', 'Tiếp nối', 'Phát sinh', 'Bảo hành'];
 
 const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClose, onSuccess }) => {
@@ -83,13 +83,14 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
     };
 
     const parseStatus = (value: string): string => {
-        if (!value) return 'Pending';
+        if (!value) return 'Processing';
         const lower = value.toLowerCase();
-        if (lower.includes('active') || lower.includes('hiệu lực')) return 'Active';
-        if (lower.includes('pending') || lower.includes('chờ')) return 'Pending';
-        if (lower.includes('complete') || lower.includes('hoàn thành')) return 'Completed';
-        if (lower.includes('cancel') || lower.includes('hủy') || lower.includes('expired') || lower.includes('hết hạn')) return 'Expired';
-        return 'Pending';
+        if (lower.includes('thực hiện') || lower.includes('processing') || lower.includes('active') || lower.includes('pending')) return 'Processing';
+        if (lower.includes('tạm dừng') || lower.includes('suspended')) return 'Suspended';
+        if (lower.includes('nghiệm thu') || lower.includes('acceptance')) return 'Acceptance';
+        if (lower.includes('thanh lý') || lower.includes('liquidat')) return 'Liquidated';
+        if (lower.includes('hoàn thành') || lower.includes('complete')) return 'Completed';
+        return 'Processing';
     };
 
     const parseDate = (value: any): string => {
@@ -328,7 +329,7 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
             [''],
             ['CÁC GIÁ TRỊ HỢP LỆ:'],
             ['Loại HĐ:', 'HĐ, HĐNT, HĐPS, PL'],
-            ['Trạng thái:', 'Active, Pending, Reviewing, Completed, Expired, Terminated'],
+            ['Trạng thái:', 'Processing, Suspended, Acceptance, Liquidated, Completed'],
             ['Loại:', 'Mới, Tiếp nối, Phát sinh, Bảo hành'],
             ['Ngày:', 'dd/mm/yyyy hoặc yyyy-mm-dd'],
         ];

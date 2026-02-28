@@ -41,31 +41,19 @@ export const INDUSTRIES = [
 ] as const;
 
 export const CONTRACT_STATUS_LABELS: Record<string, string> = {
-  // Trạng thái chính
-  'Active': 'Đang hiệu lực',
-  'Pending': 'Chờ xử lý',
-  'Reviewing': 'Đang xem xét',
-  'Expired': 'Hết hạn',
-  'Draft': 'Nháp',
-  'Liquidated': 'Đã thanh lý',
-  'Completed': 'Hoàn thành',
-  'Terminated': 'Đã chấm dứt',
-  'Cancelled': 'Đã hủy',
+  'Processing': 'Đang thực hiện',
   'Suspended': 'Tạm dừng',
-  // CRM: Approval workflow statuses — hidden, will be re-enabled in CRM module
-  // 'Pending_Legal': 'Chờ Pháp chế duyệt',
-  // 'Pending_Finance': 'Chờ Tài chính duyệt',
-  // 'Finance_Approved': 'Tài chính đã duyệt',
-  // 'Pending_Sign': 'Chờ ký hợp đồng',
-  // 'Pending_Unit': 'Chờ Đơn vị duyệt',
-  // 'Pending_Board': 'Chờ Ban LĐ duyệt',
-  // 'Approved': 'Đã phê duyệt',
-  // 'Rejected': 'Từ chối',
-  // 'BOTH_APPROVED': 'Đã duyệt',
-  // 'Both_Approved': 'Đã duyệt',
-  // 'Legal_Approved': 'Pháp chế đã duyệt',
-  // 'Unit_Approved': 'Đơn vị đã duyệt',
-  // 'Board_Approved': 'Ban LĐ đã duyệt',
+  'Acceptance': 'Nghiệm thu',
+  'Liquidated': 'Thanh lý',
+  'Completed': 'Hoàn thành',
+  // Legacy statuses (for backward compatibility with old data)
+  'Active': 'Đang thực hiện',
+  'Pending': 'Đang thực hiện',
+  'Reviewing': 'Đang thực hiện',
+  'Expired': 'Hoàn thành',
+  'Draft': 'Đang thực hiện',
+  'Terminated': 'Hoàn thành',
+  'Cancelled': 'Hoàn thành',
 };
 
 export const MOCK_UNITS: Unit[] = [
@@ -252,7 +240,7 @@ const generateMockContracts = (): Contract[] => {
       estimatedCost,
       actualRevenue,
       actualCost,
-      status: i % 20 === 0 ? 'Expired' : i % 12 === 0 ? 'Pending' : i % 7 === 0 ? 'Completed' : 'Active',
+      status: i % 20 === 0 ? 'Completed' : i % 12 === 0 ? 'Suspended' : i % 7 === 0 ? 'Acceptance' : 'Processing',
       stage: stages[i % stages.length],
       category: 'Chuyên môn',
       unitId: unit.id,
@@ -268,7 +256,7 @@ export const MOCK_CONTRACTS: Contract[] = generateMockContracts();
 const generateMockPayments = (): Payment[] => {
   const payments: Payment[] = [];
   const methods: PaymentMethod[] = ['Chuyển khoản', 'Chuyển khoản', 'Chuyển khoản', 'Tiền mặt', 'LC'];
-  const activeContracts = MOCK_CONTRACTS.filter(c => c.status === 'Active' || c.status === 'Completed');
+  const activeContracts = MOCK_CONTRACTS.filter(c => c.status === 'Processing' || c.status === 'Completed');
 
   activeContracts.slice(0, 100).forEach((contract, i) => {
     // Create 1-3 payment records per contract

@@ -170,7 +170,7 @@ const mapContract = (c: any): Contract => {
         id: 'unknown',
         title: 'Unknown Contract',
         contractType: 'HĐ',
-        status: 'Pending',
+        status: 'Processing',
         stage: 'Signed',
         value: 0
     } as any; // Partial fallback
@@ -197,7 +197,7 @@ const mapContract = (c: any): Contract => {
         estimatedCost: c.estimated_cost || 0,
         invoicedAmount: c.invoiced_amount || 0,
         actualCost: c.actual_cost || 0,
-        status: c.status || 'Pending',
+        status: c.status || 'Processing',
         stage: c.stage || 'Signed',
         category: c.category || 'Mới',
         signedDate: c.signed_date || '',
@@ -633,8 +633,8 @@ export const ContractService = {
                 totalSigningProfit: acc.totalSigningProfit + (val - cost) * fraction,
                 totalRevenueProfit: acc.totalRevenueProfit + (rev > 0 ? Math.round((rev - actCost) * fraction) : 0),
                 totalCash: acc.totalCash + cash * fraction,
-                activeCount: acc.activeCount + (curr.status === 'Processing' || curr.status === 'Active' ? 1 : 0),
-                pendingCount: acc.pendingCount + (curr.status === 'Pending' ? 1 : 0)
+                activeCount: acc.activeCount + (curr.status === 'Processing' ? 1 : 0),
+                pendingCount: acc.pendingCount + (curr.status === 'Suspended' ? 1 : 0)
             };
         }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0 });
     },
@@ -1034,7 +1034,7 @@ export const ContractService = {
         const clone: Contract = {
             ...source,
             id: newId,
-            status: 'Pending',
+            status: 'Processing',
             stage: 'Signed',
             actualRevenue: 0,
             actualCost: 0,

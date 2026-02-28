@@ -347,7 +347,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Most resources are editable only in Draft or early stages
         // Contracts typically editable until signed/active, but here we simplify
-        if (['Draft', 'New', 'Pending'].includes(status)) {
+        if (['Draft', 'New', 'Processing'].includes(status)) {
             // If resourceUnitId provided, check if user belongs to that unit or is global
             if (resourceUnitId && profile.unitId) {
                 if (profile.unitId === 'all') return true;

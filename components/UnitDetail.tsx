@@ -331,7 +331,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                 <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{c.partyA}</p>
                                 <p className="text-xs text-slate-500">{formatCurrency(c.value)}</p>
                             </div>
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Processing' ? 'bg-emerald-100 text-emerald-700' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>
                                 {c.status}
                             </span>
                         </div>
@@ -412,7 +412,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                     <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate max-w-[200px]">{c.partyA}</p>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700' : c.status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
+                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Processing' ? 'bg-emerald-100 text-emerald-700' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700' : c.status === 'Suspended' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
                                         {c.status}
                                     </span>
                                 </td>

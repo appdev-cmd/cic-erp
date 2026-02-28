@@ -420,7 +420,7 @@ export const WorkflowService = {
         const { error } = await supabase
             .from('contracts')
             .update({
-                status: 'Active',
+                status: 'Processing',
                 signed_date: new Date().toISOString().split('T')[0]
             })
             .eq('id', contractId)

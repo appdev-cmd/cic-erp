@@ -108,24 +108,18 @@ export const AuditLogService = {
     formatAction(action: string, oldData?: any, newData?: any): string {
         // Status translation map - Vietnamese
         const statusLabels: Record<string, string> = {
-            'Active': 'Đang hiệu lực',
-            'Pending': 'Chờ xử lý',
-            'Reviewing': 'Đang xem xét',
-            'Expired': 'Hết hạn',
-            'Draft': 'Nháp',
-            'Liquidated': 'Đã thanh lý',
+            'Processing': 'Đang thực hiện',
+            'Suspended': 'Tạm dừng',
+            'Acceptance': 'Nghiệm thu',
+            'Liquidated': 'Thanh lý',
             'Completed': 'Hoàn thành',
-            'Terminated': 'Đã chấm dứt',
-            'Pending_Review': 'Chờ Pháp lý + Tài chính duyệt',
-            'Both_Approved': 'Pháp lý + Tài chính đã duyệt',
-            'Pending_Legal': 'Chờ Pháp lý duyệt',
-            'Pending_Finance': 'Chờ Tài chính duyệt',
-            'Finance_Approved': 'Tài chính đã duyệt',
-            'Pending_Sign': 'Chờ ký hợp đồng',
-            'Pending_Unit': 'Chờ Đơn vị duyệt',
-            'Pending_Board': 'Chờ Ban Lãnh đạo duyệt',
-            'Approved': 'Đã phê duyệt',
-            'Rejected': 'Từ chối'
+            // Legacy
+            'Active': 'Đang thực hiện',
+            'Pending': 'Đang thực hiện',
+            'Reviewing': 'Đang thực hiện',
+            'Expired': 'Hoàn thành',
+            'Draft': 'Đang thực hiện',
+            'Terminated': 'Hoàn thành',
         };
 
         const stageLabels: Record<string, string> = {

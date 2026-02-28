@@ -236,31 +236,15 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
   const getStatusColor = (status: ContractStatus | string) => {
     switch (status) {
+      case 'Processing': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
+      case 'Suspended': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800';
+      case 'Acceptance': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800';
+      case 'Liquidated': return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200 dark:border-sky-800';
+      case 'Completed': return 'bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400 border border-slate-200 dark:border-slate-700';
+      // Legacy statuses
       case 'Active': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
       case 'Pending': return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800';
-      case 'Reviewing': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800';
       case 'Expired': return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-800';
-      case 'Completed': return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200 dark:border-sky-800';
-      case 'Terminated': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800';
-      case 'Cancelled': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400 border border-gray-200 dark:border-gray-800';
-      case 'Suspended': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800';
-      case 'Draft': return 'bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400 border border-slate-200 dark:border-slate-700';
-      case 'Approved':
-      case 'BOTH_APPROVED':
-      case 'Both_Approved':
-      case 'Board_Approved':
-        return 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400 border border-teal-200 dark:border-teal-800';
-      case 'Rejected': return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-800';
-      case 'Pending_Legal':
-      case 'Pending_Finance':
-      case 'Pending_Unit':
-      case 'Pending_Board':
-      case 'Pending_Sign':
-        return 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400 border border-violet-200 dark:border-violet-800';
-      case 'Finance_Approved':
-      case 'Legal_Approved':
-      case 'Unit_Approved':
-        return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800';
       default: return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-800';
     }
   };
@@ -305,7 +289,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               value: Number(row['Giá trị'] || row['value'] || 0),
               actualRevenue: Number(row['Doanh thu'] || row['actualRevenue'] || 0),
               signedDate: row['Ngày ký'] || row['signedDate'] || new Date().toISOString().split('T')[0],
-              status: row['Trạng thái'] || row['status'] || 'Pending',
+              status: row['Trạng thái'] || row['status'] || 'Processing',
               // Defaults
               contractType: 'HĐ',
               unitId: selectedUnit?.id !== 'all' ? selectedUnit.id : (units[0]?.id || 'u1'),
@@ -560,10 +544,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
             }}
           >
             <option value="All">Tất cả trạng thái</option>
-            <option value="Active">Đang hiệu lực</option>
-            <option value="Pending">Chờ duyệt</option>
-            <option value="Reviewing">Đang xem xét</option>
-            <option value="Expired">Hết hạn</option>
+            <option value="Processing">Đang thực hiện</option>
+            <option value="Suspended">Tạm dừng</option>
+            <option value="Acceptance">Nghiệm thu</option>
+            <option value="Liquidated">Thanh lý</option>
+            <option value="Completed">Hoàn thành</option>
           </select>
         </div>
       </div>

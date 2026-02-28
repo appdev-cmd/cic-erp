@@ -1,5 +1,5 @@
 
-export type ContractStatus = 'Active' | 'Pending' | 'Expired' | 'Terminated' | 'Reviewing' | 'Completed';
+export type ContractStatus = 'Processing' | 'Suspended' | 'Acceptance' | 'Liquidated' | 'Completed';
 export type ImplementationStage = 'Signed' | 'Advanced' | 'Guaranteed' | 'InputOrdered' | 'Implementation' | 'Completed' | 'Invoiced';
 export type ContractType = 'HĐ' | 'VV';
 
