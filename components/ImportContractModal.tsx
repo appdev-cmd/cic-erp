@@ -14,7 +14,6 @@ interface ImportContractModalProps {
 interface ImportRow {
     contractNumber?: string;
     title: string;
-    contractType: string;
     customerName: string;
     unitCode: string;
     salespersonName?: string;
@@ -25,7 +24,6 @@ interface ImportRow {
     startDate?: string;
     endDate?: string;
     status: string;
-    category?: string;
 }
 
 interface ParsedRow extends ImportRow {
@@ -37,9 +35,7 @@ interface ParsedRow extends ImportRow {
     salespersonId?: string;
 }
 
-const VALID_TYPES = ['HĐ', 'HĐNT', 'HĐPS', 'PL'];
 const VALID_STATUSES = ['Processing', 'Suspended', 'Acceptance', 'Liquidated', 'Completed'];
-const VALID_CATEGORIES = ['Mới', 'Tiếp nối', 'Phát sinh', 'Bảo hành'];
 
 const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClose, onSuccess }) => {
     const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
@@ -210,18 +206,16 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
                     const importRow: ImportRow = {
                         contractNumber: row[0] ? String(row[0]).trim() : undefined,
                         title: String(row[1] || '').trim(),
-                        contractType: String(row[2] || 'HĐ').trim(),
-                        customerName: String(row[3] || '').trim(),
-                        unitCode: String(row[4] || '').trim(),
-                        salespersonName: row[5] ? String(row[5]).trim() : undefined,
-                        value: parseFloat(row[6]) || 0,
-                        vatRate: [0, 8, 10].includes(Number(row[7])) ? Number(row[7]) : 10,
-                        estimatedCost: parseFloat(row[8]) || 0,
-                        signedDate: parseDate(row[9]),
-                        startDate: parseDate(row[10]),
-                        endDate: parseDate(row[11]),
-                        status: parseStatus(String(row[12] || '')),
-                        category: String(row[13] || 'Mới').trim()
+                        customerName: String(row[2] || '').trim(),
+                        unitCode: String(row[3] || '').trim(),
+                        salespersonName: row[4] ? String(row[4]).trim() : undefined,
+                        value: parseFloat(row[5]) || 0,
+                        vatRate: [0, 8, 10].includes(Number(row[6])) ? Number(row[6]) : 10,
+                        estimatedCost: parseFloat(row[7]) || 0,
+                        signedDate: parseDate(row[8]),
+                        startDate: parseDate(row[9]),
+                        endDate: parseDate(row[10]),
+                        status: parseStatus(String(row[11] || ''))
                     };
 
                     const parsedRow = validateRow(importRow, i + 2, existingTitles);
@@ -277,17 +271,17 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
     const downloadTemplate = () => {
         // === SHEET 1: Main data entry ===
         const templateData = [
-            ['Số HĐ', 'Tên hợp đồng (*)', 'Loại HĐ', 'Khách hàng (*)', 'Mã đơn vị (*)', 'NVKD', 'Giá trị ký (*)', 'Thuế suất (%)', 'Chi phí dự kiến', 'Ngày ký', 'Ngày BĐ', 'Ngày KT', 'Trạng thái', 'Phân loại'],
-            ['(Tự sinh nếu bỏ trống)', '(Bắt buộc)', '(HĐ/HĐNT/HĐPS/PL)', '(Tên KH/Tên mới)', '(Xem sheet Tra cứu)', '(Tên nhân viên)', '(Số, VNĐ, sau thuế)', '(0, 8 hoặc 10)', '(Số, VNĐ)', '(dd/mm/yyyy)', '(dd/mm/yyyy)', '(dd/mm/yyyy)', '(Processing/...)', '(Mới/Tiếp nối/...)'],
-            ['01/CIC-HĐ/2026', 'HĐ Tư vấn dự án ABC', 'HĐ', 'Công ty ABC', 'BIM', 'Nguyễn Văn A', 500000000, 10, 350000000, '15/01/2026', '20/01/2026', '30/06/2026', 'Processing', 'Mới'],
-            ['', 'HĐ Thiết kế XYZ', 'HĐNT', 'Tập đoàn XYZ', 'CSS', '', 800000000, 8, 600000000, '01/02/2026', '', '', 'Processing', 'Tiếp nối']
+            ['Số HĐ', 'Tên hợp đồng (*)', 'Khách hàng (*)', 'Mã đơn vị (*)', 'NVKD', 'Giá trị ký (*)', 'Thuế suất (%)', 'Chi phí dự kiến', 'Ngày ký', 'Ngày BĐ', 'Ngày KT', 'Trạng thái'],
+            ['(Tự sinh nếu bỏ trống)', '(Bắt buộc)', '(Tên KH/Tên mới)', '(Xem sheet Tra cứu)', '(Tên nhân viên)', '(Số, VNĐ, sau thuế)', '(0, 8 hoặc 10)', '(Số, VNĐ)', '(dd/mm/yyyy)', '(dd/mm/yyyy)', '(dd/mm/yyyy)', '(Processing/...)'],
+            ['01/CIC-HĐ/2026', 'HĐ Tư vấn dự án ABC', 'Công ty ABC', 'BIM', 'Nguyễn Văn A', 500000000, 10, 350000000, '15/01/2026', '20/01/2026', '30/06/2026', 'Processing'],
+            ['', 'HĐ Thiết kế XYZ', 'Tập đoàn XYZ', 'CSS', '', 800000000, 8, 600000000, '01/02/2026', '', '', 'Processing']
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(templateData);
         ws['!cols'] = [
-            { wch: 22 }, { wch: 35 }, { wch: 12 }, { wch: 30 }, { wch: 12 },
+            { wch: 22 }, { wch: 35 }, { wch: 30 }, { wch: 12 },
             { wch: 20 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 14 },
-            { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }
+            { wch: 14 }, { wch: 14 }, { wch: 14 }
         ];
 
         const wb = XLSX.utils.book_new();
@@ -334,10 +328,8 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
             ['5. Xóa 2 dòng mẫu trước khi nhập dữ liệu thật'],
             [''],
             ['CÁC GIÁ TRỊ HỢP LỆ:'],
-            ['Loại HĐ:', 'HĐ, HĐNT, HĐPS, PL'],
             ['Thuế suất (%):', '0, 8, 10 (mặc định 10%)'],
             ['Trạng thái:', 'Processing, Suspended, Acceptance, Liquidated, Completed'],
-            ['Loại:', 'Mới, Tiếp nối, Phát sinh, Bảo hành'],
             ['Ngày:', 'dd/mm/yyyy hoặc yyyy-mm-dd'],
             [''],
             ['LƯU Ý:'],
@@ -420,7 +412,7 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
                 await ContractService.create({
                     id: contractId,
                     title: row.title,
-                    contractType: row.contractType as any || 'HĐ',
+                    contractType: 'HĐ',
                     customerId,
                     partyA: row.customerName || '',
                     unitId: row.unitId || '',
@@ -436,7 +428,7 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
                     endDate: row.endDate || '',
                     status: row.status as any,
                     stage: 'Signed',
-                    category: row.category || 'Mới',
+                    category: 'Mới',
                     partyB: '',
                     clientInitials: '',
                     content: '',
