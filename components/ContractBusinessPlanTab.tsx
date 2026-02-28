@@ -463,7 +463,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                     <div className="bg-slate-50 dark:bg-slate-800 p-5 rounded-lg border border-slate-100 dark:border-slate-800">
                         <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Doanh thu dự kiến</p>
                         <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                            {new Intl.NumberFormat('vi-VN').format(financials.revenue)} ₫
+                            {formatVND(financials.revenue)} ₫
                         </p>
                         {isEditing && <p className="text-[10px] text-slate-400 mt-1">Tự động tính từ bảng sản phẩm</p>}
                     </div>
@@ -471,7 +471,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                     <div className="bg-slate-50 dark:bg-slate-800 p-5 rounded-lg border border-slate-100 dark:border-slate-800">
                         <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Tổng chi phí</p>
                         <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                            {new Intl.NumberFormat('vi-VN').format(financials.costs)} ₫
+                            {formatVND(financials.costs)} ₫
                         </p>
                         {isEditing && <p className="text-[10px] text-slate-400 mt-1">Tự động tính từ bảng + CP quản lý</p>}
                     </div>
@@ -486,7 +486,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                     }`}>Lợi nhuận gộp</p>
                                 <p className={`text-2xl font-bold ${financials.margin >= 30 ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300'
                                     }`}>
-                                    {new Intl.NumberFormat('vi-VN').format(financials.grossProfit)} ₫
+                                    {formatVND(financials.grossProfit)} ₫
                                 </p>
                             </div>
                             <div className={`text-lg font-bold px-3 py-1 rounded-lg ${financials.margin >= 30 ? 'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-300' : 'bg-amber-200 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'

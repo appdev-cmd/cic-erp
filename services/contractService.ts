@@ -398,7 +398,8 @@ export const ContractService = {
         totalCash: number
     }> => {
         const { search, status, unitId, year } = params;
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, payments(paid_amount)');
+        // Include payment status+type to calculate revenue from invoiced payments (same as getStatsFallback)
+        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, payments(amount, paid_amount, status, payment_type)');
 
         if (search) {
             query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%`);
@@ -422,19 +423,35 @@ export const ContractService = {
         const { data, error } = await query;
         if (error) throw error;
 
-        // Calculate aggregates in JS
+        // Calculate aggregates in JS — revenue computed from payments (not stale actual_revenue)
         return data.reduce((acc, curr: any) => {
             const val = curr.value || 0;
-            const rev = curr.actual_revenue || 0;
             const cost = curr.estimated_cost || 0;
+            const actCost = curr.actual_cost || 0;
+
+            // Revenue = sum of invoiced/paid payment amounts (same logic as getStatsFallback & mapContract)
+            const revenuePayments: any[] = (curr.payments || []).filter(
+                (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
+                    ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status)
+            );
+            const rev = revenuePayments.length > 0
+                ? revenuePayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0)
+                : (curr.actual_revenue || 0); // Fallback to DB field if no matching payments
+
+            // Cash = only payments with money received
+            const cash = (curr.payments || []).filter(
+                (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
+                    ['Tiền về', 'Paid'].includes(p.status)
+            ).reduce((sum: number, p: any) => sum + (Number(p.paid_amount) || 0), 0);
+
             return {
                 totalContracts: acc.totalContracts + 1,
                 totalValue: acc.totalValue + val,
                 totalRevenue: acc.totalRevenue + rev,
                 totalProfit: acc.totalProfit + (val - cost), // Legacy
                 totalSigningProfit: acc.totalSigningProfit + (val - cost),
-                totalRevenueProfit: acc.totalRevenueProfit + (rev > 0 ? Math.round(rev - (curr.actual_cost || 0)) : 0),
-                totalCash: acc.totalCash + (curr.payments?.reduce((sum: number, p: any) => sum + (Number(p.paid_amount) || 0), 0) || 0)
+                totalRevenueProfit: acc.totalRevenueProfit + (rev > 0 ? Math.round(rev - actCost) : 0),
+                totalCash: acc.totalCash + cash
             };
         }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0 });
     },

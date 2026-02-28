@@ -56,10 +56,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-  // Can create: check DB permission + scope
+  // Can create: check DB permission + scope, with role fallback for impersonation
   const canCreate = useMemo(() => {
     if (!profile) return false;
-    if (!can('contracts', 'create')) return false;
+    // DB permission check with role fallback (for impersonated users without DB records)
+    const hasCreatePermission = can('contracts', 'create') ||
+      (['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD'].includes(profile.role || ''));
+    if (!hasCreatePermission) return false;
     // Global roles (Leadership/Admin) can always create
     if (isGlobalScope) return true;
     // Unit-scoped roles: can only create when viewing their own unit

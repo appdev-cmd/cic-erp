@@ -267,22 +267,87 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
     };
 
     const downloadTemplate = () => {
+        // === SHEET 1: Main data entry ===
         const templateData = [
-            ['Tên hợp đồng', 'Loại HĐ', 'Khách hàng', 'Mã đơn vị', 'NVKD', 'Giá trị', 'Chi phí DK', 'Ngày ký', 'Ngày BĐ', 'Ngày KT', 'Trạng thái', 'Loại'],
-            ['HĐ Tư vấn dự án ABC', 'HĐ', 'Công ty ABC', 'BIM', 'Nguyễn Văn A', 500000000, 350000000, '2024-01-15', '2024-01-20', '2024-06-30', 'Active', 'Mới'],
-            ['HĐ Thiết kế XYZ', 'HĐNT', 'Tập đoàn XYZ', 'CSS', '', 800000000, 600000000, '2024-02-01', '', '', 'Pending', 'Tiếp nối']
+            ['Tên hợp đồng (*)', 'Loại HĐ', 'Khách hàng (*)', 'Mã đơn vị (*)', 'NVKD', 'Giá trị (*)', 'Chi phí DK', 'Ngày ký', 'Ngày BĐ', 'Ngày KT', 'Trạng thái', 'Loại'],
+            ['(Bắt buộc)', '(HĐ/HĐNT/HĐPS/PL)', '(Tên KH trong hệ thống)', '(Xem sheet Tra cứu)', '(Tên nhân viên)', '(Số, VNĐ)', '(Số, VNĐ)', '(dd/mm/yyyy)', '(dd/mm/yyyy)', '(dd/mm/yyyy)', '(Active/Pending/...)', '(Mới/Tiếp nối/...)'],
+            ['HĐ Tư vấn dự án ABC', 'HĐ', 'Công ty ABC', 'BIM', 'Nguyễn Văn A', 500000000, 350000000, '15/01/2026', '20/01/2026', '30/06/2026', 'Active', 'Mới'],
+            ['HĐ Thiết kế XYZ', 'HĐNT', 'Tập đoàn XYZ', 'CSS', '', 800000000, 600000000, '01/02/2026', '', '', 'Pending', 'Tiếp nối']
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(templateData);
         ws['!cols'] = [
-            { wch: 30 }, { wch: 10 }, { wch: 25 }, { wch: 10 }, { wch: 15 },
-            { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-            { wch: 12 }, { wch: 12 }
+            { wch: 35 }, { wch: 12 }, { wch: 30 }, { wch: 12 }, { wch: 20 },
+            { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+            { wch: 14 }, { wch: 14 }
         ];
+
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Template');
-        XLSX.writeFile(wb, 'template_import_contracts.xlsx');
-        toast.success('Đã tải template');
+        XLSX.utils.book_append_sheet(wb, ws, 'Nhập HĐ');
+
+        // === SHEET 2: Reference lookups ===
+        const refHeader = [['== DANH SÁCH ĐƠN VỊ ==', '', '', '== DANH SÁCH KHÁCH HÀNG ==', '', '', '== DANH SÁCH NHÂN VIÊN ==']];
+        const refSubHeader = [['Mã đơn vị', 'Tên đơn vị', '', 'Tên khách hàng', 'Tên viết tắt', '', 'Tên nhân viên']];
+
+        // Build unit rows
+        const unitRows = units.filter(u => u.id !== 'all').map(u => [u.code || u.id, u.name]);
+        // Build customer rows
+        const customerRows = customers.map(c => [c.name, c.shortName || '']);
+        // Build employee rows
+        const employeeRows = employees.map(e => [e.name]);
+
+        const maxLen = Math.max(unitRows.length, customerRows.length, employeeRows.length);
+        const refRows: any[][] = [];
+        for (let i = 0; i < maxLen; i++) {
+            refRows.push([
+                unitRows[i]?.[0] || '', unitRows[i]?.[1] || '', '',
+                customerRows[i]?.[0] || '', customerRows[i]?.[1] || '', '',
+                employeeRows[i]?.[0] || ''
+            ]);
+        }
+
+        const refData = [...refHeader, ...refSubHeader, ...refRows];
+        const wsRef = XLSX.utils.aoa_to_sheet(refData);
+        wsRef['!cols'] = [
+            { wch: 12 }, { wch: 25 }, { wch: 3 },
+            { wch: 40 }, { wch: 15 }, { wch: 3 },
+            { wch: 25 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsRef, 'Tra cứu');
+
+        // === SHEET 3: Instructions ===
+        const instructionData = [
+            ['HƯỚNG DẪN IMPORT HỢP ĐỒNG'],
+            [''],
+            ['1. Điền dữ liệu vào sheet "Nhập HĐ"'],
+            ['2. Các cột có dấu (*) là bắt buộc'],
+            ['3. Tên khách hàng & Mã đơn vị phải khớp với dữ liệu trong sheet "Tra cứu"'],
+            ['4. Xóa dòng hướng dẫn (dòng 2) trước khi import'],
+            ['5. Xóa 2 dòng mẫu trước khi nhập dữ liệu thật'],
+            [''],
+            ['CÁC GIÁ TRỊ HỢP LỆ:'],
+            ['Loại HĐ:', 'HĐ, HĐNT, HĐPS, PL'],
+            ['Trạng thái:', 'Active, Pending, Reviewing, Completed, Expired, Terminated'],
+            ['Loại:', 'Mới, Tiếp nối, Phát sinh, Bảo hành'],
+            ['Ngày:', 'dd/mm/yyyy hoặc yyyy-mm-dd'],
+        ];
+
+        const wsInst = XLSX.utils.aoa_to_sheet(instructionData);
+        wsInst['!cols'] = [{ wch: 50 }, { wch: 50 }];
+        XLSX.utils.book_append_sheet(wb, wsInst, 'Hướng dẫn');
+
+        // Use blob download for reliable filename (XLSX.writeFile can produce UUID names in some browsers)
+        const wbOut = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([wbOut], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'template_import_hop_dong.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Đã tải template (3 sheet: Nhập HĐ, Tra cứu, Hướng dẫn)');
     };
 
     const handleImport = async () => {

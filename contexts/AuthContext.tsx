@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase'; // Auth operations only
-import { dataClient } from '../lib/dataClient'; // Data operations
+import { dataClient, syncAuthSession } from '../lib/dataClient'; // Data operations
 import { UserProfile, UserRole } from '../types';
 
 interface AuthContextType {
@@ -67,6 +67,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSession(session);
             setUser(session?.user ?? null);
 
+            // Sync auth session to dataClient so DB triggers can identify the user
+            syncAuthSession(session);
+
             // Persist Google provider_token for Google Sheets API access
             if (session?.provider_token) {
                 sessionStorage.setItem('google_provider_token', session.provider_token);
@@ -96,6 +99,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             setSession(session);
             setUser(session?.user ?? null);
+
+            // Sync auth session to dataClient so DB triggers can identify the user
+            syncAuthSession(session);
 
             // Persist Google provider_token for Google Sheets API access
             if (session?.provider_token) {
