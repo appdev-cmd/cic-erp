@@ -808,18 +808,16 @@ export const ContractService = {
     },
 
     getBySalespersonId: async (salespersonId: string): Promise<Contract[]> => {
-        const { data, error } = await supabase.from('contracts').select('*').eq('salesperson_id', salespersonId);
+        const { data, error } = await supabase.from('contracts').select('*').eq('employee_id', salespersonId);
         if (error) throw error;
         return data.map(mapContract);
     },
 
     getByEmployeeId: async (employeeId: string): Promise<Contract[]> => {
-        // Handle migration period where column might be salesperson_id or employee_id
-        // Try precise match first
         const { data, error } = await supabase
             .from('contracts')
             .select('*')
-            .or(`salesperson_id.eq.${employeeId},employee_id.eq.${employeeId}`);
+            .eq('employee_id', employeeId);
 
         if (error) throw error;
         return data.map(mapContract);

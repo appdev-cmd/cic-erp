@@ -38,9 +38,7 @@ const mapUnit = (u: any): Unit => {
 
 export const UnitService = {
     getAll: async (): Promise<Unit[]> => {
-        console.log('[UnitService.getAll] Fetching...');
         const { data, error } = await supabase.from('units').select('*');
-        console.log('[UnitService.getAll] Result:', { count: data?.length, error });
         if (error) throw error;
         return data.map(mapUnit);
     },
@@ -66,6 +64,7 @@ export const UnitService = {
         };
         // Add Phase 2 fields if provided
         if (data.functions !== undefined) payload.functions = data.functions;
+        if (data.lastYearActual) payload.last_year_actual = data.lastYearActual;
         if (data.managerId) payload.manager_id = data.managerId;
         if (data.logoUrl) payload.logo_url = data.logoUrl;
         if (data.address) payload.address = data.address;
@@ -83,11 +82,12 @@ export const UnitService = {
 
     update: async (id: string, data: Partial<Unit>): Promise<Unit | undefined> => {
         const payload: any = {};
-        if (data.name) payload.name = data.name;
-        if (data.type) payload.type = data.type;
-        if (data.code) payload.code = data.code;
+        if (data.name !== undefined) payload.name = data.name;
+        if (data.type !== undefined) payload.type = data.type;
+        if (data.code !== undefined) payload.code = data.code;
         if (data.target) payload.target = data.target;
         if (data.functions !== undefined) payload.functions = data.functions;
+        if (data.lastYearActual !== undefined) payload.last_year_actual = data.lastYearActual;
         // Phase 2 fields
         if (data.managerId !== undefined) payload.manager_id = data.managerId || null;
         if (data.logoUrl !== undefined) payload.logo_url = data.logoUrl || null;
@@ -121,14 +121,8 @@ export const UnitService = {
             });
 
             if (error) {
-                console.error('Error fetching unit KPI:', error);
-                return {
-                    contractCount: 0,
-                    totalSigning: 0,
-                    totalRevenue: 0,
-                    signingProgress: 0,
-                    revenueProgress: 0
-                };
+                // If there's an error from the RPC, treat it like an exception
+                throw error;
             }
 
             return {
@@ -154,17 +148,13 @@ export const UnitService = {
     },
 
     getWithStats: async (year?: number): Promise<Unit[]> => {
-        console.log('[UnitService.getWithStats] Fetching with RPC...');
         try {
             const { data, error } = await supabase.rpc('get_units_with_stats', {
                 p_year: year || new Date().getFullYear()
             });
 
-            console.log('[UnitService.getWithStats] RPC Result:', { count: data?.length, error });
-
             if (error) {
-                console.error('[UnitService.getWithStats] RPC failed, falling back to getAll:', error);
-                // Fallback to regular getAll
+                console.error('[UnitService.getWithStats] RPC failed, falling back:', error);
                 const allUnits = await UnitService.getAll();
                 return allUnits.map(u => ({
                     ...u,
@@ -176,6 +166,7 @@ export const UnitService = {
                 ...mapUnit(u),
                 functions: u.functions || '',
                 stats: {
+                    contractCount: u.contract_count || 0,
                     totalSigning: u.total_signing,
                     totalRevenue: u.total_revenue,
                     totalProfit: u.total_profit,
@@ -183,8 +174,7 @@ export const UnitService = {
                 }
             }));
         } catch (error) {
-            console.error('[UnitService.getWithStats] Exception, falling back to getAll:', error);
-            // Fallback
+            console.error('[UnitService.getWithStats] Exception, falling back:', error);
             const allUnits = await UnitService.getAll();
             return allUnits.map(u => ({
                 ...u,

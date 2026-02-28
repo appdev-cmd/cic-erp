@@ -10,3 +10,12 @@ export function useUnits() {
         staleTime: Infinity, // Units rarely change, cache forever
     });
 }
+
+// Get units with stats (signing, revenue, profit) - cached 5 minutes
+export function useUnitsWithStats(year?: number) {
+    return useQuery({
+        queryKey: [...queryKeys.units.all, 'withStats', year || new Date().getFullYear()],
+        queryFn: () => UnitService.getWithStats(year),
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+}

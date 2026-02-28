@@ -1,21 +1,23 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Search, Building, Plus, Pencil, Trash2, Target, TrendingUp, Users, Eye, FileText, LayoutGrid, Network } from 'lucide-react';
-import { UnitService, ContractService } from '../services';
-import { Unit, Contract } from '../types';
+import { UnitService } from '../services';
+import { Unit } from '../types';
 import UnitForm from './UnitForm';
 import OrganizationChart from './OrganizationChart';
 import { NON_BUSINESS_UNIT_CODES } from '../constants';
+import { useUnitsWithStats } from '../hooks/useUnits';
+import { queryKeys } from '../lib/queryClient';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface UnitListProps {
     onSelectUnit?: (id: string) => void;
 }
 
 const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
-    const [units, setUnits] = useState<Unit[]>([]);
-    const [contracts, setContracts] = useState<Contract[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
+    const { data: rawUnits = [], isLoading } = useUnitsWithStats();
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'orgchart'>('grid');
 
@@ -23,29 +25,12 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingUnit, setEditingUnit] = useState<Unit | undefined>(undefined);
 
-    // Fetch data
-    useEffect(() => {
-        fetchData();
-    }, []);
+    // Filter out non-business units
+    const units = useMemo(() =>
+        rawUnits.filter(u => u.id !== 'all' && !NON_BUSINESS_UNIT_CODES.includes(u.code)),
+        [rawUnits]);
 
-    const fetchData = async () => {
-        console.log('[UnitList] fetchData starting...');
-        setIsLoading(true);
-        try {
-            const unitsWithStats = await UnitService.getWithStats();
-            console.log('[UnitList] Received units:', unitsWithStats.length);
-            const filtered = unitsWithStats.filter(u => u.id !== 'all' && !NON_BUSINESS_UNIT_CODES.includes(u.code));
-            console.log('[UnitList] After filter:', filtered.length);
-            setUnits(filtered);
-            setContracts([]);
-        } catch (error) {
-            console.error('[UnitList] Error fetching data:', error);
-            toast.error('Không thể tải dữ liệu đơn vị');
-        } finally {
-            console.log('[UnitList] fetchData completed');
-            setIsLoading(false);
-        }
-    };
+    const refetchData = () => queryClient.invalidateQueries({ queryKey: queryKeys.units.all });
 
     // Calculate Global Stats Only (Individual stats now come from Backend)
     const stats = useMemo(() => {
@@ -114,7 +99,7 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
             } else {
                 await UnitService.create(data);
             }
-            await fetchData();
+            refetchData();
             setIsFormOpen(false);
             toast.success("Lưu đơn vị thành công!");
         } catch (error) {
@@ -127,8 +112,7 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
         if (confirm('Bạn có chắc chắn muốn xóa đơn vị này? Hành động này không thể hoàn tác.')) {
             try {
                 await UnitService.delete(id);
-                // Refresh list
-                await fetchData();
+                refetchData();
                 toast.success("Đã xóa đơn vị thành công.");
             } catch (error) {
                 console.error("Failed to delete unit", error);
@@ -141,7 +125,7 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-12">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Quản lý Đơn vị</h1>
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Quản lý Đơn vị ({units.length})</h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-bold mt-1">
                         Danh sách các Trung tâm và Chi nhánh trực thuộc
                     </p>
@@ -260,7 +244,31 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
 
                     {/* Units Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {filteredUnits.length === 0 ? (
+                        {isLoading ? (
+                            Array.from({ length: 6 }).map((_, i) => (
+                                <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 animate-pulse">
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="w-14 h-14 rounded-lg bg-slate-200 dark:bg-slate-700"></div>
+                                        <div className="space-y-2 flex-1">
+                                            <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
+                                            <div className="flex gap-2">
+                                                <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-12"></div>
+                                                <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-10"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3 mb-4">
+                                        <div className="h-6 bg-slate-100 dark:bg-slate-800 rounded-lg w-16"></div>
+                                        <div className="h-6 bg-slate-100 dark:bg-slate-800 rounded-lg w-16"></div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-full"></div>
+                                        <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-full"></div>
+                                        <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded w-full"></div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : filteredUnits.length === 0 ? (
                             <div className="col-span-full py-12 text-center text-slate-400">
                                 Không tìm thấy đơn vị nào phù hợp.
                             </div>
@@ -308,7 +316,7 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                                         </div>
                                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                                             <FileText size={12} className="text-purple-600" />
-                                            <span className="text-xs font-bold text-purple-700 dark:text-purple-400">{(unit as any).contractCount || stats.unitStats.get(unit.id)?.signing ? '✓' : '—'} HĐ</span>
+                                            <span className="text-xs font-bold text-purple-700 dark:text-purple-400">{(unit as any).stats?.contractCount || 0} HĐ</span>
                                         </div>
                                     </div>
 

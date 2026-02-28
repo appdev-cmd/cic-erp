@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { Save, Loader2, X, Building, User, Phone, Mail, MapPin, Search } from 'lucide-react';
 import Modal from './ui/Modal';
@@ -19,10 +19,24 @@ const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) =>
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [managerSearch, setManagerSearch] = useState('');
     const [showManagerDropdown, setShowManagerDropdown] = useState(false);
+    const managerDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close manager dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (managerDropdownRef.current && !managerDropdownRef.current.contains(e.target as Node)) {
+                setShowManagerDropdown(false);
+            }
+        };
+        if (showManagerDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [showManagerDropdown]);
 
     const [formData, setFormData] = useState({
         name: '',
-        type: 'Center' as 'Company' | 'Branch' | 'Center',
+        type: 'Center' as 'Company' | 'Branch' | 'Center' | 'BackOffice',
         code: '',
         target: {
             signing: 0,
@@ -182,7 +196,7 @@ const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) =>
                         </div>
 
                         {/* Manager Selector */}
-                        <div className="relative">
+                        <div className="relative" ref={managerDropdownRef}>
                             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
                                 <User className="inline w-4 h-4 mr-1" />Trưởng đơn vị
                             </label>
@@ -293,35 +307,54 @@ const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) =>
                     </div>
                 </div>
 
-                {/* KPI Targets */}
                 <div className="space-y-4">
                     <h3 className="font-bold text-slate-800 dark:text-slate-200 border-b pb-2">Chỉ tiêu KPI (Năm)</h3>
 
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu Ký kết</label>
-                        <NumberInput
-                            value={formData.target.signing}
-                            onChange={(value) => handleTargetChange('signing', value)}
-                            className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                        />
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu Ký kết <span className="text-[10px] text-slate-400 font-normal">(VNĐ)</span></label>
+                            <NumberInput
+                                value={formData.target.signing}
+                                onChange={(value) => handleTargetChange('signing', value)}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            />
+                        </div>
 
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu Doanh thu</label>
-                        <NumberInput
-                            value={formData.target.revenue}
-                            onChange={(value) => handleTargetChange('revenue', value)}
-                            className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                        />
-                    </div>
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu Doanh thu <span className="text-[10px] text-slate-400 font-normal">(VNĐ)</span></label>
+                            <NumberInput
+                                value={formData.target.revenue}
+                                onChange={(value) => handleTargetChange('revenue', value)}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            />
+                        </div>
 
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu LNG Quản trị</label>
-                        <NumberInput
-                            value={formData.target.adminProfit}
-                            onChange={(value) => handleTargetChange('adminProfit', value)}
-                            className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                        />
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu LNG Quản trị <span className="text-[10px] text-slate-400 font-normal">(VNĐ)</span></label>
+                            <NumberInput
+                                value={formData.target.adminProfit}
+                                onChange={(value) => handleTargetChange('adminProfit', value)}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">LNG Doanh thu <span className="text-[10px] text-slate-400 font-normal">(VNĐ)</span></label>
+                            <NumberInput
+                                value={formData.target.revProfit}
+                                onChange={(value) => handleTargetChange('revProfit', value)}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            />
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu Thu tiền <span className="text-[10px] text-slate-400 font-normal">(VNĐ)</span></label>
+                            <NumberInput
+                                value={formData.target.cash}
+                                onChange={(value) => handleTargetChange('cash', value)}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            />
+                        </div>
                     </div>
                 </div>
 

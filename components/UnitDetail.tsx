@@ -22,6 +22,7 @@ import {
 import { UnitService, EmployeeService, ContractService } from '../services';
 import { Unit, KPIPlan, Employee, Contract } from '../types';
 import UnitForm from './UnitForm';
+import UnitSigningTab from './UnitSigningTab';
 
 interface UnitDetailProps {
     unitId: string;
@@ -30,7 +31,7 @@ interface UnitDetailProps {
     onViewPersonnel: (id: string) => void;
 }
 
-type TabType = 'overview' | 'employees' | 'contracts' | 'history';
+type TabType = 'overview' | 'signing' | 'employees' | 'contracts' | 'history';
 
 const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract, onViewPersonnel }) => {
     const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -61,15 +62,12 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                 const results = await Promise.allSettled([
                     UnitService.getStats(unitId),
                     ContractService.list({ unitId: unitId, limit: 50, page: 1 }),
-                    EmployeeService.list({ unitId: unitId }),
-                    // PaymentService.listByUnit is not implemented yet - use empty array
-                    Promise.resolve([])
+                    EmployeeService.getWithStats(unitId),
                 ]);
 
                 const statsData = results[0].status === 'fulfilled' ? results[0].value : { totalSigning: 0, totalRevenue: 0, totalProfit: 0, totalCash: 0 };
                 const contractsData = results[1].status === 'fulfilled' ? results[1].value : { data: [], count: 0 };
                 const staffData = results[2].status === 'fulfilled' ? results[2].value : [];
-                const paymentsData = results[3].status === 'fulfilled' ? results[3].value : [];
 
                 const calculatedStats = {
                     actualSigning: statsData.totalSigning || 0,
@@ -85,7 +83,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                 setStats(calculatedStats);
                 setContracts(contractsData.data || []);
                 const people = Array.isArray(staffData) ? staffData : (staffData as any).data || [];
-                setStaff(people);
+                setStaff(people as Employee[]);
             }
         } catch (error) {
             console.error('Error fetching unit details:', error);
@@ -157,6 +155,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
     const tabs = [
         { id: 'overview', label: 'Tổng quan', icon: BarChart3 },
         { id: 'employees', label: `Nhân sự (${staff.length})`, icon: Users },
+        { id: 'signing', label: 'Chỉ tiêu KD', icon: Target },
         { id: 'contracts', label: `Hợp đồng (${contracts.length})`, icon: FileText },
         { id: 'history', label: 'Lịch sử', icon: Clock }
     ] as const;
@@ -240,7 +239,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                         <p className="text-[10px] text-slate-400 mt-2">Mục tiêu: {formatCurrency(unit.target.adminProfit)}</p>
                     </div>
 
-                    {/* Contract Count */}
+                    {/* Số hợp đồng */}
                     <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-amber-500/10 to-transparent rounded-bl-full"></div>
                         <div className="flex items-center gap-3 mb-3">
@@ -353,13 +352,23 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                             <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Nhân viên</th>
                             <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Chức vụ</th>
                             <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Email</th>
-                            <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase">Số HĐ</th>
+                            <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Số ĐT</th>
                             <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {staff.map(e => {
-                            const empContracts = contracts.filter(c => c.salespersonId === e.id);
+                        {[...staff].sort((a, b) => {
+                            const posOrder = (p: string | undefined) => {
+                                if (!p) return 99;
+                                if (p.includes('Giám đốc') && !p.includes('Phó')) return 0;
+                                if (p.includes('Phó Giám đốc')) return 1;
+                                if (p.includes('kinh doanh')) return 2;
+                                if (p.includes('hồ sơ')) return 3;
+                                if (p.includes('Kỹ thuật')) return 4;
+                                return 50;
+                            };
+                            return posOrder(a.position) - posOrder(b.position);
+                        }).map(e => {
                             return (
                                 <tr key={e.id} onClick={() => onViewPersonnel(e.id)} className="hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors">
                                     <td className="px-4 py-3">
@@ -372,7 +381,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                     </td>
                                     <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{e.position || '—'}</td>
                                     <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{e.email || '—'}</td>
-                                    <td className="px-4 py-3 text-sm text-right font-bold text-slate-900 dark:text-slate-100">{empContracts.length}</td>
+                                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{e.phone || '—'}</td>
                                     <td className="px-4 py-3 text-right">
                                         <ChevronRight size={16} className="text-slate-300" />
                                     </td>
@@ -515,6 +524,14 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
 
             {/* Tab Content */}
             {activeTab === 'overview' && renderOverviewTab()}
+            {activeTab === 'signing' && (
+                <UnitSigningTab
+                    unit={unit}
+                    staff={staff}
+                    onRefresh={fetchData}
+                    onViewPersonnel={onViewPersonnel}
+                />
+            )}
             {activeTab === 'employees' && renderEmployeesTab()}
             {activeTab === 'contracts' && renderContractsTab()}
             {activeTab === 'history' && renderHistoryTab()}
