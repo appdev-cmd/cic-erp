@@ -15,7 +15,8 @@ import {
   PenTool,
   BarChart3,
   ChevronDown,
-  Zap
+  Zap,
+  Database
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -23,6 +24,7 @@ import { streamEnterpriseAI } from '../services/aiService';
 import { getBusinessContext } from '../services/contextService';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
+import AIDataIngestion from './AIDataIngestion';
 
 interface Message {
   id: string;
@@ -33,6 +35,7 @@ interface Message {
 }
 
 type AgentType = 'general' | 'legal' | 'drafter' | 'analyst';
+type ActiveView = 'chat' | 'ingest';
 
 const AGENTS: Record<AgentType, { name: string; role: string; color: string; icon: any; prompt: string; suggestions: string[] }> = {
   general: {
@@ -144,6 +147,7 @@ const AIAssistant: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showAgentMenu, setShowAgentMenu] = useState(false);
+  const [activeView, setActiveView] = useState<ActiveView>('chat');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -357,11 +361,11 @@ const AIAssistant: React.FC = () => {
         <div className="hidden md:flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
           {(Object.entries(AGENTS) as [AgentType, typeof AGENTS[AgentType]][]).map(([key, agent]) => {
             const Icon = agent.icon;
-            const isActive = currentAgent === key;
+            const isActive = activeView === 'chat' && currentAgent === key;
             return (
               <button
                 key={key}
-                onClick={() => switchAgent(key)}
+                onClick={() => { switchAgent(key); setActiveView('chat'); }}
                 className={cn(
                   "px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold transition-all cursor-pointer",
                   isActive
@@ -375,6 +379,20 @@ const AIAssistant: React.FC = () => {
               </button>
             );
           })}
+          {/* Nạp dữ liệu tab */}
+          <button
+            onClick={() => setActiveView('ingest')}
+            className={cn(
+              "px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold transition-all cursor-pointer",
+              activeView === 'ingest'
+                ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100"
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
+            )}
+            title="Nạp dữ liệu bằng AI"
+          >
+            <Database size={14} className={activeView === 'ingest' ? 'text-violet-500' : ''} />
+            Nạp dữ liệu
+          </button>
         </div>
 
         {/* Agent Selector - Mobile: dropdown */}
@@ -433,149 +451,156 @@ const AIAssistant: React.FC = () => {
         </div>
       </div>
 
-      {/* ═══ Messages Area ════════════════════════════════ */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth">
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={cn(
-              "flex gap-3 md:gap-4 max-w-[95%] md:max-w-[85%]",
-              msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
-            )}
-          >
-            <div className={cn(
-              "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
-              msg.role === 'user'
-                ? "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
-                : cn("border-transparent text-white shadow-md shadow-indigo-200 dark:shadow-none", AGENTS[currentAgent].color)
-            )}>
-              {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
-            </div>
+      {/* ═══ Conditional Render: Chat or Data Ingestion ═══ */}
+      {activeView === 'ingest' ? (
+        <AIDataIngestion />
+      ) : (
+        <>
+          {/* ═══ Messages Area ════════════════════════════════ */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={cn(
+                  "flex gap-3 md:gap-4 max-w-[95%] md:max-w-[85%]",
+                  msg.role === 'user' ? "ml-auto flex-row-reverse" : ""
+                )}
+              >
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
+                  msg.role === 'user'
+                    ? "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+                    : cn("border-transparent text-white shadow-md shadow-indigo-200 dark:shadow-none", AGENTS[currentAgent].color)
+                )}>
+                  {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+                </div>
 
-            <div className={cn(
-              "group relative px-5 py-3.5 md:px-6 md:py-4 rounded-[20px] text-sm leading-relaxed shadow-sm",
-              msg.role === 'user'
-                ? "bg-indigo-600 text-white rounded-tr-sm"
-                : "bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-sm"
-            )}>
-              {msg.role === 'model' ? (
-                <div className="markdown-body">
-                  {msg.content === '' && msg.isStreaming ? (
-                    <span className="flex gap-1.5 items-center h-5">
-                      <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></span>
-                      <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]"></span>
-                      <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]"></span>
-                    </span>
+                <div className={cn(
+                  "group relative px-5 py-3.5 md:px-6 md:py-4 rounded-[20px] text-sm leading-relaxed shadow-sm",
+                  msg.role === 'user'
+                    ? "bg-indigo-600 text-white rounded-tr-sm"
+                    : "bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-tl-sm"
+                )}>
+                  {msg.role === 'model' ? (
+                    <div className="markdown-body">
+                      {msg.content === '' && msg.isStreaming ? (
+                        <span className="flex gap-1.5 items-center h-5">
+                          <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></span>
+                          <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]"></span>
+                          <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]"></span>
+                        </span>
+                      ) : (
+                        <div className="prose prose-sm prose-indigo dark:prose-invert max-w-none break-words">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              table: ({ node, ...props }) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg" {...props} /></div>,
+                              th: ({ node, ...props }) => <th className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-left text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" {...props} />,
+                              td: ({ node, ...props }) => <td className="px-4 py-2 border-t border-slate-100 dark:border-slate-700 text-sm" {...props} />,
+                              ul: ({ node, ...props }) => <ul className="list-disc pl-5 space-y-1" {...props} />,
+                              ol: ({ node, ...props }) => <ol className="list-decimal pl-5 space-y-1" {...props} />,
+                              code: ({ node, ...props }) => <code className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-xs font-mono text-rose-500 dark:text-rose-400" {...props} />,
+                              a: ({ node, ...props }) => <a className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold" target="_blank" rel="noopener noreferrer" {...props} />
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
                   ) : (
-                    <div className="prose prose-sm prose-indigo dark:prose-invert max-w-none break-words">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          table: ({ node, ...props }) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg" {...props} /></div>,
-                          th: ({ node, ...props }) => <th className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-left text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" {...props} />,
-                          td: ({ node, ...props }) => <td className="px-4 py-2 border-t border-slate-100 dark:border-slate-700 text-sm" {...props} />,
-                          ul: ({ node, ...props }) => <ul className="list-disc pl-5 space-y-1" {...props} />,
-                          ol: ({ node, ...props }) => <ol className="list-decimal pl-5 space-y-1" {...props} />,
-                          code: ({ node, ...props }) => <code className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-xs font-mono text-rose-500 dark:text-rose-400" {...props} />,
-                          a: ({ node, ...props }) => <a className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold" target="_blank" rel="noopener noreferrer" {...props} />
-                        }}
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  )}
+
+                  {msg.role === 'model' && !msg.isStreaming && msg.content && (
+                    <div className="absolute -bottom-6 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                      <button
+                        onClick={() => handleCopy(msg.id, msg.content)}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm cursor-pointer transition-colors"
+                        title="Copy"
                       >
-                        {msg.content}
-                      </ReactMarkdown>
+                        {copiedId === msg.id ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                      </button>
                     </div>
                   )}
                 </div>
-              ) : (
-                <p className="whitespace-pre-wrap">{msg.content}</p>
-              )}
+              </div>
+            ))}
 
-              {msg.role === 'model' && !msg.isStreaming && msg.content && (
-                <div className="absolute -bottom-6 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+            {/* ═══ Suggestion Chips ═══════════════════════════ */}
+            {showSuggestions && (
+              <div className="flex flex-wrap gap-2 justify-center pt-2 pb-1">
+                {AGENTS[currentAgent].suggestions.map((sug, idx) => (
                   <button
-                    onClick={() => handleCopy(msg.id, msg.content)}
-                    className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm cursor-pointer transition-colors"
-                    title="Copy"
-                  >
-                    {copiedId === msg.id ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {/* ═══ Suggestion Chips ═══════════════════════════ */}
-        {showSuggestions && (
-          <div className="flex flex-wrap gap-2 justify-center pt-2 pb-1">
-            {AGENTS[currentAgent].suggestions.map((sug, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSuggestionClick(sug)}
-                className="px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 
+                    key={idx}
+                    onClick={() => handleSuggestionClick(sug)}
+                    className="px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 
                   border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700
                   rounded-full text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-400
                   transition-all cursor-pointer flex items-center gap-1.5 shadow-sm hover:shadow"
-              >
-                <Zap size={10} className="text-indigo-400" />
-                {sug}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* ═══ Input Area ═══════════════════════════════════ */}
-      < div className="p-3 md:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800" >
-        <div className="relative max-w-4xl mx-auto">
-          {/* Model Selector */}
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10">
-            <select
-              value={currentModel}
-              onChange={(e) => setCurrentModel(e.target.value)}
-              className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-[10px] font-bold text-slate-600 dark:text-slate-300 py-1.5 px-2 rounded-lg cursor-pointer focus:outline-none border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700 transition-all max-w-[120px]"
-              title="Chọn Model AI"
-            >
-              <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash</option>
-              <option value="gemini-1.5-flash">⚡ Gemini 1.5 Flash</option>
-              <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro</option>
-              <option value="gpt-4o">🤖 GPT-4o</option>
-              <option value="deepseek-r1">🤔 DeepSeek R1</option>
-            </select>
-          </div>
-
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Nhập câu hỏi của bạn (Shift+Enter để xuống dòng)..."
-            className="w-full pl-[135px] pr-14 py-4 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-indigo-500 dark:focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 rounded-[20px] resize-none max-h-40 min-h-[56px] shadow-sm text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all"
-            rows={1}
-            disabled={isTyping}
-          />
-
-          <button
-            onClick={isTyping ? handleStop : () => handleSend()}
-            disabled={!isTyping && !input.trim()}
-            className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer",
-              isTyping
-                ? "bg-rose-500 text-white shadow-lg hover:bg-rose-600 hover:scale-105 active:scale-95"
-                : input.trim()
-                  ? "bg-indigo-600 text-white shadow-lg hover:scale-105 active:scale-95"
-                  : "bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
+                  >
+                    <Zap size={10} className="text-indigo-400" />
+                    {sug}
+                  </button>
+                ))}
+              </div>
             )}
-            title={isTyping ? "Dừng" : "Gửi"}
-          >
-            {isTyping ? <StopCircle size={20} /> : <Send size={20} />}
-          </button>
-        </div>
-        <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
-          AI có thể mắc lỗi. Vui lòng kiểm tra lại các thông tin quan trọng.
-        </p>
-      </div>
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* ═══ Input Area ═══════════════════════════════════ */}
+          < div className="p-3 md:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800" >
+            <div className="relative max-w-4xl mx-auto">
+              {/* Model Selector */}
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10">
+                <select
+                  value={currentModel}
+                  onChange={(e) => setCurrentModel(e.target.value)}
+                  className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-[10px] font-bold text-slate-600 dark:text-slate-300 py-1.5 px-2 rounded-lg cursor-pointer focus:outline-none border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700 transition-all max-w-[120px]"
+                  title="Chọn Model AI"
+                >
+                  <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash</option>
+                  <option value="gemini-1.5-flash">⚡ Gemini 1.5 Flash</option>
+                  <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro</option>
+                  <option value="gpt-4o">🤖 GPT-4o</option>
+                  <option value="deepseek-r1">🤔 DeepSeek R1</option>
+                </select>
+              </div>
+
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Nhập câu hỏi của bạn (Shift+Enter để xuống dòng)..."
+                className="w-full pl-[135px] pr-14 py-4 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-indigo-500 dark:focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 rounded-[20px] resize-none max-h-40 min-h-[56px] shadow-sm text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all"
+                rows={1}
+                disabled={isTyping}
+              />
+
+              <button
+                onClick={isTyping ? handleStop : () => handleSend()}
+                disabled={!isTyping && !input.trim()}
+                className={cn(
+                  "absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+                  isTyping
+                    ? "bg-rose-500 text-white shadow-lg hover:bg-rose-600 hover:scale-105 active:scale-95"
+                    : input.trim()
+                      ? "bg-indigo-600 text-white shadow-lg hover:scale-105 active:scale-95"
+                      : "bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
+                )}
+                title={isTyping ? "Dừng" : "Gửi"}
+              >
+                {isTyping ? <StopCircle size={20} /> : <Send size={20} />}
+              </button>
+            </div>
+            <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
+              AI có thể mắc lỗi. Vui lòng kiểm tra lại các thông tin quan trọng.
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 };

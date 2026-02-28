@@ -272,6 +272,11 @@ export interface Customer {
   bankAccount?: string;
   foundedDate?: string;
   type?: 'Customer' | 'Supplier' | 'Both';
+  // Extended info (from masothue/GPKD)
+  internationalName?: string;  // Tên quốc tế
+  representative?: string;     // Người đại diện pháp luật
+  businessType?: string;       // Loại hình DN (Cty CP, TNHH, DNTN...)
+  businessStatus?: string;     // Tình trạng (Đang hoạt động, Ngừng...)
   // CRM fields
   rating?: 'VIP' | 'Gold' | 'Standard' | 'Lead';
   source?: string; // Website, Referral, Cold call, Event, Partner

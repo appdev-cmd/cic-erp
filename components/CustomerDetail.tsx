@@ -60,6 +60,8 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
     const [editingNotes, setEditingNotes] = useState(false);
     const [notesValue, setNotesValue] = useState('');
     const [savingNotes, setSavingNotes] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -163,15 +165,17 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
     };
 
     const handleDelete = async () => {
-        if (confirm('Bạn có chắc chắn muốn xóa khách hàng này? Hành động này không thể hoàn tác.')) {
-            try {
-                await CustomerService.delete(customerId);
-                toast.success("Đã xóa khách hàng thành công");
-                onBack();
-            } catch (error) {
-                console.error("Error deleting customer", error);
-                toast.error("Có lỗi xảy ra khi xóa khách hàng");
-            }
+        setDeleting(true);
+        try {
+            await CustomerService.delete(customerId);
+            toast.success("Đã xóa khách hàng thành công");
+            onBack();
+        } catch (error) {
+            console.error("Error deleting customer", error);
+            toast.error("Có lỗi xảy ra khi xóa khách hàng");
+        } finally {
+            setDeleting(false);
+            setShowDeleteConfirm(false);
         }
     };
 
@@ -258,8 +262,8 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                     </button>
                     {allowDelete && (
                         <button
-                            onClick={handleDelete}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/30 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/30 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all cursor-pointer"
                         >
                             <Trash2 size={16} />
                             Xóa
@@ -394,6 +398,108 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                                     </div>
                                 )}
                             </div>
+
+                            {/* Extended Info: Representative, Business Type, etc. */}
+                            {(customer.representative || customer.internationalName || customer.businessType || customer.businessStatus || customer.foundedDate) && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                    {customer.representative && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <div className="p-1.5 bg-violet-100 dark:bg-violet-900/30 rounded-lg">
+                                                <User size={14} className="text-violet-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase tracking-wide">Người đại diện</p>
+                                                <p className="font-medium text-slate-700 dark:text-slate-300">{customer.representative}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {customer.internationalName && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <div className="p-1.5 bg-sky-100 dark:bg-sky-900/30 rounded-lg">
+                                                <Globe size={14} className="text-sky-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase tracking-wide">Tên quốc tế</p>
+                                                <p className="font-medium text-slate-700 dark:text-slate-300">{customer.internationalName}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {customer.businessType && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <div className="p-1.5 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
+                                                <Building2 size={14} className="text-teal-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase tracking-wide">Loại hình DN</p>
+                                                <p className="font-medium text-slate-700 dark:text-slate-300">{customer.businessType}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {customer.businessStatus && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                                                <CheckCircle size={14} className="text-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase tracking-wide">Tình trạng</p>
+                                                <p className="font-medium text-slate-700 dark:text-slate-300">{customer.businessStatus}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {customer.foundedDate && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <div className="p-1.5 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                                                <Calendar size={14} className="text-orange-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase tracking-wide">Ngày hoạt động</p>
+                                                <p className="font-medium text-slate-700 dark:text-slate-300">
+                                                    {new Date(customer.foundedDate).toLocaleDateString('vi-VN')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Bank Info */}
+                            {(customer.bankName || customer.bankAccount) && (
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                    {customer.bankName && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <div className="p-1.5 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
+                                                <Banknote size={14} className="text-cyan-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase tracking-wide">Ngân hàng</p>
+                                                <p className="font-medium text-slate-700 dark:text-slate-300">{customer.bankName}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {customer.bankBranch && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <div className="p-1.5 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
+                                                <MapPin size={14} className="text-cyan-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase tracking-wide">Chi nhánh</p>
+                                                <p className="font-medium text-slate-700 dark:text-slate-300">{customer.bankBranch}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {customer.bankAccount && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <div className="p-1.5 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
+                                                <CreditCard size={14} className="text-cyan-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-slate-400 uppercase tracking-wide">Số TK</p>
+                                                <p className="font-medium text-slate-700 dark:text-slate-300">{customer.bankAccount}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -832,6 +938,47 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                 onSave={handleSave}
                 customer={customer}
             />
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 max-w-md mx-4 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-3 bg-rose-100 dark:bg-rose-900/30 rounded-full">
+                                <Trash2 size={20} className="text-rose-600 dark:text-rose-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">Xóa khách hàng?</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Hành động này không thể hoàn tác</p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                            Bạn có chắc muốn xóa <strong className="text-slate-900 dark:text-slate-100">{customer.name}</strong>?
+                            Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                disabled={deleting}
+                                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-bold transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                            >
+                                {deleting ? (
+                                    <><Loader2 size={14} className="animate-spin" /> Đang xóa...</>
+                                ) : (
+                                    <><Trash2 size={14} /> Xóa vĩnh viễn</>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

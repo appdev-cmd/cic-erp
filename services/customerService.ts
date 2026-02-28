@@ -39,6 +39,11 @@ const mapCustomer = (c: any): Customer => ({
     bankAccount: c.bank_account || c.bankAccount,
     foundedDate: c.founded_date || c.foundedDate,
     type: c.type || 'Customer',
+    // Extended info
+    internationalName: c.international_name || c.internationalName || null,
+    representative: c.representative || null,
+    businessType: c.business_type || c.businessType || null,
+    businessStatus: c.business_status || c.businessStatus || 'Đang hoạt động',
     // CRM fields
     rating: c.rating || 'Standard',
     source: c.source,
@@ -133,6 +138,11 @@ export const CustomerService = {
             source: data.source || null,
             payment_terms: data.paymentTerms || null,
             credit_limit: data.creditLimit || 0,
+            // Extended info
+            international_name: data.internationalName || null,
+            representative: data.representative || null,
+            business_type: data.businessType || null,
+            business_status: data.businessStatus || null,
         };
         const { data: res, error } = await supabase.from('customers').insert(payload).select().single();
         if (error) throw error;
@@ -161,6 +171,11 @@ export const CustomerService = {
         if (data.source !== undefined) payload.source = data.source || null;
         if (data.paymentTerms !== undefined) payload.payment_terms = data.paymentTerms || null;
         if (data.creditLimit !== undefined) payload.credit_limit = data.creditLimit;
+        // Extended info
+        if (data.internationalName !== undefined) payload.international_name = data.internationalName || null;
+        if (data.representative !== undefined) payload.representative = data.representative || null;
+        if (data.businessType !== undefined) payload.business_type = data.businessType || null;
+        if (data.businessStatus !== undefined) payload.business_status = data.businessStatus || null;
         payload.updated_at = new Date().toISOString();
 
         const { data: res, error } = await supabase.from('customers').update(payload).eq('id', id).select().single();
@@ -172,6 +187,21 @@ export const CustomerService = {
         const { error } = await supabase.from('customers').delete().eq('id', id);
         if (error) throw error;
         return true;
+    },
+
+    /**
+     * Find customer by tax code — for upsert logic
+     */
+    findByTaxCode: async (taxCode: string): Promise<Customer | null> => {
+        if (!taxCode || taxCode.trim().length < 5) return null;
+        const { data, error } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('tax_code', taxCode.trim())
+            .limit(1)
+            .maybeSingle();
+        if (error || !data) return null;
+        return mapCustomer(data);
     },
 
     /**
