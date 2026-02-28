@@ -213,14 +213,18 @@ const mapContract = (c: any): Contract => {
         revenueSchedules: c.details?.revenueSchedules || [],
         documents: c.documents || [],
         draft_url: c.draft_url || undefined,
-        // Doanh thu: tính từ hoá đơn đã xuất (payments có status 'Đã xuất HĐ' hoặc 'Tiền về')
+        // Doanh thu: tính từ hoá đơn đã xuất, TRỪ THUẾ VAT
         actualRevenue: (() => {
             const payments: any[] = c.payments || [];
+            const vatRate = c.vat_rate ?? 10;
+            const hasVat = c.has_vat !== false;
+            const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
             const invoicedRevenue = payments
                 .filter((p: any) => (p.payment_type === 'Revenue' || !p.payment_type) && ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status))
                 .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+            const revenueBeforeVat = Math.round(invoicedRevenue / vatDivisor);
             // Ưu tiên doanh thu từ hoá đơn, fallback về actual_revenue từ contract
-            return invoicedRevenue > 0 ? invoicedRevenue : (c.actual_revenue || 0);
+            return invoicedRevenue > 0 ? revenueBeforeVat : (c.actual_revenue || 0);
         })(),
         // Tiền về: chỉ tính payments đã nhận tiền thực tế
         cashReceived: (() => {
@@ -399,7 +403,7 @@ export const ContractService = {
     }> => {
         const { search, status, unitId, year } = params;
         // Include payment status+type to calculate revenue from invoiced payments (same as getStatsFallback)
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, payments(amount, paid_amount, status, payment_type)');
+        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)');
 
         if (search) {
             query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%`);
@@ -429,14 +433,20 @@ export const ContractService = {
             const cost = curr.estimated_cost || 0;
             const actCost = curr.actual_cost || 0;
 
-            // Revenue = sum of invoiced/paid payment amounts (same logic as getStatsFallback & mapContract)
+            // VAT deduction: revenue = payment amount / (1 + vatRate/100)
+            const vatRate = curr.vat_rate ?? 10;
+            const hasVat = curr.has_vat !== false;
+            const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+
+            // Revenue = sum of invoiced/paid payment amounts, MINUS VAT
             const revenuePayments: any[] = (curr.payments || []).filter(
                 (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
                     ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status)
             );
-            const rev = revenuePayments.length > 0
+            const revGross = revenuePayments.length > 0
                 ? revenuePayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0)
-                : (curr.actual_revenue || 0); // Fallback to DB field if no matching payments
+                : (curr.actual_revenue || 0);
+            const rev = Math.round(revGross / vatDivisor);
 
             // Cash = only payments with money received
             const cash = (curr.payments || []).filter(
@@ -561,7 +571,7 @@ export const ContractService = {
         console.log('[ContractService.getStatsFallback] Using direct query');
         // When filtering by unit, we need ALL contracts to check unit_allocations too
         // Include payment status+amount to calculate revenue from invoiced payments
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, payments(amount, paid_amount, status, payment_type)');
+        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)');
 
         // Only apply year filter at query level (unit filter is done in JS for allocation support)
         if (year && year !== 'All' && year !== 'all') {
@@ -588,12 +598,19 @@ export const ContractService = {
             const val = curr.value || 0;
             const cost = curr.estimated_cost || 0;
             const actCost = curr.actual_cost || 0;
-            // Revenue = sum of payments with status 'Đã xuất HĐ' or 'Tiền về' (recognized at invoice)
+
+            // VAT deduction: revenue = payment amount / (1 + vatRate/100)
+            const vatRate = curr.vat_rate ?? 10;
+            const hasVat = curr.has_vat !== false;
+            const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+
+            // Revenue = sum of payments with status 'Đã xuất HĐ' or 'Tiền về', MINUS VAT
             const revenuePayments: any[] = (curr.payments || []).filter(
                 (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
                     ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status)
             );
-            const rev = revenuePayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+            const revGross = revenuePayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+            const rev = Math.round(revGross / vatDivisor);
             const cash = (curr.payments || []).filter(
                 (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
                     ['Tiền về', 'Paid'].includes(p.status)
