@@ -233,7 +233,7 @@ const UserGuide: React.FC = () => {
                         <span className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
                             <Rocket size={16} className="text-indigo-500" /> Làm quen hệ thống
                         </span>
-                        <span className="text-xs font-bold text-indigo-600">{progress}%</span>
+                        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{progress}%</span>
                     </div>
                     <div className="h-1.5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full overflow-hidden">
                         <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all" style={{ width: `${progress}%` }} />
@@ -282,10 +282,10 @@ const UserGuide: React.FC = () => {
                 {/* Tab Content */}
                 {moduleGuides.map((module) => (
                     expandedModule === module.id && (
-                        <div key={module.id} className={`p-4 rounded-lg border ${colorClasses[module.color].border} bg-slate-50 dark:bg-slate-900/50`}>
+                        <div key={module.id} className={`p-4 rounded-lg border ${colorClasses[module.color].border} bg-slate-50 dark:bg-slate-800`}>
                             {/* Workflow (if exists) */}
                             {module.workflow && (
-                                <div className="mb-4 p-4 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800/70 dark:to-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                                <div className="mb-4 p-4 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-700 rounded-lg border border-slate-200 dark:border-slate-700">
                                     <h5 className="font-bold text-sm text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-2">
                                         <ClipboardCheck size={16} className={colorClasses[module.color].text} /> {module.workflow.title}
                                     </h5>
@@ -294,7 +294,7 @@ const UserGuide: React.FC = () => {
                                     )}
 
                                     {/* Flow Diagram */}
-                                    <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-white dark:bg-slate-900/60 rounded-lg border border-slate-100 dark:border-slate-700">
+                                    <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-700">
                                         {module.workflow.steps.map((step, i) => (
                                             <React.Fragment key={i}>
                                                 <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${colorClasses[module.color].bg} ${colorClasses[module.color].text}`}>
@@ -311,7 +311,7 @@ const UserGuide: React.FC = () => {
                                     {/* Detailed Steps Table */}
                                     <div className="space-y-2">
                                         {module.workflow.steps.map((step, i) => (
-                                            <div key={i} className="flex items-start gap-3 p-2 bg-white dark:bg-slate-900/60 rounded-lg border border-slate-100 dark:border-slate-700">
+                                            <div key={i} className="flex items-start gap-3 p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-700">
                                                 <div className={`p-1.5 rounded-lg flex-shrink-0 ${colorClasses[module.color].bg} ${colorClasses[module.color].text}`}>
                                                     {step.icon}
                                                 </div>
@@ -349,7 +349,7 @@ const UserGuide: React.FC = () => {
                             {/* Guides Grid */}
                             <div className="grid grid-cols-2 gap-3">
                                 {module.guides.map((guide, i) => (
-                                    <div key={i} className="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                                    <div key={i} className="p-3 bg-white dark:bg-slate-700 rounded-lg">
                                         <h5 className="font-bold text-xs text-slate-800 dark:text-slate-200 mb-2">{guide.title}</h5>
                                         <ol className="space-y-1">
                                             {guide.steps.map((step, j) => (

@@ -109,7 +109,7 @@ Deno.serve(async (req: Request) => {
         // ─── ACTION: chat (streaming) ───────────────────────────
         if (body.action === "chat") {
             const validModelId =
-                body.modelId === "gemini-2.0-flash" ? "gemini-2.0-flash-exp"
+                body.modelId === "gemini-2.0-flash" ? "gemini-2.0-flash"
                     : body.modelId === "gemini-1.5-pro" ? "gemini-1.5-pro-latest"
                         : body.modelId === "gemini-pro" ? "gemini-pro"
                             : "gemini-1.5-flash-latest";

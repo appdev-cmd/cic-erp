@@ -124,9 +124,12 @@ export async function* streamGeminiChat(
   history: { role: 'user' | 'model'; content: string }[],
   newMessage: string,
   modelId: string = 'gemini-1.5-flash',
-  systemInstruction?: string
+  systemInstruction?: string,
+  signal?: AbortSignal
 ) {
   try {
+    // Check abort before starting
+    if (signal?.aborted) return;
     if (await isEdgeFunctionAvailable()) {
       // Gọi Edge Function với streaming
       const { data, error } = await supabase.functions.invoke('gemini-proxy', {
@@ -167,7 +170,7 @@ export async function* streamGeminiChat(
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    const validModelId = modelId === 'gemini-2.0-flash' ? 'gemini-2.0-flash-exp'
+    const validModelId = modelId === 'gemini-2.0-flash' ? 'gemini-2.0-flash'
       : modelId === 'gemini-1.5-pro' ? 'gemini-1.5-pro-latest'
         : modelId === 'gemini-pro' ? 'gemini-pro'
           : 'gemini-1.5-flash-latest';
@@ -194,11 +197,13 @@ export async function* streamGeminiChat(
 
     const result = await chat.sendMessageStream(newMessage);
     for await (const chunk of result.stream) {
+      if (signal?.aborted) return;
       const chunkText = chunk.text();
       if (chunkText) yield chunkText;
     }
 
   } catch (error: any) {
+    if (error?.name === 'AbortError' || signal?.aborted) return;
     console.error('Stream Error:', error);
     let errorMsg = `⚠️ Lỗi kết nối AI (${modelId}).`;
     if (String(error).includes('404')) {

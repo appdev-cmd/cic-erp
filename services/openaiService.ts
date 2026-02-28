@@ -25,13 +25,19 @@ const createClient = (provider: 'openai' | 'deepseek') => {
     }
 };
 
+// TODO: Migrate OpenAI/DeepSeek calls to Edge Function (like gemini-proxy) to avoid exposing API keys client-side
+
 export async function* streamOpenAIChat(
     history: { role: 'user' | 'model', content: string }[],
     newMessage: string,
     modelId: string,
-    systemInstruction?: string
+    systemInstruction?: string,
+    signal?: AbortSignal
 ) {
     try {
+        // Check abort before starting
+        if (signal?.aborted) return;
+
         const provider = modelId.includes('deepseek') ? 'deepseek' : 'openai';
         const client = createClient(provider);
 
@@ -57,11 +63,17 @@ export async function* streamOpenAIChat(
         });
 
         for await (const chunk of stream) {
+            if (signal?.aborted) {
+                // Cancel the stream if aborted
+                stream.controller.abort();
+                return;
+            }
             const content = chunk.choices[0]?.delta?.content || '';
             if (content) yield content;
         }
 
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.name === 'AbortError' || signal?.aborted) return;
         console.error("OpenAI/DeepSeek Stream Error:", error);
         yield `⚠️ Lỗi kết nối ${modelId}. Vui lòng kiểm tra API Key hoặc tín dụng.\n\nChi tiết: ${error instanceof Error ? error.message : String(error)}`;
     }
