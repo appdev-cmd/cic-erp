@@ -1,23 +1,28 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
     Upload, Link2, Loader2, CheckCircle2, AlertCircle,
     Sparkles, Building2, User, Phone, Mail, MapPin, Hash,
     Globe, Landmark, Calendar, Briefcase, ShieldCheck,
-    Image as ImageIcon, Save, Send, Camera, Edit3, ChevronDown, ChevronUp
+    Image as ImageIcon, Save, Send, Camera, Edit3, ChevronDown, ChevronUp,
+    FileText, Users
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
-import { AIExtractService, ExtractModel, EXTRACT_MODELS } from '../services/aiExtractService';
-import { CustomerService } from '../services';
+import { AIExtractService, ExtractModel, EXTRACT_MODELS, ContractExtraction, PAKDExtraction } from '../services/aiExtractService';
+import { CustomerService, ContractService, PaymentService } from '../services';
 import { Customer } from '../types';
 
 // ─── Types ───────────────────────────────────────────────
+type IngestionModule = 'customer' | 'contract' | 'pakd';
+
 interface ChatMessage {
     id: string;
-    type: 'user-image' | 'user-url' | 'user-text' | 'ai-extracting' | 'ai-result' | 'ai-error' | 'system-success';
+    type: 'user-image' | 'user-url' | 'user-text' | 'ai-extracting' | 'ai-result' | 'ai-contract-result' | 'ai-pakd-result' | 'ai-error' | 'system-success';
     content?: string;
     imageDataUrl?: string;
     extractedData?: Partial<Customer>;
+    contractData?: ContractExtraction[];
+    pakdData?: PAKDExtraction;
     timestamp: Date;
 }
 
@@ -169,6 +174,391 @@ const ExtractionCard: React.FC<{
     );
 };
 
+// ─── PAKD Extraction Result Card ──────────────────────────
+// ─── PAKD Extraction Result Card ──────────────────────────
+const PAKDExtractionCard = ({ data, onSave, saving }: { data: PAKDExtraction; onSave: (data: PAKDExtraction) => void; saving: boolean }) => {
+    const [editedData, setEditedData] = useState<PAKDExtraction>(data);
+    const [contracts, setContracts] = useState<{ id: string; title: string }[]>([]);
+
+    useEffect(() => {
+        ContractService.getAll().then(res => {
+            setContracts(res.map(c => ({ id: c.id, title: c.title })));
+        }).catch(console.error);
+    }, []);
+
+    const fmtMoney = (v?: number) => new Intl.NumberFormat('vi-VN').format(v || 0);
+
+    return (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-slate-50 dark:bg-slate-800 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                    <Landmark size={16} className="text-amber-500" />
+                    <h4 className="font-bold text-slate-700 dark:text-slate-200 text-sm">Kết quả trích xuất PAKD</h4>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Hợp đồng:</span>
+                    <select
+                        value={editedData.contractNumber}
+                        onChange={e => setEditedData({ ...editedData, contractNumber: e.target.value })}
+                        className="text-xs font-bold px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-md text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500 min-w-[200px]"
+                    >
+                        {!contracts.find(c => c.title === editedData.contractNumber) && (
+                            <option value={editedData.contractNumber}>{editedData.contractNumber} (Trích xuất)</option>
+                        )}
+                        {contracts.map(c => (
+                            <option key={c.id} value={c.title}>{c.title}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+            <div className="p-4 space-y-5">
+                {/* Financial Summary */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-bold mb-1">Doanh thu</div>
+                        <div className="text-sm font-black text-emerald-600 dark:text-emerald-400">{fmtMoney(editedData.financials?.revenue)} ₫</div>
+                    </div>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-bold mb-1">Đầu vào</div>
+                        <div className="text-sm font-black text-amber-600 dark:text-amber-400">{fmtMoney(editedData.financials?.inputCost)} ₫</div>
+                    </div>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-bold mb-1">Tổng chi phí</div>
+                        <div className="text-sm font-black text-rose-600 dark:text-rose-400">{fmtMoney(editedData.financials?.totalCosts)} ₫</div>
+                    </div>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-bold mb-1">Lợi nhuận</div>
+                        <div className="text-sm font-black text-violet-600 dark:text-violet-400">{fmtMoney(editedData.financials?.profit)} ₫</div>
+                    </div>
+                </div>
+
+                {/* Additional Costs Breakdown */}
+                <div className="bg-rose-50 dark:bg-rose-900/40 p-3 rounded-xl border border-rose-100 dark:border-rose-900/50">
+                    <h5 className="text-[11px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider mb-2">Chi tiết các chi phí khác</h5>
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 text-xs">
+                        <div>
+                            <span className="block text-slate-500 dark:text-slate-400 text-[10px]">Thưởng hoàn thành</span>
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">{fmtMoney(editedData.financials?.completionBonus)} ₫</span>
+                        </div>
+                        <div>
+                            <span className="block text-slate-500 dark:text-slate-400 text-[10px]">Xúc tiến HĐ (DCS)</span>
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">{fmtMoney(editedData.financials?.dealPromotion)} ₫</span>
+                        </div>
+                        <div>
+                            <span className="block text-slate-500 dark:text-slate-400 text-[10px]">Ban lãnh đạo H/T</span>
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">{fmtMoney(editedData.financials?.managementSupport)} ₫</span>
+                        </div>
+                        <div>
+                            <span className="block text-slate-500 dark:text-slate-400 text-[10px]">Phí thuê chuyên gia</span>
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">{fmtMoney(editedData.financials?.expertFee)} ₫</span>
+                        </div>
+                        <div>
+                            <span className="block text-slate-500 dark:text-slate-400 text-[10px]">Phí thanh toán CT</span>
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">{fmtMoney(editedData.financials?.documentFee)} ₫</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Line Items */}
+                <div>
+                    <h5 className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">Chi tiết SP/DV ({(editedData.lineItems || []).length})</h5>
+                    <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-x-auto">
+                        <table className="w-full text-left text-xs whitespace-nowrap">
+                            <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                                <tr>
+                                    <th className="px-3 py-2 font-semibold">Tên SP/DV</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Giá vào</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Giá ra</th>
+                                    <th className="px-3 py-2 font-semibold text-center">VAT (%)</th>
+                                    <th className="px-3 py-2 font-semibold text-right">TT Đầu ra</th>
+                                    <th className="px-3 py-2 font-semibold text-right">Chênh lệch</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {(editedData.lineItems || []).map((item, idx) => {
+                                    const vatRate = (item as any).vatRate ?? 10;
+                                    const outputWithVat = item.totalPrice * (1 + vatRate / 100);
+                                    const margin = outputWithVat - item.totalCost;
+                                    return (
+                                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800">
+                                            <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
+                                                <div className="font-medium">{item.name || '(Trống)'}</div>
+                                                <div className="text-[10px] text-slate-400">{item.supplier} • SL: {item.quantity} {item.unit}</div>
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-medium text-amber-600">{fmtMoney(item.totalCost)}</td>
+                                            <td className="px-3 py-2 text-right font-medium text-emerald-600">{fmtMoney(item.totalPrice)}</td>
+                                            <td className="px-3 py-2 text-center">
+                                                <select
+                                                    value={vatRate}
+                                                    onChange={e => {
+                                                        const newVat = Number(e.target.value);
+                                                        setEditedData(prev => ({
+                                                            ...prev,
+                                                            lineItems: prev.lineItems.map((li, i) =>
+                                                                i === idx ? { ...li, vatRate: newVat } as any : li
+                                                            )
+                                                        }));
+                                                    }}
+                                                    className="text-xs font-bold px-1.5 py-0.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                                                >
+                                                    <option value={0}>0%</option>
+                                                    <option value={8}>8%</option>
+                                                    <option value={10}>10%</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-bold text-indigo-600 dark:text-indigo-400">{fmtMoney(outputWithVat)}</td>
+                                            <td className={`px-3 py-2 text-right font-bold ${margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{fmtMoney(margin)}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700">
+                <button
+                    onClick={() => onSave(editedData)}
+                    disabled={saving}
+                    className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                    {saving ? (
+                        <><Loader2 size={14} className="animate-spin" /> Đang cập nhật hợp đồng...</>
+                    ) : (
+                        <><Save size={14} /> Cập nhật PAKD vào hợp đồng</>
+                    )}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// ─── Contract Extraction Table ──────────────────────────
+const ContractExtractionTable: React.FC<{
+    data: ContractExtraction[];
+    onSave: (rows: ContractExtraction[], unitId: string, salespersonId: string) => void;
+    saving: boolean;
+}> = ({ data, onSave, saving }) => {
+    const [selected, setSelected] = useState<Set<number>>(new Set(data.map((_, i) => i)));
+    const [editRows, setEditRows] = useState<ContractExtraction[]>([...data]);
+    const [editingCell, setEditingCell] = useState<{ row: number; col: string } | null>(null);
+    const [unitId, setUnitId] = useState('');
+    const [salespersonId, setSalespersonId] = useState('');
+    const [units, setUnits] = useState<{ id: string; name: string }[]>([]);
+    const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
+
+    // Load units on mount
+    React.useEffect(() => {
+        import('../services').then(({ UnitService }) => {
+            UnitService.getAll().then(u => setUnits(u.filter(x => x.id !== 'all').map(x => ({ id: x.id, name: x.name }))));
+        });
+    }, []);
+
+    // Load employees when unit changes
+    React.useEffect(() => {
+        setSalespersonId('');
+        import('../services').then(({ EmployeeService }) => {
+            const promise = unitId
+                ? EmployeeService.getByUnitId(unitId)
+                : EmployeeService.getAll();
+            promise.then(e => setEmployees(e.map(x => ({ id: x.id, name: x.name }))));
+        });
+    }, [unitId]);
+
+    const toggleRow = (idx: number) => {
+        setSelected(prev => { const n = new Set(prev); n.has(idx) ? n.delete(idx) : n.add(idx); return n; });
+    };
+    const toggleAll = () => {
+        setSelected(prev => prev.size === editRows.length ? new Set() : new Set(editRows.map((_, i) => i)));
+    };
+
+    const updateCell = (idx: number, col: string, value: any) => {
+        setEditRows(prev => {
+            const next = [...prev];
+            next[idx] = { ...next[idx], [col]: value };
+            return next;
+        });
+    };
+
+    const fmtMoney = (v?: number) => v != null ? v.toLocaleString('vi-VN') : '—';
+    const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+
+    const selectedRows = editRows.filter((_, i) => selected.has(i));
+    const canSave = selectedRows.length > 0 && unitId && salespersonId;
+
+    // Editable cell component
+    const EditableText = ({ row, col, value, className }: { row: number; col: string; value: string; className?: string }) => {
+        const isEditing = editingCell?.row === row && editingCell?.col === col;
+        if (isEditing) {
+            return (
+                <input
+                    autoFocus
+                    defaultValue={value}
+                    onBlur={e => { updateCell(row, col, e.target.value); setEditingCell(null); }}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className="w-full bg-white dark:bg-slate-700 border border-indigo-400 dark:border-indigo-500 rounded px-1.5 py-0.5 text-xs outline-none text-slate-800 dark:text-slate-100"
+                />
+            );
+        }
+        return (
+            <span
+                onClick={() => setEditingCell({ row, col })}
+                className={cn("cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded px-1 py-0.5 -mx-1 transition-colors", className)}
+                title="Click để sửa"
+            >
+                {value || '—'}
+            </span>
+        );
+    };
+
+    const EditableNumber = ({ row, col, value, className }: { row: number; col: string; value?: number; className?: string }) => {
+        const isEditing = editingCell?.row === row && editingCell?.col === col;
+        if (isEditing) {
+            return (
+                <input
+                    autoFocus
+                    type="number"
+                    defaultValue={value ?? ''}
+                    onBlur={e => { updateCell(row, col, e.target.value ? parseFloat(e.target.value) : undefined); setEditingCell(null); }}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className="w-full bg-white dark:bg-slate-700 border border-indigo-400 dark:border-indigo-500 rounded px-1.5 py-0.5 text-xs outline-none text-right text-slate-800 dark:text-slate-100"
+                />
+            );
+        }
+        return (
+            <span
+                onClick={() => setEditingCell({ row, col })}
+                className={cn("cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded px-1 py-0.5 -mx-1 transition-colors font-mono", className)}
+                title="Click để sửa"
+            >
+                {fmtMoney(value)}
+            </span>
+        );
+    };
+
+    return (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="px-4 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-emerald-500" />
+                    <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">
+                        Trích xuất: {data.length} hợp đồng
+                    </span>
+                </div>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Đã chọn: {selected.size}/{editRows.length} • <Edit3 size={10} className="inline" /> Click vào ô để sửa
+                </span>
+            </div>
+
+            {/* Unit & Employee Selectors */}
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-4 bg-slate-50/50 dark:bg-slate-800/50">
+                <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                    <Building2 size={14} className="text-indigo-500 shrink-0" />
+                    <select
+                        value={unitId}
+                        onChange={e => setUnitId(e.target.value)}
+                        className={cn(
+                            "flex-1 text-xs rounded-lg px-3 py-2 border bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 cursor-pointer",
+                            unitId ? "border-indigo-300 dark:border-indigo-600" : "border-rose-300 dark:border-rose-600"
+                        )}
+                    >
+                        <option value="">— Chọn đơn vị (*) —</option>
+                        {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                </div>
+                <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                    <User size={14} className="text-violet-500 shrink-0" />
+                    <select
+                        value={salespersonId}
+                        onChange={e => setSalespersonId(e.target.value)}
+                        className={cn(
+                            "flex-1 text-xs rounded-lg px-3 py-2 border bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 cursor-pointer",
+                            salespersonId ? "border-violet-300 dark:border-violet-600" : "border-rose-300 dark:border-rose-600"
+                        )}
+                    >
+                        <option value="">— Chọn người thực hiện (*) —</option>
+                        {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                    <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+                            <th className="px-3 py-2 text-left">
+                                <input type="checkbox" checked={selected.size === editRows.length} onChange={toggleAll} className="rounded cursor-pointer" />
+                            </th>
+                            <th className="px-3 py-2 text-left font-bold text-slate-600 dark:text-slate-300">Số HĐ</th>
+                            <th className="px-3 py-2 text-left font-bold text-slate-600 dark:text-slate-300">Khách hàng</th>
+                            <th className="px-3 py-2 text-left font-bold text-slate-600 dark:text-slate-300">Nội dung</th>
+                            <th className="px-3 py-2 text-right font-bold text-slate-600 dark:text-slate-300">Giá trị ký</th>
+                            <th className="px-3 py-2 text-center font-bold text-slate-600 dark:text-slate-300">Ngày ký</th>
+                            <th className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">Nghiệm thu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {editRows.map((row, idx) => (
+                            <tr
+                                key={idx}
+                                className={cn(
+                                    "border-b border-slate-100 dark:border-slate-700/50 transition-colors",
+                                    selected.has(idx) ? "bg-emerald-50/50 dark:bg-emerald-900/10" : "opacity-40"
+                                )}
+                            >
+                                <td className="px-3 py-2">
+                                    <input type="checkbox" checked={selected.has(idx)} onChange={() => toggleRow(idx)} className="rounded cursor-pointer" />
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                    <EditableText row={idx} col="contractCode" value={row.contractCode} className="font-bold text-slate-800 dark:text-slate-200" />
+                                </td>
+                                <td className="px-3 py-2 max-w-[200px]">
+                                    <EditableText row={idx} col="customerName" value={row.customerName} className="text-slate-700 dark:text-slate-300" />
+                                </td>
+                                <td className="px-3 py-2">
+                                    <EditableText row={idx} col="content" value={row.content || ''} className="text-slate-600 dark:text-slate-400" />
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                    <EditableNumber row={idx} col="signedValue" value={row.signedValue} className="font-bold text-slate-800 dark:text-slate-200" />
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                    <EditableText row={idx} col="signedDate" value={row.signedDate || ''} className="text-slate-500 dark:text-slate-400" />
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                    <EditableNumber row={idx} col="acceptanceValue" value={row.acceptanceValue} className="text-blue-600 dark:text-blue-400" />
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Save Button */}
+            <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700">
+                {(!unitId || !salespersonId) && (
+                    <p className="text-xs text-rose-500 dark:text-rose-400 mb-2 text-center">
+                        ⚠️ Vui lòng chọn <b>Đơn vị</b> và <b>Người thực hiện</b> trước khi nạp
+                    </p>
+                )}
+                <button
+                    onClick={() => onSave(selectedRows, unitId, salespersonId)}
+                    disabled={saving || !canSave}
+                    className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                    {saving ? (
+                        <><Loader2 size={14} className="animate-spin" /> Đang nạp...</>
+                    ) : (
+                        <><Save size={14} /> Nạp {selectedRows.length} hợp đồng vào hệ thống</>
+                    )}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 // ─── Module-level flag to prevent double extraction (StrictMode safe) ─────
 let _isExtracting = false;
 
@@ -185,6 +575,7 @@ const AIDataIngestion: React.FC = () => {
     const [isExtracting, setIsExtracting] = useState(false);
     const [savingId, setSavingId] = useState<string | null>(null);
     const [selectedModel, setSelectedModel] = useState<ExtractModel>('gemini');
+    const [activeModule, setActiveModule] = useState<IngestionModule>('customer');
     const chatEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -243,7 +634,7 @@ const AIDataIngestion: React.FC = () => {
 
     // ─── Process extraction ──────────────────────────────
     const processExtraction = useCallback(async (
-        source: { type: 'image'; file: File; dataUrl: string } | { type: 'url'; url: string }
+        source: { type: 'image'; file: File; dataUrl: string } | { type: 'url'; url: string } | { type: 'text'; text: string }
     ) => {
         if (_isExtracting) return;
         _isExtracting = true;
@@ -252,8 +643,10 @@ const AIDataIngestion: React.FC = () => {
         // Add user message
         if (source.type === 'image') {
             addMessage({ type: 'user-image', imageDataUrl: source.dataUrl });
-        } else {
+        } else if (source.type === 'url') {
             addMessage({ type: 'user-url', content: source.url });
+        } else {
+            addMessage({ type: 'user-text', content: source.text });
         }
 
         // Add extracting message
@@ -261,14 +654,40 @@ const AIDataIngestion: React.FC = () => {
         scrollToBottom();
 
         try {
-            let data: Partial<Customer>;
-            if (source.type === 'image') {
-                data = await AIExtractService.extractFromImage(source.file, selectedModel);
+            if (activeModule === 'contract') {
+                // Contract mode — extract table rows
+                if (source.type === 'image') {
+                    const rows = await AIExtractService.extractContractsFromImage(source.file, selectedModel);
+                    updateMessage(extractId, { type: 'ai-contract-result', contractData: rows });
+                    toast.success(`Trích xuất: ${rows.length} hợp đồng`);
+                } else {
+                    throw new Error('Hợp đồng chỉ hỗ trợ trích xuất từ ảnh bảng');
+                }
+            } else if (activeModule === 'pakd') {
+                // PAKD mode
+                let pakdResult;
+                if (source.type === 'image') {
+                    pakdResult = await AIExtractService.extractPAKDFromImage(source.file, selectedModel);
+                } else if (source.type === 'text') {
+                    pakdResult = await AIExtractService.extractPAKDFromText(source.text, selectedModel);
+                } else {
+                    throw new Error('PAKD chưa hỗ trợ trích xuất từ URL');
+                }
+                updateMessage(extractId, { type: 'ai-pakd-result', pakdData: pakdResult });
+                toast.success(`Trích xuất PAKD thành công`);
             } else {
-                data = await AIExtractService.extractFromURL(source.url, selectedModel);
+                // Customer mode
+                let data: Partial<Customer>;
+                if (source.type === 'image') {
+                    data = await AIExtractService.extractFromImage(source.file, selectedModel);
+                } else if (source.type === 'url') {
+                    data = await AIExtractService.extractFromURL(source.url, selectedModel);
+                } else {
+                    data = await AIExtractService.extractFromText(source.text, selectedModel);
+                }
+                updateMessage(extractId, { type: 'ai-result', extractedData: data });
+                toast.success(`Trích xuất thành công: ${data.name || 'Chưa có tên'}`);
             }
-            updateMessage(extractId, { type: 'ai-result', extractedData: data });
-            toast.success(`Trích xuất thành công: ${data.name || 'Chưa có tên'}`);
         } catch (err: any) {
             updateMessage(extractId, { type: 'ai-error', content: err.message });
             toast.error('Lỗi trích xuất');
@@ -277,7 +696,7 @@ const AIDataIngestion: React.FC = () => {
             setIsExtracting(false);
             scrollToBottom();
         }
-    }, [isExtracting, addMessage, updateMessage, scrollToBottom, selectedModel]);
+    }, [isExtracting, addMessage, updateMessage, scrollToBottom, selectedModel, activeModule]);
 
     // ─── Handle Send ─────────────────────────────────────
     const handleSend = useCallback(() => {
@@ -300,29 +719,11 @@ const AIDataIngestion: React.FC = () => {
             const url = text.startsWith('http') ? text : `https://${text}`;
             processExtraction({ type: 'url', url });
         } else {
-            // Just text — show as user message and try text extraction
-            _isExtracting = true;
-            addMessage({ type: 'user-text', content: text });
-            const extractId = addMessage({ type: 'ai-extracting' });
-            scrollToBottom();
-            setIsExtracting(true);
-
-            AIExtractService.extractFromText(text, selectedModel)
-                .then(data => {
-                    updateMessage(extractId, { type: 'ai-result', extractedData: data });
-                    toast.success(`Trích xuất thành công`);
-                })
-                .catch(err => {
-                    updateMessage(extractId, { type: 'ai-error', content: err.message });
-                })
-                .finally(() => {
-                    _isExtracting = false;
-                    setIsExtracting(false);
-                    scrollToBottom();
-                });
+            // Just text — Let processExtraction handle it based on activeModule
+            processExtraction({ type: 'text', text });
         }
         setInputText('');
-    }, [inputText, pastedImage, processExtraction, addMessage, updateMessage, scrollToBottom, selectedModel]);
+    }, [inputText, pastedImage, processExtraction, selectedModel]);
 
     // ─── Handle File Upload ──────────────────────────────
     const handleFileSelect = useCallback((file: File) => {
@@ -385,6 +786,205 @@ const AIDataIngestion: React.FC = () => {
         }
     }, [addMessage, scrollToBottom]);
 
+    // ─── Handle Save Contracts (Upsert + Payment creation) ─────
+    const handleSaveContracts = useCallback(async (msgId: string, rows: ContractExtraction[], unitId: string, salespersonId: string) => {
+        if (rows.length === 0) return;
+        setSavingId(msgId);
+
+        let created = 0, updated = 0, failed = 0;
+        const failMessages: string[] = [];
+
+        try {
+            for (const row of rows) {
+                try {
+                    // 1. Lookup customer by name — auto-create if not found
+                    let customerId = '';
+                    if (row.customerName && row.customerName.length >= 2) {
+                        const customers = await CustomerService.search(row.customerName, 1);
+                        if (customers.length > 0) {
+                            customerId = customers[0].id;
+                        } else {
+                            try {
+                                const newCustomer = await CustomerService.create({
+                                    name: row.customerName,
+                                    shortName: '',
+                                    contactPerson: row.contactPerson || '',
+                                    phone: '',
+                                    email: '',
+                                    address: '',
+                                    industry: [],
+                                } as any);
+                                customerId = newCustomer.id;
+                            } catch (custErr) {
+                                console.warn(`[AI] Auto-create customer failed:`, custErr);
+                            }
+                        }
+                    }
+
+                    // 2. Check if contract already exists (by title)
+                    const existing = await ContractService.findByTitle(row.contractCode);
+
+                    // Sanitize contract ID: replace / with -
+                    const sanitizedId = row.contractCode.replace(/\//g, '-');
+
+                    const contractData: any = {
+                        title: row.contractCode,
+                        content: row.content || '',
+                        category: row.content || 'BIM',
+                        value: row.signedValue || 0,
+                        signedDate: row.signedDate || null,
+                        startDate: row.signedDate || null,
+                        endDate: null,
+                        actualRevenue: row.acceptanceValue || 0,
+                        unitId,
+                        salespersonId,
+                        contacts: row.contactPerson ? [{ id: crypto.randomUUID(), name: row.contactPerson, role: 'Đầu mối' }] : [],
+                    };
+
+                    if (customerId) contractData.customerId = customerId;
+
+                    if (existing) {
+                        // UPDATE
+                        await ContractService.update(existing.id, contractData);
+                        updated++;
+                    } else {
+                        // CREATE — need required fields
+                        const newContract = {
+                            ...contractData,
+                            id: sanitizedId,
+                            contractType: 'HĐ' as const,
+                            partyA: row.customerName || '',
+                            partyB: 'CIC',
+                            clientInitials: '',
+                            estimatedCost: 0,
+                            actualCost: 0,
+                            status: 'Processing' as const,
+                            stage: 'Signed' as const,
+                        };
+                        await ContractService.create(newContract);
+                        created++;
+                    }
+
+                } catch (err: any) {
+                    console.error(`[AI] Failed to save contract ${row.contractCode}:`, err?.message || err);
+                    failMessages.push(`${row.contractCode}: ${err?.message || 'Unknown error'}`);
+                    failed++;
+                }
+            }
+
+            const summary: string[] = [];
+            if (created > 0) summary.push(`✅ Tạo mới: ${created}`);
+            if (updated > 0) summary.push(`🔄 Cập nhật: ${updated}`);
+            if (failed > 0) summary.push(`❌ Lỗi: ${failed}`);
+            if (failMessages.length > 0) {
+                addMessage({ type: 'ai-error', content: failMessages.join('\n') });
+            }
+            addMessage({ type: 'system-success', content: summary.join(' • ') });
+            toast.success(`Đã nạp ${created + updated}/${rows.length} hợp đồng`);
+            scrollToBottom();
+        } catch (err: any) {
+            toast.error(`Lỗi: ${err.message}`);
+        } finally {
+            setSavingId(null);
+        }
+    }, [addMessage, scrollToBottom]);
+
+    // ─── Handle Save PAKD (Update Contract + Create Business Plan) ─────
+    const handleSavePAKD = useCallback(async (msgId: string, data: PAKDExtraction) => {
+        if (!data.contractNumber) {
+            toast.error('Không tìm thấy số hợp đồng trong PAKD');
+            return;
+        }
+        setSavingId(msgId);
+        try {
+            // Find contract by title (contract code)
+            const contractCode = data.contractNumber;
+            const existing = await ContractService.findByTitle(contractCode);
+
+            if (!existing) {
+                toast.error(`Không tìm thấy hợp đồng ${contractCode} trên hệ thống`);
+                return;
+            }
+
+            // Transform lineItems for Contract.details
+            const lineItems = data.lineItems.map(item => ({
+                id: crypto.randomUUID(),
+                name: item.name,
+                supplier: item.supplier,
+                quantity: item.quantity,
+                inputPrice: item.unitCost,
+                outputPrice: item.unitPrice,
+                directCosts: item.transferFee || 0,
+                vatRate: 10,
+                supplierDiscount: 0,
+            }));
+
+            // Prepare adminCosts (legacy)
+            const adminCosts = {
+                transferFee: 0,
+                contractorTax: 0,
+                importFee: 0,
+                expertHiring: data.financials.expertFee || 0,
+                documentProcessing: data.financials.documentFee || 0,
+            };
+
+            // Prepare dynamic executionCosts for the new format
+            const executionCosts: any[] = [];
+            if (data.financials.completionBonus) executionCosts.push({ id: crypto.randomUUID(), name: 'Thưởng hoàn thành dự án', amount: data.financials.completionBonus });
+            if (data.financials.dealPromotion) executionCosts.push({ id: crypto.randomUUID(), name: 'Xúc tiến hợp đồng (DCS)', amount: data.financials.dealPromotion });
+            if (data.financials.managementSupport) executionCosts.push({ id: crypto.randomUUID(), name: 'Ban lãnh đạo hỗ trợ', amount: data.financials.managementSupport });
+            if (data.financials.expertFee) executionCosts.push({ id: crypto.randomUUID(), name: 'Phí thuê chuyên gia', amount: data.financials.expertFee });
+            if (data.financials.documentFee) executionCosts.push({ id: crypto.randomUUID(), name: 'Phí thanh toán CT', amount: data.financials.documentFee });
+
+            // 1. Update Contract
+            await ContractService.update(existing.id, {
+                lineItems,
+                adminCosts,
+                executionCosts,
+                estimatedCost: data.financials.totalCosts || existing.estimatedCost,
+                value: data.financials.revenue || existing.value,
+            });
+
+            // 2. Upsert Business Plan
+            const { supabase } = await import('../lib/supabase');
+            const { data: userData } = await supabase.auth.getUser();
+            const financials = {
+                revenue: data.financials.revenue,
+                costs: data.financials.totalCosts,
+                grossProfit: data.financials.profit,
+                margin: data.financials.marginRevenue,
+                cashflow: existing.paymentPhases || [],
+                executionCosts: executionCosts,
+                adminCosts: adminCosts,
+                lineItems: lineItems
+            };
+
+            const { data: plans } = await supabase.from('contract_business_plans').select('id').eq('contract_id', existing.id);
+            if (plans && plans.length > 0) {
+                await supabase.from('contract_business_plans')
+                    .update({ financials })
+                    .eq('id', plans[0].id);
+            } else {
+                await supabase.from('contract_business_plans').insert({
+                    contract_id: existing.id,
+                    version: 1,
+                    status: 'Approved',
+                    financials: financials,
+                    is_active: true,
+                    created_by: userData?.user?.id
+                });
+            }
+
+            toast.success(`Nạp cấu trúc PAKD vào HĐ ${contractCode} thành công`);
+            addMessage({ type: 'system-success', content: `Đã nạp PAKD cho HĐ: ${contractCode}` });
+            scrollToBottom();
+        } catch (err: any) {
+            toast.error(`Lỗi nạp PAKD: ${err.message}`);
+        } finally {
+            setSavingId(null);
+        }
+    }, [addMessage, scrollToBottom]);
+
     // ─── Handle Drop ─────────────────────────────────────
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -406,13 +1006,60 @@ const AIDataIngestion: React.FC = () => {
         <div className="flex flex-col h-full">
             {/* ═══ Header ═══════════════════════════════════ */}
             <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white shadow-lg">
-                        <Sparkles size={18} />
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white shadow-lg">
+                            <Sparkles size={18} />
+                        </div>
+                        <div>
+                            <h3 className="font-black text-slate-800 dark:text-slate-100 text-sm">
+                                AI Nạp dữ liệu — {activeModule === 'customer' ? 'Khách hàng' : activeModule === 'contract' ? 'Hợp đồng' : 'PAKD'}
+                            </h3>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                {activeModule === 'customer'
+                                    ? 'Dán ảnh (Ctrl+V), kéo thả file, hoặc nhập link → AI trích xuất → Nạp vào hệ thống'
+                                    : activeModule === 'contract'
+                                        ? 'Chụp/dán ảnh bảng Excel hợp đồng → AI trích xuất nhiều dòng → Nạp vào hệ thống'
+                                        : 'Chụp/dán ảnh bảng PAKD → AI trích xuất chi phí & lợi nhuận → Nạp vào hợp đồng'
+                                }
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="font-black text-slate-800 dark:text-slate-100 text-sm">AI Nạp dữ liệu — Khách hàng</h3>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Dán ảnh (Ctrl+V), kéo thả file, hoặc nhập link → AI trích xuất → Nạp vào hệ thống</p>
+                    {/* Module Selector */}
+                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+                        <button
+                            onClick={() => setActiveModule('customer')}
+                            className={cn(
+                                "px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer",
+                                activeModule === 'customer'
+                                    ? "bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm"
+                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                            )}
+                        >
+                            <Users size={12} className="inline mr-1" />Khách hàng
+                        </button>
+                        <button
+                            onClick={() => setActiveModule('contract')}
+                            className={cn(
+                                "px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer",
+                                activeModule === 'contract'
+                                    ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm"
+                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                            )}
+                        >
+                            <FileText size={12} className="inline mr-1" />Hợp đồng
+                        </button>
+                        <button
+                            onClick={() => setActiveModule('pakd')}
+                            className={cn(
+                                "px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer",
+                                activeModule === 'pakd'
+                                    ? "bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-sm"
+                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                            )}
+                        >
+                            <Landmark size={12} className="inline mr-1" />PAKD
+                        </button>
                     </div>
                 </div>
             </div>
@@ -494,6 +1141,28 @@ const AIDataIngestion: React.FC = () => {
                                     <ExtractionCard
                                         data={msg.extractedData}
                                         onSave={(data) => handleSaveCustomer(msg.id, data)}
+                                        saving={savingId === msg.id}
+                                    />
+                                </div>
+                            )}
+
+                            {/* AI Contract Result — Extraction Table */}
+                            {msg.type === 'ai-contract-result' && msg.contractData && (
+                                <div className="w-full min-w-[500px]">
+                                    <ContractExtractionTable
+                                        data={msg.contractData}
+                                        onSave={(rows, unitId, salespersonId) => handleSaveContracts(msg.id, rows, unitId, salespersonId)}
+                                        saving={savingId === msg.id}
+                                    />
+                                </div>
+                            )}
+
+                            {/* AI PAKD Result — Extraction Card */}
+                            {msg.type === 'ai-pakd-result' && msg.pakdData && (
+                                <div className="w-full min-w-[500px]">
+                                    <PAKDExtractionCard
+                                        data={msg.pakdData}
+                                        onSave={(data) => handleSavePAKD(msg.id, data)}
                                         saving={savingId === msg.id}
                                     />
                                 </div>

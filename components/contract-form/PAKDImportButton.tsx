@@ -209,6 +209,7 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
                                             <th className="py-3 px-4 text-left font-bold text-slate-500 uppercase">Tên Hạng mục</th>
                                             <th className="py-3 px-4 text-left font-bold text-slate-500 uppercase">NCC</th>
                                             <th className="py-3 px-4 text-right font-bold text-slate-500 uppercase">Số lượng</th>
+                                            <th className="py-3 px-4 text-right font-bold text-slate-500 uppercase">VAT</th>
                                             <th className="py-3 px-4 text-right font-bold text-slate-500 uppercase">Thành tiền (Ra)</th>
                                         </tr>
                                     </thead>
@@ -219,6 +220,7 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
                                                 <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">{item.name}</td>
                                                 <td className="py-3 px-4 text-slate-500">{item.supplier}</td>
                                                 <td className="py-3 px-4 text-right">{item.quantity}</td>
+                                                <td className="py-3 px-4 text-right text-slate-500">{previewData.financials.vatRate ?? 10}%</td>
                                                 <td className="py-3 px-4 text-right font-bold text-emerald-600">{formatVND(item.totalPrice)}</td>
                                             </tr>
                                         ))}

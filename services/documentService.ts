@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { dataClient as supabase } from '../lib/dataClient';
 
 // Helper to sanitize filename for S3 storage

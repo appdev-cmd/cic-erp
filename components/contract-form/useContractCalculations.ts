@@ -31,13 +31,13 @@ export function useContractCalculations({
     vatRate = 0.1,
 }: UseContractCalculationsProps): ContractTotals {
     return useMemo(() => {
-        // Sum of all output prices (signing value from line items)
+        // Sum of all output prices WITH VAT (signing value from line items)
         const lineItemsOutput = lineItems.reduce(
-            (acc, item) => acc + (item.quantity * item.outputPrice),
+            (acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100)),
             0
         );
 
-        // TOTAL SIGNING VALUE = Line items output + Supplier Discount
+        // TOTAL SIGNING VALUE = Line items output (incl VAT) + Supplier Discount
         // Supplier discount ADDS to revenue
         const signingValue = lineItemsOutput + supplierDiscount;
 
@@ -59,8 +59,11 @@ export function useContractCalculations({
             0
         );
 
-        // Revenue after VAT deduction
-        const estimatedRevenue = signingValue / (1 + vatRate);
+        // Revenue = tổng đầu ra chưa VAT
+        const estimatedRevenue = lineItems.reduce(
+            (acc, item) => acc + (item.quantity * item.outputPrice),
+            0
+        );
 
         // Total costs = input + direct + admin (supplier discount is NOT here anymore)
         const totalCosts = totalInput + totalDirectCosts + adminSum;

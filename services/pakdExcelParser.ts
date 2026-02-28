@@ -31,6 +31,7 @@ export interface PAKDLineItem {
     transferFee: number;   // Phí chuyển tiền
     margin: number;        // Chênh lệch
     marginPercent?: number; // % Lợi nhuận
+    vatRate?: number;      // Thuế VAT áp dụng cho sản phẩm này
     foreignCurrency?: PAKDForeignCurrency; // Thông tin ngoại tệ (nếu có)
 }
 
@@ -614,6 +615,7 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
             transferFee: transferFeeInfo.value,
             margin,
             marginPercent,
+            vatRate: 10, // Default VAT rate for line item
             foreignCurrency,
         };
 
@@ -748,6 +750,10 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
     const totalAdminCosts = adminCosts.bankFee + adminCosts.subcontractorFee + adminCosts.importLogistics + adminCosts.expertFee + adminCosts.documentFee;
     const otherExecutionCosts = executionCosts.filter(c => !c.name.includes('chuyên gia') && !c.name.includes('chứng từ')).reduce((sum, c) => sum + c.amount, 0);
 
+    const computedCosts = totalCostSum + totalAdminCosts + otherExecutionCosts - adminCosts.supplierDiscount;
+    const computedProfit = totalPriceSum - computedCosts;
+    const computedMargin = totalPriceSum > 0 ? Math.round((computedProfit / totalPriceSum) * 100 * 100) / 100 : 0;
+
     // Detect VAT rate from Sản lượng / Doanh thu ratio
     // Sản lượng = Doanh thu × (1 + VAT) → VAT = (Sản lượng / Doanh thu) - 1
     let detectedVatRate: number | undefined;
@@ -795,6 +801,7 @@ export function convertToFormData(parsed: ParsedPAKD) {
                 transferFee: item.transferFee,
             },
             marginPercent: item.marginPercent,
+            vatRate: item.vatRate,
             foreignCurrency: item.foreignCurrency ? {
                 amount: item.foreignCurrency.amount,
                 rate: item.foreignCurrency.rate,

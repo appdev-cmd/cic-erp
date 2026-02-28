@@ -257,7 +257,8 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
     if (!contract) return null;
 
     const lineItems = contract.lineItems || [];
-    const totalOutput = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0);
+    const totalOutput = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100)), 0);
+    const totalRevenue = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0);
     const totalInput = lineItems.reduce((acc, item) => acc + (item.quantity * item.inputPrice), 0);
     const totalDirect = lineItems.reduce((acc, item) => acc + (item.directCosts || 0), 0);
 
@@ -266,18 +267,24 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
     };
     const totalAdmin = Object.values(adminCosts).reduce((acc: number, val: any) => acc + (val || 0), 0);
 
-    // Note: adminCosts already includes direct cost fees (bankFee=transferFee sum, 
-    // subcontractorFee=contractorTax sum, importLogistics=importFee sum from line items)
-    // So totalDirect is NOT added separately to avoid double-counting
-    const totalCosts = totalInput + totalAdmin;
-    const grossProfit = totalOutput - totalCosts;
-    const margin = totalOutput > 0 ? (grossProfit / totalOutput) * 100 : 0;
+    const executionCosts = contract.executionCosts || [];
+    const totalExecution = executionCosts.reduce((acc, cost) => acc + (cost.amount || 0), 0);
+
+    // executionCosts (new format) ưu tiên, fallback sang adminCosts (legacy) nếu chưa có
+    // KHÔNG cộng cả 2 để tránh trùng lặp
+    const overheadCosts = totalExecution > 0 ? totalExecution : totalAdmin;
+    const totalCosts = totalInput + overheadCosts;
+    // Lợi nhuận gộp = Doanh thu (chưa VAT) - Chi phí, Margin = Lợi nhuận / Doanh thu (chưa VAT)
+    const grossProfit = totalRevenue - totalCosts;
+    const margin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
     return {
       totalOutput,
+      totalRevenue,
       totalInput,
       totalDirect,
       totalAdmin,
+      totalExecution,
       totalCosts,
       grossProfit,
       margin
@@ -459,7 +466,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Giá trị Ký kết</p>
                         <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                          {formatVND(contract.value || financials.totalOutput)} <span className="text-xs font-medium text-slate-400">đ</span>
+                          {formatVND(financials.totalOutput || contract.value)} <span className="text-xs font-medium text-slate-400">đ</span>
                         </p>
                       </div>
                       <div className="space-y-1">
@@ -467,6 +474,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                         <p className="text-2xl font-black text-rose-600 dark:text-rose-400">
                           {formatVND(financials.totalCosts)}
                         </p>
+
                       </div>
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lợi nhuận gộp</p>

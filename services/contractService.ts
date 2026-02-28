@@ -129,10 +129,11 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
     });
 
     // Handle JSONB details field
-    if (data.lineItems !== undefined || data.adminCosts !== undefined || (data as any).revenueSchedules !== undefined) {
+    if (data.lineItems !== undefined || data.adminCosts !== undefined || data.executionCosts !== undefined || (data as any).revenueSchedules !== undefined) {
         payload.details = {
             lineItems: data.lineItems || [],
             adminCosts: data.adminCosts || {},
+            executionCosts: data.executionCosts || [],
             revenueSchedules: (data as any).revenueSchedules || []
         };
     }
@@ -210,6 +211,7 @@ const mapContract = (c: any): Contract => {
         // Map details from JSONB
         lineItems: c.details?.lineItems || [],
         adminCosts: c.details?.adminCosts || undefined,
+        executionCosts: c.details?.executionCosts || [],
         revenueSchedules: c.details?.revenueSchedules || [],
         documents: c.documents || [],
         draft_url: c.draft_url || undefined,
@@ -240,6 +242,21 @@ const mapContract = (c: any): Contract => {
 };
 
 export const ContractService = {
+    /**
+     * Find contract by title (Số HĐ) — for upsert logic
+     */
+    findByTitle: async (title: string): Promise<Contract | null> => {
+        if (!title || title.trim().length < 3) return null;
+        const { data, error } = await supabase
+            .from('contracts')
+            .select('*')
+            .eq('title', title.trim())
+            .limit(1)
+            .maybeSingle();
+        if (error || !data) return null;
+        return mapContract(data);
+    },
+
     getAll: async (): Promise<Contract[]> => {
         const { data, error } = await supabase
             .from('contracts')

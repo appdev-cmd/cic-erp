@@ -37,14 +37,13 @@ export function useFinancialCalculations(
             const itemVatRate = item.vatRate ?? 10;
             const itemDiscount = item.supplierDiscount ?? 0;
 
-            signingValue += itemOutputTotal;
+            // Giá trị ký HĐ = Đầu ra × (1 + VAT%) cho từng SP
+            signingValue += itemOutputTotal * (1 + itemVatRate / 100);
             totalInput += itemInputTotal;
             totalDirectCosts += item.directCosts;
             totalSupplierDiscount += itemInputTotal * (itemDiscount / 100);
-            // Doanh thu = giá đầu ra / (1 + VAT%) cho từng SP
-            estimatedRevenue += itemVatRate > 0
-                ? itemOutputTotal / (1 + itemVatRate / 100)
-                : itemOutputTotal;
+            // Doanh thu = giá đầu ra chưa VAT
+            estimatedRevenue += itemOutputTotal;
         });
 
         // Admin costs (legacy)

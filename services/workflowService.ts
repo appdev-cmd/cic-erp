@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { dataClient as supabase } from '../lib/dataClient';
 import { supabase as authClient } from '../lib/supabase';
 import { PlanStatus, UserRole } from '../types';

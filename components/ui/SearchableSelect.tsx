@@ -43,7 +43,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     const [displayValue, setDisplayValue] = useState<string>('');
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-    const debounceRef = useRef<NodeJS.Timeout>();
+    const debounceRef = useRef<any>(null);
 
     // Update display value when value changes
     useEffect(() => {

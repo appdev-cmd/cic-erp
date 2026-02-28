@@ -4,8 +4,8 @@ import { toast } from 'sonner';
 import {
     Unit, Employee, Customer, Product, Contract, ContractType,
     LineItem, ContractContact, PaymentSchedule, RevenueSchedule, AdministrativeCosts, DirectCostDetail
-} from '../../types';
-import { UnitService, CustomerService, ProductService, EmployeeService } from '../../services';
+} from '../types';
+import { UnitService, CustomerService, ProductService, EmployeeService } from '../services';
 
 interface UseContractFormProps {
     contract?: Contract;
@@ -36,7 +36,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
 
     // ==================== STEP 2: LINE ITEMS ====================
     const [lineItems, setLineItems] = useState<LineItem[]>(
-        contract?.lineItems || [{ id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0 }]
+        contract?.lineItems || [{ id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10, supplierDiscount: 0 }]
     );
 
     // ==================== STEP 2: ADMIN COSTS ====================
@@ -116,7 +116,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
         const estimatedRevenue = signingValue / 1.08; // Exclude VAT
         const totalInputCosts = lineItems.reduce((sum, item) => sum + item.inputPrice * item.quantity, 0);
         const totalDirectCosts = lineItems.reduce((sum, item) => sum + (item.directCosts || 0), 0);
-        const totalAdminCosts = Object.values(adminCosts).reduce((sum, val) => sum + (val || 0), 0);
+        const totalAdminCosts = Object.values(adminCosts).reduce((sum: number, val: any) => sum + (val || 0), 0);
         const totalCosts = totalInputCosts + totalDirectCosts + totalAdminCosts;
         const grossProfit = estimatedRevenue - totalCosts;
         const profitMargin = estimatedRevenue > 0 ? (grossProfit / estimatedRevenue) * 100 : 0;
@@ -142,7 +142,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
 
     // Generate Contract ID
     const formContractId = useMemo(() => {
-        if (contract?.contractId) return contract.contractId;
+        if (contract?.id) return contract.id;
         const unit = units.find(u => u.id === unitId);
         const code = unit?.code || 'XX';
         const year = new Date().getFullYear().toString().slice(-2);
@@ -162,7 +162,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
     const addLineItem = useCallback(() => {
         setLineItems(prev => [...prev, {
             id: Date.now().toString(),
-            name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0
+            name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10, supplierDiscount: 0
         }]);
     }, []);
 

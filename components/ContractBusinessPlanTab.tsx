@@ -4,12 +4,12 @@ import { ActionPanel } from './workflow/ActionPanel';
 import { ReviewLog } from './workflow/ReviewLog';
 import { RejectDialog } from './workflow/RejectDialog';
 import { PLAN_STATUS_LABELS } from '../constants';
-import { Contract, BusinessPlan, PaymentPhase, UserProfile, LineItem, AdministrativeCosts, Product, Customer, DirectCostDetail, PaymentSchedule } from '../types';
+import { Contract, BusinessPlan, PaymentPhase, UserProfile, LineItem, AdministrativeCosts, Product, Customer, DirectCostDetail, PaymentSchedule, ExecutionCostItem } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { WorkflowService, ProductService, CustomerService } from '../services';
 import { toast } from 'sonner';
-import { Check, X, AlertTriangle, Send, FileText, Lock, Plus, Trash2, Percent, DollarSign, Calculator, RotateCcw, Wallet, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { Check, X, AlertTriangle, Send, FileText, Lock, Plus, Trash2, Percent, DollarSign, Calculator, RotateCcw, Wallet, ArrowDownCircle, ArrowUpCircle, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import Modal from './ui/Modal';
 import SearchableSelect from './ui/SearchableSelect';
 import QuickAddProductDialog from './ui/QuickAddProductDialog';
@@ -35,12 +35,8 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
 
     // Editable Local State
     const [lineItems, setLineItems] = useState<LineItem[]>(contract.lineItems || []);
-    const [adminCosts, setAdminCosts] = useState<AdministrativeCosts>(contract.adminCosts || {
-        transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0
-    });
-    const [adminCostPercentages, setAdminCostPercentages] = useState<AdministrativeCosts>({
-        transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0
-    });
+    // Form State for dynamic execution costs
+    const [executionCosts, setExecutionCosts] = useState<ExecutionCostItem[]>(contract.executionCosts || []);
 
     // Payment Schedules State (Dòng tiền)
     const [paymentSchedules, setPaymentSchedules] = useState<PaymentSchedule[]>(
@@ -92,55 +88,47 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
     // Sync from contract when contract changes
     useEffect(() => {
         setLineItems(contract.lineItems || []);
-        setAdminCosts(contract.adminCosts || {
-            transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0
-        });
-        // Recalculate percentages based on contract value
-        if (contract.adminCosts && contract.value > 0) {
-            const costs = contract.adminCosts;
-            setAdminCostPercentages({
-                transferFee: Number(((costs.transferFee || 0) / contract.value * 100).toFixed(2)),
-                contractorTax: Number(((costs.contractorTax || 0) / contract.value * 100).toFixed(2)),
-                importFee: Number(((costs.importFee || 0) / contract.value * 100).toFixed(2)),
-                expertHiring: Number(((costs.expertHiring || 0) / contract.value * 100).toFixed(2)),
-                documentProcessing: Number(((costs.documentProcessing || 0) / contract.value * 100).toFixed(2))
-            });
-        }
+        setExecutionCosts(contract.executionCosts || []);
     }, [contract.id]);
 
     // Form State - Auto-calculated from lineItems and adminCosts
     const [financials, setFinancials] = useState({
-        revenue: contract.value,
-        costs: contract.estimatedCost,
+        signingValue: contract.value || 0,
+        estimatedRevenue: 0,
+        revenue: contract.value || 0,
+        costs: contract.estimatedCost || 0,
         margin: 0,
         grossProfit: 0
     });
 
-    // Auto-calculate financials when lineItems or adminCosts change
     useEffect(() => {
-        const totalOutput = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0);
+        const signingValue = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100)), 0);
+        const estimatedRevenue = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0);
         const totalInput = lineItems.reduce((acc, item) => acc + (item.quantity * item.inputPrice), 0);
         const totalDirectCosts = lineItems.reduce((acc, item) => acc + (item.directCosts || 0), 0);
-        const adminSum = Object.values(adminCosts).reduce((acc, val) => acc + (val || 0), 0);
+        const executionSum = executionCosts.reduce((acc, cost) => acc + (cost.amount || 0), 0);
 
-        // Note: adminCosts already includes direct cost fees (transferFee, contractorTax, importFee sums)
+        // Note: executionCosts already includes diverse fees
         // So totalDirectCosts is NOT added separately to avoid double-counting
-        const costs = totalInput + adminSum;
-        const grossProfit = totalOutput - costs;
-        const margin = totalOutput > 0 ? (grossProfit / totalOutput) * 100 : 0;
+        const costs = totalInput + executionSum;
+        // Lợi nhuận gộp = Doanh thu (chưa VAT) - Chi phí
+        const grossProfit = estimatedRevenue - costs;
+        // Margin = Lợi nhuận / Doanh thu (chưa VAT)
+        const margin = estimatedRevenue > 0 ? (grossProfit / estimatedRevenue) * 100 : 0;
 
         setFinancials({
-            revenue: totalOutput,
+            signingValue: signingValue,
+            estimatedRevenue: estimatedRevenue,
+            revenue: signingValue,
             costs: costs,
             margin: margin,
             grossProfit: grossProfit
         });
-    }, [lineItems, adminCosts]);
+    }, [lineItems, executionCosts]);
 
     // Format VND helper
     const formatVND = (value: number) => new Intl.NumberFormat('vi-VN').format(Math.round(value / 1000) * 1000);
 
-    // Helper functions for editing
     const addLineItem = () => {
         setLineItems([...lineItems, {
             id: Date.now().toString(),
@@ -150,7 +138,9 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
             inputPrice: 0,
             outputPrice: 0,
             directCosts: 0,
-            directCostDetails: []
+            directCostDetails: [],
+            vatRate: 10,
+            supplierDiscount: 0
         }]);
     };
 
@@ -182,28 +172,41 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
         setActiveCostModalIndex(null);
     };
 
-    // Admin cost update with % sync
-    const updateAdminCost = (key: keyof AdministrativeCosts, value: number) => {
-        setAdminCosts({ ...adminCosts, [key]: value });
-        // Reverse calc percentage
-        if (financials.revenue > 0) {
-            const pct = (value / financials.revenue) * 100;
-            setAdminCostPercentages({ ...adminCostPercentages, [key]: Number(pct.toFixed(2)) });
-        }
+    const addExecutionCost = () => {
+        setExecutionCosts([...executionCosts, {
+            id: crypto.randomUUID(),
+            name: '',
+            amount: 0,
+            percentage: 0
+        }]);
     };
 
-    const updateAdminCostByPercent = (key: keyof AdministrativeCosts, pct: number) => {
-        setAdminCostPercentages({ ...adminCostPercentages, [key]: pct });
-        const amount = Math.round((pct / 100) * financials.revenue);
-        setAdminCosts({ ...adminCosts, [key]: amount });
+    const removeExecutionCost = (id: string) => {
+        setExecutionCosts(executionCosts.filter(c => c.id !== id));
+    };
+
+    const updateExecutionCost = (id: string, field: keyof ExecutionCostItem, value: any) => {
+        const newList = executionCosts.map(cost => {
+            if (cost.id !== id) return cost;
+            const newCost = { ...cost, [field]: value };
+
+            // Auto calc percentage if amount changes
+            if (field === 'amount' && financials.revenue > 0) {
+                newCost.percentage = Number(((value / financials.revenue) * 100).toFixed(2));
+            }
+            // Auto calc amount if percentage changes
+            if (field === 'percentage' && financials.revenue > 0) {
+                newCost.amount = Math.round((value / 100) * financials.revenue);
+            }
+            return newCost;
+        });
+        setExecutionCosts(newList);
     };
 
     // Reset to original contract data
     const resetToOriginal = () => {
         setLineItems(contract.lineItems || []);
-        setAdminCosts(contract.adminCosts || {
-            transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0
-        });
+        setExecutionCosts(contract.executionCosts || []);
         toast.info('Đã khôi phục dữ liệu từ Hợp đồng gốc');
     };
 
@@ -266,17 +269,21 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
             }
 
             setFinancials({
-                revenue: data.financials.revenue || contract.value,
-                costs: data.financials.costs || contract.estimatedCost,
+                signingValue: data.financials.signingValue || contract.value || 0,
+                estimatedRevenue: data.financials.estimatedRevenue || data.financials.revenue || 0,
+                revenue: data.financials.revenue || contract.value || 0,
+                costs: data.financials.costs || contract.estimatedCost || 0,
                 margin: data.financials.margin || 0,
                 grossProfit: data.financials.grossProfit || 0
             });
         } else {
             setFinancials({
-                revenue: contract.value,
-                costs: contract.estimatedCost,
-                margin: contract.value ? ((contract.value - contract.estimatedCost) / contract.value) * 100 : 0,
-                grossProfit: contract.value - contract.estimatedCost
+                signingValue: contract.value || 0,
+                estimatedRevenue: contract.value || 0,
+                revenue: contract.value || 0,
+                costs: contract.estimatedCost || 0,
+                margin: contract.value ? ((contract.value - (contract.estimatedCost || 0)) / contract.value) * 100 : 0,
+                grossProfit: (contract.value || 0) - (contract.estimatedCost || 0)
             });
         }
         setIsLoading(false);
@@ -297,12 +304,12 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
             ...supplierSchedules.map(p => ({ id: p.id, name: p.description, dueDate: p.date, amount: p.amount, type: 'Expense' as const }))
         ];
 
-        // 1. Update Contract with lineItems, adminCosts, paymentPhases
+        // 1. Update Contract with lineItems, executionCosts, paymentPhases
         const { error: contractError } = await supabase
             .from('contracts')
             .update({
                 line_items: lineItems,
-                admin_costs: adminCosts,
+                execution_costs: executionCosts,
                 payment_phases: allPaymentPhases,
                 value: financials.revenue,
                 estimated_cost: financials.costs
@@ -325,7 +332,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                 grossProfit: profit,
                 margin: margin,
                 lineItems: lineItems,
-                adminCosts: adminCosts,
+                executionCosts: executionCosts,
                 cashflow: allPaymentPhases
             },
             is_active: true,
@@ -458,40 +465,68 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                     />
                 </div>
 
-                {/* 1. FINANCIAL SUMMARY - Auto-calculated from Line Items */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="bg-slate-50 dark:bg-slate-800 p-5 rounded-lg border border-slate-100 dark:border-slate-800">
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Doanh thu dự kiến</p>
-                        <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                            {formatVND(financials.revenue)} ₫
-                        </p>
-                        {isEditing && <p className="text-[10px] text-slate-400 mt-1">Tự động tính từ bảng sản phẩm</p>}
+                {/* 1. FINANCIAL SUMMARY - Giống FinancialSummary trong ContractForm */}
+                <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-xl px-6 py-4 text-white shadow-lg mb-8 relative overflow-hidden">
+                    {/* Decorative */}
+                    <div className="absolute top-1/2 right-4 -translate-y-1/2 opacity-5">
+                        <TrendingUp size={80} />
                     </div>
 
-                    <div className="bg-slate-50 dark:bg-slate-800 p-5 rounded-lg border border-slate-100 dark:border-slate-800">
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Tổng chi phí</p>
-                        <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                            {formatVND(financials.costs)} ₫
-                        </p>
-                        {isEditing && <p className="text-[10px] text-slate-400 mt-1">Tự động tính từ bảng + CP quản lý</p>}
-                    </div>
-
-                    <div className={`p-5 rounded-lg border ${financials.margin >= 30
-                        ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
-                        : 'bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800'
-                        }`}>
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${financials.margin >= 30 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'
-                                    }`}>Lợi nhuận gộp</p>
-                                <p className={`text-2xl font-bold ${financials.margin >= 30 ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300'
-                                    }`}>
-                                    {formatVND(financials.grossProfit)} ₫
-                                </p>
+                    <div className="flex items-center justify-between gap-6 relative z-10">
+                        <div className="flex items-center gap-8 flex-1">
+                            {/* Giá trị Ký kết */}
+                            <div className="flex items-center gap-2">
+                                <DollarSign size={14} className="text-slate-400" />
+                                <div>
+                                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Giá trị Ký kết</p>
+                                    <p className="text-sm font-black text-white leading-tight">
+                                        {formatVND(financials.signingValue)} <span className="text-[10px] text-slate-500">đ</span>
+                                    </p>
+                                </div>
                             </div>
-                            <div className={`text-lg font-bold px-3 py-1 rounded-lg ${financials.margin >= 30 ? 'bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-300' : 'bg-amber-200 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
-                                }`}>
-                                {financials.margin.toFixed(1)}%
+
+                            {/* Doanh thu (-VAT) */}
+                            <div className="flex items-center gap-2">
+                                <ArrowUpRight size={14} className="text-slate-400" />
+                                <div>
+                                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Doanh thu (−VAT)</p>
+                                    <p className="text-sm font-black text-slate-200 leading-tight">
+                                        {formatVND(financials.estimatedRevenue)}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Chi phí & Giá vốn */}
+                            <div className="flex items-center gap-2">
+                                <ArrowDownRight size={14} className="text-rose-400" />
+                                <div>
+                                    <p className="text-[9px] font-bold text-rose-400/80 uppercase tracking-tight">Chi phí & Giá vốn</p>
+                                    <p className="text-sm font-black text-rose-400 leading-tight">
+                                        {formatVND(financials.costs)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Lợi nhuận gộp */}
+                        <div className="flex items-center gap-3 pl-6 border-l border-white/10">
+                            <div className="text-right">
+                                <p className="text-[9px] font-black text-emerald-400 uppercase tracking-wide">Lợi nhuận gộp</p>
+                                <div className="flex items-baseline gap-2">
+                                    <p className="text-lg font-black text-emerald-400 leading-none">
+                                        {formatVND(financials.grossProfit)}
+                                    </p>
+                                    <span className="text-xs font-bold text-emerald-600">
+                                        ({financials.margin.toFixed(1)}%)
+                                    </span>
+                                </div>
+                            </div>
+                            {/* Mini Progress */}
+                            <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-emerald-500 rounded-full transition-all"
+                                    style={{ width: `${Math.min(100, financials.margin)}%` }}
+                                />
                             </div>
                         </div>
                     </div>
@@ -533,6 +568,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                     <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">Giá Đầu vào</th>
                                     <th className="px-3 py-3 font-bold text-cyan-500 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">TT Đầu vào</th>
                                     <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">Giá Đầu ra</th>
+                                    <th className="px-2 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-center w-[80px]">VAT</th>
                                     <th className="px-3 py-3 font-bold text-indigo-400 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">TT Đầu ra</th>
                                     <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[110px] whitespace-nowrap">CP Trực tiếp</th>
                                     <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[110px] whitespace-nowrap">Chênh lệch</th>
@@ -542,7 +578,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                                 {lineItems.map((item, idx) => {
                                     const inputTotal = item.quantity * item.inputPrice;
-                                    const outputTotal = item.quantity * item.outputPrice;
+                                    const outputTotal = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100);
                                     const lineMargin = outputTotal - inputTotal - (item.directCosts || 0);
                                     const lineMarginRate = outputTotal > 0 ? (lineMargin / outputTotal) * 100 : 0;
 
@@ -672,6 +708,28 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                                     <span className="font-bold text-orange-600 dark:text-orange-400">{formatVND(item.outputPrice)}</span>
                                                 )}
                                             </td>
+                                            {/* VAT Rate */}
+                                            <td className="px-2 py-3 text-center">
+                                                {isEditing ? (
+                                                    <div className="relative">
+                                                        <select
+                                                            value={item.vatRate ?? 10}
+                                                            onChange={(e) => updateLineItem(idx, 'vatRate', Number(e.target.value))}
+                                                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-1 py-1 text-center text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                                                        >
+                                                            <option value="0">0%</option>
+                                                            <option value="5">5%</option>
+                                                            <option value="8">8%</option>
+                                                            <option value="10">10%</option>
+                                                        </select>
+                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1 text-slate-500">
+                                                            <ArrowDownCircle size={10} />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-500 dark:text-slate-400">{item.vatRate ?? 10}%</span>
+                                                )}
+                                            </td>
                                             {/* TT Đầu ra */}
                                             <td className="px-3 py-3 text-right">
                                                 <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatVND(outputTotal)}</span>
@@ -756,14 +814,26 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                     <td className="px-4 py-3 text-right text-orange-600 dark:text-orange-400">
                                         {formatVND(lineItems.reduce((acc, item) => acc + item.outputPrice, 0))}
                                     </td>
+                                    <td></td>
                                     <td className="px-3 py-3 text-right text-indigo-600 dark:text-indigo-400 font-black">
-                                        {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0))}
+                                        {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100)), 0))}
                                     </td>
                                     <td className="px-4 py-3 text-right text-rose-500 dark:text-rose-400">
                                         {formatVND(lineItems.reduce((acc, item) => acc + (item.directCosts || 0), 0))}
                                     </td>
-                                    <td className={`px-4 py-3 text-right ${financials.grossProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                        {formatVND(financials.grossProfit)}
+                                    <td className={`px-4 py-3 text-right ${(() => {
+                                        const totalMargin = lineItems.reduce((acc, item) => {
+                                            const out = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100);
+                                            const inp = item.quantity * item.inputPrice;
+                                            return acc + (out - inp - (item.directCosts || 0));
+                                        }, 0);
+                                        return totalMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400';
+                                    })()}`}>
+                                        {formatVND(lineItems.reduce((acc, item) => {
+                                            const out = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100);
+                                            const inp = item.quantity * item.inputPrice;
+                                            return acc + (out - inp - (item.directCosts || 0));
+                                        }, 0))}
                                     </td>
                                     {isEditing && <td></td>}
                                 </tr>
@@ -771,71 +841,85 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                         </table>
                     </div>
 
-                    {/* 2.2 Admin Costs with % */}
+                    {/* 2.2 Execution Costs with % */}
                     <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-lg border border-slate-100 dark:border-slate-800 space-y-4">
-                        <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                            <Calculator size={14} /> Chi phí quản lý hợp đồng
-                        </h4>
+                        <div className="flex justify-between items-center">
+                            <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                                <Calculator size={14} /> Chi phí quản lý & thực hiện khác
+                            </h4>
+                            {isEditing && (
+                                <button
+                                    onClick={addExecutionCost}
+                                    className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 border border-emerald-100 dark:border-emerald-800 hover:bg-emerald-100 transition-colors"
+                                >
+                                    <Plus size={12} /> Thêm chi phí
+                                </button>
+                            )}
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                            {[
-                                { key: 'transferFee', label: 'Phí chuyển tiền / Ngân hàng' },
-                                { key: 'contractorTax', label: 'Thuế nhà thầu (nếu có)' },
-                                { key: 'importFee', label: 'Phí nhập khẩu / Logistics' },
-                                { key: 'expertHiring', label: 'Chi phí thuê khoán chuyên môn' },
-                                { key: 'documentProcessing', label: 'Chi phí xử lý chứng từ' }
-                            ].map(item => (
-                                <div key={item.key} className="space-y-1.5">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 truncate block" title={item.label}>{item.label}</label>
+                            {executionCosts.length === 0 && !isEditing && (
+                                <p className="text-xs text-slate-400 italic">Chưa có chi phí phụ.</p>
+                            )}
+                            {executionCosts.map((item, idx) => (
+                                <div key={item.id} className="space-y-1.5 bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50">
                                     {isEditing ? (
-                                        <div className="grid grid-cols-12 gap-2">
-                                            {/* Percentage Input */}
-                                            <div className="col-span-4 relative">
-                                                <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
-                                                    <Percent size={10} className="text-slate-400" />
-                                                </div>
-                                                <input
-                                                    type="number"
-                                                    step="0.1"
-                                                    placeholder="%"
-                                                    value={(adminCostPercentages as any)[item.key] || ''}
-                                                    onChange={(e) => updateAdminCostByPercent(item.key as keyof AdministrativeCosts, Number(e.target.value))}
-                                                    className="w-full pl-6 pr-1 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-orange-500 outline-none text-center"
-                                                />
-                                            </div>
-                                            {/* Amount Input */}
-                                            <div className="col-span-8 relative">
-                                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2">
                                                 <input
                                                     type="text"
-                                                    value={(adminCosts as any)[item.key] ? formatVND((adminCosts as any)[item.key]) : '0'}
-                                                    onChange={(e) => {
-                                                        const raw = e.target.value.replace(/\./g, '');
-                                                        if (!/^\d*$/.test(raw)) return;
-                                                        updateAdminCost(item.key as keyof AdministrativeCosts, Number(raw));
-                                                    }}
-                                                    className="w-full pl-8 pr-2 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-black focus:ring-2 focus:ring-rose-500 outline-none text-right text-rose-500"
+                                                    placeholder="Tên chi phí..."
+                                                    value={item.name}
+                                                    onChange={(e) => updateExecutionCost(item.id, 'name', e.target.value)}
+                                                    className="w-full bg-transparent text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none border-b border-dashed border-slate-300 dark:border-slate-600 focus:border-amber-500 pb-1 uppercase tracking-widest"
                                                 />
+                                                <button onClick={() => removeExecutionCost(item.id)} className="text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={12} /></button>
+                                            </div>
+                                            <div className="grid grid-cols-12 gap-2">
+                                                <div className="col-span-4 relative">
+                                                    <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400 text-[10px] font-bold">%</div>
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        value={item.percentage || ''}
+                                                        onChange={(e) => updateExecutionCost(item.id, 'percentage', Number(e.target.value))}
+                                                        className="w-full pl-6 pr-1 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-500 outline-none text-center"
+                                                    />
+                                                </div>
+                                                <div className="col-span-8 relative">
+                                                    <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-300" size={10} />
+                                                    <input
+                                                        type="text"
+                                                        value={item.amount ? formatVND(item.amount) : '0'}
+                                                        onChange={(e) => {
+                                                            const raw = e.target.value.replace(/\./g, '');
+                                                            if (!/^\d*$/.test(raw)) return;
+                                                            updateExecutionCost(item.id, 'amount', Number(raw));
+                                                        }}
+                                                        className="w-full pl-6 pr-2 py-1.5 bg-rose-50 dark:bg-rose-900/20 border border-slate-200 dark:border-slate-700 rounded text-xs font-black focus:ring-1 focus:ring-rose-500 outline-none text-right text-rose-500"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     ) : (
-                                        <p className="text-sm font-bold text-rose-500 dark:text-rose-400 py-2">
-                                            {formatVND((adminCosts as any)[item.key] || 0)}
-                                            {(adminCostPercentages as any)[item.key] > 0 && (
-                                                <span className="text-xs text-slate-400 font-medium ml-2">
-                                                    ({(adminCostPercentages as any)[item.key]}%)
-                                                </span>
-                                            )}
-                                        </p>
+                                        <div className="pt-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1 truncate" title={item.name}>{item.name}</label>
+                                            <p className="text-sm font-bold text-rose-500 dark:text-rose-400">
+                                                {formatVND(item.amount || 0)}
+                                                {(item.percentage || 0) > 0 && (
+                                                    <span className="text-xs text-slate-400 font-medium ml-2">({item.percentage}%)</span>
+                                                )}
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             ))}
                         </div>
-                        {/* Total Admin Costs */}
+                        {/* Total Execution Costs */}
                         <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-800">
                             <div className="text-right">
-                                <p className="text-[10px] text-slate-400 uppercase font-bold">Tổng CP quản lý</p>
+                                <p className="text-[10px] text-slate-400 uppercase font-bold">Tổng CP khác</p>
                                 <p className="text-lg font-bold text-rose-500 dark:text-rose-400">
-                                    {formatVND(Object.values(adminCosts).reduce((acc, val) => acc + (val || 0), 0))}
+                                    {formatVND(executionCosts.reduce((acc, cost) => acc + (cost.amount || 0), 0))}
                                 </p>
                             </div>
                         </div>

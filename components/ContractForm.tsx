@@ -519,6 +519,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       })),
       lineItems: lineItems,
       adminCosts: adminCosts,
+      executionCosts: executionCosts,
       revenueSchedules: revenueSchedules,
       customerContractNumber: hasCustomerContractNumber ? customerContractNumber : null,
     };
@@ -886,7 +887,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                       <button
                         type="button"
                         onClick={() => setContractType('HĐ')}
-                        className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all border ${contractType === 'HĐ'
+                        className={`flex - 1 px - 4 py - 3 rounded - lg text - sm font - bold transition - all border ${contractType === 'HĐ'
                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200 dark:shadow-none'
                           : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
                           }`}
@@ -896,10 +897,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                       <button
                         type="button"
                         onClick={() => setContractType('VV')}
-                        className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all border ${contractType === 'VV'
-                          ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-200 dark:shadow-none'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:border-amber-400'
-                          }`}
+                        className={`flex-1 px - 4 py - 3 rounded - lg text - sm font - bold transition - all border ${contractType === 'VV'
+                            ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-200 dark:shadow-none'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700 hover:border-amber-400'
+                          } `}
                       >
                         📁 Vụ việc
                       </button>
@@ -918,10 +919,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                     />
                     {/* Checkbox: Số HĐ KH */}
                     <label className="flex items-center gap-2 mt-2 cursor-pointer group">
-                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${hasCustomerContractNumber
-                        ? 'bg-indigo-500 border-indigo-500 text-white'
-                        : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'
-                        }`}
+                      <div className={`w - 4 h - 4 rounded border - 2 flex items - center justify - center transition - all ${hasCustomerContractNumber
+                          ? 'bg-indigo-500 border-indigo-500 text-white'
+                          : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-400'
+                        } `}
                         onClick={() => setHasCustomerContractNumber(!hasCustomerContractNumber)}
                       >
                         {hasCustomerContractNumber && (
@@ -962,7 +963,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                         const results = await CustomerService.search(query, 20);
                         return results
                           .filter(c => !c.type || c.type === 'Customer' || c.type === 'Both')
-                          .map(c => ({ id: c.id, name: c.name, subText: c.industry }));
+                          .map(c => ({ id: c.id, name: c.name, subText: c.industry?.join(', ') || undefined }));
                       }}
                       onAddNew={() => setShowAddCustomerDialog(true)}
                       addNewLabel="+ Thêm khách hàng mới"
@@ -988,10 +989,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                   {/* Dealer Sale Checkbox + End User */}
                   <div className="space-y-3">
                     <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${isDealerSale
-                        ? 'bg-amber-500 border-amber-500 text-white'
-                        : 'border-slate-300 dark:border-slate-600 group-hover:border-amber-400'
-                        }`}
+                      <div className={`w - 5 h - 5 rounded border - 2 flex items - center justify - center transition - all ${isDealerSale
+                          ? 'bg-amber-500 border-amber-500 text-white'
+                          : 'border-slate-300 dark:border-slate-600 group-hover:border-amber-400'
+                        } `}
                         onClick={() => {
                           setIsDealerSale(!isDealerSale);
                           if (isDealerSale) {
@@ -1035,7 +1036,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                             const results = await CustomerService.search(query, 20);
                             return results
                               .filter(c => !c.type || c.type === 'Customer' || c.type === 'Both')
-                              .map(c => ({ id: c.id, name: c.name, subText: c.industry }));
+                              .map(c => ({ id: c.id, name: c.name, subText: c.industry?.join(', ') || undefined }));
                           }}
                           onAddNew={() => setShowAddEndUserDialog(true)}
                           addNewLabel="+ Thêm End User mới"
@@ -1114,7 +1115,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                             try {
                               // Detect VAT rate from PAKD (Sản lượng / Doanh thu ratio)
                               const detectedVat = data.financials?.vatRate ?? 10;
-                              console.log(`[PAKD Import] VAT rate: ${detectedVat}%`);
+                              console.log(`[PAKD Import] VAT rate: ${detectedVat}% `);
 
                               // Process each line item - findOrCreate products and suppliers
                               const processedItems: LineItem[] = [];
@@ -1158,7 +1159,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                 const directCostsTotal = item.importFee + item.contractorTax + item.transferFee;
 
                                 processedItems.push({
-                                  id: `imported-${Date.now()}-${i}`,
+                                  id: `imported - ${Date.now()} -${i} `,
                                   name: productName,
                                   supplier: supplierName,
                                   quantity: item.quantity,
@@ -1166,16 +1167,16 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                   outputPrice: item.unitPrice,
                                   directCosts: directCostsTotal,
                                   directCostDetails: [
-                                    { id: `dc-import-${i}`, name: 'Nhập khẩu', amount: item.importFee },
-                                    { id: `dc-tax-${i}`, name: 'Thuế nhà thầu', amount: item.contractorTax },
-                                    { id: `dc-transfer-${i}`, name: 'Chuyển tiền', amount: item.transferFee },
+                                    { id: `dc -import -${i} `, name: 'Nhập khẩu', amount: item.importFee },
+                                    { id: `dc - tax - ${i} `, name: 'Thuế nhà thầu', amount: item.contractorTax },
+                                    { id: `dc - transfer - ${i} `, name: 'Chuyển tiền', amount: item.transferFee },
                                   ],
                                   foreignCurrency: item.foreignCurrency ? {
                                     amount: item.foreignCurrency.amount,
                                     rate: item.foreignCurrency.rate,
                                     currency: item.foreignCurrency.currency,
                                   } : undefined,
-                                  vatRate: detectedVat,
+                                  vatRate: item.vatRate !== undefined ? item.vatRate : detectedVat,
                                   supplierDiscount: 0,
                                 });
                               }
@@ -1208,7 +1209,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                               // Import execution costs from PAKD
                               if (data.executionCosts && data.executionCosts.length > 0) {
                                 const importedExecutionCosts = data.executionCosts.map((cost, idx) => ({
-                                  id: `pakd-exec-${Date.now()}-${idx}`,
+                                  id: `pakd - exec - ${Date.now()} -${idx} `,
                                   name: cost.name,
                                   amount: cost.amount,
                                   percentage: importedTotalInput > 0
@@ -1260,7 +1261,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800">
                           {lineItems.map((item, index) => {
                             const inputTotal = item.quantity * item.inputPrice;
-                            const outputTotal = item.quantity * item.outputPrice;
+                            const outputTotal = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100);
                             const lineMargin = outputTotal - inputTotal - item.directCosts;
                             const lineMarginRate = outputTotal > 0 ? (lineMargin / outputTotal) * 100 : 0;
 
@@ -1327,7 +1328,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                       const results = await CustomerService.search(query, 20);
                                       return results
                                         .filter(c => c.type === 'Supplier' || c.type === 'Both')
-                                        .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry }));
+                                        .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry?.join(', ') || undefined }));
                                     }}
                                     onAddNew={() => {
                                       setAddSupplierForIndex(index);
@@ -1436,7 +1437,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   <div className="flex flex-col items-end">
-                                    <span className={`font-black ${lineMargin >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatVND(lineMargin)}</span>
+                                    <span className={`font - black ${lineMargin >= 0 ? 'text-emerald-600' : 'text-rose-600'} `}>{formatVND(lineMargin)}</span>
                                     <span className="text-[9px] font-bold text-slate-400">{lineMarginRate.toFixed(1)}%</span>
                                   </div>
                                 </td>
@@ -1468,7 +1469,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                             </td>
                             <td className="px-2 py-4"></td>{/* VAT spacer */}
                             <td className="px-3 py-4 text-right text-indigo-600 font-black">
-                              {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0))}
+                              {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100)), 0))}
                             </td>
                             <td className="px-4 py-4 text-right text-rose-500">
                               {formatVND(totals.totalDirectCosts)}
@@ -1817,7 +1818,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
             <h4 className="text-sm font-bold text-indigo-600 mb-2">
               {activeCostModalIndex !== null && lineItems[activeCostModalIndex]?.name
-                ? `Sản phẩm: ${lineItems[activeCostModalIndex].name}`
+                ? `Sản phẩm: ${lineItems[activeCostModalIndex].name} `
                 : 'Chi tiết chi phí'}
             </h4>
             <p className="text-xs text-slate-500">Thêm các khoản chi phí trực tiếp liên quan đến sản phẩm/dịch vụ này.</p>
@@ -1951,7 +1952,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
         onCreated={(customer) => {
           setCustomerId(customer.id);
           setClientName(customer.name);
-          toast.success(`Đã thêm khách hàng: ${customer.name}`);
+          toast.success(`Đã thêm khách hàng: ${customer.name} `);
         }}
       />
 
@@ -1962,7 +1963,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
         onCreated={(customer) => {
           setEndUserId(customer.id);
           setEndUserName(customer.name);
-          toast.success(`Đã thêm End User: ${customer.name}`);
+          toast.success(`Đã thêm End User: ${customer.name} `);
         }}
       />
 
@@ -1982,7 +1983,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           // Refresh products list so it appears in dropdown
           const allProducts = await ProductService.getAll();
           setProducts(allProducts);
-          toast.success(`Đã thêm SP: ${product.name}`);
+          toast.success(`Đã thêm SP: ${product.name} `);
         }}
       />
 
@@ -2000,7 +2001,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           // Refresh suppliers list
           const suppliersRes = await CustomerService.getAll({ pageSize: 100, type: 'Supplier' });
           setSuppliers(suppliersRes.data?.filter(c => c.type === 'Supplier' || c.type === 'Both') || []);
-          toast.success(`Đã thêm NCC: ${supplier.shortName || supplier.name}`);
+          toast.success(`Đã thêm NCC: ${supplier.shortName || supplier.name} `);
         }}
       />
     </div >
