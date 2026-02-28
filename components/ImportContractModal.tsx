@@ -18,6 +18,7 @@ interface ImportRow {
     unitCode: string;
     salespersonName?: string;
     value: number;
+    vatRate: number;
     estimatedCost: number;
     signedDate: string;
     startDate?: string;
@@ -210,12 +211,13 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
                         unitCode: String(row[3] || '').trim(),
                         salespersonName: row[4] ? String(row[4]).trim() : undefined,
                         value: parseFloat(row[5]) || 0,
-                        estimatedCost: parseFloat(row[6]) || 0,
-                        signedDate: parseDate(row[7]),
-                        startDate: parseDate(row[8]),
-                        endDate: parseDate(row[9]),
-                        status: parseStatus(String(row[10] || '')),
-                        category: String(row[11] || 'Mới').trim()
+                        vatRate: [0, 8, 10].includes(Number(row[6])) ? Number(row[6]) : 10,
+                        estimatedCost: parseFloat(row[7]) || 0,
+                        signedDate: parseDate(row[8]),
+                        startDate: parseDate(row[9]),
+                        endDate: parseDate(row[10]),
+                        status: parseStatus(String(row[11] || '')),
+                        category: String(row[12] || 'Mới').trim()
                     };
 
                     const parsedRow = validateRow(importRow, i + 2, existingTitles);
@@ -271,17 +273,17 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
     const downloadTemplate = () => {
         // === SHEET 1: Main data entry ===
         const templateData = [
-            ['Tên hợp đồng (*)', 'Loại HĐ', 'Khách hàng (*)', 'Mã đơn vị (*)', 'NVKD', 'Giá trị (*)', 'Chi phí DK', 'Ngày ký', 'Ngày BĐ', 'Ngày KT', 'Trạng thái', 'Loại'],
-            ['(Bắt buộc)', '(HĐ/HĐNT/HĐPS/PL)', '(Tên KH trong hệ thống)', '(Xem sheet Tra cứu)', '(Tên nhân viên)', '(Số, VNĐ)', '(Số, VNĐ)', '(dd/mm/yyyy)', '(dd/mm/yyyy)', '(dd/mm/yyyy)', '(Active/Pending/...)', '(Mới/Tiếp nối/...)'],
-            ['HĐ Tư vấn dự án ABC', 'HĐ', 'Công ty ABC', 'BIM', 'Nguyễn Văn A', 500000000, 350000000, '15/01/2026', '20/01/2026', '30/06/2026', 'Active', 'Mới'],
-            ['HĐ Thiết kế XYZ', 'HĐNT', 'Tập đoàn XYZ', 'CSS', '', 800000000, 600000000, '01/02/2026', '', '', 'Pending', 'Tiếp nối']
+            ['Tên hợp đồng (*)', 'Loại HĐ', 'Khách hàng (*)', 'Mã đơn vị (*)', 'NVKD', 'Giá trị ký (*)', 'Thuế suất (%)', 'Chi phí dự kiến', 'Ngày ký', 'Ngày BĐ', 'Ngày KT', 'Trạng thái', 'Loại'],
+            ['(Bắt buộc)', '(HĐ/HĐNT/HĐPS/PL)', '(Tên KH/Tên mới)', '(Xem sheet Tra cứu)', '(Tên nhân viên)', '(Số, VNĐ, sau thuế)', '(0, 8 hoặc 10)', '(Số, VNĐ)', '(dd/mm/yyyy)', '(dd/mm/yyyy)', '(dd/mm/yyyy)', '(Processing/Suspended/...)', '(Mới/Tiếp nối/...)'],
+            ['HĐ Tư vấn dự án ABC', 'HĐ', 'Công ty ABC', 'BIM', 'Nguyễn Văn A', 500000000, 10, 350000000, '15/01/2026', '20/01/2026', '30/06/2026', 'Processing', 'Mới'],
+            ['HĐ Thiết kế XYZ', 'HĐNT', 'Tập đoàn XYZ', 'CSS', '', 800000000, 8, 600000000, '01/02/2026', '', '', 'Processing', 'Tiếp nối']
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(templateData);
         ws['!cols'] = [
             { wch: 35 }, { wch: 12 }, { wch: 30 }, { wch: 12 }, { wch: 20 },
-            { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-            { wch: 14 }, { wch: 14 }
+            { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 14 },
+            { wch: 14 }, { wch: 14 }, { wch: 14 }
         ];
 
         const wb = XLSX.utils.book_new();
@@ -329,9 +331,14 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
             [''],
             ['CÁC GIÁ TRỊ HỢP LỆ:'],
             ['Loại HĐ:', 'HĐ, HĐNT, HĐPS, PL'],
+            ['Thuế suất (%):', '0, 8, 10 (mặc định 10%)'],
             ['Trạng thái:', 'Processing, Suspended, Acceptance, Liquidated, Completed'],
             ['Loại:', 'Mới, Tiếp nối, Phát sinh, Bảo hành'],
             ['Ngày:', 'dd/mm/yyyy hoặc yyyy-mm-dd'],
+            [''],
+            ['LƯU Ý:'],
+            ['- Giá trị ký = Giá trị SAU THUẾ (đã bao gồm VAT)'],
+            ['- Nếu KH chưa có trong hệ thống, sẽ được tự động tạo mới'],
         ];
 
         const wsInst = XLSX.utils.aoa_to_sheet(instructionData);
@@ -412,6 +419,8 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
                     unitId: row.unitId || '',
                     salespersonId: row.salespersonId || '',
                     value: row.value,
+                    vatRate: row.vatRate,
+                    hasVat: row.vatRate > 0,
                     estimatedCost: row.estimatedCost,
                     actualRevenue: 0,
                     actualCost: 0,
