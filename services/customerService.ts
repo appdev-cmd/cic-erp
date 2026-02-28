@@ -1,18 +1,14 @@
 import { dataClient as supabase } from '../lib/dataClient';
-import { Customer } from '../types';
+import { Customer, CustomerContact } from '../types';
 
 // Normalize industry: DB may store string or JSON array string
-// Old data: "Xây dựng" -> ["Xây dựng"]
-// New data: ["Xây dựng","Công nghệ"] -> ["Xây dựng","Công nghệ"]
 const normalizeIndustry = (raw: any): string[] => {
     if (!raw) return [];
     if (Array.isArray(raw)) return raw;
     if (typeof raw === 'string') {
-        // Try parse JSON array
         if (raw.startsWith('[')) {
             try { return JSON.parse(raw); } catch { /* fall through */ }
         }
-        // Single string value
         return raw.trim() ? [raw.trim()] : [];
     }
     return [];
@@ -29,7 +25,7 @@ const serializeIndustry = (industry: string[] | string | undefined): string => {
 const mapCustomer = (c: any): Customer => ({
     id: c.id,
     name: c.name,
-    shortName: c.short_name || c.shortName, // Handle both snake_case (RPC) and camelCase (if any)
+    shortName: c.short_name || c.shortName,
     industry: normalizeIndustry(c.industry),
     contactPerson: c.contact_person || c.contactPerson,
     phone: c.phone,
@@ -43,6 +39,11 @@ const mapCustomer = (c: any): Customer => ({
     bankAccount: c.bank_account || c.bankAccount,
     foundedDate: c.founded_date || c.foundedDate,
     type: c.type || 'Customer',
+    // CRM fields
+    rating: c.rating || 'Standard',
+    source: c.source,
+    paymentTerms: c.payment_terms || c.paymentTerms,
+    creditLimit: c.credit_limit !== undefined ? Number(c.credit_limit) : (c.creditLimit !== undefined ? Number(c.creditLimit) : 0),
     stats: c.contract_count !== undefined ? {
         contractCount: Number(c.contract_count),
         totalValue: Number(c.total_value),
@@ -51,8 +52,22 @@ const mapCustomer = (c: any): Customer => ({
     } : undefined
 });
 
+// Map DB customer_contacts row
+const mapContact = (c: any): CustomerContact => ({
+    id: c.id,
+    customerId: c.customer_id,
+    name: c.name,
+    position: c.position,
+    department: c.department,
+    phone: c.phone,
+    email: c.email,
+    isPrimary: c.is_primary ?? false,
+    notes: c.notes,
+    createdAt: c.created_at,
+});
+
 export const CustomerService = {
-    getAll: async (params?: { page?: number; pageSize?: number; search?: string; type?: string; industry?: string }): Promise<{ data: Customer[]; total: number }> => {
+    getAll: async (params?: { page?: number; pageSize?: number; search?: string; type?: string; industry?: string; rating?: string }): Promise<{ data: Customer[]; total: number }> => {
         const p_search = params?.search || null;
         const p_type = params?.type === 'all' ? null : params?.type;
         const p_industry = params?.industry === 'all' ? null : params?.industry;
@@ -77,8 +92,15 @@ export const CustomerService = {
         if (listRes.error) throw listRes.error;
         if (countRes.error) throw countRes.error;
 
+        let results = (listRes.data || []).map(mapCustomer);
+
+        // Client-side rating filter (until RPC is updated)
+        if (params?.rating && params.rating !== 'all') {
+            results = results.filter(c => c.rating === params.rating);
+        }
+
         return {
-            data: (listRes.data || []).map(mapCustomer),
+            data: results,
             total: Number(countRes.data) || 0
         };
     },
@@ -105,7 +127,12 @@ export const CustomerService = {
             bank_branch: data.bankBranch || null,
             bank_account: data.bankAccount || null,
             founded_date: data.foundedDate || null,
-            type: data.type || 'Customer'
+            type: data.type || 'Customer',
+            // CRM fields
+            rating: data.rating || 'Standard',
+            source: data.source || null,
+            payment_terms: data.paymentTerms || null,
+            credit_limit: data.creditLimit || 0,
         };
         const { data: res, error } = await supabase.from('customers').insert(payload).select().single();
         if (error) throw error;
@@ -129,6 +156,12 @@ export const CustomerService = {
         if (data.bankAccount !== undefined) payload.bank_account = data.bankAccount || null;
         if (data.foundedDate !== undefined) payload.founded_date = data.foundedDate || null;
         if (data.type) payload.type = data.type;
+        // CRM fields
+        if (data.rating !== undefined) payload.rating = data.rating;
+        if (data.source !== undefined) payload.source = data.source || null;
+        if (data.paymentTerms !== undefined) payload.payment_terms = data.paymentTerms || null;
+        if (data.creditLimit !== undefined) payload.credit_limit = data.creditLimit;
+        payload.updated_at = new Date().toISOString();
 
         const { data: res, error } = await supabase.from('customers').update(payload).eq('id', id).select().single();
         if (error) throw error;
@@ -143,19 +176,38 @@ export const CustomerService = {
 
     /**
      * Lightweight search for dropdowns - returns max 20 results
-     * Debounce on frontend recommended (300ms)
      */
     search: async (query: string, limit: number = 20): Promise<Customer[]> => {
         if (!query || query.length < 2) return [];
 
         const { data, error } = await supabase
             .from('customers')
-            .select('id, name, short_name, industry, type')
+            .select('id, name, short_name, industry, type, rating')
             .or(`name.ilike.%${query}%,short_name.ilike.%${query}%`)
             .limit(limit);
 
         if (error) {
             console.error('[CustomerService.search] Error:', error);
+            return [];
+        }
+        return (data || []).map(mapCustomer);
+    },
+
+    /**
+     * Search suppliers only
+     */
+    searchSuppliers: async (query: string, limit: number = 20): Promise<Customer[]> => {
+        if (!query || query.length < 2) return [];
+
+        const { data, error } = await supabase
+            .from('customers')
+            .select('id, name, short_name, industry, type, rating')
+            .in('type', ['Supplier', 'Both'])
+            .or(`name.ilike.%${query}%,short_name.ilike.%${query}%`)
+            .limit(limit);
+
+        if (error) {
+            console.error('[CustomerService.searchSuppliers] Error:', error);
             return [];
         }
         return (data || []).map(mapCustomer);
@@ -170,7 +222,6 @@ export const CustomerService = {
             throw new Error('Supplier name is required');
         }
 
-        // Search by exact name match with type = Supplier
         const { data: existing, error: searchError } = await supabase
             .from('customers')
             .select('*')
@@ -184,7 +235,6 @@ export const CustomerService = {
             return mapCustomer(existing[0]);
         }
 
-        // Create new supplier
         const newSupplier = {
             name: name.trim(),
             short_name: name.trim().substring(0, 20),
@@ -194,6 +244,7 @@ export const CustomerService = {
             phone: '',
             email: '',
             address: '',
+            rating: 'Standard',
         };
 
         const { data: created, error: createError } = await supabase
@@ -205,5 +256,66 @@ export const CustomerService = {
         if (createError) throw createError;
         console.log('[CustomerService] Created new supplier:', created.name);
         return mapCustomer(created);
+    },
+
+    // =============================================
+    // Customer Contacts sub-CRUD
+    // =============================================
+
+    getContacts: async (customerId: string): Promise<CustomerContact[]> => {
+        const { data, error } = await supabase
+            .from('customer_contacts')
+            .select('*')
+            .eq('customer_id', customerId)
+            .order('is_primary', { ascending: false })
+            .order('name');
+        if (error) throw error;
+        return (data || []).map(mapContact);
+    },
+
+    createContact: async (contact: Omit<CustomerContact, 'id'>): Promise<CustomerContact> => {
+        const payload = {
+            customer_id: contact.customerId,
+            name: contact.name,
+            position: contact.position || null,
+            department: contact.department || null,
+            phone: contact.phone || null,
+            email: contact.email || null,
+            is_primary: contact.isPrimary ?? false,
+            notes: contact.notes || null,
+        };
+        const { data, error } = await supabase
+            .from('customer_contacts')
+            .insert(payload)
+            .select()
+            .single();
+        if (error) throw error;
+        return mapContact(data);
+    },
+
+    updateContact: async (id: string, contact: Partial<CustomerContact>): Promise<CustomerContact> => {
+        const payload: any = {};
+        if (contact.name !== undefined) payload.name = contact.name;
+        if (contact.position !== undefined) payload.position = contact.position || null;
+        if (contact.department !== undefined) payload.department = contact.department || null;
+        if (contact.phone !== undefined) payload.phone = contact.phone || null;
+        if (contact.email !== undefined) payload.email = contact.email || null;
+        if (contact.isPrimary !== undefined) payload.is_primary = contact.isPrimary;
+        if (contact.notes !== undefined) payload.notes = contact.notes || null;
+
+        const { data, error } = await supabase
+            .from('customer_contacts')
+            .update(payload)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return mapContact(data);
+    },
+
+    deleteContact: async (id: string): Promise<boolean> => {
+        const { error } = await supabase.from('customer_contacts').delete().eq('id', id);
+        if (error) throw error;
+        return true;
     },
 };

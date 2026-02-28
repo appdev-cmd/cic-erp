@@ -12,6 +12,8 @@ export * from './unitVisibilityService';
 export * from './ExecutionCostService';
 export * from './googleDriveService';
 export * from './driveInitService';
+export * from './brandService';
+export * from './employeeTargetService';
 
 // Re-export specific APIs as legacy aliases if needed, or prefer using *Service naming.
 // To maintain compatibility with existing 'api.ts' consumers, we might want to update 'api.ts' to re-export these,

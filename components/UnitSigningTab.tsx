@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
     FileText,
@@ -15,15 +15,19 @@ import {
     ArrowDownRight,
     Minus as MinusIcon,
     Wallet,
-    Users
+    Users,
+    UserPlus,
+    Trash2
 } from 'lucide-react';
 import { Employee, KPIPlan, Unit } from '../types';
-import { EmployeeService } from '../services';
+import { UnitService } from '../services';
+import { EmployeeTargetService, EmployeeTarget } from '../services/employeeTargetService';
 import NumberInput from './ui/NumberInput';
 
 interface UnitSigningTabProps {
     unit: Unit;
     staff: Employee[];
+    yearFilter: string;
     onRefresh: () => void;
     onViewPersonnel: (id: string) => void;
 }
@@ -37,18 +41,57 @@ interface EmployeeWithStats extends Employee {
     };
 }
 
-const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, onRefresh, onViewPersonnel }) => {
+const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter, onRefresh, onViewPersonnel }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTarget, setEditTarget] = useState<KPIPlan>({ signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 });
     const [isSaving, setIsSaving] = useState(false);
+    const [showAddDropdown, setShowAddDropdown] = useState(false);
+    const [yearTargets, setYearTargets] = useState<EmployeeTarget[]>([]);
+    const addDropdownRef = useRef<HTMLDivElement>(null);
 
-    // Only show sales employees — filter by position (roleCode is unreliable, many staff default to NVKD)
+    const year = parseInt(yearFilter) || new Date().getFullYear();
+
+    // Fetch year-specific targets
+    useEffect(() => {
+        EmployeeTargetService.getByUnitAndYear(unit.id, year)
+            .then(setYearTargets)
+            .catch(e => console.error('Failed to fetch targets:', e));
+    }, [unit.id, year, staff]); // re-fetch when staff refreshes
+
+    // Target lookup map: employeeId -> EmployeeTarget
+    const targetMap = useMemo(() => {
+        const map = new Map<string, EmployeeTarget>();
+        yearTargets.forEach(t => map.set(t.employeeId, t));
+        return map;
+    }, [yearTargets]);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (addDropdownRef.current && !addDropdownRef.current.contains(e.target as Node)) setShowAddDropdown(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    // Show employees in targetMembers list
     const employees = useMemo(() => {
-        return (staff as EmployeeWithStats[]).filter(emp => {
-            const pos = (emp.position || '').toLowerCase();
-            return pos.includes('kinh doanh');
-        });
-    }, [staff]);
+        const memberIds = new Set(unit.targetMembers || []);
+        return (staff as EmployeeWithStats[]).filter(emp => memberIds.has(emp.id));
+    }, [staff, unit.targetMembers]);
+
+    // Available to add = staff not already in the list
+    const availableToAdd = useMemo(() => {
+        const memberIds = new Set(unit.targetMembers || []);
+        return staff.filter(e => !memberIds.has(e.id));
+    }, [staff, unit.targetMembers]);
+
+    // Helper to get KPIPlan for an employee from year targets
+    const getTarget = (empId: string): KPIPlan => {
+        const t = targetMap.get(empId);
+        if (!t) return { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+        return { signing: t.signing, revenue: t.revenue, adminProfit: t.adminProfit, revProfit: t.revProfit, cash: t.cash };
+    };
 
     // Summary totals
     const totals = useMemo(() => {
@@ -56,9 +99,10 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, onRefresh,
         let actualSigning = 0, actualRevenue = 0, actualProfit = 0;
 
         employees.forEach(emp => {
-            targetSigning += emp.target?.signing || 0;
-            targetRevenue += emp.target?.revenue || 0;
-            targetProfit += emp.target?.adminProfit || 0;
+            const t = getTarget(emp.id);
+            targetSigning += t.signing || 0;
+            targetRevenue += t.revenue || 0;
+            targetProfit += t.adminProfit || 0;
 
             actualSigning += emp.stats?.totalSigning || 0;
             actualRevenue += emp.stats?.totalRevenue || 0;
@@ -87,7 +131,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, onRefresh,
 
     const handleStartEdit = (emp: EmployeeWithStats) => {
         setEditingId(emp.id);
-        setEditTarget({ ...(emp.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }) });
+        setEditTarget({ ...getTarget(emp.id) });
     };
 
     const handleCancelEdit = () => {
@@ -97,15 +141,40 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, onRefresh,
     const handleSaveTarget = async (empId: string) => {
         setIsSaving(true);
         try {
-            await EmployeeService.update(empId, { target: editTarget });
-            toast.success('Cập nhật chỉ tiêu thành công');
+            await EmployeeTargetService.upsert(empId, unit.id, year, editTarget);
+            toast.success(`Cập nhật chỉ tiêu ${year} thành công`);
             setEditingId(null);
-            onRefresh();
+            // Re-fetch year targets
+            const updated = await EmployeeTargetService.getByUnitAndYear(unit.id, year);
+            setYearTargets(updated);
         } catch (error) {
             console.error('Error updating employee target:', error);
             toast.error('Có lỗi khi cập nhật chỉ tiêu');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleAddEmployee = async (emp: Employee) => {
+        const newMembers = [...(unit.targetMembers || []), emp.id];
+        try {
+            await UnitService.update(unit.id, { targetMembers: newMembers });
+            setShowAddDropdown(false);
+            toast.success(`Đã thêm ${emp.name}`);
+            onRefresh();
+        } catch {
+            toast.error('Lỗi khi thêm nhân viên');
+        }
+    };
+
+    const handleRemoveEmployee = async (emp: EmployeeWithStats) => {
+        const newMembers = (unit.targetMembers || []).filter(id => id !== emp.id);
+        try {
+            await UnitService.update(unit.id, { targetMembers: newMembers });
+            toast.success(`Đã xóa ${emp.name}`);
+            onRefresh();
+        } catch {
+            toast.error('Lỗi khi xóa nhân viên');
         }
     };
 
@@ -203,10 +272,45 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, onRefresh,
                     <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <FileText size={16} className="text-indigo-500" />
                         Chỉ tiêu ký kết NVKD
+                        <span className="ml-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 text-[11px] font-black rounded-md">
+                            {year}
+                        </span>
                     </h3>
-                    <span className="text-xs text-slate-400">
-                        Click <Pencil size={12} className="inline" /> để chỉnh sửa chỉ tiêu
-                    </span>
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs text-slate-400">
+                            Click <Pencil size={12} className="inline" /> để chỉnh sửa
+                        </span>
+                        <div className="relative" ref={addDropdownRef}>
+                            <button
+                                onClick={() => setShowAddDropdown(!showAddDropdown)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors cursor-pointer"
+                            >
+                                <UserPlus size={14} />
+                                Thêm NV
+                            </button>
+                            {showAddDropdown && (
+                                <div className="absolute right-0 top-full mt-1 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto">
+                                    {availableToAdd.length === 0 ? (
+                                        <div className="p-4 text-center text-sm text-slate-400">Tất cả nhân viên đã được thêm</div>
+                                    ) : availableToAdd.map(emp => (
+                                        <button
+                                            key={emp.id}
+                                            onClick={() => handleAddEmployee(emp)}
+                                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left cursor-pointer"
+                                        >
+                                            <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0 overflow-hidden">
+                                                {emp.avatar ? <img src={emp.avatar} alt="" className="w-full h-full rounded-full object-cover" /> : emp.name.charAt(0)}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{emp.name}</p>
+                                                <p className="text-[11px] text-slate-500 truncate">{emp.position || 'Nhân viên'}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
@@ -231,7 +335,8 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, onRefresh,
                                 </tr>
                             ) : employees.map(emp => {
                                 const isEditing = editingId === emp.id;
-                                const signingTarget = emp.target?.signing || 0;
+                                const empTarget = getTarget(emp.id);
+                                const signingTarget = empTarget.signing || 0;
                                 const actualSigning = emp.stats?.totalSigning || 0;
                                 const signingPct = signingTarget > 0 ? (actualSigning / signingTarget) * 100 : 0;
 
@@ -301,8 +406,8 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, onRefresh,
                                                     className="w-32 ml-auto px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none text-right text-sm font-bold"
                                                 />
                                             ) : (
-                                                <span className={`text-sm font-bold ${(emp.target?.revenue || 0) > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                    {(emp.target?.revenue || 0) > 0 ? formatCurrency(emp.target.revenue) : '—'}
+                                                <span className={`text-sm font-bold ${(empTarget.revenue || 0) > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                                    {(empTarget.revenue || 0) > 0 ? formatCurrency(empTarget.revenue) : '—'}
                                                 </span>
                                             )}
                                         </td>
@@ -316,8 +421,8 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, onRefresh,
                                                     className="w-32 ml-auto px-3 py-1.5 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-purple-500 outline-none text-right text-sm font-bold"
                                                 />
                                             ) : (
-                                                <span className={`text-sm font-bold ${(emp.target?.adminProfit || 0) > 0 ? 'text-purple-600' : 'text-slate-400'}`}>
-                                                    {(emp.target?.adminProfit || 0) > 0 ? formatCurrency(emp.target.adminProfit) : '—'}
+                                                <span className={`text-sm font-bold ${(empTarget.adminProfit || 0) > 0 ? 'text-purple-600' : 'text-slate-400'}`}>
+                                                    {(empTarget.adminProfit || 0) > 0 ? formatCurrency(empTarget.adminProfit) : '—'}
                                                 </span>
                                             )}
                                         </td>
@@ -344,13 +449,22 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, onRefresh,
                                                         </button>
                                                     </>
                                                 ) : (
-                                                    <button
-                                                        onClick={() => handleStartEdit(emp)}
-                                                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors cursor-pointer"
-                                                        title="Chỉnh sửa chỉ tiêu"
-                                                    >
-                                                        <Pencil size={14} />
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleStartEdit(emp)}
+                                                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors cursor-pointer"
+                                                            title="Chỉnh sửa chỉ tiêu"
+                                                        >
+                                                            <Pencil size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleRemoveEmployee(emp)}
+                                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors cursor-pointer"
+                                                            title="Xóa khỏi danh sách"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </>
                                                 )}
                                             </div>
                                         </td>

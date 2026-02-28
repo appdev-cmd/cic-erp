@@ -23,6 +23,7 @@ import { UnitService, EmployeeService, ContractService } from '../services';
 import { Unit, KPIPlan, Employee, Contract } from '../types';
 import UnitForm from './UnitForm';
 import UnitSigningTab from './UnitSigningTab';
+import { useLayoutContext } from './layout/MainLayout';
 
 interface UnitDetailProps {
     unitId: string;
@@ -34,6 +35,7 @@ interface UnitDetailProps {
 type TabType = 'overview' | 'signing' | 'employees' | 'contracts' | 'history';
 
 const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract, onViewPersonnel }) => {
+    const { yearFilter } = useLayoutContext();
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [unit, setUnit] = useState<Unit | null>(null);
     const [contracts, setContracts] = useState<Contract[]>([]);
@@ -528,6 +530,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                 <UnitSigningTab
                     unit={unit}
                     staff={staff}
+                    yearFilter={yearFilter}
                     onRefresh={fetchData}
                     onViewPersonnel={onViewPersonnel}
                 />

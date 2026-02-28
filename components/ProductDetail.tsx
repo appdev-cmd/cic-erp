@@ -13,8 +13,8 @@ import {
     Edit3,
     Trash2
 } from 'lucide-react';
-import { Product, Unit, Contract, Customer } from '../types';
-import { ProductService, UnitService, ContractService, CustomerService } from '../services';
+import { Product, Unit, Contract, Customer, Brand } from '../types';
+import { ProductService, UnitService, ContractService, CustomerService, BrandService } from '../services';
 import { usePermissionCheck } from '../hooks/usePermissions';
 
 interface ProductDetailProps {
@@ -109,7 +109,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
         contractCount: relatedContracts.length,
         totalValue: relatedContracts.reduce((sum, c) => sum + c.value, 0),
         totalRevenue: relatedContracts.reduce((sum, c) => sum + c.actualRevenue, 0),
-        activeContracts: relatedContracts.filter(c => c.status === 'Active').length
+        activeContracts: relatedContracts.filter(c => c.status === 'Processing').length
     };
 
     return (
@@ -237,7 +237,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
                                                 <div className="min-w-0 pr-4">
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{contract.id.slice(0, 8)}...</span>
-                                                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${contract.status === 'Active'
+                                                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${contract.status === 'Processing'
                                                             ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                                             : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                                                             }`}>
@@ -281,6 +281,36 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
                                 <Hash size={14} />
                                 <span>Đơn vị: {product.unit}</span>
                             </div>
+                            {product.brandName && (
+                                <div className="flex items-center gap-2">
+                                    <Tag size={14} />
+                                    <span>Hãng: {product.brandName}</span>
+                                </div>
+                            )}
+                            {product.supplierName && (
+                                <div className="flex items-center gap-2">
+                                    <Tag size={14} />
+                                    <span>NCC: {product.supplierName}</span>
+                                </div>
+                            )}
+                            {product.sku && (
+                                <div className="flex items-center gap-2">
+                                    <Hash size={14} />
+                                    <span>SKU: {product.sku}</span>
+                                </div>
+                            )}
+                            {product.model && (
+                                <div className="flex items-center gap-2">
+                                    <Hash size={14} />
+                                    <span>Model: {product.model}</span>
+                                </div>
+                            )}
+                            {product.warrantyMonths && product.warrantyMonths > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <CheckCircle size={14} />
+                                    <span>BH: {product.warrantyMonths} tháng</span>
+                                </div>
+                            )}
                             <div className="flex items-center gap-2">
                                 {product.isActive ? <CheckCircle size={14} /> : <XCircle size={14} />}
                                 <span>{product.isActive ? 'Đang kinh doanh' : 'Ngừng'}</span>

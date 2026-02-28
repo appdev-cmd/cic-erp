@@ -12,24 +12,38 @@ const mapProduct = (p: any): Product => ({
     basePrice: p.base_price,
     costPrice: p.cost_price,
     isActive: p.is_active,
-    unitId: p.unit_id
+    unitId: p.unit_id,
+    // CRM fields
+    brandId: p.brand_id,
+    supplierId: p.supplier_id,
+    sku: p.sku,
+    model: p.model,
+    warrantyMonths: p.warranty_months,
+    // Joined display fields
+    brandName: p.brands?.name || p.brand_name,
+    supplierName: p.suppliers?.name || p.supplier_name,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
 });
+
+// Select query with joined brand and supplier names
+const SELECT_WITH_JOINS = '*, brands:brand_id(name), suppliers:supplier_id(name)';
 
 export const ProductService = {
     getAll: async (): Promise<Product[]> => {
-        const { data, error } = await supabase.from('products').select('*');
+        const { data, error } = await supabase.from('products').select(SELECT_WITH_JOINS);
         if (error) throw error;
         return data.map(mapProduct);
     },
 
     getById: async (id: string): Promise<Product | undefined> => {
-        const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+        const { data, error } = await supabase.from('products').select(SELECT_WITH_JOINS).eq('id', id).single();
         if (error) return undefined;
         return mapProduct(data);
     },
 
     getByCategory: async (category: string): Promise<Product[]> => {
-        let query = supabase.from('products').select('*');
+        let query = supabase.from('products').select(SELECT_WITH_JOINS);
         if (category !== 'all') {
             query = query.eq('category', category);
         }
@@ -39,7 +53,7 @@ export const ProductService = {
     },
 
     getByUnitId: async (unitId: string): Promise<Product[]> => {
-        let query = supabase.from('products').select('*');
+        let query = supabase.from('products').select(SELECT_WITH_JOINS);
         if (unitId !== 'all') {
             query = query.eq('unit_id', unitId);
         }
@@ -48,8 +62,28 @@ export const ProductService = {
         return data.map(mapProduct);
     },
 
+    getByBrand: async (brandId: string): Promise<Product[]> => {
+        let query = supabase.from('products').select(SELECT_WITH_JOINS);
+        if (brandId !== 'all') {
+            query = query.eq('brand_id', brandId);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        return data.map(mapProduct);
+    },
+
+    getBySupplier: async (supplierId: string): Promise<Product[]> => {
+        let query = supabase.from('products').select(SELECT_WITH_JOINS);
+        if (supplierId !== 'all') {
+            query = query.eq('supplier_id', supplierId);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        return data.map(mapProduct);
+    },
+
     getActive: async (): Promise<Product[]> => {
-        const { data, error } = await supabase.from('products').select('*').eq('is_active', true);
+        const { data, error } = await supabase.from('products').select(SELECT_WITH_JOINS).eq('is_active', true);
         if (error) throw error;
         return data.map(mapProduct);
     },
@@ -64,9 +98,14 @@ export const ProductService = {
             base_price: data.basePrice,
             cost_price: data.costPrice,
             is_active: data.isActive,
-            unit_id: data.unitId
+            unit_id: data.unitId || null,
+            brand_id: data.brandId || null,
+            supplier_id: data.supplierId || null,
+            sku: data.sku || null,
+            model: data.model || null,
+            warranty_months: data.warrantyMonths || null,
         };
-        const { data: res, error } = await supabase.from('products').insert(payload).select().single();
+        const { data: res, error } = await supabase.from('products').insert(payload).select(SELECT_WITH_JOINS).single();
         if (error) throw error;
         return mapProduct(res);
     },
@@ -76,26 +115,38 @@ export const ProductService = {
         if (data.code) payload.code = data.code;
         if (data.name) payload.name = data.name;
         if (data.category) payload.category = data.category;
-        if (data.description) payload.description = data.description;
+        if (data.description !== undefined) payload.description = data.description;
         if (data.unit) payload.unit = data.unit;
-        if (data.basePrice) payload.base_price = data.basePrice;
-        if (data.costPrice) payload.cost_price = data.costPrice;
+        if (data.basePrice !== undefined) payload.base_price = data.basePrice;
+        if (data.costPrice !== undefined) payload.cost_price = data.costPrice;
         if (data.isActive !== undefined) payload.is_active = data.isActive;
-        if (data.unitId) payload.unit_id = data.unitId;
+        if (data.unitId !== undefined) payload.unit_id = data.unitId || null;
+        if (data.brandId !== undefined) payload.brand_id = data.brandId || null;
+        if (data.supplierId !== undefined) payload.supplier_id = data.supplierId || null;
+        if (data.sku !== undefined) payload.sku = data.sku || null;
+        if (data.model !== undefined) payload.model = data.model || null;
+        if (data.warrantyMonths !== undefined) payload.warranty_months = data.warrantyMonths || null;
+        payload.updated_at = new Date().toISOString();
 
-        const { data: res, error } = await supabase.from('products').update(payload).eq('id', id).select().single();
+        const { data: res, error } = await supabase.from('products').update(payload).eq('id', id).select(SELECT_WITH_JOINS).single();
         if (error) throw error;
         return mapProduct(res);
     },
 
-    list: async (params: { page?: number; pageSize?: number; search?: string; category?: string }): Promise<{ data: Product[]; total: number }> => {
-        let query = supabase.from('products').select('*', { count: 'exact' });
+    list: async (params: { page?: number; pageSize?: number; search?: string; category?: string; brandId?: string; supplierId?: string }): Promise<{ data: Product[]; total: number }> => {
+        let query = supabase.from('products').select(SELECT_WITH_JOINS, { count: 'exact' });
 
         if (params.category && params.category !== 'all') {
             query = query.eq('category', params.category);
         }
+        if (params.brandId && params.brandId !== 'all') {
+            query = query.eq('brand_id', params.brandId);
+        }
+        if (params.supplierId && params.supplierId !== 'all') {
+            query = query.eq('supplier_id', params.supplierId);
+        }
         if (params.search) {
-            query = query.or(`name.ilike.%${params.search}%,code.ilike.%${params.search}%`);
+            query = query.or(`name.ilike.%${params.search}%,code.ilike.%${params.search}%,sku.ilike.%${params.search}%`);
         }
 
         if (params.page !== undefined && params.pageSize !== undefined) {
@@ -124,7 +175,7 @@ export const ProductService = {
         if (!query || query.trim().length < 2) return [];
         const { data, error } = await supabase
             .from('products')
-            .select('*')
+            .select(SELECT_WITH_JOINS)
             .or(`name.ilike.%${query.trim()}%,code.ilike.%${query.trim()}%`)
             .limit(limit);
         if (error) throw error;
@@ -157,7 +208,7 @@ export const ProductService = {
         const newProduct = {
             code: `IMPORT-${Date.now()}`,
             name: name.trim(),
-            category: 'Software', // Default category
+            category: 'Phần mềm',
             description: `Imported from PAKD Excel`,
             unit: 'VNĐ',
             base_price: basePrice,

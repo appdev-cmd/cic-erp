@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Save, Loader2, ChevronDown, X } from 'lucide-react';
+import { Save, Loader2, ChevronDown, X, Star } from 'lucide-react';
 import Modal from './ui/Modal';
 import { Customer } from '../types';
 import { INDUSTRIES } from '../constants';
@@ -29,6 +29,10 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
         website: '',
         notes: '',
         type: (defaultType === 'all' ? 'Customer' : defaultType) as 'Customer' | 'Supplier' | 'Both',
+        rating: 'Standard' as 'VIP' | 'Gold' | 'Standard' | 'Lead',
+        source: '',
+        paymentTerms: '',
+        creditLimit: 0,
     });
 
     useEffect(() => {
@@ -45,6 +49,10 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
                 website: customer.website || '',
                 notes: customer.notes || '',
                 type: customer.type || 'Customer',
+                rating: customer.rating || 'Standard',
+                source: customer.source || '',
+                paymentTerms: customer.paymentTerms || '',
+                creditLimit: customer.creditLimit || 0,
             });
         } else {
             setFormData({
@@ -59,6 +67,10 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
                 website: '',
                 notes: '',
                 type: (defaultType === 'all' ? 'Customer' : defaultType) as 'Customer' | 'Supplier' | 'Both',
+                rating: 'Standard' as 'VIP' | 'Gold' | 'Standard' | 'Lead',
+                source: '',
+                paymentTerms: '',
+                creditLimit: 0,
             });
         }
     }, [customer, isOpen, defaultType]);
@@ -300,6 +312,73 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
                         placeholder="Ghi chú thêm..."
                         className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none"
                     />
+                </div>
+
+                {/* CRM Section */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                        <Star size={14} className="text-amber-500" />
+                        CRM
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Phân hạng</label>
+                            <select
+                                value={formData.rating}
+                                onChange={e => setFormData(prev => ({ ...prev, rating: e.target.value as any }))}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                            >
+                                <option value="Lead">Lead (Tiềm năng)</option>
+                                <option value="Standard">Standard</option>
+                                <option value="Gold">Gold</option>
+                                <option value="VIP">VIP</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Nguồn khách hàng</label>
+                            <select
+                                value={formData.source}
+                                onChange={e => setFormData(prev => ({ ...prev, source: e.target.value }))}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                            >
+                                <option value="">-- Chưa rõ --</option>
+                                <option value="Website">Website</option>
+                                <option value="Referral">Giới thiệu</option>
+                                <option value="Cold call">Gọi điện</option>
+                                <option value="Event">Sự kiện</option>
+                                <option value="Partner">Đối tác</option>
+                                <option value="Social Media">Mạng xã hội</option>
+                                <option value="Other">Khác</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Điều khoản thanh toán</label>
+                            <select
+                                value={formData.paymentTerms}
+                                onChange={e => setFormData(prev => ({ ...prev, paymentTerms: e.target.value }))}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                            >
+                                <option value="">-- Mặc định --</option>
+                                <option value="COD">COD (Thanh toán khi nhận)</option>
+                                <option value="Prepaid">Trả trước</option>
+                                <option value="NET15">NET15 (15 ngày)</option>
+                                <option value="NET30">NET30 (30 ngày)</option>
+                                <option value="NET60">NET60 (60 ngày)</option>
+                                <option value="NET90">NET90 (90 ngày)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Hạn mức tín dụng (VNĐ)</label>
+                            <input
+                                type="number"
+                                min={0}
+                                value={formData.creditLimit || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, creditLimit: parseInt(e.target.value) || 0 }))}
+                                placeholder="0"
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 {/* Actions */}

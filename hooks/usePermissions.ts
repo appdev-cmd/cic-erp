@@ -143,6 +143,8 @@ export function usePermissionCheck() {
      * Deny-by-default: if no DB record exists → false.
      */
     const can = (resource: PermissionResource, action: PermissionAction): boolean => {
+        // Admin role: full access to everything
+        if (role === 'Admin') return true;
         const actions = permissionMap.get(resource);
         if (!actions) return false; // deny by default
         return actions.has(action);

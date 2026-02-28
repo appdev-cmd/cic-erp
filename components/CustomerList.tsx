@@ -4,16 +4,19 @@ import {
     Search,
     Building2,
     Phone,
+    Mail,
     MapPin,
     FileText,
     TrendingUp,
-    Filter,
     Plus,
     Pencil,
     Trash2,
     MoreVertical,
     Upload,
-    Loader2
+    Loader2,
+    Star,
+    Crown,
+    ChevronDown
 } from 'lucide-react';
 import { Customer } from '../types';
 import { CustomerService } from '../services';
@@ -35,6 +38,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [industryFilter, setIndustryFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<'all' | 'Customer' | 'Supplier'>('all');
+    const [ratingFilter, setRatingFilter] = useState<string>('all');
 
     // Infinite scroll batch size
     const PAGE_SIZE = 20;
@@ -59,7 +63,8 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
             pageSize: PAGE_SIZE,
             search: debouncedSearch,
             type: typeFilter,
-            industry: industryFilter
+            industry: industryFilter,
+            rating: ratingFilter !== 'all' ? ratingFilter : undefined
         });
 
         return {
@@ -67,7 +72,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
             hasMore: custRes.data.length >= PAGE_SIZE,
             totalCount: custRes.total
         };
-    }, [debouncedSearch, typeFilter, industryFilter]);
+    }, [debouncedSearch, typeFilter, industryFilter, ratingFilter]);
 
     const {
         items: customers,
@@ -81,10 +86,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
     } = useInfiniteScroll<Customer>({
         fetchFn: fetchCustomerPage,
         pageSize: PAGE_SIZE,
-        resetDeps: [debouncedSearch, typeFilter, industryFilter]
+        resetDeps: [debouncedSearch, typeFilter, industryFilter, ratingFilter]
     });
 
     const industries = ['all', ...INDUSTRIES];
+    const RATINGS = ['all', 'VIP', 'Gold', 'Standard', 'Lead'];
 
     const formatCurrency = (val: number) => {
         if (val >= 1e9) return `${(val / 1e9).toFixed(1)} tỷ`;
@@ -107,16 +113,33 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
         }
     };
 
+    const getRatingBadge = (rating?: string) => {
+        if (!rating || rating === 'Standard') return null;
+        const colors: Record<string, string> = {
+            'VIP': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+            'Gold': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+            'Lead': 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+        };
+        return (
+            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold ml-1.5 ${colors[rating] || ''}`}>
+                <Star size={9} />
+                {rating}
+            </span>
+        );
+    };
+
     // Summary stats for current view
     const viewStats = useMemo(() => {
         let totalContracts = 0;
         let totalValue = 0;
+        let vipCount = 0;
         customers.forEach(c => {
             const stats = c.stats || { contractCount: 0, totalValue: 0, totalRevenue: 0, activeContracts: 0 };
             totalContracts += stats.contractCount;
             totalValue += stats.totalValue;
+            if (c.rating === 'VIP' || c.rating === 'Gold') vipCount++;
         });
-        return { totalContracts, totalValue };
+        return { totalContracts, totalValue, vipCount };
     }, [customers]);
 
     // CRUD handlers
@@ -234,20 +257,36 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                 ))}
             </div>
 
-            {/* Industry Filter */}
-            <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                {industries.map(industry => (
-                    <button
-                        key={industry}
-                        onClick={() => setIndustryFilter(industry)}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${industryFilter === industry
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-indigo-300'
-                            }`}
+            {/* Filter Bar */}
+            <div className="flex flex-wrap items-center gap-3">
+                {/* Industry Filter */}
+                <div className="flex gap-2 overflow-x-auto flex-1 no-scrollbar">
+                    {industries.map(industry => (
+                        <button
+                            key={industry}
+                            onClick={() => setIndustryFilter(industry)}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${industryFilter === industry
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-indigo-300'
+                                }`}
+                        >
+                            {industry === 'all' ? 'Tất cả ngành' : industry}
+                        </button>
+                    ))}
+                </div>
+                {/* Rating Filter */}
+                <div className="relative">
+                    <select
+                        value={ratingFilter}
+                        onChange={(e) => setRatingFilter(e.target.value)}
+                        className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                     >
-                        {industry === 'all' ? 'Tất cả' : industry}
-                    </button>
-                ))}
+                        {RATINGS.map(r => (
+                            <option key={r} value={r}>{r === 'all' ? '⭐ Tất cả hạng' : r}</option>
+                        ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
             </div>
 
             {/* Stats Summary */}
@@ -270,7 +309,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                         </div>
                         <div>
                             <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{viewStats.totalContracts}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Hợp đồng (Trang này)</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Hợp đồng</p>
                         </div>
                     </div>
                 </div>
@@ -281,18 +320,18 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                         </div>
                         <div>
                             <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(viewStats.totalValue)}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Giá trị (Trang này)</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Tổng giá trị</p>
                         </div>
                     </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800">
                     <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
-                            <Filter size={20} />
+                        <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
+                            <Crown size={20} />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{industries.length - 1}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Ngành nghề</p>
+                            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{viewStats.vipCount}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">VIP / Gold</p>
                         </div>
                     </div>
                 </div>
@@ -305,9 +344,9 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                         <thead>
                             <tr className="border-b border-slate-100 dark:border-slate-800">
                                 <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Đối tác</th>
-                                <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Ngành</th>
+                                <th className="text-center py-4 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell w-20">Hạng</th>
                                 <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
-                                <th className="text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hợp đồng</th>
+                                <th className="text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">HĐ</th>
                                 <th className="text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Giá trị</th>
                                 <th className="py-4 px-6"></th>
                             </tr>
@@ -315,11 +354,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={6} className="py-12 text-center text-slate-500">Đang tải dữ liệu...</td>
+                                    <td colSpan={7} className="py-12 text-center text-slate-500">Đang tải dữ liệu...</td>
                                 </tr>
                             ) : customers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="py-12 text-center text-slate-500">
+                                    <td colSpan={7} className="py-12 text-center text-slate-500">
                                         <div className="flex flex-col items-center">
                                             <Building2 size={32} className="text-slate-300 mb-2" />
                                             <p>Không tìm thấy đối tác nào</p>
@@ -341,8 +380,9 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                                                         {customer.shortName ? customer.shortName.substring(0, 3) : 'KH'}
                                                     </div>
                                                     <div>
-                                                        <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                                                        <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center">
                                                             {customer.name}
+                                                            {getRatingBadge(customer.rating)}
                                                         </h3>
                                                         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
                                                             <MapPin size={12} />
@@ -351,20 +391,19 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="py-4 px-6 hidden md:table-cell">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {(Array.isArray(customer.industry) ? customer.industry : [customer.industry || 'Khác']).map((ind: string) => (
-                                                        <span key={ind} className={`px-3 py-1 rounded-lg text-[10px] font-bold ${getIndustryColor(ind)}`}>
-                                                            {ind}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                            <td className="py-4 px-4 hidden md:table-cell text-center">
+                                                {getRatingBadge(customer.rating)}
                                             </td>
                                             <td className="py-4 px-6 hidden lg:table-cell">
                                                 <div className="space-y-1">
                                                     <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{customer.contactPerson}</p>
-                                                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                                                        <span className="flex items-center gap-1"><Phone size={12} />{customer.phone}</span>
+                                                    <div className="flex flex-col gap-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                                        {customer.phone && (
+                                                            <span className="flex items-center gap-1"><Phone size={11} />{customer.phone}</span>
+                                                        )}
+                                                        {customer.email && (
+                                                            <span className="flex items-center gap-1 truncate max-w-[180px]"><Mail size={11} />{customer.email}</span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>

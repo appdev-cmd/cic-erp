@@ -30,6 +30,7 @@ const mapUnit = (u: any): Unit => {
         parentId: u.parent_id,
         sortOrder: u.sort_order ?? 0,
         isActive: u.is_active ?? true,
+        targetMembers: u.target_members || [],
         createdAt: u.created_at,
         updatedAt: u.updated_at
     };
@@ -98,6 +99,7 @@ export const UnitService = {
         if (data.parentId !== undefined) payload.parent_id = data.parentId || null;
         if (data.sortOrder !== undefined) payload.sort_order = data.sortOrder;
         if (data.isActive !== undefined) payload.is_active = data.isActive;
+        if (data.targetMembers !== undefined) payload.target_members = data.targetMembers;
         // Always update updated_at
         payload.updated_at = new Date().toISOString();
 

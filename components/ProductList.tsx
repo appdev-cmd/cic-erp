@@ -15,8 +15,8 @@ import {
     Trash2,
     Upload
 } from 'lucide-react';
-import { ProductService, UnitService } from '../services';
-import { Product, ProductCategory, Unit } from '../types';
+import { ProductService, UnitService, BrandService } from '../services';
+import { Product, ProductCategory, Unit, Brand } from '../types';
 import ProductForm from './ProductForm';
 import ImportProductModal from './ImportProductModal';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
@@ -33,10 +33,13 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
+    const [brandFilter, setBrandFilter] = useState<string>('all');
     const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+    const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
 
     // Data state
     const [units, setUnits] = useState<Unit[]>([]);
+    const [brands, setBrands] = useState<Brand[]>([]);
 
     // Infinite scroll batch size
     const PAGE_SIZE = 20;
@@ -51,15 +54,19 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
 
     // Fetch units once
     useEffect(() => {
-        const fetchUnits = async () => {
+        const fetchRefs = async () => {
             try {
-                const unitsData = await UnitService.getAll();
+                const [unitsData, brandsData] = await Promise.all([
+                    UnitService.getAll(),
+                    BrandService.getActive()
+                ]);
                 setUnits(unitsData);
+                setBrands(brandsData);
             } catch (error) {
-                console.error('Error fetching units:', error);
+                console.error('Error fetching refs:', error);
             }
         };
-        fetchUnits();
+        fetchRefs();
     }, []);
 
     // Debounced search
@@ -75,7 +82,8 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
             page,
             pageSize: PAGE_SIZE,
             search: debouncedSearch,
-            category: categoryFilter
+            category: categoryFilter,
+            brandId: brandFilter,
         });
 
         return {
@@ -83,7 +91,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
             hasMore: res.data.length >= PAGE_SIZE,
             totalCount: res.total
         };
-    }, [debouncedSearch, categoryFilter]);
+    }, [debouncedSearch, categoryFilter, brandFilter]);
 
     const {
         items: products,
@@ -97,7 +105,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
     } = useInfiniteScroll<Product>({
         fetchFn: fetchProductPage,
         pageSize: PAGE_SIZE,
-        resetDeps: [debouncedSearch, categoryFilter]
+        resetDeps: [debouncedSearch, categoryFilter, brandFilter]
     });
 
     // Use server result
@@ -232,6 +240,47 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                                 }`}
                                         >
                                             {cat}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Brand Filter Dropdown */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsBrandDropdownOpen(!isBrandDropdownOpen)}
+                            className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:border-indigo-300 transition-all min-w-[140px] cursor-pointer"
+                        >
+                            <Tag size={18} className="text-slate-400" />
+                            <span className="flex-1 text-left truncate">{brandFilter === 'all' ? 'Tất cả hãng' : brands.find(b => b.id === brandFilter)?.name || 'Hãng'}</span>
+                            <ChevronDown size={16} className={`text-slate-400 transition-transform ${isBrandDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {isBrandDropdownOpen && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setIsBrandDropdownOpen(false)} />
+                                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden max-h-64 overflow-y-auto">
+                                    <button
+                                        onClick={() => { setBrandFilter('all'); setIsBrandDropdownOpen(false); }}
+                                        className={`w-full px-4 py-3 text-sm text-left transition-colors cursor-pointer ${brandFilter === 'all'
+                                            ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                            : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                            }`}
+                                    >
+                                        Tất cả hãng
+                                    </button>
+                                    {brands.map(brand => (
+                                        <button
+                                            key={brand.id}
+                                            onClick={() => { setBrandFilter(brand.id); setIsBrandDropdownOpen(false); }}
+                                            className={`w-full px-4 py-3 text-sm text-left transition-colors cursor-pointer ${brandFilter === brand.id
+                                                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                                : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                                }`}
+                                        >
+                                            {brand.name}{brand.country ? ` (${brand.country})` : ''}
                                         </button>
                                     ))}
                                 </div>
@@ -379,6 +428,11 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                             <td className="py-4 px-6">
                                                 <div>
                                                     <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{product.name}</p>
+                                                    {product.brandName && (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 rounded text-[10px] font-bold mr-1 mt-0.5">
+                                                            {product.brandName}
+                                                        </span>
+                                                    )}
                                                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{product.description}</p>
                                                 </div>
                                             </td>

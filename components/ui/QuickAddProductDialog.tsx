@@ -59,7 +59,7 @@ const QuickAddProductDialog: React.FC<QuickAddProductDialogProps> = ({
                 basePrice,
                 costPrice,
                 description: description.trim(),
-                status: 'Active'
+                isActive: true
             });
 
             onCreated(newProduct);

@@ -61,6 +61,7 @@ export interface Unit {
   parentId?: string; // Parent unit for org chart hierarchy
   sortOrder?: number;
   isActive?: boolean;
+  targetMembers?: string[]; // Employee IDs assigned to KPI/signing tab
   createdAt?: string;
   updatedAt?: string;
 }
@@ -271,6 +272,11 @@ export interface Customer {
   bankAccount?: string;
   foundedDate?: string;
   type?: 'Customer' | 'Supplier' | 'Both';
+  // CRM fields
+  rating?: 'VIP' | 'Gold' | 'Standard' | 'Lead';
+  source?: string; // Website, Referral, Cold call, Event, Partner
+  paymentTerms?: string; // NET30, NET60, COD, Prepaid
+  creditLimit?: number;
   stats?: {
     contractCount: number;
     totalValue: number;
@@ -280,9 +286,58 @@ export interface Customer {
 }
 
 /**
- * Product/Service category type
+ * Product/Service category type — kept as string for extensibility
  */
-export type ProductCategory = 'Phần mềm' | 'Tư vấn' | 'Thiết kế' | 'Thi công' | 'Bảo trì' | 'Đào tạo' | 'Khác';
+export type ProductCategory = string;
+
+/**
+ * Represents a brand/manufacturer
+ */
+export interface Brand {
+  id: string;
+  name: string;
+  code?: string;
+  logoUrl?: string;
+  website?: string;
+  country?: string;
+  description?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/**
+ * Represents a contact person at a customer/supplier organization
+ */
+export interface CustomerContact {
+  id: string;
+  customerId: string;
+  name: string;
+  position?: string;
+  department?: string;
+  phone?: string;
+  email?: string;
+  isPrimary: boolean;
+  notes?: string;
+  createdAt?: string;
+}
+
+/**
+ * Represents a product-supplier relationship (N:N)
+ */
+export interface ProductSupplier {
+  id: string;
+  productId: string;
+  supplierId: string;
+  isPrimary: boolean;
+  supplierPrice: number;
+  discountPercent: number;
+  leadTimeDays?: number;
+  notes?: string;
+  createdAt?: string;
+  // Joined fields for display
+  supplierName?: string;
+}
 
 /**
  * Represents a product or service offering
@@ -298,6 +353,15 @@ export interface Product {
   costPrice?: number;
   isActive: boolean;
   unitId?: string; // đơn vị kinh doanh phụ trách
+  // CRM fields — Brand & Supplier linkage
+  brandId?: string;
+  supplierId?: string; // NCC chính
+  sku?: string;
+  model?: string;
+  warrantyMonths?: number;
+  // Joined fields for display
+  brandName?: string;
+  supplierName?: string;
   createdAt?: string;
   updatedAt?: string;
 }
