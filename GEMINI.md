@@ -1,6 +1,18 @@
 
 # CIC ERP Contract - Project Rules
 
+## ⚠️ Git Push (BẮT BUỘC mỗi khi user nói "push", "push github", "đẩy code"):
+Luôn tuân thủ đúng quy trình, KHÔNG ĐƯỢC bỏ bước nào:
+```
+1. git pull origin main          ← pull trước
+2. git add .                     ← stage changes
+3. git status                    ← kiểm tra files
+4. git commit -m "type: mô tả"  ← commit (feat/fix/docs/refactor/chore)
+5. git pull origin main          ← pull lại phòng conflict
+6. git push origin main          ← push
+```
+> ❌ KHÔNG BAO GIỜ push thẳng mà không pull trước và sau commit.
+
 ## Auto-Load Skills:
 Mỗi khi chỉnh sửa giao diện frontend (bao gồm: sửa component, thay đổi layout, styling, colors, animations, responsive, dark mode, typography, spacing, tạo component mới, hoặc bất kỳ thay đổi visual nào), bạn PHẢI:
 1. Đọc file skill: `D:\QuocAnh\2026\01.Project\cic-erp-contract\.agent\skills\ui-ux-pro-max\SKILL.md`
