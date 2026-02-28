@@ -60,7 +60,7 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
         try {
             const [unitsData, customersData, employeesData] = await Promise.all([
                 UnitService.getAll(),
-                CustomerService.getAll(),
+                CustomerService.getAll({ pageSize: 1000 }), // Load ALL customers for template & validation
                 EmployeeService.getAll()
             ]);
             setUnits(unitsData);
@@ -153,11 +153,12 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
             errors.push(`Đơn vị "${row.unitCode}" không tồn tại`);
         }
 
-        // Customer lookup
+        // Customer lookup - allow new customers (will be auto-created)
         const customer = findCustomer(row.customerName);
-        if (!row.customerName || !customer) {
-            errors.push(`Khách hàng "${row.customerName}" không tồn tại`);
+        if (!row.customerName) {
+            errors.push('Tên khách hàng không được để trống');
         }
+        // Note: if customer not found, it will be auto-created during import
 
         // Employee lookup (optional)
         const employee = row.salespersonName ? findEmployee(row.salespersonName) : undefined;
@@ -359,10 +360,42 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
 
         setIsImporting(true);
         let successCount = 0;
+        let newCustomerCount = 0;
         const errors: string[] = [];
+
+        // Cache for newly created customers (avoid duplicate creation)
+        const createdCustomers: Record<string, string> = {};
 
         for (const row of validRows) {
             try {
+                // Resolve customer ID — auto-create if not found
+                let customerId = row.customerId || '';
+                if (!customerId && row.customerName) {
+                    const cacheKey = row.customerName.trim().toLowerCase();
+                    if (createdCustomers[cacheKey]) {
+                        customerId = createdCustomers[cacheKey];
+                    } else {
+                        try {
+                            const newCustomer = await CustomerService.create({
+                                name: row.customerName.trim(),
+                                shortName: '',
+                                industry: [],
+                                type: 'Customer',
+                                contactPerson: '',
+                                phone: '',
+                                email: '',
+                                address: ''
+                            });
+                            customerId = newCustomer.id;
+                            createdCustomers[cacheKey] = customerId;
+                            newCustomerCount++;
+                        } catch (custErr: any) {
+                            console.warn(`Auto-create customer "${row.customerName}" failed:`, custErr);
+                            // Continue without customer if creation fails
+                        }
+                    }
+                }
+
                 // Generate contract ID
                 const year = new Date(row.signedDate || Date.now()).getFullYear();
                 const contractNumber = await ContractService.getNextContractNumber(row.unitId!, year);
@@ -373,9 +406,10 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
                     id: contractId,
                     title: row.title,
                     contractType: row.contractType as any || 'HĐ',
-                    customerId: row.customerId || '',
+                    customerId,
+                    partyA: row.customerName || '',
                     unitId: row.unitId || '',
-                    salespersonId: row.salespersonId,
+                    salespersonId: row.salespersonId || '',
                     value: row.value,
                     estimatedCost: row.estimatedCost,
                     actualRevenue: 0,
@@ -386,7 +420,6 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
                     status: row.status as any,
                     stage: 'Signed',
                     category: row.category || 'Mới',
-                    partyA: '',
                     partyB: '',
                     clientInitials: '',
                     content: '',
@@ -401,7 +434,10 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
         setIsImporting(false);
 
         if (successCount > 0) {
-            toast.success(`Đã import thành công ${successCount} hợp đồng`);
+            const msg = newCustomerCount > 0
+                ? `Đã import ${successCount} hợp đồng (tạo mới ${newCustomerCount} khách hàng)`
+                : `Đã import thành công ${successCount} hợp đồng`;
+            toast.success(msg);
         }
         if (errors.length > 0) {
             toast.error(`Có ${errors.length} lỗi khi import`);
