@@ -331,19 +331,19 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-xs text-slate-500">Tổng giá trị HĐ</span>
-                                <span className="text-sm font-black text-indigo-600">
+                                <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
                                     {formatCurrency(stats.totalValue)}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-xs text-slate-500">Doanh thu thực tế</span>
-                                <span className="text-sm font-black text-emerald-600">
+                                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
                                     {formatCurrency(stats.totalRevenue)}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-xs text-slate-500">HĐ đang thực hiện</span>
-                                <span className="text-sm font-black text-indigo-600">
+                                <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
                                     {stats.activeContracts}
                                 </span>
                             </div>

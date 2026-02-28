@@ -139,7 +139,7 @@ const CustomerContactsTab: React.FC<CustomerContactsTabProps> = ({ customerId })
 
     // Inline form component
     const InlineForm = () => (
-        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 space-y-3 border border-slate-200 dark:border-slate-700">
+        <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 space-y-3 border border-slate-200 dark:border-slate-700">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Họ tên *</label>
@@ -321,7 +321,7 @@ const CustomerContactsTab: React.FC<CustomerContactsTabProps> = ({ customerId })
                     ))}
                 </div>
             ) : !isAdding && (
-                <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+                <div className="text-center py-12 bg-slate-50 dark:bg-slate-800 rounded-lg">
                     <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
                         <User size={24} className="text-slate-400" />
                     </div>

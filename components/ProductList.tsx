@@ -296,7 +296,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                             placeholder="Tìm sản phẩm..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                            className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100"
                         />
                     </div>
 
@@ -462,7 +462,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
 
                                             {/* Margin */}
                                             <td className="py-4 px-6 text-right hidden sm:table-cell">
-                                                <span className={`font-bold ${margin >= 50 ? 'text-emerald-600' : margin >= 30 ? 'text-amber-600' : 'text-rose-600'}`}>
+                                                <span className={`font-bold ${margin >= 50 ? 'text-emerald-600 dark:text-emerald-400' : margin >= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                                     {margin.toFixed(0)}%
                                                 </span>
                                             </td>

@@ -179,9 +179,9 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
     };
 
     const getProgressColor = (pct: number) => {
-        if (pct >= 100) return 'text-emerald-600';
-        if (pct >= 70) return 'text-indigo-600';
-        if (pct >= 40) return 'text-amber-600';
+        if (pct >= 100) return 'text-emerald-600 dark:text-emerald-400';
+        if (pct >= 70) return 'text-indigo-600 dark:text-indigo-400';
+        if (pct >= 40) return 'text-amber-600 dark:text-amber-400';
         return 'text-slate-500';
     };
 
@@ -314,7 +314,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-slate-50 dark:bg-slate-800/50">
+                        <thead className="bg-slate-50 dark:bg-slate-800">
                             <tr>
                                 <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[200px]">Nhân viên</th>
                                 <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">CT Ký kết</th>
@@ -341,7 +341,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                 const signingPct = signingTarget > 0 ? (actualSigning / signingTarget) * 100 : 0;
 
                                 return (
-                                    <tr key={emp.id} className={`transition-colors ${isEditing ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}>
+                                    <tr key={emp.id} className={`transition-colors ${isEditing ? 'bg-indigo-50/50 dark:bg-indigo-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                                         {/* Employee Name */}
                                         <td className="px-4 py-3">
                                             <div
@@ -367,7 +367,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                                     className="w-32 ml-auto px-3 py-1.5 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none text-right text-sm font-bold"
                                                 />
                                             ) : (
-                                                <span className={`text-sm font-bold ${signingTarget > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                                <span className={`text-sm font-bold ${signingTarget > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
                                                     {signingTarget > 0 ? formatCurrency(signingTarget) : '—'}
                                                 </span>
                                             )}
@@ -406,7 +406,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                                     className="w-32 ml-auto px-3 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none text-right text-sm font-bold"
                                                 />
                                             ) : (
-                                                <span className={`text-sm font-bold ${(empTarget.revenue || 0) > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                                <span className={`text-sm font-bold ${(empTarget.revenue || 0) > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
                                                     {(empTarget.revenue || 0) > 0 ? formatCurrency(empTarget.revenue) : '—'}
                                                 </span>
                                             )}
@@ -421,7 +421,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                                     className="w-32 ml-auto px-3 py-1.5 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-purple-500 outline-none text-right text-sm font-bold"
                                                 />
                                             ) : (
-                                                <span className={`text-sm font-bold ${(empTarget.adminProfit || 0) > 0 ? 'text-purple-600' : 'text-slate-400'}`}>
+                                                <span className={`text-sm font-bold ${(empTarget.adminProfit || 0) > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400'}`}>
                                                     {(empTarget.adminProfit || 0) > 0 ? formatCurrency(empTarget.adminProfit) : '—'}
                                                 </span>
                                             )}
@@ -474,11 +474,11 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
 
                             {/* Totals Row */}
                             {employees.length > 0 && (
-                                <tr className="bg-slate-50 dark:bg-slate-800/50 font-black">
+                                <tr className="bg-slate-50 dark:bg-slate-800 font-black">
                                     <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
                                         Tổng cộng ({employees.length} NV)
                                     </td>
-                                    <td className="px-4 py-3 text-right text-sm text-indigo-600 font-black">
+                                    <td className="px-4 py-3 text-right text-sm text-indigo-600 dark:text-indigo-400 font-black">
                                         {formatCurrency(totals.target.signing)}
                                     </td>
                                     <td className="px-4 py-3 text-right text-sm text-slate-900 dark:text-slate-100 font-black">
@@ -489,10 +489,10 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                             {totals.target.signing > 0 ? `${((totals.actual.signing / totals.target.signing) * 100).toFixed(0)}%` : '—'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3 text-right text-sm text-emerald-600 font-black">
+                                    <td className="px-4 py-3 text-right text-sm text-emerald-600 dark:text-emerald-400 font-black">
                                         {formatCurrency(totals.target.revenue)}
                                     </td>
-                                    <td className="px-4 py-3 text-right text-sm text-purple-600 font-black">
+                                    <td className="px-4 py-3 text-right text-sm text-purple-600 dark:text-purple-400 font-black">
                                         {formatCurrency(totals.target.profit)}
                                     </td>
                                     <td className="px-4 py-3"></td>
@@ -517,14 +517,14 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                         </div>
                         <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-center">
                             <p className="text-xs text-slate-500 mb-1">Tổng CT nhân viên</p>
-                            <p className="text-lg font-black text-indigo-600">{formatCurrency(totals.target.signing)}</p>
+                            <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(totals.target.signing)}</p>
                         </div>
                         <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-center">
                             <p className="text-xs text-slate-500 mb-1">Chênh lệch</p>
                             {(() => {
                                 const diff = totals.target.signing - (unit.target?.signing || 0);
                                 return (
-                                    <p className={`text-lg font-black flex items-center justify-center gap-1 ${diff > 0 ? 'text-amber-600' : diff < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                    <p className={`text-lg font-black flex items-center justify-center gap-1 ${diff > 0 ? 'text-amber-600 dark:text-amber-400' : diff < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                         {diff > 0 && <ArrowUpRight size={16} />}
                                         {diff < 0 && <ArrowDownRight size={16} />}
                                         {diff === 0 && <Check size={16} />}

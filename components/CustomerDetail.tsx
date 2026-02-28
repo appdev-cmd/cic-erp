@@ -406,19 +406,19 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                     <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">Tổng HĐ</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 text-center">
-                    <p className="text-2xl font-black text-emerald-600">{stats.activeContracts}</p>
+                    <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.activeContracts}</p>
                     <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">Đang thực hiện</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 text-center">
-                    <p className="text-2xl font-black text-indigo-600">{formatCurrency(stats.totalValue)}</p>
+                    <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(stats.totalValue)}</p>
                     <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">Tổng giá trị</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 text-center">
-                    <p className="text-2xl font-black text-purple-600">{formatCurrency(stats.totalRevenue)}</p>
+                    <p className="text-2xl font-black text-purple-600 dark:text-purple-400">{formatCurrency(stats.totalRevenue)}</p>
                     <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">Doanh thu</p>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 text-center col-span-2 md:col-span-1">
-                    <p className="text-2xl font-black text-amber-600">{formatCurrency(paymentStats.paidAmount)}</p>
+                    <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{formatCurrency(paymentStats.paidAmount)}</p>
                     <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">Đã thanh toán</p>
                 </div>
             </div>
@@ -437,8 +437,8 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
                             className={`flex items-center gap-2 px-5 py-3.5 text-sm font-bold transition-all border-b-2 -mb-px whitespace-nowrap ${activeTab === tab.key
-                                    ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
-                                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300'
+                                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300'
                                 }`}
                         >
                             <tab.icon size={16} />
@@ -474,7 +474,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                             </div>
 
                             {/* Revenue Progress */}
-                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+                            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                                 <div className="flex items-center justify-between mb-2">
                                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-2">
                                         <BarChart3 size={13} />Tỷ lệ thu hồi doanh thu
@@ -495,7 +495,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
 
                             {/* CRM Info */}
                             {(customer.source || customer.paymentTerms || (customer.creditLimit && customer.creditLimit > 0)) && (
-                                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+                                <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
                                         <Target size={13} />CRM
                                     </h3>
@@ -518,7 +518,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                                         {customer.creditLimit !== undefined && customer.creditLimit > 0 && (
                                             <div>
                                                 <p className="text-[10px] text-slate-400 uppercase tracking-wide">Hạn mức TD</p>
-                                                <p className="font-bold text-sm text-emerald-600 mt-0.5">{formatCurrency(customer.creditLimit)}</p>
+                                                <p className="font-bold text-sm text-emerald-600 dark:text-emerald-400 mt-0.5">{formatCurrency(customer.creditLimit)}</p>
                                             </div>
                                         )}
                                     </div>
@@ -526,7 +526,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                             )}
 
                             {/* Customer Health Indicators */}
-                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+                            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
                                     <TrendingUp size={13} />Chỉ số khách hàng
                                 </h3>
@@ -537,11 +537,11 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                                     </div>
                                     <div>
                                         <p className="text-[10px] text-slate-400 uppercase">HĐ hoàn thành</p>
-                                        <p className="font-bold text-sm text-blue-600 mt-0.5">{stats.completedContracts}</p>
+                                        <p className="font-bold text-sm text-blue-600 dark:text-blue-400 mt-0.5">{stats.completedContracts}</p>
                                     </div>
                                     <div>
                                         <p className="text-[10px] text-slate-400 uppercase">Công nợ</p>
-                                        <p className={`font-bold text-sm mt-0.5 ${paymentStats.pendingAmount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                        <p className={`font-bold text-sm mt-0.5 ${paymentStats.pendingAmount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                             {paymentStats.pendingAmount > 0 ? formatCurrency(paymentStats.pendingAmount) : 'Không có'}
                                         </p>
                                     </div>
@@ -554,7 +554,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
 
                             {/* Notes Preview */}
                             {customer.notes && (
-                                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+                                <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                                     <div className="flex items-center justify-between mb-2">
                                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-2">
                                             <StickyNote size={13} />Ghi chú
@@ -593,8 +593,8 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                                         key={f.key}
                                         onClick={() => setContractFilter(f.key)}
                                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${contractFilter === f.key
-                                                ? 'ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-slate-900 ' + f.color
-                                                : f.color + ' opacity-70 hover:opacity-100'
+                                            ? 'ring-2 ring-indigo-500 ring-offset-1 dark:ring-offset-slate-900 ' + f.color
+                                            : f.color + ' opacity-70 hover:opacity-100'
                                             }`}
                                     >
                                         {f.label} ({f.count})
@@ -679,7 +679,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                         <div className="space-y-4">
                             {/* Payment Summary */}
                             <div className="grid grid-cols-3 gap-3">
-                                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 text-center">
+                                <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 text-center">
                                     <p className="text-lg font-black text-slate-900 dark:text-slate-100">{formatCurrency(paymentStats.totalAmount)}</p>
                                     <p className="text-[10px] text-slate-500 font-medium mt-0.5">Tổng phải thu</p>
                                 </div>
@@ -738,8 +738,8 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                                                     </td>
                                                     <td className="py-3 px-4 text-center">
                                                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold ${payment.status === 'Tiền về'
-                                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                                                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                                                             }`}>
                                                             {payment.status === 'Tiền về' ? <CheckCircle size={10} /> : <Clock size={10} />}
                                                             {payment.status}
@@ -802,11 +802,11 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                                     autoFocus
                                 />
                             ) : customer.notes ? (
-                                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-5">
+                                <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-5">
                                     <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{customer.notes}</p>
                                 </div>
                             ) : (
-                                <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
+                                <div className="text-center py-12 bg-slate-50 dark:bg-slate-800 rounded-lg">
                                     <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
                                         <StickyNote size={24} className="text-slate-400" />
                                     </div>

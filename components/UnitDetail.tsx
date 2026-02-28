@@ -287,14 +287,14 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                         ) : (
                             topPerformers.map((p, idx) => (
                                 <div key={p.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer" onClick={() => onViewPersonnel(p.id)}>
-                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${idx === 0 ? 'bg-amber-100 text-amber-700' : idx === 1 ? 'bg-slate-200 text-slate-600' : idx === 2 ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'}`}>
+                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black ${idx === 0 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : idx === 1 ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' : idx === 2 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
                                         {idx + 1}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{p.name}</p>
                                         <p className="text-xs text-slate-500">{p.count} HĐ</p>
                                     </div>
-                                    <p className="text-sm font-black text-indigo-600">{formatCurrency(p.value)}</p>
+                                    <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(p.value)}</p>
                                 </div>
                             ))
                         )}
@@ -332,7 +332,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                 <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{c.partyA}</p>
                                 <p className="text-xs text-slate-500">{formatCurrency(c.value)}</p>
                             </div>
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Processing' ? 'bg-emerald-100 text-emerald-700' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'}`}>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Processing' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'}`}>
                                 {c.status}
                             </span>
                         </div>
@@ -423,7 +423,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                     <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate max-w-[200px]">{c.partyA}</p>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Processing' ? 'bg-emerald-100 text-emerald-700' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700' : c.status === 'Suspended' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
+                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Processing' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : c.status === 'Suspended' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'}`}>
                                         {c.status}
                                     </span>
                                 </td>
@@ -499,7 +499,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                     <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-slate-100 truncate">{unit.name}</h1>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded uppercase">{unit.code}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${unit.type === 'Center' ? 'bg-emerald-100 text-emerald-700' : unit.type === 'Branch' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${unit.type === 'Center' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : unit.type === 'Branch' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'}`}>
                             {unit.type === 'Center' ? 'Trung tâm' : unit.type === 'Branch' ? 'Chi nhánh' : 'Công ty'}
                         </span>
                         <span className="text-[10px] text-slate-400">{staff.length} nhân viên • {contracts.length} hợp đồng</span>

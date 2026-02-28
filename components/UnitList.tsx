@@ -286,7 +286,7 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                                                     <span className="inline-block px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
                                                         {unit.code}
                                                     </span>
-                                                    <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${unit.type === 'Center' ? 'bg-emerald-100 text-emerald-700' : unit.type === 'Branch' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                                                    <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase ${unit.type === 'Center' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : unit.type === 'Branch' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'}`}>
                                                         {unit.type === 'Center' ? 'TT' : unit.type === 'Branch' ? 'CN' : 'CTY'}
                                                     </span>
                                                 </div>
