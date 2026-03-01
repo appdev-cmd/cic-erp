@@ -41,7 +41,6 @@ export interface PAKDAdminCosts {
     importLogistics: number;  // Phí nhập khẩu/logistics
     expertFee: number;     // Phí thuê chuyên gia
     documentFee: number;   // Phí xử lý chứng từ
-    supplierDiscount: number; // Chiết khấu thêm từ NCC (Bentley, etc)
 }
 
 // Dynamic execution cost item parsed from summary section
@@ -514,6 +513,37 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
     const format = detectTemplateFormat(headerRow);
     const COL = getColumnMapping(format);
 
+    // ── Dynamic fee column detection ──────────────────────────────
+    // Scan header row AND sub-header row (next row) for exact fee column keywords.
+    // This overrides the static column mapping to handle merged/shifted headers.
+    const rowsToScan = [headerRow, jsonData[headerRowIdx + 1] || []];
+    for (const scanRow of rowsToScan) {
+        for (let c = 0; c < scanRow.length; c++) {
+            const cellText = String(scanRow[c] || '').toLowerCase().trim();
+            if (!cellText) continue;
+
+            if ((cellText.includes('nhập') || cellText === 'nhập khẩu') && !cellText.includes('nhập từ') && !cellText.includes('đầu vào')) {
+                if (COL.IMPORT_FEE !== c) {
+                    console.log(`[PAKD Parser] Dynamic override: IMPORT_FEE ${COL.IMPORT_FEE} → ${c} (found "${cellText}")`);
+                    COL.IMPORT_FEE = c;
+                }
+            }
+            if (cellText.includes('thuế nhà thầu') || cellText.includes('thuế nt') || cellText === 'thuế') {
+                if (COL.CONTRACTOR_TAX !== c) {
+                    console.log(`[PAKD Parser] Dynamic override: CONTRACTOR_TAX ${COL.CONTRACTOR_TAX} → ${c} (found "${cellText}")`);
+                    COL.CONTRACTOR_TAX = c;
+                }
+            }
+            if (cellText.includes('chuyển tiền') || cellText.includes('chuyển') || cellText === 'chuyển') {
+                if (COL.TRANSFER_FEE !== c) {
+                    console.log(`[PAKD Parser] Dynamic override: TRANSFER_FEE ${COL.TRANSFER_FEE} → ${c} (found "${cellText}")`);
+                    COL.TRANSFER_FEE = c;
+                }
+            }
+        }
+    }
+    console.log(`[PAKD Parser] Final fee columns: IMPORT_FEE=${COL.IMPORT_FEE}, CONTRACTOR_TAX=${COL.CONTRACTOR_TAX}, TRANSFER_FEE=${COL.TRANSFER_FEE}`);
+
     const DATA_START_ROW = headerRowIdx + 1;
 
     // Build a map of merged cell ranges for fee columns
@@ -577,10 +607,52 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
         return row[colIdx] ?? defaultValue;
     };
 
+    // Build map of next line item rowIndex for each item (to find continuation rows between items)
+    const lineItemRowIndices = lineItemRows.map(r => r.rowIndex);
+
+    /**
+     * Scan continuation rows (rows between current item and next item)
+     * to pick up fee values that might be on a different physical row
+     * due to merged cells in the product name column.
+     */
+    const scanContinuationFees = (currentRowIndex: number, col: number): number => {
+        if (col < 0) return 0;
+        const currentIdx = lineItemRowIndices.indexOf(currentRowIndex);
+        const nextRowIndex = currentIdx < lineItemRowIndices.length - 1
+            ? lineItemRowIndices[currentIdx + 1]
+            : currentRowIndex + 5; // scan up to 5 rows after last item
+
+        for (let r = currentRowIndex + 1; r < nextRowIndex && r < jsonData.length; r++) {
+            const contRow = jsonData[r];
+            if (!contRow) continue;
+            // Stop if we hit summary/total rows
+            const cellText = String(contRow[COL.NAME] || contRow[0] || '').toLowerCase();
+            if (cellText.includes('tổng') || cellText.includes('tong')) break;
+            // Check if this continuation row has a fee value at the column
+            const val = Number(contRow[col]) || 0;
+            if (val > 0) {
+                console.log(`[PAKD Parser] Found fee ${val} on continuation row ${r} (col ${col}) for item at row ${currentRowIndex}`);
+                return val;
+            }
+        }
+        return 0;
+    };
+
     for (const { rowIndex, row } of lineItemRows) {
-        const importFeeInfo = getFeeValue(rowIndex, COL.IMPORT_FEE, Number(getCellValue(row, COL.IMPORT_FEE, 0)) || 0);
-        const contractorTaxInfo = getFeeValue(rowIndex, COL.CONTRACTOR_TAX, Number(getCellValue(row, COL.CONTRACTOR_TAX, 0)) || 0);
-        const transferFeeInfo = getFeeValue(rowIndex, COL.TRANSFER_FEE, Number(getCellValue(row, COL.TRANSFER_FEE, 0)) || 0);
+        let importFeeVal = getFeeValue(rowIndex, COL.IMPORT_FEE, Number(getCellValue(row, COL.IMPORT_FEE, 0)) || 0).value;
+        let contractorTaxVal = getFeeValue(rowIndex, COL.CONTRACTOR_TAX, Number(getCellValue(row, COL.CONTRACTOR_TAX, 0)) || 0).value;
+        let transferFeeVal = getFeeValue(rowIndex, COL.TRANSFER_FEE, Number(getCellValue(row, COL.TRANSFER_FEE, 0)) || 0).value;
+
+        // If fee values are 0, scan continuation rows for orphaned fee values
+        if (importFeeVal === 0 && COL.IMPORT_FEE >= 0) {
+            importFeeVal = scanContinuationFees(rowIndex, COL.IMPORT_FEE);
+        }
+        if (contractorTaxVal === 0 && COL.CONTRACTOR_TAX >= 0) {
+            contractorTaxVal = scanContinuationFees(rowIndex, COL.CONTRACTOR_TAX);
+        }
+        if (transferFeeVal === 0 && COL.TRANSFER_FEE >= 0) {
+            transferFeeVal = scanContinuationFees(rowIndex, COL.TRANSFER_FEE);
+        }
 
         const totalCost = Number(getCellValue(row, COL.TOTAL_COST, 0)) || 0;
         const totalPrice = Number(getCellValue(row, COL.TOTAL_PRICE, 0)) || 0;
@@ -610,14 +682,16 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
             totalCost,
             unitPrice: Number(getCellValue(row, COL.UNIT_PRICE, 0)) || 0,
             totalPrice,
-            importFee: importFeeInfo.value,
-            contractorTax: contractorTaxInfo.value,
-            transferFee: transferFeeInfo.value,
+            importFee: importFeeVal,
+            contractorTax: contractorTaxVal,
+            transferFee: transferFeeVal,
             margin,
             marginPercent,
             vatRate: 10, // Default VAT rate for line item
             foreignCurrency,
         };
+
+        console.log(`[PAKD Parser] Item ${item.stt} "${item.name}": importFee=${item.importFee}, contractorTax=${item.contractorTax}, transferFee=${item.transferFee}`);
 
         lineItems.push(item);
         totalCostSum += item.totalCost;
@@ -630,7 +704,6 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
         importLogistics: lineItems.reduce((sum, item) => sum + item.importFee, 0),
         expertFee: 0,
         documentFee: 0,
-        supplierDiscount: 0,
     };
 
     const executionCosts: PAKDExecutionCost[] = [];
@@ -730,9 +803,9 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
             });
             adminCosts.documentFee += value;
         }
-        // 3. Supplier Discount
+        // Chiết khấu NCC → bỏ (không dùng nữa)
         else if (labelText.includes('chiết khấu') || labelText.includes('chiet khau')) {
-            adminCosts.supplierDiscount = value;
+            // Skip — supplierDiscount đã bị loại bỏ
         }
         // 4. Generic execution cost — capture ALL other cost items dynamically
         //    (e.g., Thưởng hoàn thành dự án, Xúc tiến hợp đồng, Ban lãnh đạo hỗ trợ, logistics, etc.)
@@ -750,7 +823,7 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
     const totalAdminCosts = adminCosts.bankFee + adminCosts.subcontractorFee + adminCosts.importLogistics + adminCosts.expertFee + adminCosts.documentFee;
     const otherExecutionCosts = executionCosts.filter(c => !c.name.includes('chuyên gia') && !c.name.includes('chứng từ')).reduce((sum, c) => sum + c.amount, 0);
 
-    const computedCosts = totalCostSum + totalAdminCosts + otherExecutionCosts - adminCosts.supplierDiscount;
+    const computedCosts = totalCostSum + totalAdminCosts + otherExecutionCosts;
     const computedProfit = totalPriceSum - computedCosts;
     const computedMargin = totalPriceSum > 0 ? Math.round((computedProfit / totalPriceSum) * 100 * 100) / 100 : 0;
 
@@ -819,7 +892,6 @@ export function convertToFormData(parsed: ParsedPAKD) {
             expertFeePercent: 0,
             documentFee: parsed.adminCosts.documentFee,
             documentFeePercent: 0,
-            supplierDiscount: parsed.adminCosts.supplierDiscount,
         },
         executionCosts: parsed.executionCosts,
         financials: parsed.financials,

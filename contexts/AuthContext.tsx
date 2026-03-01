@@ -34,9 +34,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         if (isDevBypass) {
             console.log('[AuthContext] Dev bypass active – injecting mock Admin profile');
+            // Use real Dev Admin UUID from profiles table so FK constraints work
             setProfile({
-                id: 'dev-admin-000',
-                email: 'dev@localhost',
+                id: '4fda6e7a-a8f7-4efd-a8cd-021a3e7e67c5',
+                email: 'appdev@cic.com.vn',
                 fullName: 'Dev Admin',
                 role: 'Admin',
                 unitId: 'all',

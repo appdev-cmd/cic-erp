@@ -179,25 +179,34 @@ export const PaymentService = {
 
     update: async (id: string, data: Partial<Payment>): Promise<Payment | undefined> => {
         const payload: any = {};
-        if (data.contractId) payload.contract_id = data.contractId;
-        if (data.customerId) payload.customer_id = data.customerId;
-        if (data.phaseId) payload.phase_id = data.phaseId;
+        if (data.contractId !== undefined) payload.contract_id = data.contractId;
+        if (data.customerId !== undefined) payload.customer_id = data.customerId;
+        if (data.phaseId !== undefined) payload.phase_id = data.phaseId;
         if (data.amount !== undefined) payload.amount = data.amount;
         if (data.status) {
             payload.status = data.status;
             // When status changes to Tiền về, set paid_amount = amount
             if (data.status === 'Tiền về') {
-                payload.paid_amount = data.amount;
+                if (data.amount !== undefined) {
+                    payload.paid_amount = data.amount;
+                } else {
+                    // Fetch current amount from DB if not provided
+                    const { data: current } = await supabase.from('payments').select('amount').eq('id', id).single();
+                    payload.paid_amount = current?.amount || 0;
+                }
             }
         }
-        if (data.method) payload.method = data.method;
-        if (data.dueDate) payload.due_date = data.dueDate;
-        if (data.paymentDate) payload.payment_date = data.paymentDate;
-        if (data.bankAccount) payload.bank_account = data.bankAccount;
-        if (data.reference) payload.reference = data.reference;
-        if (data.invoiceNumber) payload.invoice_number = data.invoiceNumber;
-        if (data.invoiceDate) payload.invoice_date = data.invoiceDate;
-        if (data.notes) payload.notes = data.notes;
+        if (data.method !== undefined) payload.method = data.method;
+        if (data.dueDate !== undefined) payload.due_date = data.dueDate;
+        if (data.paymentDate !== undefined) payload.payment_date = data.paymentDate;
+        if (data.bankAccount !== undefined) payload.bank_account = data.bankAccount;
+        if (data.reference !== undefined) payload.reference = data.reference;
+        if (data.invoiceNumber !== undefined) payload.invoice_number = data.invoiceNumber;
+        if (data.invoiceDate !== undefined) payload.invoice_date = data.invoiceDate;
+        if (data.externalInvoiceId !== undefined) payload.external_invoice_id = data.externalInvoiceId;
+        if (data.notes !== undefined) payload.notes = data.notes;
+        if (data.paymentType !== undefined) payload.payment_type = data.paymentType;
+        if (data.source !== undefined) payload.source = data.source;
 
         const { data: res, error } = await supabase.from('payments').update(payload).eq('id', id).select().single();
         if (error) throw error;

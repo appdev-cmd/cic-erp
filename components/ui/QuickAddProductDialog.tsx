@@ -53,6 +53,7 @@ const QuickAddProductDialog: React.FC<QuickAddProductDialogProps> = ({
 
         try {
             const newProduct = await ProductService.create({
+                code: `SP-${Date.now()}`,
                 name: name.trim(),
                 category,
                 unit,

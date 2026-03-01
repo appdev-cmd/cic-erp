@@ -65,6 +65,8 @@ const UnitDetail = lazyWithRetry(() => import('./UnitDetail'));
 const Settings = lazyWithRetry(() => import('./Settings'));
 const UserGuide = lazyWithRetry(() => import('./UserGuide'));
 const DocumentManager = lazyWithRetry(() => import('./DocumentManager'));
+const ToolsPage = lazyWithRetry(() => import('./ToolsPage'));
+const ChatPageComponent = lazyWithRetry(() => import('./chat/ChatPage'));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
@@ -341,3 +343,9 @@ export const LazyUserGuidePage: React.FC = () => withSuspense(<UserGuide />);
 
 // Document Manager
 export const LazyDocumentManagerPage: React.FC = () => withSuspense(<DocumentManager />);
+
+// Tools
+export const LazyToolsPage: React.FC = () => withSuspense(<ToolsPage />);
+
+// Chat
+export const LazyChatPage: React.FC = () => withSuspense(<ChatPageComponent />);

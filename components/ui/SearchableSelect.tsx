@@ -9,7 +9,7 @@ interface Option {
 
 interface SearchableSelectProps {
     value: string | null;
-    onChange: (id: string | null) => void;
+    onChange: (id: string | null, option?: Option) => void;
     onSearch: (query: string) => Promise<Option[]>;
     placeholder?: string;
     label?: string;
@@ -18,6 +18,7 @@ interface SearchableSelectProps {
     getDisplayValue?: (id: string) => string | undefined;
     onAddNew?: () => void;
     addNewLabel?: string;
+    size?: 'sm' | 'md';
 }
 
 /**
@@ -35,6 +36,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     getDisplayValue,
     onAddNew,
     addNewLabel = '+ Thêm mới',
+    size = 'md',
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
@@ -98,7 +100,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     }, [onSearch, initialOptions]);
 
     const handleSelect = (option: Option) => {
-        onChange(option.id);
+        onChange(option.id, option);
         setDisplayValue(option.name);
         setIsOpen(false);
         setQuery('');
@@ -127,7 +129,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     setIsOpen(!isOpen);
                     setTimeout(() => inputRef.current?.focus(), 50);
                 }}
-                className={`w-full flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-left text-sm font-medium transition-all ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-indigo-300 dark:hover:border-indigo-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30'
+                className={`w-full flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-left text-sm font-medium transition-all ${size === 'sm' ? 'px-3 py-2' : 'px-4 py-3'
+                    } ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-indigo-300 dark:hover:border-indigo-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30'
                     } ${isOpen ? 'border-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-900/30' : ''}`}
             >
                 <span className={displayValue ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400'}>

@@ -118,11 +118,26 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
         return val.toLocaleString('vi-VN');
     };
 
+    // Status mapping to Vietnamese
+    const statusViMap: Record<string, string> = {
+        'Draft': 'Nháp',
+        'Pending_Review': 'Chờ duyệt',
+        'Both_Approved': 'Đã duyệt',
+        'Pending_Sign': 'Chờ ký',
+        'Processing': 'Đang thực hiện',
+        'Suspended': 'Tạm dừng',
+        'Acceptance': 'Nghiệm thu',
+        'Liquidated': 'Thanh lý',
+        'Completed': 'Hoàn thành',
+    };
+    const getStatusVi = (status: string) => statusViMap[status] || status;
+
     // Contract stats by status
     const contractStats = useMemo(() => {
         const statusCount: Record<string, number> = {};
         contracts.forEach(c => {
-            statusCount[c.status] = (statusCount[c.status] || 0) + 1;
+            const label = getStatusVi(c.status);
+            statusCount[label] = (statusCount[label] || 0) + 1;
         });
         return statusCount;
     }, [contracts]);
@@ -333,7 +348,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                 <p className="text-xs text-slate-500">{formatCurrency(c.value)}</p>
                             </div>
                             <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Processing' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'}`}>
-                                {c.status}
+                                {getStatusVi(c.status)}
                             </span>
                         </div>
                     ))}
@@ -409,6 +424,8 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                     <thead className="bg-slate-50 dark:bg-slate-800">
                         <tr>
                             <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Khách hàng</th>
+                            <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Mã HĐ</th>
+                            <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Nội dung</th>
                             <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Trạng thái</th>
                             <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase">Giá trị</th>
                             <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase">Doanh thu</th>
@@ -423,8 +440,14 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                     <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate max-w-[200px]">{c.partyA}</p>
                                 </td>
                                 <td className="px-4 py-3">
+                                    <p className="text-sm text-indigo-600 dark:text-indigo-400 font-mono font-bold truncate max-w-[160px]">{c.title || '—'}</p>
+                                </td>
+                                <td className="px-4 py-3">
+                                    <p className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-[200px]">{c.content || '—'}</p>
+                                </td>
+                                <td className="px-4 py-3">
                                     <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Processing' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : c.status === 'Suspended' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'}`}>
-                                        {c.status}
+                                        {getStatusVi(c.status)}
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 text-sm text-right font-bold text-slate-900 dark:text-slate-100">{formatCurrency(c.value)}</td>

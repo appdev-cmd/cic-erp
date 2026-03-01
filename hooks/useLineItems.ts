@@ -11,7 +11,7 @@ export function useLineItems(initialItems: LineItem[] = []) {
             id: '1', name: '', quantity: 1,
             inputPrice: 0, outputPrice: 0, directCosts: 0,
             directCostDetails: [], supplier: '',
-            vatRate: 10, supplierDiscount: 0
+            vatRate: 10
         }]
     );
 
@@ -25,7 +25,7 @@ export function useLineItems(initialItems: LineItem[] = []) {
             name: '', quantity: 1,
             inputPrice: 0, outputPrice: 0, directCosts: 0,
             directCostDetails: [], supplier: '',
-            vatRate: 10, supplierDiscount: 0
+            vatRate: 10
         }]);
     }, []);
 

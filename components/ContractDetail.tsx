@@ -260,7 +260,14 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
     const totalOutput = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100)), 0);
     const totalRevenue = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0);
     const totalInput = lineItems.reduce((acc, item) => acc + (item.quantity * item.inputPrice), 0);
-    const totalDirect = lineItems.reduce((acc, item) => acc + (item.directCosts || 0), 0);
+    const totalDirect = lineItems.reduce((acc, item) => {
+      // Use directCosts if > 0, else fallback to sum of directCostDetails
+      const directVal = item.directCosts || 0;
+      if (directVal > 0) return acc + directVal;
+      // Fallback: sum directCostDetails if available
+      const detailsSum = (item.directCostDetails || []).reduce((s: number, d: any) => s + (d.amount || 0), 0);
+      return acc + detailsSum;
+    }, 0);
 
     const adminCosts = contract.adminCosts || {
       transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0
@@ -270,17 +277,20 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
     const executionCosts = contract.executionCosts || [];
     const totalExecution = executionCosts.reduce((acc, cost) => acc + (cost.amount || 0), 0);
 
-    // executionCosts (new format) ưu tiên, fallback sang adminCosts (legacy) nếu chưa có
-    // KHÔNG cộng cả 2 để tránh trùng lặp
+    // Overhead: executionCosts ưu tiên, fallback adminCosts cho HĐ cũ
     const overheadCosts = totalExecution > 0 ? totalExecution : totalAdmin;
-    const totalCosts = totalInput + overheadCosts;
-    // Lợi nhuận gộp = Doanh thu (chưa VAT) - Chi phí, Margin = Lợi nhuận / Doanh thu (chưa VAT)
+
+    // Total costs = Đầu vào + CP trực tiếp + CP thực hiện/quản lý
+    const totalCosts = totalInput + totalDirect + overheadCosts;
+
+    // Lợi nhuận gộp = Doanh thu (chưa VAT) - Tổng Chi Phí
     const grossProfit = totalRevenue - totalCosts;
+    // Margin = Lợi nhuận / Doanh thu (chưa VAT)
     const margin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
     return {
-      totalOutput,
-      totalRevenue,
+      totalOutput, // Giá trị Ký kết
+      totalRevenue, // Doanh thu chưa VAT
       totalInput,
       totalDirect,
       totalAdmin,
@@ -462,11 +472,17 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
 
                   <div className="space-y-6">
                     {/* Row 1: Plan */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
                       <div className="space-y-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Giá trị Ký kết</p>
                         <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
                           {formatVND(financials.totalOutput || contract.value)} <span className="text-xs font-medium text-slate-400">đ</span>
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Doanh thu (-VAT)</p>
+                        <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                          {formatVND(financials.totalRevenue || contract.value)} <span className="text-xs font-medium text-slate-400">đ</span>
                         </p>
                       </div>
                       <div className="space-y-1">

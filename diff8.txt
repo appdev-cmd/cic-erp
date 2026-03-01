@@ -1,0 +1,364 @@
+﻿diff --git a/components/ContractBusinessPlanTab.tsx b/components/ContractBusinessPlanTab.tsx
+index 189eec7..7c42caf 100644
+--- a/components/ContractBusinessPlanTab.tsx
++++ b/components/ContractBusinessPlanTab.tsx
+@@ -4,7 +4,7 @@ import { ActionPanel } from './workflow/ActionPanel';
+ import { ReviewLog } from './workflow/ReviewLog';
+ import { RejectDialog } from './workflow/RejectDialog';
+ import { PLAN_STATUS_LABELS } from '../constants';
+-import { Contract, BusinessPlan, PaymentPhase, UserProfile, LineItem, AdministrativeCosts, Product, Customer, DirectCostDetail, PaymentSchedule } from '../types';
++import { Contract, BusinessPlan, PaymentPhase, UserProfile, LineItem, AdministrativeCosts, Product, Customer, DirectCostDetail, PaymentSchedule, ExecutionCostItem } from '../types';
+ import { useAuth } from '../contexts/AuthContext';
+ import { supabase } from '../lib/supabase';
+ import { WorkflowService, ProductService, CustomerService } from '../services';
+@@ -35,12 +35,8 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+ 
+     // Editable Local State
+     const [lineItems, setLineItems] = useState<LineItem[]>(contract.lineItems || []);
+-    const [adminCosts, setAdminCosts] = useState<AdministrativeCosts>(contract.adminCosts || {
+-        transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0
+-    });
+-    const [adminCostPercentages, setAdminCostPercentages] = useState<AdministrativeCosts>({
+-        transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0
+-    });
++    // Form State for dynamic execution costs
++    const [executionCosts, setExecutionCosts] = useState<ExecutionCostItem[]>(contract.executionCosts || []);
+ 
+     // Payment Schedules State (D├▓ng tiß╗ün)
+     const [paymentSchedules, setPaymentSchedules] = useState<PaymentSchedule[]>(
+@@ -92,20 +88,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+     // Sync from contract when contract changes
+     useEffect(() => {
+         setLineItems(contract.lineItems || []);
+-        setAdminCosts(contract.adminCosts || {
+-            transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0
+-        });
+-        // Recalculate percentages based on contract value
+-        if (contract.adminCosts && contract.value > 0) {
+-            const costs = contract.adminCosts;
+-            setAdminCostPercentages({
+-                transferFee: Number(((costs.transferFee || 0) / contract.value * 100).toFixed(2)),
+-                contractorTax: Number(((costs.contractorTax || 0) / contract.value * 100).toFixed(2)),
+-                importFee: Number(((costs.importFee || 0) / contract.value * 100).toFixed(2)),
+-                expertHiring: Number(((costs.expertHiring || 0) / contract.value * 100).toFixed(2)),
+-                documentProcessing: Number(((costs.documentProcessing || 0) / contract.value * 100).toFixed(2))
+-            });
+-        }
++        setExecutionCosts(contract.executionCosts || []);
+     }, [contract.id]);
+ 
+     // Form State - Auto-calculated from lineItems and adminCosts
+@@ -116,16 +99,16 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+         grossProfit: 0
+     });
+ 
+-    // Auto-calculate financials when lineItems or adminCosts change
++    // Auto-calculate financials when lineItems or executionCosts change
+     useEffect(() => {
+         const totalOutput = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0);
+         const totalInput = lineItems.reduce((acc, item) => acc + (item.quantity * item.inputPrice), 0);
+         const totalDirectCosts = lineItems.reduce((acc, item) => acc + (item.directCosts || 0), 0);
+-        const adminSum = Object.values(adminCosts).reduce((acc, val) => acc + (val || 0), 0);
++        const executionSum = executionCosts.reduce((acc, cost) => acc + (cost.amount || 0), 0);
+ 
+-        // Note: adminCosts already includes direct cost fees (transferFee, contractorTax, importFee sums)
++        // Note: executionCosts already includes diverse fees
+         // So totalDirectCosts is NOT added separately to avoid double-counting
+-        const costs = totalInput + adminSum;
++        const costs = totalInput + executionSum;
+         const grossProfit = totalOutput - costs;
+         const margin = totalOutput > 0 ? (grossProfit / totalOutput) * 100 : 0;
+ 
+@@ -135,12 +118,11 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+             margin: margin,
+             grossProfit: grossProfit
+         });
+-    }, [lineItems, adminCosts]);
++    }, [lineItems, executionCosts]);
+ 
+     // Format VND helper
+     const formatVND = (value: number) => new Intl.NumberFormat('vi-VN').format(Math.round(value / 1000) * 1000);
+ 
+-    // Helper functions for editing
+     const addLineItem = () => {
+         setLineItems([...lineItems, {
+             id: Date.now().toString(),
+@@ -150,7 +132,9 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+             inputPrice: 0,
+             outputPrice: 0,
+             directCosts: 0,
+-            directCostDetails: []
++            directCostDetails: [],
++            vatRate: 10,
++            supplierDiscount: 0
+         }]);
+     };
+ 
+@@ -182,28 +166,41 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+         setActiveCostModalIndex(null);
+     };
+ 
+-    // Admin cost update with % sync
+-    const updateAdminCost = (key: keyof AdministrativeCosts, value: number) => {
+-        setAdminCosts({ ...adminCosts, [key]: value });
+-        // Reverse calc percentage
+-        if (financials.revenue > 0) {
+-            const pct = (value / financials.revenue) * 100;
+-            setAdminCostPercentages({ ...adminCostPercentages, [key]: Number(pct.toFixed(2)) });
+-        }
++    const addExecutionCost = () => {
++        setExecutionCosts([...executionCosts, {
++            id: crypto.randomUUID(),
++            name: '',
++            amount: 0,
++            percentage: 0
++        }]);
+     };
+ 
+-    const updateAdminCostByPercent = (key: keyof AdministrativeCosts, pct: number) => {
+-        setAdminCostPercentages({ ...adminCostPercentages, [key]: pct });
+-        const amount = Math.round((pct / 100) * financials.revenue);
+-        setAdminCosts({ ...adminCosts, [key]: amount });
++    const removeExecutionCost = (id: string) => {
++        setExecutionCosts(executionCosts.filter(c => c.id !== id));
++    };
++
++    const updateExecutionCost = (id: string, field: keyof ExecutionCostItem, value: any) => {
++        const newList = executionCosts.map(cost => {
++            if (cost.id !== id) return cost;
++            const newCost = { ...cost, [field]: value };
++
++            // Auto calc percentage if amount changes
++            if (field === 'amount' && financials.revenue > 0) {
++                newCost.percentage = Number(((value / financials.revenue) * 100).toFixed(2));
++            }
++            // Auto calc amount if percentage changes
++            if (field === 'percentage' && financials.revenue > 0) {
++                newCost.amount = Math.round((value / 100) * financials.revenue);
++            }
++            return newCost;
++        });
++        setExecutionCosts(newList);
+     };
+ 
+     // Reset to original contract data
+     const resetToOriginal = () => {
+         setLineItems(contract.lineItems || []);
+-        setAdminCosts(contract.adminCosts || {
+-            transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0
+-        });
++        setExecutionCosts(contract.executionCosts || []);
+         toast.info('─É├ú kh├┤i phß╗Ñc dß╗» liß╗çu tß╗½ Hß╗úp ─æß╗ông gß╗æc');
+     };
+ 
+@@ -297,12 +294,12 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+             ...supplierSchedules.map(p => ({ id: p.id, name: p.description, dueDate: p.date, amount: p.amount, type: 'Expense' as const }))
+         ];
+ 
+-        // 1. Update Contract with lineItems, adminCosts, paymentPhases
++        // 1. Update Contract with lineItems, executionCosts, paymentPhases
+         const { error: contractError } = await supabase
+             .from('contracts')
+             .update({
+                 line_items: lineItems,
+-                admin_costs: adminCosts,
++                execution_costs: executionCosts,
+                 payment_phases: allPaymentPhases,
+                 value: financials.revenue,
+                 estimated_cost: financials.costs
+@@ -325,7 +322,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+                 grossProfit: profit,
+                 margin: margin,
+                 lineItems: lineItems,
+-                adminCosts: adminCosts,
++                executionCosts: executionCosts,
+                 cashflow: allPaymentPhases
+             },
+             is_active: true,
+@@ -533,6 +530,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+                                     <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">Gi├í ─Éß║ºu v├áo</th>
+                                     <th className="px-3 py-3 font-bold text-cyan-500 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">TT ─Éß║ºu v├áo</th>
+                                     <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">Gi├í ─Éß║ºu ra</th>
++                                    <th className="px-2 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-center w-[80px]">VAT</th>
+                                     <th className="px-3 py-3 font-bold text-indigo-400 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">TT ─Éß║ºu ra</th>
+                                     <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[110px] whitespace-nowrap">CP Trß╗▒c tiß║┐p</th>
+                                     <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[110px] whitespace-nowrap">Ch├¬nh lß╗çch</th>
+@@ -672,9 +670,31 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+                                                     <span className="font-bold text-orange-600 dark:text-orange-400">{formatVND(item.outputPrice)}</span>
+                                                 )}
+                                             </td>
++                                            {/* VAT Rate */}
++                                            <td className="px-2 py-3 text-center">
++                                                {isEditing ? (
++                                                    <div className="relative">
++                                                        <select
++                                                            value={item.vatRate ?? 10}
++                                                            onChange={(e) => updateLineItem(idx, 'vatRate', Number(e.target.value))}
++                                                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-1 py-1 text-center text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
++                                                        >
++                                                            <option value="0">0%</option>
++                                                            <option value="5">5%</option>
++                                                            <option value="8">8%</option>
++                                                            <option value="10">10%</option>
++                                                        </select>
++                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1 text-slate-500">
++                                                            <ArrowDownCircle size={10} />
++                                                        </div>
++                                                    </div>
++                                                ) : (
++                                                    <span className="text-slate-500 dark:text-slate-400">{item.vatRate ?? 10}%</span>
++                                                )}
++                                            </td>
+                                             {/* TT ─Éß║ºu ra */}
+                                             <td className="px-3 py-3 text-right">
+-                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatVND(outputTotal)}</span>
++                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatVND(outputTotal * (1 + (item.vatRate ?? 10) / 100))}</span>
+                                             </td>
+                                             {/* Direct Costs (Modal trigger) */}
+                                             <td className="px-4 py-3 text-right">
+@@ -756,8 +776,9 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+                                     <td className="px-4 py-3 text-right text-orange-600 dark:text-orange-400">
+                                         {formatVND(lineItems.reduce((acc, item) => acc + item.outputPrice, 0))}
+                                     </td>
++                                    <td></td>
+                                     <td className="px-3 py-3 text-right text-indigo-600 dark:text-indigo-400 font-black">
+-                                        {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0))}
++                                        {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100)), 0))}
+                                     </td>
+                                     <td className="px-4 py-3 text-right text-rose-500 dark:text-rose-400">
+                                         {formatVND(lineItems.reduce((acc, item) => acc + (item.directCosts || 0), 0))}
+@@ -771,71 +792,85 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
+                         </table>
+                     </div>
+ 
+-                    {/* 2.2 Admin Costs with % */}
++                    {/* 2.2 Execution Costs with % */}
+                     <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-lg border border-slate-100 dark:border-slate-800 space-y-4">
+-                        <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest flex items-center gap-2">
+-                            <Calculator size={14} /> Chi ph├¡ quß║ún l├╜ hß╗úp ─æß╗ông
+-                        </h4>
++                        <div className="flex justify-between items-center">
++                            <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest flex items-center gap-2">
++                                <Calculator size={14} /> Chi ph├¡ quß║ún l├╜ & thß╗▒c hiß╗çn kh├íc
++                            </h4>
++                            {isEditing && (
++                                <button
++                                    onClick={addExecutionCost}
++                                    className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 border border-emerald-100 dark:border-emerald-800 hover:bg-emerald-100 transition-colors"
++                                >
++                                    <Plus size={12} /> Th├¬m chi ph├¡
++                                </button>
++                            )}
++                        </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+-                            {[
+-                                { key: 'transferFee', label: 'Ph├¡ chuyß╗ân tiß╗ün / Ng├ón h├áng' },
+-                                { key: 'contractorTax', label: 'Thuß║┐ nh├á thß║ºu (nß║┐u c├│)' },
+-                                { key: 'importFee', label: 'Ph├¡ nhß║¡p khß║⌐u / Logistics' },
+-                                { key: 'expertHiring', label: 'Chi ph├¡ thu├¬ kho├ín chuy├¬n m├┤n' },
+-                                { key: 'documentProcessing', label: 'Chi ph├¡ xß╗¡ l├╜ chß╗⌐ng tß╗½' }
+-                            ].map(item => (
+-                                <div key={item.key} className="space-y-1.5">
+-                                    <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 truncate block" title={item.label}>{item.label}</label>
++                            {executionCosts.length === 0 && !isEditing && (
++                                <p className="text-xs text-slate-400 italic">Ch╞░a c├│ chi ph├¡ phß╗Ñ.</p>
++                            )}
++                            {executionCosts.map((item, idx) => (
++                                <div key={item.id} className="space-y-1.5 bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50">
+                                     {isEditing ? (
+-                                        <div className="grid grid-cols-12 gap-2">
+-                                            {/* Percentage Input */}
+-                                            <div className="col-span-4 relative">
+-                                                <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
+-                                                    <Percent size={10} className="text-slate-400" />
+-                                                </div>
+-                                                <input
+-                                                    type="number"
+-                                                    step="0.1"
+-                                                    placeholder="%"
+-                                                    value={(adminCostPercentages as any)[item.key] || ''}
+-                                                    onChange={(e) => updateAdminCostByPercent(item.key as keyof AdministrativeCosts, Number(e.target.value))}
+-                                                    className="w-full pl-6 pr-1 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-orange-500 outline-none text-center"
+-                                                />
+-                                            </div>
+-                                            {/* Amount Input */}
+-                                            <div className="col-span-8 relative">
+-                                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
++                                        <div className="space-y-3">
++                                            <div className="flex items-center gap-2">
+                                                 <input
+                                                     type="text"
+-                                                    value={(adminCosts as any)[item.key] ? formatVND((adminCosts as any)[item.key]) : '0'}
+-                                                    onChange={(e) => {
+-                                                        const raw = e.target.value.replace(/\./g, '');
+-                                                        if (!/^\d*$/.test(raw)) return;
+-                                                        updateAdminCost(item.key as keyof AdministrativeCosts, Number(raw));
+-                                                    }}
+-                                                    className="w-full pl-8 pr-2 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-black focus:ring-2 focus:ring-rose-500 outline-none text-right text-rose-500"
++                                                    placeholder="T├¬n chi ph├¡..."
++                                                    value={item.name}
++                                                    onChange={(e) => updateExecutionCost(item.id, 'name', e.target.value)}
++                                                    className="w-full bg-transparent text-xs font-bold text-slate-600 dark:text-slate-300 focus:outline-none border-b border-dashed border-slate-300 dark:border-slate-600 focus:border-amber-500 pb-1 uppercase tracking-widest"
+                                                 />
++                                                <button onClick={() => removeExecutionCost(item.id)} className="text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={12} /></button>
++                                            </div>
++                                            <div className="grid grid-cols-12 gap-2">
++                                                <div className="col-span-4 relative">
++                                                    <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-400 text-[10px] font-bold">%</div>
++                                                    <input
++                                                        type="number"
++                                                        step="0.1"
++                                                        value={item.percentage || ''}
++                                                        onChange={(e) => updateExecutionCost(item.id, 'percentage', Number(e.target.value))}
++                                                        className="w-full pl-6 pr-1 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-500 outline-none text-center"
++                                                    />
++                                                </div>
++                                                <div className="col-span-8 relative">
++                                                    <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-300" size={10} />
++                                                    <input
++                                                        type="text"
++                                                        value={item.amount ? formatVND(item.amount) : '0'}
++                                                        onChange={(e) => {
++                                                            const raw = e.target.value.replace(/\./g, '');
++                                                            if (!/^\d*$/.test(raw)) return;
++                                                            updateExecutionCost(item.id, 'amount', Number(raw));
++                                                        }}
++                                                        className="w-full pl-6 pr-2 py-1.5 bg-rose-50 dark:bg-rose-900/20 border border-slate-200 dark:border-slate-700 rounded text-xs font-black focus:ring-1 focus:ring-rose-500 outline-none text-right text-rose-500"
++                                                    />
++                                                </div>
+                                             </div>
+                                         </div>
+                                     ) : (
+-                                        <p className="text-sm font-bold text-rose-500 dark:text-rose-400 py-2">
+-                                            {formatVND((adminCosts as any)[item.key] || 0)}
+-                                            {(adminCostPercentages as any)[item.key] > 0 && (
+-                                                <span className="text-xs text-slate-400 font-medium ml-2">
+-                                                    ({(adminCostPercentages as any)[item.key]}%)
+-                                                </span>
+-                                            )}
+-                                        </p>
++                                        <div className="pt-1">
++                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1 truncate" title={item.name}>{item.name}</label>
++                                            <p className="text-sm font-bold text-rose-500 dark:text-rose-400">
++                                                {formatVND(item.amount || 0)}
++                                                {(item.percentage || 0) > 0 && (
++                                                    <span className="text-xs text-slate-400 font-medium ml-2">({item.percentage}%)</span>
++                                                )}
++                                            </p>
++                                        </div>
+                                     )}
+                                 </div>
+                             ))}
+                         </div>
+-                        {/* Total Admin Costs */}
++                        {/* Total Execution Costs */}
+                         <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-800">
+                             <div className="text-right">
+-                                <p className="text-[10px] text-slate-400 uppercase font-bold">Tß╗òng CP quß║ún l├╜</p>
++                                <p className="text-[10px] text-slate-400 uppercase font-bold">Tß╗òng CP kh├íc</p>
+                                 <p className="text-lg font-bold text-rose-500 dark:text-rose-400">
+-                                    {formatVND(Object.values(adminCosts).reduce((acc, val) => acc + (val || 0), 0))}
++                                    {formatVND(executionCosts.reduce((acc, cost) => acc + (cost.amount || 0), 0))}
+                                 </p>
+                             </div>
+                         </div>

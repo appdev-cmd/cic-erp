@@ -11,7 +11,6 @@ export interface FinancialTotals {
     totalDirectCosts: number;
     adminSum: number;
     executionCostsSum: number;
-    supplierDiscountAmount: number;
 }
 
 /**
@@ -28,20 +27,20 @@ export function useFinancialCalculations(
         let signingValue = 0;
         let totalInput = 0;
         let totalDirectCosts = 0;
-        let totalSupplierDiscount = 0;
         let estimatedRevenue = 0;
 
         lineItems.forEach(item => {
             const itemOutputTotal = item.quantity * item.outputPrice;
             const itemInputTotal = item.quantity * item.inputPrice;
             const itemVatRate = item.vatRate ?? 10;
-            const itemDiscount = item.supplierDiscount ?? 0;
 
             // Giá trị ký HĐ = Đầu ra × (1 + VAT%) cho từng SP
             signingValue += itemOutputTotal * (1 + itemVatRate / 100);
             totalInput += itemInputTotal;
-            totalDirectCosts += item.directCosts;
-            totalSupplierDiscount += itemInputTotal * (itemDiscount / 100);
+            // directCosts: dùng trực tiếp hoặc fallback từ directCostDetails
+            const directVal = item.directCosts || 0;
+            totalDirectCosts += directVal > 0 ? directVal
+                : ((item as any).directCostDetails || []).reduce((s: number, d: any) => s + (d.amount || 0), 0);
             // Doanh thu = giá đầu ra chưa VAT
             estimatedRevenue += itemOutputTotal;
         });
@@ -53,15 +52,18 @@ export function useFinancialCalculations(
         // Execution costs (Chi phí thực hiện hợp đồng - dynamic list)
         const executionCostsSum = executionCosts.reduce((acc, c) => acc + (c.amount || 0), 0);
 
-        // Total costs = Đầu vào + CP trực tiếp + CP thực hiện - Chiết khấu NCC (per item)
-        const totalCosts = totalInput + totalDirectCosts + executionCostsSum - totalSupplierDiscount;
-        const grossProfit = signingValue - totalCosts;
-        const profitMargin = signingValue > 0 ? (grossProfit / signingValue) * 100 : 0;
+        // Overhead: executionCosts ưu tiên, fallback adminCosts cho HĐ cũ
+        const overheadSum = executionCostsSum > 0 ? executionCostsSum : adminSum;
+
+        // Total costs = Đầu vào + CP trực tiếp + CP thực hiện/quản lý
+        const totalCosts = totalInput + totalDirectCosts + overheadSum;
+        // Lợi nhuận gộp = Doanh thu (trước VAT) - Tổng chi phí
+        const grossProfit = estimatedRevenue - totalCosts;
+        const profitMargin = estimatedRevenue > 0 ? (grossProfit / estimatedRevenue) * 100 : 0;
 
         return {
             signingValue, estimatedRevenue, totalCosts, grossProfit, profitMargin,
             totalInput, totalDirectCosts, adminSum, executionCostsSum,
-            supplierDiscountAmount: totalSupplierDiscount,
         };
     }, [lineItems, adminCosts, executionCosts]);
 }

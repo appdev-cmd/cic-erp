@@ -1,22 +1,63 @@
-import OpenAI from 'openai';
+import { supabase } from '../lib/supabase';
 
-interface ChatMessage {
-    role: 'user' | 'model' | 'assistant' | 'system';
-    content: string;
+// Lấy Custom Key từ LocalStorage
+function getCustomOpenAIKey(): string | null {
+    try { return localStorage.getItem('cic_custom_openai_key') || null; }
+    catch { return null; }
 }
 
-// Helper to create client based on provider
-const createClient = (provider: 'openai' | 'deepseek') => {
+function getCustomDeepseekKey(): string | null {
+    try { return localStorage.getItem('cic_custom_deepseek_key') || null; }
+    catch { return null; }
+}
+
+// ─── Helper: Gọi Edge Function an toàn ─────────────────────
+async function callEdgeFunction(action: string, payload: Record<string, any>): Promise<any> {
+    const { data, error } = await supabase.functions.invoke('ai-proxy', {
+        body: { action, ...payload },
+    });
+
+    if (error) {
+        console.warn(`[AI Proxy] Edge Function lỗi (${action}):`, error.message);
+        throw new Error(error.message);
+    }
+
+    return data;
+}
+
+// ─── Kiểm tra Edge Function có sẵn không ───────────────────
+let edgeFunctionAvailable: boolean | null = null;
+
+async function isEdgeFunctionAvailable(): Promise<boolean> {
+    if (edgeFunctionAvailable !== null) return edgeFunctionAvailable;
+
+    try {
+        // Thử gọi với action không hợp lệ để kiểm tra kết nối
+        await supabase.functions.invoke('ai-proxy', {
+            body: { action: 'ping', provider: 'deepseek' }, // ping to check
+        });
+        edgeFunctionAvailable = true;
+    } catch {
+        edgeFunctionAvailable = false;
+    }
+    return edgeFunctionAvailable;
+}
+
+// Helper to create client based on provider for Direct Calls (Fallback)
+const createDirectClient = async (provider: 'openai' | 'deepseek') => {
+    // Dynamic import to avoid bundling if not used locally
+    const { default: OpenAI } = await import('openai');
+
     if (provider === 'openai') {
-        const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-        if (!apiKey) throw new Error("Missing VITE_OPENAI_API_KEY");
+        const apiKey = getCustomOpenAIKey() || import.meta.env.VITE_OPENAI_API_KEY;
+        if (!apiKey) throw new Error("Missing OpenAI API Key. Vui lòng cấu hình trong Cài đặt.");
         return new OpenAI({
             apiKey: apiKey,
             dangerouslyAllowBrowser: true // Client-side usage
         });
     } else {
-        const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
-        if (!apiKey) throw new Error("Missing VITE_DEEPSEEK_API_KEY");
+        const apiKey = getCustomDeepseekKey() || import.meta.env.VITE_DEEPSEEK_API_KEY;
+        if (!apiKey) throw new Error("Missing DeepSeek API Key. Vui lòng cấu hình trong Cài đặt.");
         return new OpenAI({
             baseURL: 'https://api.deepseek.com',
             apiKey: apiKey,
@@ -24,8 +65,6 @@ const createClient = (provider: 'openai' | 'deepseek') => {
         });
     }
 };
-
-// TODO: Migrate OpenAI/DeepSeek calls to Edge Function (like gemini-proxy) to avoid exposing API keys client-side
 
 export async function* streamOpenAIChat(
     history: { role: 'user' | 'model', content: string }[],
@@ -39,7 +78,45 @@ export async function* streamOpenAIChat(
         if (signal?.aborted) return;
 
         const provider = modelId.includes('deepseek') ? 'deepseek' : 'openai';
-        const client = createClient(provider);
+        const customKey = provider === 'deepseek' ? getCustomDeepseekKey() : getCustomOpenAIKey();
+        const shouldUseEdge = !customKey && await isEdgeFunctionAvailable();
+
+        if (shouldUseEdge) {
+            const { data, error } = await supabase.functions.invoke('ai-proxy', {
+                body: {
+                    action: 'chat',
+                    provider,
+                    history,
+                    newMessage,
+                    modelId,
+                    systemInstruction,
+                },
+            });
+
+            if (error) throw error;
+
+            // Parse SSE text
+            if (typeof data === 'string') {
+                const lines = data.split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const parsed = JSON.parse(line.slice(6));
+                            if (parsed.text) yield parsed.text;
+                        } catch {
+                            // skip invalid lines
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
+        // --- Fallback Direct Call ---
+        const client = await createDirectClient(provider);
+
+        let apiModelId = modelId;
+        if (modelId === 'deepseek-r1') apiModelId = 'deepseek-reasoner';
 
         // Convert history format
         const messages: any[] = history.map(msg => ({
@@ -56,10 +133,10 @@ export async function* streamOpenAIChat(
         messages.push({ role: 'user', content: newMessage });
 
         const stream = await client.chat.completions.create({
-            model: modelId,
+            model: apiModelId,
             messages: messages,
             stream: true,
-            temperature: 0.7,
+            temperature: apiModelId === 'deepseek-reasoner' ? undefined : 0.7, // deepseek-reasoner ko cho phép chỉnh temperature
         });
 
         for await (const chunk of stream) {
@@ -75,14 +152,19 @@ export async function* streamOpenAIChat(
     } catch (error: any) {
         if (error?.name === 'AbortError' || signal?.aborted) return;
         console.error("OpenAI/DeepSeek Stream Error:", error);
-        yield `⚠️ Lỗi kết nối ${modelId}. Vui lòng kiểm tra API Key hoặc tín dụng.\n\nChi tiết: ${error instanceof Error ? error.message : String(error)}`;
+        yield `⚠️ Lỗi kết nối ${modelId}. Vui lòng kiểm tra API Key hoặc mạng.\n\nChi tiết: ${error instanceof Error ? error.message : String(error)}`;
     }
 }
 
 export async function analyzeContractWithDeepSeek(text: string): Promise<string> {
     try {
-        const client = createClient('deepseek');
+        const customKey = getCustomDeepseekKey();
+        if (!customKey && await isEdgeFunctionAvailable()) {
+            const data = await callEdgeFunction('analyze', { provider: 'deepseek', text });
+            return data.result;
+        }
 
+        const client = await createDirectClient('deepseek');
         const response = await client.chat.completions.create({
             model: 'deepseek-chat',
             messages: [
@@ -109,8 +191,13 @@ export async function analyzeContractWithDeepSeek(text: string): Promise<string>
 
 export async function querySystemDataWithDeepSeek(query: string, data: any): Promise<string> {
     try {
-        const client = createClient('deepseek');
+        const customKey = getCustomDeepseekKey();
+        if (!customKey && await isEdgeFunctionAvailable()) {
+            const resultData = await callEdgeFunction('query', { provider: 'deepseek', query, data });
+            return resultData.result;
+        }
 
+        const client = await createDirectClient('deepseek');
         const response = await client.chat.completions.create({
             model: 'deepseek-chat',
             messages: [
@@ -135,7 +222,13 @@ export async function querySystemDataWithDeepSeek(query: string, data: any): Pro
 
 export async function getSmartInsightsWithDeepSeek(contracts: any[]): Promise<any[]> {
     try {
-        const client = createClient('deepseek');
+        const customKey = getCustomDeepseekKey();
+        if (!customKey && await isEdgeFunctionAvailable()) {
+            const data = await callEdgeFunction('insights', { provider: 'deepseek', contracts });
+            return data.result;
+        }
+
+        const client = await createDirectClient('deepseek');
 
         // Simplify data to reduce token usage
         const simplifiedData = contracts.map(c => ({
@@ -164,8 +257,7 @@ export async function getSmartInsightsWithDeepSeek(contracts: any[]): Promise<an
                     Dữ liệu mẫu: ${JSON.stringify(sample)}`
                 }
             ],
-            response_format: { type: 'json_object' }, // DeepSeek might support json_object or text. Better to be safe with text but prompt for JSON.
-            // Note: OpenAI SDK 'json_object' works if model supports it. DeepSeek V3 typically does.
+            response_format: { type: 'json_object' },
             temperature: 0.3,
         });
 

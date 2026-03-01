@@ -1,5 +1,5 @@
 import { dataClient as supabase } from '../lib/dataClient';
-import { Contract } from '../types';
+import { Contract, ExecutionCostItem } from '../types';
 
 // Error messages in Vietnamese for better UX
 const ERROR_MESSAGES = {
@@ -136,6 +136,17 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
             executionCosts: data.executionCosts || [],
             revenueSchedules: (data as any).revenueSchedules || []
         };
+
+        // Sync estimated_cost from executionCosts so dashboard aggregates stay fresh
+        if (data.executionCosts) {
+            const execSum = (data.executionCosts as ExecutionCostItem[]).reduce(
+                (sum, c) => sum + (c.amount || 0), 0
+            );
+            const inputSum = (data.lineItems || []).reduce(
+                (sum: number, li: any) => sum + (li.inputPrice || 0) * (li.quantity || 1) + (li.directCosts || 0), 0
+            );
+            payload.estimated_cost = inputSum + execSum;
+        }
     }
 
     // Handle unitAllocations JSONB field (QĐ 09.2024)
@@ -165,6 +176,44 @@ const logOperation = async (
     }
 };
 
+// ============================================================================
+// SHARED FINANCIAL CALCULATORS (Pure functions — reusable across service)
+// ============================================================================
+
+/**
+ * Calculate revenue from payments, excluding VAT.
+ * Reused by mapContract, getStats, getStatsFallback.
+ */
+export const calculateRevenueFromPayments = (
+    payments: any[],
+    vatRate: number = 10,
+    hasVat: boolean = true,
+    fallbackRevenue: number = 0
+): number => {
+    const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+    const revenuePayments = payments.filter(
+        (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
+            ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status)
+    );
+    const invoicedGross = revenuePayments.reduce(
+        (sum: number, p: any) => sum + (Number(p.amount) || 0), 0
+    );
+    if (invoicedGross > 0) {
+        return Math.round(invoicedGross / vatDivisor);
+    }
+    return fallbackRevenue;
+};
+
+/**
+ * Calculate cash received from payments (only money actually in bank).
+ */
+export const calculateCashReceived = (payments: any[]): number => {
+    return payments
+        .filter((p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
+            ['Tiền về', 'Paid'].includes(p.status))
+        .reduce((sum: number, p: any) => sum + (Number(p.paid_amount) || 0), 0);
+};
+
 // Helper to map DB Contract to Frontend Contract
 const mapContract = (c: any): Contract => {
     if (!c) return {
@@ -175,6 +224,8 @@ const mapContract = (c: any): Contract => {
         stage: 'Signed',
         value: 0
     } as any; // Partial fallback
+
+    const payments: any[] = c.payments || [];
 
     return {
         id: c.id || 'unknown',
@@ -208,33 +259,18 @@ const mapContract = (c: any): Contract => {
         contacts: c.contacts || [],
         milestones: c.milestones || [],
         paymentPhases: c.payment_phases || [],
-        // Map details from JSONB
-        lineItems: c.details?.lineItems || [],
+        // Map details from JSONB (single source of truth)
+        lineItems: c.details?.lineItems || c.line_items || [],
         adminCosts: c.details?.adminCosts || undefined,
-        executionCosts: c.details?.executionCosts || [],
+        executionCosts: c.details?.executionCosts || c.execution_costs || [],
         revenueSchedules: c.details?.revenueSchedules || [],
         documents: c.documents || [],
         draft_url: c.draft_url || undefined,
-        // Doanh thu: tính từ hoá đơn đã xuất, TRỪ THUẾ VAT
-        actualRevenue: (() => {
-            const payments: any[] = c.payments || [];
-            const vatRate = c.vat_rate ?? 10;
-            const hasVat = c.has_vat !== false;
-            const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
-            const invoicedRevenue = payments
-                .filter((p: any) => (p.payment_type === 'Revenue' || !p.payment_type) && ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status))
-                .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-            const revenueBeforeVat = Math.round(invoicedRevenue / vatDivisor);
-            // Ưu tiên doanh thu từ hoá đơn, fallback về actual_revenue từ contract
-            return invoicedRevenue > 0 ? revenueBeforeVat : (c.actual_revenue || 0);
-        })(),
-        // Tiền về: chỉ tính payments đã nhận tiền thực tế
-        cashReceived: (() => {
-            const payments: any[] = c.payments || [];
-            return payments
-                .filter((p: any) => (p.payment_type === 'Revenue' || !p.payment_type) && ['Tiền về', 'Paid'].includes(p.status))
-                .reduce((sum: number, p: any) => sum + (Number(p.paid_amount) || 0), 0);
-        })(),
+        // Revenue & Cash — calculated from payments using shared pure functions
+        actualRevenue: calculateRevenueFromPayments(
+            payments, c.vat_rate ?? 10, c.has_vat !== false, c.actual_revenue || 0
+        ),
+        cashReceived: calculateCashReceived(payments),
         // Parallel approval workflow fields
         legal_approved: c.legal_approved || false,
         finance_approved: c.finance_approved || false
@@ -813,19 +849,25 @@ export const ContractService = {
         if (unitId !== 'all') {
             query = query.eq('unit_id', unitId);
         }
-        const { data, error } = await query;
+        const { data, error } = await query.order('created_at', { ascending: false }).limit(500);
         if (error) throw error;
         return data.map(mapContract);
     },
 
     getByCustomerId: async (customerId: string): Promise<Contract[]> => {
-        const { data, error } = await supabase.from('contracts').select('*').eq('customer_id', customerId);
+        const { data, error } = await supabase.from('contracts').select('*')
+            .eq('customer_id', customerId)
+            .order('created_at', { ascending: false })
+            .limit(200);
         if (error) throw error;
         return data.map(mapContract);
     },
 
     getBySalespersonId: async (salespersonId: string): Promise<Contract[]> => {
-        const { data, error } = await supabase.from('contracts').select('*').eq('employee_id', salespersonId);
+        const { data, error } = await supabase.from('contracts').select('*')
+            .eq('employee_id', salespersonId)
+            .order('created_at', { ascending: false })
+            .limit(200);
         if (error) throw error;
         return data.map(mapContract);
     },
@@ -834,7 +876,9 @@ export const ContractService = {
         const { data, error } = await supabase
             .from('contracts')
             .select('*')
-            .eq('employee_id', employeeId);
+            .eq('employee_id', employeeId)
+            .order('created_at', { ascending: false })
+            .limit(200);
 
         if (error) throw error;
         return data.map(mapContract);

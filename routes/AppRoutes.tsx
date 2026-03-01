@@ -27,6 +27,8 @@ import {
     LazySettingsPage as SettingsPage,
     LazyUserGuidePage as UserGuidePage,
     LazyDocumentManagerPage as DocumentManagerPage,
+    LazyToolsPage as ToolsPage,
+    LazyChatPage as ChatPage,
 } from '../components/LazyPages';
 
 // Route Configuration
@@ -56,6 +58,12 @@ export const router = createBrowserRouter([
 
             // AI Assistant
             { path: 'ai-assistant', element: <AIAssistantPage /> },
+
+            // Tools
+            { path: 'tools/*', element: <ToolsPage /> },
+
+            // Chat
+            { path: 'chat', element: <ChatPage /> },
 
             // Personnel
             { path: 'personnel', element: <PersonnelListPage /> },

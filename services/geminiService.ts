@@ -25,6 +25,15 @@ async function callEdgeFunction(action: string, payload: Record<string, any>): P
   return data;
 }
 
+// ─── Helper: Lấy Custom API Key từ LocalStorage ──────────────
+function getCustomGeminiKey(): string | null {
+  try {
+    return localStorage.getItem('cic_custom_gemini_key') || null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Kiểm tra Edge Function có sẵn không ───────────────────
 let edgeFunctionAvailable: boolean | null = null;
 
@@ -43,11 +52,11 @@ async function isEdgeFunctionAvailable(): Promise<boolean> {
   return edgeFunctionAvailable;
 }
 
-// ─── Fallback: Gọi trực tiếp (chỉ dùng dev local) ─────────
-async function directGeminiCall(action: string, payload: Record<string, any>): Promise<string> {
-  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+// ─── Fallback/Custom: Gọi trực tiếp ─────────
+async function directGeminiCall(action: string, payload: Record<string, any>, customKey?: string | null): Promise<any> {
+  const apiKey = customKey || import.meta.env.VITE_GOOGLE_API_KEY;
   if (!apiKey) {
-    return '⚠️ Chưa cấu hình AI. Deploy Edge Function hoặc thêm VITE_GOOGLE_API_KEY vào .env (chỉ dev).';
+    return '⚠️ Chưa cấu hình AI. Deploy Edge Function hoặc cung cấp API Key cá nhân trong cài đặt.';
   }
 
   // Dynamic import để không tăng bundle khi dùng Edge Function
@@ -71,7 +80,22 @@ async function directGeminiCall(action: string, payload: Record<string, any>): P
     return result.response.text();
   }
 
-  return '⚠️ Action không được hỗ trợ ở chế độ fallback.';
+  if (action === 'insights') {
+    // Implement direct fallback for insights
+    const sample = payload.contracts.sort(() => 0.5 - Math.random()).slice(0, 40);
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: `Bạn là chuyên gia phân tích dữ liệu. Vui lòng nhận xét về tình hình kinh doanh ngắn gọn dựa trên danh sách hợp đồng sau:\n\n${JSON.stringify(sample)}\n\nOutput JSON format STRICTLY: [{"title": "Title", "content": "Content", "type": "warning|info|success"}]` }] }],
+      generationConfig: { temperature: 0.3, responseMimeType: "application/json" },
+    });
+    const content = result.response.text();
+    try {
+      return JSON.parse(content);
+    } catch {
+      return [{ title: "Lỗi parsing", content: "Không thể phân tích phản hồi từ Gemini", type: "warning" }];
+    }
+  }
+
+  return '⚠️ Action không được hỗ trợ ở chế độ này.';
 }
 
 
@@ -81,6 +105,11 @@ async function directGeminiCall(action: string, payload: Record<string, any>): P
 
 export async function analyzeContract(text: string): Promise<string> {
   try {
+    const customKey = getCustomGeminiKey();
+    if (customKey) {
+      return await directGeminiCall('analyze', { text }, customKey);
+    }
+
     if (await isEdgeFunctionAvailable()) {
       const data = await callEdgeFunction('analyze', { text });
       return data.result;
@@ -94,6 +123,11 @@ export async function analyzeContract(text: string): Promise<string> {
 
 export async function querySystemData(query: string, data: any): Promise<string> {
   try {
+    const customKey = getCustomGeminiKey();
+    if (customKey) {
+      return await directGeminiCall('query', { query, data }, customKey);
+    }
+
     if (await isEdgeFunctionAvailable()) {
       const result = await callEdgeFunction('query', { query, data });
       return result.result;
@@ -106,13 +140,18 @@ export async function querySystemData(query: string, data: any): Promise<string>
 
 export async function getSmartInsights(contracts: any[]) {
   try {
+    const customKey = getCustomGeminiKey();
+    if (customKey) {
+      return await directGeminiCall('insights', { contracts }, customKey);
+    }
+
     if (await isEdgeFunctionAvailable()) {
       const data = await callEdgeFunction('insights', { contracts });
       return data.result;
     }
 
-    // Fallback: Trả về insights mặc định
-    return [{ title: 'AI Insights chưa khả dụng', content: 'Vui lòng deploy Edge Function gemini-proxy để kích hoạt.', type: 'warning' }];
+    // Fallback: Nếu không có edge function và ko có key custom
+    return [{ title: 'AI Insights chưa khả dụng', content: 'Vui lòng cung cấp API Key cá nhân trong Cài đặt hoặc deploy Edge Function gemini-proxy.', type: 'warning' }];
   } catch (error) {
     console.error('Insight Error:', error);
     return [];
@@ -130,7 +169,11 @@ export async function* streamGeminiChat(
   try {
     // Check abort before starting
     if (signal?.aborted) return;
-    if (await isEdgeFunctionAvailable()) {
+
+    const customKey = getCustomGeminiKey();
+    const shouldUseEdge = !customKey && await isEdgeFunctionAvailable();
+
+    if (shouldUseEdge) {
       // Gọi Edge Function với streaming
       const { data, error } = await supabase.functions.invoke('gemini-proxy', {
         body: {
@@ -163,19 +206,18 @@ export async function* streamGeminiChat(
       return;
     }
 
-    // ─── Fallback: Gọi trực tiếp (chỉ dev local) ───────────
-    const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+    // ─── Fallback/Custom: Gọi trực tiếp ───────────
+    const apiKey = customKey || import.meta.env.VITE_GOOGLE_API_KEY;
     if (!apiKey) throw new Error('Missing API Key');
 
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    const validModelId = modelId === 'gemini-2.0-flash' ? 'gemini-2.0-flash'
-      : modelId === 'gemini-1.5-pro' ? 'gemini-1.5-pro-latest'
-        : modelId === 'gemini-pro' ? 'gemini-pro'
-          : 'gemini-1.5-flash-latest';
+    let validModelId = modelId;
+    // Fallback security on missing
+    if (!validModelId || validModelId === 'gemini-pro') validModelId = 'gemini-1.5-flash';
 
-    const model = genAI.getGenerativeModel({
+    let model = genAI.getGenerativeModel({
       model: validModelId,
       systemInstruction: systemInstruction || 'Bạn là Trợ lý AI Enterprise của hệ thống ContractPro. Trả lời chuyên nghiệp, ngắn gọn, Format dạng Markdown đẹp mắt.',
     });
@@ -190,16 +232,39 @@ export async function* streamGeminiChat(
       parts: [{ text: msg.content }],
     }));
 
-    const chat = model.startChat({
+    let chat = model.startChat({
       history: chatHistory,
       generationConfig: { temperature: 0.3 },
     });
 
-    const result = await chat.sendMessageStream(newMessage);
-    for await (const chunk of result.stream) {
-      if (signal?.aborted) return;
-      const chunkText = chunk.text();
-      if (chunkText) yield chunkText;
+    try {
+      const result = await chat.sendMessageStream(newMessage);
+      for await (const chunk of result.stream) {
+        if (signal?.aborted) return;
+        const chunkText = chunk.text();
+        if (chunkText) yield chunkText;
+      }
+    } catch (err: any) {
+      if (validModelId.includes('2.0') && (String(err).includes('404') || String(err).includes('not found') || String(err).includes('not support'))) {
+        // Fallback to 1.5 flash
+        model = genAI.getGenerativeModel({
+          model: 'gemini-1.5-flash',
+          systemInstruction: systemInstruction || 'Bạn là Trợ lý AI Enterprise của hệ thống ContractPro.',
+        });
+        chat = model.startChat({
+          history: chatHistory,
+          generationConfig: { temperature: 0.3 },
+        });
+        yield "*(Hệ thống đã tự động chuyển sang Gemini 1.5 Flash do bản 2.0 chưa được cấp quyền truy cập với API Key này)*\n\n";
+        const result = await chat.sendMessageStream(newMessage);
+        for await (const chunk of result.stream) {
+          if (signal?.aborted) return;
+          const chunkText = chunk.text();
+          if (chunkText) yield chunkText;
+        }
+      } else {
+        throw err;
+      }
     }
 
   } catch (error: any) {

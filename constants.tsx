@@ -9,7 +9,9 @@ import {
   Building2,
   Package,
   HelpCircle,
-  FolderOpen
+  FolderOpen,
+  Wrench,
+  MessageCircle
 } from 'lucide-react';
 import { Contract, Unit, ImplementationStage, ContractType, Employee, Customer, Product, ProductCategory, Payment, PaymentStatus, PaymentMethod, UserRole, PlanStatus } from './types';
 
@@ -164,6 +166,8 @@ export const NAV_ITEMS = [
   { id: 'payments', label: 'Tài chính', icon: <Package size={20} /> },
   { id: 'analytics', label: 'Thống kê', icon: <PieChart size={20} /> },
   { id: 'ai-assistant', label: 'AI Phân tích', icon: <BrainCircuit size={20} /> },
+  { id: 'tools', label: 'Công cụ', icon: <Wrench size={20} /> },
+  { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
   { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} /> },
 
   // Danh mục

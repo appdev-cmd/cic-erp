@@ -4,17 +4,17 @@ export { default as FinancialSummary } from './FinancialSummary';
 export { default as FormHeader } from './FormHeader';
 export { PAKDImportButton } from './PAKDImportButton';
 
-// Hooks
+// Utilities (consolidated in contractFormUtils)
 export {
-    useContractCalculations,
     formatVND,
     calculateLineMargin,
     generateContractId,
     getClientInitials,
-} from './useContractCalculations';
-
-// Types
-export type { ContractTotals, UseContractCalculationsProps } from './useContractCalculations';
+    parseVND,
+    STATUS_COLORS,
+    CONTRACT_TYPE_PREFIXES,
+    DEFAULT_ADMIN_COSTS,
+} from './contractFormUtils';
 
 export interface FinancialTotals {
     signingValue: number;

@@ -103,23 +103,32 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
 
     useEffect(() => {
         const signingValue = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100)), 0);
+        // Doanh thu chưa VAT
         const estimatedRevenue = lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice), 0);
         const totalInput = lineItems.reduce((acc, item) => acc + (item.quantity * item.inputPrice), 0);
-        const totalDirectCosts = lineItems.reduce((acc, item) => acc + (item.directCosts || 0), 0);
+        // directCosts: dùng trực tiếp hoặc fallback từ directCostDetails
+        const totalDirectCosts = lineItems.reduce((acc, item) => {
+            const directVal = item.directCosts || 0;
+            if (directVal > 0) return acc + directVal;
+            const detailsSum = (item.directCostDetails || []).reduce((s: number, d: any) => s + (d.amount || 0), 0);
+            return acc + detailsSum;
+        }, 0);
+
         const executionSum = executionCosts.reduce((acc, cost) => acc + (cost.amount || 0), 0);
 
-        // Note: executionCosts already includes diverse fees
-        // So totalDirectCosts is NOT added separately to avoid double-counting
-        const costs = totalInput + executionSum;
-        // Lợi nhuận gộp = Doanh thu (chưa VAT) - Chi phí
+        // Chi phí thực tế = Đầu vào + Direct + Chi phí thực hiện
+        const costs = totalInput + totalDirectCosts + executionSum;
+
+        // Lợi nhuận gộp = Doanh thu (-VAT) - Tổng Chi phí
         const grossProfit = estimatedRevenue - costs;
+
         // Margin = Lợi nhuận / Doanh thu (chưa VAT)
         const margin = estimatedRevenue > 0 ? (grossProfit / estimatedRevenue) * 100 : 0;
 
         setFinancials({
             signingValue: signingValue,
             estimatedRevenue: estimatedRevenue,
-            revenue: signingValue,
+            revenue: estimatedRevenue,
             costs: costs,
             margin: margin,
             grossProfit: grossProfit
@@ -139,8 +148,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
             outputPrice: 0,
             directCosts: 0,
             directCostDetails: [],
-            vatRate: 10,
-            supplierDiscount: 0
+            vatRate: 10
         }]);
     };
 
@@ -268,23 +276,10 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                 setReviews([]);
             }
 
-            setFinancials({
-                signingValue: data.financials.signingValue || contract.value || 0,
-                estimatedRevenue: data.financials.estimatedRevenue || data.financials.revenue || 0,
-                revenue: data.financials.revenue || contract.value || 0,
-                costs: data.financials.costs || contract.estimatedCost || 0,
-                margin: data.financials.margin || 0,
-                grossProfit: data.financials.grossProfit || 0
-            });
+            // NOTE: KHÔNG setFinancials từ saved plan — financials luôn tính real-time 
+            // từ lineItems + executionCosts qua useEffect để tránh stale data
         } else {
-            setFinancials({
-                signingValue: contract.value || 0,
-                estimatedRevenue: contract.value || 0,
-                revenue: contract.value || 0,
-                costs: contract.estimatedCost || 0,
-                margin: contract.value ? ((contract.value - (contract.estimatedCost || 0)) / contract.value) * 100 : 0,
-                grossProfit: (contract.value || 0) - (contract.estimatedCost || 0)
-            });
+            // No plan exists — financials sẽ được tính bởi useEffect từ lineItems
         }
         setIsLoading(false);
     };
@@ -558,7 +553,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                             )}
                         </div>
                     </div>
-                    <div className="mb-8 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+                    <div className="mb-8 overflow-visible rounded-lg border border-slate-200 dark:border-slate-800">
                         <table className="w-full text-left text-xs min-w-[1200px]">
                             <thead className="bg-slate-50 dark:bg-slate-800">
                                 <tr>
@@ -861,7 +856,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                 <p className="text-xs text-slate-400 italic">Chưa có chi phí phụ.</p>
                             )}
                             {executionCosts.map((item, idx) => (
-                                <div key={item.id} className="space-y-1.5 bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700/50">
+                                <div key={item.id} className="space-y-1.5 bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
                                     {isEditing ? (
                                         <div className="space-y-3">
                                             <div className="flex items-center gap-2">

@@ -103,6 +103,7 @@ const MainLayout: React.FC = () => {
         if (path.startsWith('/payments')) return 'payments';
         if (path.startsWith('/analytics')) return 'analytics';
         if (path.startsWith('/ai-assistant')) return 'ai-assistant';
+        if (path.startsWith('/tools')) return 'tools';
         if (path.startsWith('/personnel')) return 'personnel';
         if (path.startsWith('/customers')) return 'customers';
         if (path.startsWith('/products')) return 'products';

@@ -325,43 +325,43 @@ Hệ thống tự động tính toán real-time khi bạn nhập dữ liệu:
 ### Các chỉ số chính
 
 ```
-Giá trị Ký kết = Σ (Số lượng × Giá Đầu ra) cho mỗi hạng mục
+Giá trị Ký kết = Σ (Số lượng × Giá Đầu ra × (1 + % VAT)) + Chiết khấu NCC
+
+Doanh thu (-VAT) / Doanh thu dự kiến = Σ (Số lượng × Giá Đầu ra)
 
 Tổng Đầu vào = Σ (Số lượng × Giá Đầu vào) cho mỗi hạng mục
 
 Chi phí Trực tiếp = Σ Chi phí trực tiếp của từng hạng mục
 
-Chi phí Thực hiện = Σ Tất cả chi phí thực hiện HĐ (dynamic list)
+Chi phí Thực hiện = Σ Các chi phí thực hiện HĐ (Công tác phí, Tiếp khách, Khác...)
 
-Chiết khấu NCC = Tổng Đầu vào × % Chiết khấu
+Tổng Chi phí = Tổng Đầu vào + Chi phí Thực hiện + Chi phí Trực tiếp
 
-Tổng Chi phí = Tổng Đầu vào + Chi phí Trực tiếp + Chi phí Thực hiện - Chiết khấu NCC
+Lợi nhuận Gộp = Doanh thu (-VAT) - Tổng Chi phí
 
-Lợi nhuận Gộp = Giá trị Ký kết - Tổng Chi phí
-
-Tỷ suất LN = (Lợi nhuận Gộp / Giá trị Ký kết) × 100%
-
-Doanh thu (có VAT) = Giá trị Ký kết / (1 + Thuế suất VAT)
-Doanh thu (không VAT) = Giá trị Ký kết
+Tỷ suất LN = (Lợi nhuận Gộp / Doanh thu (-VAT)) × 100%
 ```
 
 ### Ví dụ minh họa
 
-| Hạng mục | SL | Giá vào | Giá ra | CP TT |
+> **Giả sử:** Tất cả sản phẩm có VAT 10%. Giao dịch không có Chiết khấu NCC.
+
+| Hạng mục | SL | Giá vào | Giá ra (-VAT) | CP TT |
 |---|:---:|---:|---:|---:|
 | Phần mềm Revit | 5 | 8,000,000 | 12,000,000 | 0 |
 | Đào tạo BIM | 2 | 5,000,000 | 15,000,000 | 10,000,000 |
 | Tư vấn BEP | 1 | 0 | 50,000,000 | 0 |
 
 ```
-Giá trị Ký kết = (5×12M) + (2×15M) + (1×50M) = 140,000,000
-Tổng Đầu vào  = (5×8M) + (2×5M) + 0 = 50,000,000
-CP Trực tiếp  = 0 + 10,000,000 + 0 = 10,000,000
-Chiết khấu NCC (5%) = 50M × 5% = 2,500,000
+Doanh thu (-VAT)= (5×12M) + (2×15M) + (1×50M) = 140,000,000
+Giá trị Ký kết  = 140M × (1 + 10%) = 154,000,000
+Tổng Đầu vào    = (5×8M) + (2×5M) + 0 = 50,000,000
+CP Trực tiếp    = 0 + 10,000,000 + 0 = 10,000,000
+CP Thực hiện    = 5,000,000 (Ví dụ: Công tác phí)
 
-Tổng Chi phí  = 50M + 10M + 0 - 2.5M = 57,500,000
-Lợi nhuận Gộp = 140M - 57.5M = 82,500,000
-Tỷ suất LN    = 82.5M / 140M = 58.9%
+Tổng Chi phí    = 50M + 10M + 5M = 65,000,000
+Lợi nhuận Gộp   = 140M - 65M = 75,000,000
+Tỷ suất LN      = 75M / 140M = 53.6%
 ```
 
 ---

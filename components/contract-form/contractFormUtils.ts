@@ -3,6 +3,8 @@
  * Extracted from ContractForm.tsx to reduce duplication.
  */
 
+import { LineItem } from '../../types';
+
 /** Format number as Vietnamese Dong currency string */
 export const formatVND = (val: number): string =>
     new Intl.NumberFormat('vi-VN').format(Math.round(val));
@@ -14,9 +16,29 @@ export const parseVND = (str: string): number => {
 };
 
 /** Generate client initials from full name (max 5 chars) */
-export const getClientInitials = (clientName: string): string => {
+export const getClientInitials = (clientName: string, maxLength = 5): string => {
     if (!clientName) return 'KH';
-    return clientName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 5);
+    return clientName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, maxLength);
+};
+
+/** Calculate line item margin (per-item, ignores VAT) */
+export const calculateLineMargin = (item: LineItem): { margin: number; marginRate: number } => {
+    const inputTotal = item.quantity * item.inputPrice;
+    const outputTotal = item.quantity * item.outputPrice;
+    const margin = outputTotal - inputTotal - (item.directCosts || 0);
+    const marginRate = outputTotal > 0 ? (margin / outputTotal) * 100 : 0;
+    return { margin, marginRate };
+};
+
+/** Generate contract ID from components */
+export const generateContractId = (
+    unitCode: string,
+    sequenceNumber: number,
+    clientInitials: string,
+    year: number
+): string => {
+    const stt = sequenceNumber.toString().padStart(3, '0');
+    return `HĐ_${stt}/${unitCode}_${clientInitials}_${year}`;
 };
 
 /** Contract type prefixes for ID generation */
@@ -28,14 +50,15 @@ export const CONTRACT_TYPE_PREFIXES: Record<string, string> = {
 
 /** Status badge color mapping */
 export const STATUS_COLORS: Record<string, string> = {
+    'Draft': 'bg-slate-500/20 text-slate-400',
+    'Pending_Review': 'bg-orange-500/20 text-orange-400',
+    'Both_Approved': 'bg-teal-500/20 text-teal-400',
+    'Pending_Sign': 'bg-purple-500/20 text-purple-400',
     'Pending': 'bg-yellow-500/20 text-yellow-400',
+    'Processing': 'bg-blue-500/20 text-blue-400',
     'Active': 'bg-green-500/20 text-green-400',
-    'Completed': 'bg-blue-500/20 text-blue-400',
-    // CRM: Approval statuses hidden — will be re-enabled in CRM module
-    // 'Pending_Review': 'bg-orange-500/20 text-orange-400',
-    // 'Both_Approved': 'bg-teal-500/20 text-teal-400',
-    // 'Pending_Sign': 'bg-purple-500/20 text-purple-400',
-    // 'Rejected': 'bg-red-500/20 text-red-400',
+    'Completed': 'bg-green-500/20 text-green-400',
+    'Suspended': 'bg-red-500/20 text-red-400',
 };
 
 /** Default empty admin costs object */
@@ -46,3 +69,4 @@ export const DEFAULT_ADMIN_COSTS = {
     expertHiring: 0,
     documentProcessing: 0,
 };
+

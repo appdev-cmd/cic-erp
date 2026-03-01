@@ -3,9 +3,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
     Unit, Employee, Customer, Product, Contract, ContractType,
-    LineItem, ContractContact, PaymentSchedule, RevenueSchedule, AdministrativeCosts, DirectCostDetail
+    LineItem, ContractContact, PaymentSchedule, RevenueSchedule,
+    AdministrativeCosts, DirectCostDetail, ExecutionCostItem
 } from '../types';
 import { UnitService, CustomerService, ProductService, EmployeeService } from '../services';
+import { useFinancialCalculations } from './useFinancialCalculations';
 
 interface UseContractFormProps {
     contract?: Contract;
@@ -36,15 +38,18 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
 
     // ==================== STEP 2: LINE ITEMS ====================
     const [lineItems, setLineItems] = useState<LineItem[]>(
-        contract?.lineItems || [{ id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10, supplierDiscount: 0 }]
+        contract?.lineItems || [{ id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10 }]
     );
 
-    // ==================== STEP 2: ADMIN COSTS ====================
+    // ==================== STEP 2: ADMIN COSTS & EXECUTION COSTS ====================
     const [adminCosts, setAdminCosts] = useState<AdministrativeCosts>(
         contract?.adminCosts || { transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0 }
     );
     const [adminCostPercentages, setAdminCostPercentages] = useState<AdministrativeCosts>(
         { transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0 }
+    );
+    const [executionCosts, setExecutionCosts] = useState<ExecutionCostItem[]>(
+        contract?.executionCosts || []
     );
 
     // ==================== STEP 3: SCHEDULES ====================
@@ -110,35 +115,24 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
         }
     }, [contract]);
 
-    // ==================== COMPUTED VALUES ====================
-    const totals = useMemo(() => {
-        const signingValue = lineItems.reduce((sum, item) => sum + item.outputPrice * item.quantity, 0);
-        const estimatedRevenue = signingValue / 1.08; // Exclude VAT
-        const totalInputCosts = lineItems.reduce((sum, item) => sum + item.inputPrice * item.quantity, 0);
-        const totalDirectCosts = lineItems.reduce((sum, item) => sum + (item.directCosts || 0), 0);
-        const totalAdminCosts = Object.values(adminCosts).reduce((sum: number, val: any) => sum + (val || 0), 0);
-        const totalCosts = totalInputCosts + totalDirectCosts + totalAdminCosts;
-        const grossProfit = estimatedRevenue - totalCosts;
-        const profitMargin = estimatedRevenue > 0 ? (grossProfit / estimatedRevenue) * 100 : 0;
+    // ==================== COMPUTED VALUES (delegated to shared hook) ====================
+    const financials = useFinancialCalculations(lineItems, adminCosts, executionCosts);
 
+    const totals = useMemo(() => {
         const totalCashIn = paymentSchedules.reduce((sum, p) => sum + (p.amount || 0), 0);
         const totalCashOut = supplierSchedules.reduce((sum, p) => sum + (p.amount || 0), 0);
         const netCashFlow = totalCashIn - totalCashOut;
 
         return {
-            signingValue,
-            estimatedRevenue,
-            totalInputCosts,
-            totalDirectCosts,
-            totalAdminCosts,
-            totalCosts,
-            grossProfit,
-            profitMargin,
+            ...financials,
+            totalInputCosts: financials.totalInput,
+            totalDirectCosts: financials.totalDirectCosts,
+            totalAdminCosts: financials.adminSum,
             totalCashIn,
             totalCashOut,
             netCashFlow,
         };
-    }, [lineItems, adminCosts, paymentSchedules, supplierSchedules]);
+    }, [financials, paymentSchedules, supplierSchedules]);
 
     // Generate Contract ID
     const formContractId = useMemo(() => {
@@ -162,7 +156,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
     const addLineItem = useCallback(() => {
         setLineItems(prev => [...prev, {
             id: Date.now().toString(),
-            name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10, supplierDiscount: 0
+            name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10
         }]);
     }, []);
 
@@ -264,12 +258,13 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
             paymentPhases: allPhases,
             contacts,
             adminCosts,
-            status: 'Đang soạn' as const,
+            executionCosts,
+            status: 'Draft' as const,
         };
     }, [
         formContractId, contractType, title, clientName, customerId, signedDate,
         unitId, coordinatingUnitId, salespersonId, totals.signingValue,
-        lineItems, paymentSchedules, supplierSchedules, contacts, adminCosts
+        lineItems, paymentSchedules, supplierSchedules, contacts, adminCosts, executionCosts
     ]);
 
     return {
@@ -293,6 +288,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
         addLineItem, removeLineItem,
         adminCosts, setAdminCosts,
         adminCostPercentages, setAdminCostPercentages,
+        executionCosts, setExecutionCosts,
 
         // Step 3
         paymentSchedules, setPaymentSchedules,

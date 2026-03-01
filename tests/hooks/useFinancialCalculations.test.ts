@@ -13,7 +13,6 @@ const makeLineItem = (overrides: Partial<LineItem> = {}): LineItem => ({
     directCosts: 0,
     directCostDetails: [],
     vatRate: 10,
-    supplierDiscount: 0,
     ...overrides,
 });
 
@@ -32,24 +31,29 @@ describe('useFinancialCalculations', () => {
             useFinancialCalculations(items, defaultAdminCosts, [])
         );
 
-        expect(result.current.signingValue).toBe(2000);
+        // signingValue = 200 × 10 × 1.1 (VAT 10%) = 2200
+        expect(result.current.signingValue).toBe(2200);
         expect(result.current.totalInput).toBe(1000);
         expect(result.current.totalCosts).toBe(1000);
+        // grossProfit = estimatedRevenue - totalCosts = 2000 - 1000 = 1000
         expect(result.current.grossProfit).toBe(1000);
-        expect(result.current.profitMargin).toBe(50);
+        // profitMargin = grossProfit / estimatedRevenue × 100 = 50%
+        expect(result.current.profitMargin).toBeCloseTo(50, 1);
     });
 
-    it('calculates VAT-adjusted revenue correctly', () => {
+    it('calculates VAT-adjusted signing value and revenue correctly', () => {
         const items: LineItem[] = [
-            makeLineItem({ quantity: 1, outputPrice: 1100, vatRate: 10 }),
+            makeLineItem({ quantity: 1, outputPrice: 1000, vatRate: 10 }),
         ];
 
         const { result } = renderHook(() =>
             useFinancialCalculations(items, defaultAdminCosts, [])
         );
 
+        // signingValue = 1000 × 1 × 1.1 = 1100
         expect(result.current.signingValue).toBe(1100);
-        expect(result.current.estimatedRevenue).toBeCloseTo(1000, 2);
+        // estimatedRevenue = outputPrice (chưa VAT) = 1000
+        expect(result.current.estimatedRevenue).toBe(1000);
     });
 
     it('handles 0% VAT items', () => {
@@ -61,6 +65,8 @@ describe('useFinancialCalculations', () => {
             useFinancialCalculations(items, defaultAdminCosts, [])
         );
 
+        // signingValue = 1000 × 1.0 = 1000 (no VAT)
+        expect(result.current.signingValue).toBe(1000);
         expect(result.current.estimatedRevenue).toBe(1000);
     });
 
@@ -79,22 +85,26 @@ describe('useFinancialCalculations', () => {
 
         expect(result.current.executionCostsSum).toBe(80);
         expect(result.current.totalCosts).toBe(180); // 100 input + 80 exec
-        expect(result.current.grossProfit).toBe(20); // 200 - 180
+        // estimatedRevenue = 200; grossProfit = 200 - 180 = 20
+        expect(result.current.grossProfit).toBeCloseTo(20, 2);
     });
 
-    it('applies supplier discount per item', () => {
+    it('falls back to adminCosts when no executionCosts', () => {
         const items: LineItem[] = [
-            makeLineItem({ quantity: 10, inputPrice: 100, outputPrice: 200, supplierDiscount: 10 }),
+            makeLineItem({ quantity: 10, inputPrice: 100, outputPrice: 200 }),
         ];
+        const adminCosts: AdministrativeCosts = {
+            transferFee: 50, contractorTax: 30, importFee: 20,
+            expertHiring: 0, documentProcessing: 0,
+        };
 
         const { result } = renderHook(() =>
-            useFinancialCalculations(items, defaultAdminCosts, [])
+            useFinancialCalculations(items, adminCosts, [])
         );
 
-        // Discount = 10 * 100 * 10% = 100
-        expect(result.current.supplierDiscountAmount).toBe(100);
-        expect(result.current.totalCosts).toBe(900); // 1000 input - 100 discount
-        expect(result.current.grossProfit).toBe(1100); // 2000 - 900
+        // adminSum = 50 + 30 + 20 = 100; used as overhead since no execCosts
+        expect(result.current.adminSum).toBe(100);
+        expect(result.current.totalCosts).toBe(1100); // 1000 input + 100 admin overhead
     });
 
     it('handles empty line items gracefully', () => {
@@ -123,16 +133,17 @@ describe('useFinancialCalculations', () => {
 
     it('handles multiple line items with different VAT rates', () => {
         const items: LineItem[] = [
-            makeLineItem({ id: '1', quantity: 1, outputPrice: 1100, vatRate: 10 }),
-            makeLineItem({ id: '2', quantity: 1, outputPrice: 1080, vatRate: 8 }),
+            makeLineItem({ id: '1', quantity: 1, outputPrice: 1000, vatRate: 10 }),
+            makeLineItem({ id: '2', quantity: 1, outputPrice: 1000, vatRate: 8 }),
         ];
 
         const { result } = renderHook(() =>
             useFinancialCalculations(items, defaultAdminCosts, [])
         );
 
+        // signingValue = 1000×1.1 + 1000×1.08 = 1100 + 1080 = 2180
         expect(result.current.signingValue).toBe(2180);
-        // Revenue: 1100/1.1 + 1080/1.08 = 1000 + 1000 = 2000
-        expect(result.current.estimatedRevenue).toBeCloseTo(2000, 2);
+        // estimatedRevenue = 1000 + 1000 = 2000
+        expect(result.current.estimatedRevenue).toBe(2000);
     });
 });

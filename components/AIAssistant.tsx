@@ -16,7 +16,9 @@ import {
   BarChart3,
   ChevronDown,
   Zap,
-  Database
+  Database,
+  Settings,
+  X
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -97,6 +99,10 @@ const STORAGE_KEY = 'cic_ai_chat_history';
 const MODEL_STORAGE_KEY = 'cic_ai_model';
 const AGENT_STORAGE_KEY = 'cic_ai_agent';
 
+export const CUSTOM_GEMINI_KEY = 'cic_custom_gemini_key';
+export const CUSTOM_OPENAI_KEY = 'cic_custom_openai_key';
+export const CUSTOM_DEEPSEEK_KEY = 'cic_custom_deepseek_key';
+
 const saveMessages = (messages: Message[]) => {
   try {
     // Only save last 50 messages to avoid localStorage bloat
@@ -149,6 +155,11 @@ const AIAssistant: React.FC = () => {
   const [showAgentMenu, setShowAgentMenu] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>('chat');
 
+  const [showSettings, setShowSettings] = useState(false);
+  const [customGeminiKey, setCustomGeminiKey] = useState(() => localStorage.getItem(CUSTOM_GEMINI_KEY) || '');
+  const [customOpenAIKey, setCustomOpenAIKey] = useState(() => localStorage.getItem(CUSTOM_OPENAI_KEY) || '');
+  const [customDeepseekKey, setCustomDeepseekKey] = useState(() => localStorage.getItem(CUSTOM_DEEPSEEK_KEY) || '');
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -169,6 +180,14 @@ const AIAssistant: React.FC = () => {
   // ─── Persist model/agent selection ──────────────────────
   useEffect(() => { localStorage.setItem(MODEL_STORAGE_KEY, currentModel); }, [currentModel]);
   useEffect(() => { localStorage.setItem(AGENT_STORAGE_KEY, currentAgent); }, [currentAgent]);
+
+  const saveSettings = () => {
+    localStorage.setItem(CUSTOM_GEMINI_KEY, customGeminiKey);
+    localStorage.setItem(CUSTOM_OPENAI_KEY, customOpenAIKey);
+    localStorage.setItem(CUSTOM_DEEPSEEK_KEY, customDeepseekKey);
+    setShowSettings(false);
+    toast.success('Đã lưu cấu hình API Key!');
+  };
 
   // ─── Pre-fetch business context ────────────────────────
   const [systemContext, setSystemContext] = useState<string>('');
@@ -334,10 +353,10 @@ const AIAssistant: React.FC = () => {
   return (
     <div className={cn(
       "flex flex-col bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden transition-all duration-300",
-      isFullScreen ? "fixed inset-0 z-50 rounded-none m-0" : "rounded-[24px] h-[92vh] w-full max-w-7xl mx-auto my-2 relative"
+      isFullScreen ? "fixed inset-0 z-50 rounded-none m-0" : "rounded-[24px] h-[calc(100vh-6rem)] md:h-[calc(100vh-7rem)] lg:h-[calc(100vh-8.5rem)] min-h-[500px] w-full max-w-7xl mx-auto relative"
     )}>
       {/* ═══ Header ═══════════════════════════════════════ */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
+      <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 z-10 relative">
         <div className="flex items-center gap-3">
           <div className={cn(
             "w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none",
@@ -434,6 +453,13 @@ const AIAssistant: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all cursor-pointer"
+            title="Cài đặt API Key"
+          >
+            <Settings size={18} />
+          </button>
           <button
             onClick={clearChat}
             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all cursor-pointer"
@@ -600,6 +626,82 @@ const AIAssistant: React.FC = () => {
             </p>
           </div>
         </>
+      )}
+
+      {/* ═══ Settings Modal ════════════════════════════════ */}
+      {showSettings && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <Settings size={20} className="text-indigo-500" />
+                Cài đặt API Key cá nhân
+              </h3>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-4 md:p-6 space-y-4">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                Sử dụng API Key cá nhân của bạn để bỏ qua giới hạn của hệ thống. Key được lưu trữ an toàn ngay trên trình duyệt của bạn (localStorage).
+              </p>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 ml-1">Google Gemini API Key</label>
+                  <input
+                    type="password"
+                    value={customGeminiKey}
+                    onChange={(e) => setCustomGeminiKey(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 ml-1">OpenAI API Key (GPT-4o)</label>
+                  <input
+                    type="password"
+                    value={customOpenAIKey}
+                    onChange={(e) => setCustomOpenAIKey(e.target.value)}
+                    placeholder="sk-proj-..."
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 ml-1">DeepSeek API Key (R1/Chat)</label>
+                  <input
+                    type="password"
+                    value={customDeepseekKey}
+                    onChange={(e) => setCustomDeepseekKey(e.target.value)}
+                    placeholder="sk-..."
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 rounded-b-2xl">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-all"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={saveSettings}
+                className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 cursor-pointer shadow-md shadow-indigo-200 dark:shadow-none transition-all"
+              >
+                Lưu cài đặt
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
