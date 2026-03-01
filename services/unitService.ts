@@ -114,12 +114,12 @@ export const UnitService = {
         return true;
     },
 
-    getStats: async (id: string): Promise<any> => {
+    getStats: async (id: string, year?: number | null): Promise<any> => {
         try {
             const { data, error } = await supabase.rpc('get_kpi_stats', {
                 p_entity_id: id,
                 p_type: 'unit',
-                p_year: new Date().getFullYear()
+                p_year: year !== undefined ? year : new Date().getFullYear()
             });
 
             if (error) {
@@ -149,10 +149,10 @@ export const UnitService = {
         }
     },
 
-    getWithStats: async (year?: number): Promise<Unit[]> => {
+    getWithStats: async (year?: number | null): Promise<Unit[]> => {
         try {
             const { data, error } = await supabase.rpc('get_units_with_stats', {
-                p_year: year || new Date().getFullYear()
+                p_year: year !== undefined ? year : new Date().getFullYear()
             });
 
             if (error) {

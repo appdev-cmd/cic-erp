@@ -32,7 +32,7 @@ const ChatAISummary: React.FC<ChatAISummaryProps> = ({ roomId, onClose }) => {
     };
 
     return (
-        <div className="bg-gradient-to-b from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/10 border-b border-indigo-200 dark:border-indigo-800/30 px-4 py-3">
+        <div className="bg-gradient-to-b from-indigo-50 to-purple-50 dark:from-indigo-900 dark:to-purple-900 border-b border-indigo-200 dark:border-indigo-800 px-4 py-3">
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
@@ -45,13 +45,13 @@ const ChatAISummary: React.FC<ChatAISummaryProps> = ({ roomId, onClose }) => {
                 <div className="flex items-center gap-1">
                     {summary && (
                         <button onClick={handleCopy}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-white/50 dark:hover:bg-slate-800 transition-colors"
                             title="Copy">
                             {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                         </button>
                     )}
                     <button onClick={onClose}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors">
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800 transition-colors">
                         <X size={14} />
                     </button>
                 </div>

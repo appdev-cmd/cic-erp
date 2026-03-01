@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useFinancialCalculations } from '../../hooks/useFinancialCalculations';
-import { LineItem, AdministrativeCosts, ExecutionCostItem } from '../../types';
+import { LineItem, ExecutionCostItem } from '../../types';
 
 const makeLineItem = (overrides: Partial<LineItem> = {}): LineItem => ({
     id: '1',
@@ -16,11 +16,6 @@ const makeLineItem = (overrides: Partial<LineItem> = {}): LineItem => ({
     ...overrides,
 });
 
-const defaultAdminCosts: AdministrativeCosts = {
-    transferFee: 0, contractorTax: 0, importFee: 0,
-    expertHiring: 0, documentProcessing: 0,
-};
-
 describe('useFinancialCalculations', () => {
     it('calculates basic totals correctly', () => {
         const items: LineItem[] = [
@@ -28,7 +23,7 @@ describe('useFinancialCalculations', () => {
         ];
 
         const { result } = renderHook(() =>
-            useFinancialCalculations(items, defaultAdminCosts, [])
+            useFinancialCalculations(items, [])
         );
 
         // signingValue = 200 × 10 × 1.1 (VAT 10%) = 2200
@@ -47,7 +42,7 @@ describe('useFinancialCalculations', () => {
         ];
 
         const { result } = renderHook(() =>
-            useFinancialCalculations(items, defaultAdminCosts, [])
+            useFinancialCalculations(items, [])
         );
 
         // signingValue = 1000 × 1 × 1.1 = 1100
@@ -62,7 +57,7 @@ describe('useFinancialCalculations', () => {
         ];
 
         const { result } = renderHook(() =>
-            useFinancialCalculations(items, defaultAdminCosts, [])
+            useFinancialCalculations(items, [])
         );
 
         // signingValue = 1000 × 1.0 = 1000 (no VAT)
@@ -80,7 +75,7 @@ describe('useFinancialCalculations', () => {
         ];
 
         const { result } = renderHook(() =>
-            useFinancialCalculations(items, defaultAdminCosts, execCosts)
+            useFinancialCalculations(items, execCosts)
         );
 
         expect(result.current.executionCostsSum).toBe(80);
@@ -89,27 +84,9 @@ describe('useFinancialCalculations', () => {
         expect(result.current.grossProfit).toBeCloseTo(20, 2);
     });
 
-    it('falls back to adminCosts when no executionCosts', () => {
-        const items: LineItem[] = [
-            makeLineItem({ quantity: 10, inputPrice: 100, outputPrice: 200 }),
-        ];
-        const adminCosts: AdministrativeCosts = {
-            transferFee: 50, contractorTax: 30, importFee: 20,
-            expertHiring: 0, documentProcessing: 0,
-        };
-
-        const { result } = renderHook(() =>
-            useFinancialCalculations(items, adminCosts, [])
-        );
-
-        // adminSum = 50 + 30 + 20 = 100; used as overhead since no execCosts
-        expect(result.current.adminSum).toBe(100);
-        expect(result.current.totalCosts).toBe(1100); // 1000 input + 100 admin overhead
-    });
-
     it('handles empty line items gracefully', () => {
         const { result } = renderHook(() =>
-            useFinancialCalculations([], defaultAdminCosts, [])
+            useFinancialCalculations([], [])
         );
 
         expect(result.current.signingValue).toBe(0);
@@ -124,7 +101,7 @@ describe('useFinancialCalculations', () => {
         ];
 
         const { result } = renderHook(() =>
-            useFinancialCalculations(items, defaultAdminCosts, [])
+            useFinancialCalculations(items, [])
         );
 
         expect(result.current.totalDirectCosts).toBe(25);
@@ -138,7 +115,7 @@ describe('useFinancialCalculations', () => {
         ];
 
         const { result } = renderHook(() =>
-            useFinancialCalculations(items, defaultAdminCosts, [])
+            useFinancialCalculations(items, [])
         );
 
         // signingValue = 1000×1.1 + 1000×1.08 = 1100 + 1080 = 2180

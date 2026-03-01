@@ -14,11 +14,12 @@ interface ChatRoomProps {
     isOnline?: (userId: string) => boolean;
     onBack?: () => void;
     onMessageSent?: () => void;
+    onDeleteRoom?: (roomId: string) => void;
     allRooms?: ChatRoomWithDetails[]; // For forward message room selection
 }
 
 const ChatRoom: React.FC<ChatRoomProps> = ({
-    room, currentUserId, isOnline, onBack, onMessageSent, allRooms = [],
+    room, currentUserId, isOnline, onBack, onMessageSent, onDeleteRoom, allRooms = [],
 }) => {
     const [messages, setMessages] = useState<ChatMessageWithSender[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -152,8 +153,8 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
     // Empty state
     if (!room) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 gap-4">
-                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 flex items-center justify-center">
+            <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 gap-4">
+                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 flex items-center justify-center">
                     <span className="text-4xl">💬</span>
                 </div>
                 <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">CIC Internal Chat</h3>
@@ -189,6 +190,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
                 onShowPinned={() => setShowPinned(!showPinned)}
                 onShowAI={() => setShowAISummary(!showAISummary)}
                 onExport={handleExport}
+                onDeleteRoom={onDeleteRoom ? () => onDeleteRoom(room.id) : undefined}
             />
 
             {/* AI Summary panel */}
@@ -198,12 +200,12 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
 
             {/* Pinned panel */}
             {showPinned && pinnedMessages.length > 0 && (
-                <div className="bg-amber-50 dark:bg-amber-900/10 border-b border-amber-200 dark:border-amber-800/30 px-4 py-2 max-h-40 overflow-y-auto">
+                <div className="bg-amber-50 dark:bg-amber-900 border-b border-amber-200 dark:border-amber-800 px-4 py-2 max-h-40 overflow-y-auto">
                     <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mb-1.5">
                         📌 Tin nhắn đã ghim ({pinnedMessages.length})
                     </p>
                     {pinnedMessages.map(pm => (
-                        <div key={pm.id} className="flex items-start gap-2 py-1.5 border-b border-amber-100 dark:border-amber-800/20 last:border-0">
+                        <div key={pm.id} className="flex items-start gap-2 py-1.5 border-b border-amber-100 dark:border-amber-800 last:border-0">
                             <span className="text-xs font-medium text-amber-700 dark:text-amber-300 whitespace-nowrap">{pm.sender?.fullName}:</span>
                             <p className="text-xs text-amber-600 dark:text-amber-400 truncate">{pm.content}</p>
                         </div>

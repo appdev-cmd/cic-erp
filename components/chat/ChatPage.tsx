@@ -100,6 +100,22 @@ const ChatPage: React.FC = () => {
         setIsSearching(false);
     };
 
+    const handleDeleteRoom = async (roomId: string) => {
+        if (!confirm('Bạn có chắc chắn muốn xoá cuộc trò chuyện này? Toàn bộ tin nhắn sẽ bị xoá vĩnh viễn.')) return;
+        try {
+            await chatService.deleteRoom(roomId, currentUserId);
+            toast.success('Đã xoá cuộc trò chuyện');
+            if (activeRoomId === roomId) {
+                window.history.pushState({}, '', '/chat');
+                setActiveRoomId(null);
+                setSearchQuery('');
+            }
+            loadRooms();
+        } catch (err: any) {
+            toast.error(err.message || 'Lỗi khi xoá cuộc trò chuyện');
+        }
+    };
+
     useEffect(() => {
         if (!searchQuery.trim()) {
             setSearchResults([]);
@@ -191,6 +207,7 @@ const ChatPage: React.FC = () => {
                         isOnline={isOnline}
                         onBack={handleBack}
                         onMessageSent={handleMessageSent}
+                        onDeleteRoom={handleDeleteRoom}
                         allRooms={rooms}
                     />
                 )}

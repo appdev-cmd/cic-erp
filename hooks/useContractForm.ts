@@ -41,13 +41,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
         contract?.lineItems || [{ id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10 }]
     );
 
-    // ==================== STEP 2: ADMIN COSTS & EXECUTION COSTS ====================
-    const [adminCosts, setAdminCosts] = useState<AdministrativeCosts>(
-        contract?.adminCosts || { transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0 }
-    );
-    const [adminCostPercentages, setAdminCostPercentages] = useState<AdministrativeCosts>(
-        { transferFee: 0, contractorTax: 0, importFee: 0, expertHiring: 0, documentProcessing: 0 }
-    );
+    // ==================== STEP 2: EXECUTION COSTS ====================
     const [executionCosts, setExecutionCosts] = useState<ExecutionCostItem[]>(
         contract?.executionCosts || []
     );
@@ -116,7 +110,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
     }, [contract]);
 
     // ==================== COMPUTED VALUES (delegated to shared hook) ====================
-    const financials = useFinancialCalculations(lineItems, adminCosts, executionCosts);
+    const financials = useFinancialCalculations(lineItems, executionCosts);
 
     const totals = useMemo(() => {
         const totalCashIn = paymentSchedules.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -127,7 +121,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
             ...financials,
             totalInputCosts: financials.totalInput,
             totalDirectCosts: financials.totalDirectCosts,
-            totalAdminCosts: financials.adminSum,
+
             totalCashIn,
             totalCashOut,
             netCashFlow,
@@ -257,14 +251,14 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
             lineItems,
             paymentPhases: allPhases,
             contacts,
-            adminCosts,
+
             executionCosts,
             status: 'Draft' as const,
         };
     }, [
         formContractId, contractType, title, clientName, customerId, signedDate,
         unitId, coordinatingUnitId, salespersonId, totals.signingValue,
-        lineItems, paymentSchedules, supplierSchedules, contacts, adminCosts, executionCosts
+        lineItems, paymentSchedules, supplierSchedules, contacts, executionCosts
     ]);
 
     return {
@@ -286,8 +280,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
         // Step 2
         lineItems, setLineItems,
         addLineItem, removeLineItem,
-        adminCosts, setAdminCosts,
-        adminCostPercentages, setAdminCostPercentages,
+
         executionCosts, setExecutionCosts,
 
         // Step 3

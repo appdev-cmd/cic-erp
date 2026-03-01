@@ -114,7 +114,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({
             {/* Empty state */}
             {!isLoading && sortedMessages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 flex items-center justify-center">
                         <span className="text-3xl">💬</span>
                     </div>
                     <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Chưa có tin nhắn</p>

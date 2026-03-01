@@ -198,7 +198,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             {/* Reply preview */}
             {replyTo && (
                 <div className="flex items-center gap-2 px-4 pt-2">
-                    <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border-l-2 border-indigo-500">
+                    <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900 border-l-2 border-indigo-500">
                         <div className="flex-1 min-w-0">
                             <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
                                 Trả lời {replyTo.sender?.fullName || 'Ai đó'}
@@ -232,7 +232,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                     key={cat.type}
                                     onClick={() => { setActiveTab(cat.type); setMentionIndex(0); }}
                                     className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors ${activeTab === cat.type
-                                        ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                        ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300'
                                         : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                                         }`}
                                 >
@@ -260,8 +260,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
                                 key={`${result.type}-${result.id}`}
                                 onClick={() => insertMention(result)}
                                 className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-colors ${i === mentionIndex
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/30'
-                                    : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                                    ? 'bg-indigo-50 dark:bg-indigo-900'
+                                    : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                                     }`}
                             >
                                 <span className="text-base flex-shrink-0">{result.icon}</span>

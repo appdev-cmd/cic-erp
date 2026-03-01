@@ -141,6 +141,15 @@ export async function getOrCreateDirectChat(currentUserId: string, otherUserId: 
     return room;
 }
 
+/** Delete a chat room (direct rooms can be deleted by any member, group ones by admin only) */
+export async function deleteRoom(roomId: string, currentUserId: string): Promise<void> {
+    const { error } = await dataClient.rpc('delete_chat_room', {
+        p_room_id: roomId,
+        p_user_id: currentUserId
+    });
+    if (error) throw new Error(error.message || 'Failed to delete room');
+}
+
 /** Create a group chat */
 export async function createGroupChat(
     name: string,

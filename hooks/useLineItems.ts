@@ -29,8 +29,8 @@ export function useLineItems(initialItems: LineItem[] = []) {
         }]);
     }, []);
 
-    const removeLineItem = useCallback((index: number) => {
-        setLineItems(prev => prev.filter((_, i) => i !== index));
+    const removeLineItem = useCallback((id: string) => {
+        setLineItems(prev => prev.filter(item => item.id !== id));
     }, []);
 
     const updateLineItem = useCallback((index: number, field: keyof LineItem, value: any) => {

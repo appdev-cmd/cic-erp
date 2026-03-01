@@ -1,5 +1,6 @@
 import { dataClient as supabase } from '../lib/dataClient';
 import { Contract, ExecutionCostItem } from '../types';
+import { AuditLogService } from './auditLogService';
 
 // Error messages in Vietnamese for better UX
 const ERROR_MESSAGES = {
@@ -132,7 +133,7 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
     if (data.lineItems !== undefined || data.adminCosts !== undefined || data.executionCosts !== undefined || (data as any).revenueSchedules !== undefined) {
         payload.details = {
             lineItems: data.lineItems || [],
-            adminCosts: data.adminCosts || {},
+            adminCosts: data.executionCosts?.length ? undefined : (data.adminCosts || {}),
             executionCosts: data.executionCosts || [],
             revenueSchedules: (data as any).revenueSchedules || []
         };
@@ -156,6 +157,13 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
             : null;
     }
 
+    // Handle employeeAllocations JSONB field
+    if ((data as any).employeeAllocations !== undefined) {
+        payload.employee_allocations = (data as any).employeeAllocations
+            ? (data as any).employeeAllocations
+            : null;
+    }
+
     return payload;
 };
 
@@ -169,8 +177,18 @@ const logOperation = async (
 ) => {
     try {
         const user = (await supabase.auth.getUser()).data.user;
+        const userId = user?.id || null;
         console.log(`[Audit] ${action} contract ${contractId} by ${user?.email || 'unknown'}`, changes || {});
-        // Integration point: AuditLogService.log({ ... })
+
+        await AuditLogService.create({
+            user_id: userId,
+            table_name: 'contracts',
+            record_id: contractId,
+            action: action,
+            old_data: changes?.oldData || null,
+            new_data: changes || null, // Assuming payload is new_data
+            comment: null
+        });
     } catch (e) {
         console.warn('[Audit] Failed to log operation:', e);
     }
@@ -243,6 +261,7 @@ const mapContract = (c: any): Contract => {
         unitId: c.unit_id || '',
         coordinatingUnitId: c.coordinating_unit_id || undefined,
         unitAllocations: c.unit_allocations?.allocations || undefined,
+        employeeAllocations: c.employee_allocations || undefined,
         // Map from DB 'employee_id' (new) or 'salesperson_id' (legacy)
         salespersonId: c.employee_id || c.salesperson_id || undefined,
         value: c.value || 0,
@@ -296,7 +315,7 @@ export const ContractService = {
     getAll: async (): Promise<Contract[]> => {
         const { data, error } = await supabase
             .from('contracts')
-            .select('id, title, contract_type, party_a, party_b, customer_id, unit_id, value, status, stage, signed_date, created_at')
+            .select('*')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -417,10 +436,12 @@ export const ContractService = {
 
     // Optimized Search for Performance
     search: async (term: string, limit = 20): Promise<Contract[]> => {
+        // Sanitize search term to prevent injection
+        const safeTerm = term.replace(/[%_\\]/g, '\\$&');
         const { data, error } = await supabase
             .from('contracts')
             .select('*')
-            .or(`title.ilike.%${term}%,id.ilike.%${term}%,party_a.ilike.%${term}%`)
+            .or(`title.ilike.%${safeTerm}%,id.ilike.%${safeTerm}%,party_a.ilike.%${safeTerm}%`)
             .order('signed_date', { ascending: false })
             .limit(limit);
 
@@ -486,26 +507,9 @@ export const ContractService = {
             const cost = curr.estimated_cost || 0;
             const actCost = curr.actual_cost || 0;
 
-            // VAT deduction: revenue = payment amount / (1 + vatRate/100)
-            const vatRate = curr.vat_rate ?? 10;
-            const hasVat = curr.has_vat !== false;
-            const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
-
-            // Revenue = sum of invoiced/paid payment amounts, MINUS VAT
-            const revenuePayments: any[] = (curr.payments || []).filter(
-                (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
-                    ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status)
-            );
-            const revGross = revenuePayments.length > 0
-                ? revenuePayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0)
-                : (curr.actual_revenue || 0);
-            const rev = Math.round(revGross / vatDivisor);
-
-            // Cash = only payments with money received
-            const cash = (curr.payments || []).filter(
-                (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
-                    ['Tiền về', 'Paid'].includes(p.status)
-            ).reduce((sum: number, p: any) => sum + (Number(p.paid_amount) || 0), 0);
+            // Revenue and Cash calculations using shared pure functions
+            const rev = calculateRevenueFromPayments(curr.payments || [], curr.vat_rate ?? 10, curr.has_vat !== false, curr.actual_revenue || 0);
+            const cash = calculateCashReceived(curr.payments || []);
 
             return {
                 totalContracts: acc.totalContracts + 1,
@@ -542,68 +546,6 @@ export const ContractService = {
         // FORCE FALLBACK - Bypass RPC due to timeout issues
         return ContractService.getStatsFallback(unitId, year);
 
-        /* RPC DISABLED FOR DEBUGGING */
-        /*
-        try {
-            // Create a timeout promise to prevent infinite hanging
-            const timeoutMs = 5000;
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error(`RPC_TIMEOUT_5000MS`)), timeoutMs)
-            );
-
-            // Execute RPC
-            const rpcPromise = supabase.rpc('get_contract_stats', {
-                p_unit_id: String(unitId), // Ensure string to prevent object injection
-                p_year: String(year)       // Ensure string
-            });
-
-            console.log(`${logPrefix} Awaiting RPC with 5s timeout...`);
-
-            // Race against timeout
-            const result: any = await Promise.race([rpcPromise, timeoutPromise]);
-            const { data, error } = result;
-
-            console.log(`${logPrefix} Raw response received:`, {
-                hasData: !!data,
-                errorMsg: error?.message,
-                isArray: Array.isArray(data)
-            });
-
-            if (error) {
-                console.warn(`${logPrefix} RPC Error:`, error.message);
-                throw error; // Throw to trigger fallback
-            }
-
-            // Handle different data formats
-            let statsRow = null;
-            if (Array.isArray(data) && data.length > 0) {
-                statsRow = data[0];
-            } else if (data && typeof data === 'object' && !Array.isArray(data)) {
-                statsRow = data;
-            }
-
-            if (statsRow) {
-                const result = {
-                    totalContracts: Number(statsRow.total_contracts || 0),
-                    totalValue: Number(statsRow.total_value || 0),
-                    totalRevenue: Number(statsRow.total_revenue || 0),
-                    totalProfit: Number(statsRow.total_profit || 0),
-                    activeCount: Number(statsRow.active_count || 0),
-                    pendingCount: Number(statsRow.pending_count || 0)
-                };
-                console.log(`${logPrefix} Returning parsed stats:`, result);
-                return result;
-            }
-
-            console.warn(`${logPrefix} Empty data returned`);
-            throw new Error('EMPTY_DATA');
-
-        } catch (err: any) {
-            console.error(`${logPrefix} FAILED or TIMEOUT:`, err.message || err);
-            console.log(`${logPrefix} Switching to FALLBACK QUERY`);
-            return ContractService.getStatsFallback(unitId, year);
-        }
-        */
     },
 
 
@@ -652,22 +594,9 @@ export const ContractService = {
             const cost = curr.estimated_cost || 0;
             const actCost = curr.actual_cost || 0;
 
-            // VAT deduction: revenue = payment amount / (1 + vatRate/100)
-            const vatRate = curr.vat_rate ?? 10;
-            const hasVat = curr.has_vat !== false;
-            const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
-
-            // Revenue = sum of payments with status 'Đã xuất HĐ' or 'Tiền về', MINUS VAT
-            const revenuePayments: any[] = (curr.payments || []).filter(
-                (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
-                    ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status)
-            );
-            const revGross = revenuePayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-            const rev = Math.round(revGross / vatDivisor);
-            const cash = (curr.payments || []).filter(
-                (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
-                    ['Tiền về', 'Paid'].includes(p.status)
-            ).reduce((sum: number, p: any) => sum + (Number(p.paid_amount) || 0), 0);
+            // Revenue and Cash calculations using shared pure functions
+            const rev = calculateRevenueFromPayments(curr.payments || [], curr.vat_rate ?? 10, curr.has_vat !== false, curr.actual_revenue || 0);
+            const cash = calculateCashReceived(curr.payments || []);
 
             // Determine this unit's share percentage (0-100)
             let sharePct = 100; // Default: 100% for "all" view or lead unit without allocations
@@ -742,42 +671,6 @@ export const ContractService = {
         // FORCE FALLBACK - Bypass RPC
         return ContractService.getChartDataFallback(unitId, year);
 
-        /* RPC DISABLED FOR DEBUGGING */
-        /*
-        try {
-            // Create a timeout promise to prevent infinite hanging
-            const timeoutMs = 5000;
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error(`RPC_TIMEOUT_5000MS`)), timeoutMs)
-            );
-
-            const rpcPromise = supabase.rpc('get_dashboard_chart_data', {
-                p_unit_id: String(unitId),
-                p_year: String(year)
-            });
-
-            console.log(`${logPrefix} Awaiting RPC with 5s timeout...`);
-            const result: any = await Promise.race([rpcPromise, timeoutPromise]);
-            const { data, error } = result;
-
-            if (error) {
-                console.warn(`${logPrefix} RPC failed:`, error.message);
-                throw error;
-            }
-
-            return (data || []).map((d: any) => ({
-                month: Number(d.month),
-                revenue: Number(d.revenue),
-                profit: Number(d.profit),
-                signing: Number(d.signing)
-            }));
-
-        } catch (err: any) {
-            console.error(`${logPrefix} FAILED or TIMEOUT:`, err.message);
-            console.log(`${logPrefix} Switching to FALLBACK`);
-            return ContractService.getChartDataFallback(unitId, year);
-        }
-        */
     },
 
     // FALLBACK for chart data (with unit_allocations support)
@@ -1039,14 +932,29 @@ export const ContractService = {
     batchDelete: async (ids: string[]): Promise<{ success: string[], failed: string[] }> => {
         const results = { success: [] as string[], failed: [] as string[] };
 
-        for (const id of ids) {
-            try {
-                await ContractService.delete(id);
-                results.success.push(id);
-            } catch (error) {
-                console.error(`Failed to delete contract ${id}:`, error);
-                results.failed.push(id);
-            }
+        if (!ids || ids.length === 0) return results;
+
+        try {
+            await withRetry(async () => {
+                const { error } = await supabase
+                    .from('contracts')
+                    .delete()
+                    .in('id', ids);
+
+                if (error) {
+                    console.error('ContractService.batchDelete:', error.message);
+                    throw new Error(ERROR_MESSAGES.DELETE_FAILED);
+                }
+            });
+
+            results.success = [...ids];
+
+            // Log audit asynchronously for all
+            Promise.all(ids.map(id => logOperation('DELETE', id))).catch(console.error);
+
+        } catch (error) {
+            console.error('Batch delete failed:', error);
+            results.failed = [...ids];
         }
 
         return results;
@@ -1071,24 +979,37 @@ export const ContractService = {
 
     /**
      * GET NEXT CONTRACT NUMBER - Auto-generate sequential ID
+     * @param isPreview If true, strictly returns the next number without locking/incrementing the sequence
      */
-    getNextContractNumber: async (unitId: string, year: number): Promise<number> => {
-        const startDate = `${year}-01-01`;
-        const endDate = `${year}-12-31`;
-
-        const { count, error } = await supabase
-            .from('contracts')
-            .select('*', { count: 'exact', head: true })
-            .eq('unit_id', unitId)
-            .gte('signed_date', startDate)
-            .lte('signed_date', endDate);
+    getNextContractNumber: async (unitId: string, year: number, isPreview: boolean = false): Promise<number> => {
+        const rpcName = isPreview ? 'preview_next_contract_number' : 'get_next_contract_number';
+        const { data, error } = await supabase.rpc(rpcName as any, {
+            p_unit_id: unitId,
+            p_year: year
+        });
 
         if (error) {
-            console.error("Error getting contract count:", error);
-            return 1;
+            console.error("Error getting next contract number via RPC, using fallback:", error);
+            // Fallback for environments where migration hasn't been applied yet
+            const startDate = `${year}-01-01`;
+            const endDate = `${year}-12-31`;
+
+            const { count, error: fallbackError } = await supabase
+                .from('contracts')
+                .select('*', { count: 'exact', head: true })
+                .eq('unit_id', unitId)
+                .gte('signed_date', startDate)
+                .lte('signed_date', endDate);
+
+            if (fallbackError) {
+                console.error("Fallback error getting contract count:", fallbackError);
+                return 1;
+            }
+
+            return (count || 0) + 1;
         }
 
-        return (count || 0) + 1;
+        return data as number;
     },
 
     /**

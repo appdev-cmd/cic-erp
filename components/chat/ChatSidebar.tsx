@@ -77,7 +77,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     </h2>
                     <button
                         onClick={onNewChat}
-                        className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                        className="p-2 rounded-xl bg-indigo-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-slate-700 transition-colors"
                         title="Tạo cuộc trò chuyện mới"
                     >
                         <Plus size={18} />
@@ -105,7 +105,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     </div>
                 ) : filteredRooms.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 flex items-center justify-center mb-3">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 flex items-center justify-center mb-3">
                             <MessageCircle size={24} className="text-indigo-400" />
                         </div>
                         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -134,8 +134,8 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                 key={room.id}
                                 onClick={() => onSelectRoom(room.id)}
                                 className={`w-full flex items-center gap-3 px-4 py-3 transition-all ${isActive
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-2 border-l-indigo-500'
-                                    : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border-l-2 border-l-transparent'
+                                    ? 'bg-indigo-50 dark:bg-indigo-900 border-l-2 border-l-indigo-500'
+                                    : 'hover:bg-slate-50 dark:hover:bg-slate-800 border-l-2 border-l-transparent'
                                     }`}
                             >
                                 {/* Avatar */}

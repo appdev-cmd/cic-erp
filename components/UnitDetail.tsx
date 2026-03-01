@@ -61,10 +61,11 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
             setUnit(unitData || null);
 
             if (unitData) {
+                const yearParam = yearFilter === 'All' ? null : parseInt(yearFilter);
                 const results = await Promise.allSettled([
-                    UnitService.getStats(unitId),
-                    ContractService.list({ unitId: unitId, limit: 50, page: 1 }),
-                    EmployeeService.getWithStats(unitId),
+                    UnitService.getStats(unitId, yearParam),
+                    ContractService.list({ unitId: unitId, year: yearParam === null ? undefined : yearParam.toString(), limit: 50, page: 1 }),
+                    EmployeeService.getWithStats(unitId, undefined, yearParam),
                 ]);
 
                 const statsData = results[0].status === 'fulfilled' ? results[0].value : { totalSigning: 0, totalRevenue: 0, totalProfit: 0, totalCash: 0 };

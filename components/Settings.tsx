@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive } from 'lucide-react';
-import DataSeeder from './admin/DataSeeder';
 import PilotRunner from './admin/PilotRunner';
 import PermissionManager from './settings/PermissionManager';
 import RoleDefaultsManager from './settings/RoleDefaultsManager';
@@ -117,10 +116,7 @@ const Settings: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="border-t border-slate-200 dark:border-slate-700/50 pt-6">
-                            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-4">Dữ liệu & Hệ thống</h3>
-                            <DataSeeder />
-                        </div>
+
                     </div>
                 )}
 

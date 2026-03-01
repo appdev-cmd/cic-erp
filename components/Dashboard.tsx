@@ -197,10 +197,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         // STEP 4: Fetch Distribution Data
         console.log('[Dashboard] Step 4: Fetching distribution...');
         let distData: any[] = [];
+        const yearParam = yearFilter === 'All' ? null : parseInt(yearFilter);
         if (unitId === 'all') {
-          distData = await UnitService.getWithStats(yearFilter === 'All' ? undefined : parseInt(yearFilter));
+          distData = await UnitService.getWithStats(yearParam);
         } else {
-          distData = await EmployeeService.getWithStats(unitId, undefined);
+          distData = await EmployeeService.getWithStats(unitId, undefined, yearParam);
         }
         if (!isCancelled) setRawDistData(distData || []);
 

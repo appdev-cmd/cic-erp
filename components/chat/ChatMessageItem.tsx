@@ -198,7 +198,7 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                     {/* File */}
                     {isFile && message.file_url && (
                         <a href={message.file_url} target="_blank" rel="noopener noreferrer"
-                            className={`flex items-center gap-2 p-2 rounded-xl mb-1 transition-colors ${isOwn ? 'bg-indigo-700/40 hover:bg-indigo-700/60' : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600'}`}>
+                            className={`flex items-center gap-2 p-2 rounded-xl mb-1 transition-colors ${isOwn ? 'bg-indigo-700 hover:bg-indigo-600' : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700'}`}>
                             <FileText size={16} className={isOwn ? 'text-indigo-200' : 'text-slate-500'} />
                             <p className={`text-xs font-medium truncate flex-1 ${isOwn ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>
                                 {message.file_name || 'File'}
@@ -261,7 +261,7 @@ const ChatMessageItem: React.FC<ChatMessageItemProps> = ({
                         </button>
                         {canUnsend && (
                             <button onClick={() => onUnsend?.(message.id)}
-                                className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500" title="Thu hồi">
+                                className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900 text-slate-400 hover:text-red-500" title="Thu hồi">
                                 <Trash2 size={14} />
                             </button>
                         )}

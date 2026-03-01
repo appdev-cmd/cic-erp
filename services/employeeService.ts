@@ -191,12 +191,12 @@ export const EmployeeService = {
         return true;
     },
 
-    getStats: async (id: string): Promise<any> => {
+    getStats: async (id: string, year?: number | null): Promise<any> => {
         try {
             const { data, error } = await supabase.rpc('get_kpi_stats', {
                 p_entity_id: id,
                 p_type: 'employee',
-                p_year: new Date().getFullYear()
+                p_year: year !== undefined ? year : new Date().getFullYear()
             });
 
             if (error) {
@@ -231,12 +231,12 @@ export const EmployeeService = {
         }
     },
 
-    getWithStats: async (unitId?: string, search?: string): Promise<Employee[]> => {
+    getWithStats: async (unitId?: string, search?: string, year?: number | null): Promise<Employee[]> => {
         console.log('[EmployeeService.getWithStats] Fetching with RPC...');
         try {
             const { data, error } = await supabase.rpc('get_employees_with_stats', {
                 p_unit_id: unitId === 'all' ? null : unitId,
-                p_year: new Date().getFullYear(),
+                p_year: year !== undefined ? year : new Date().getFullYear(),
                 p_search: search || null
             });
 

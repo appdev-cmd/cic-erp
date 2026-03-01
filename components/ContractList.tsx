@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import { Search, Filter, Plus, MoreVertical, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Filter, Plus, MoreVertical, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Check } from 'lucide-react';
 import { ContractService, EmployeeService, UnitService } from '../services';
 import { ContractStatus, Unit, Contract, Employee, UserRole } from '../types';
 import { CONTRACT_STATUS_LABELS } from '../constants';
@@ -12,6 +12,8 @@ import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
+import { formatVND as formatCurrency, getStatusColor } from '../utils/contractHelpers';
+import { useLayoutContext } from './layout/MainLayout';
 
 // Inline debounce hook if not exists, but better to check. 
 // For now, I'll use a simple useEffect debounce logic.
@@ -32,9 +34,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
   const { can, isGlobalScope } = usePermissionCheck();
 
+  // Year filter from Layout context (synced with Header)
+  const { yearFilter, setYearFilter } = useLayoutContext();
+
   // Params state
   const [statusFilter, setStatusFilter] = useState<ContractStatus | 'All'>('All');
-  const [yearFilter, setYearFilter] = useState<string>('All');
   const [unitFilter, setUnitFilter] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -55,6 +59,51 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   // Sort state
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  // Quick status change state
+  const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
+  const [changingStatusId, setChangingStatusId] = useState<string | null>(null);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  const ACTIVE_STATUSES = [
+    { value: 'Processing', label: 'Đang thực hiện', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800' },
+    { value: 'Suspended', label: 'Tạm dừng', color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' },
+    { value: 'Acceptance', label: 'Nghiệm thu', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
+    { value: 'Liquidated', label: 'Thanh lý', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800' },
+    { value: 'Completed', label: 'Hoàn thành', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
+  ];
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setStatusDropdownId(null);
+      }
+    };
+    if (statusDropdownId) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [statusDropdownId]);
+
+  const handleQuickStatusChange = async (contractId: string, newStatus: string, oldStatus: string) => {
+    if (newStatus === oldStatus) {
+      setStatusDropdownId(null);
+      return;
+    }
+    setChangingStatusId(contractId);
+    setStatusDropdownId(null);
+    try {
+      await ContractService.update(contractId, { status: newStatus as any });
+      // Update inline without refetching entire list
+      setContracts(prev => prev.map(c => c.id === contractId ? { ...c, status: newStatus as any } : c));
+      toast.success(`Đã chuyển trạng thái → ${CONTRACT_STATUS_LABELS[newStatus]}`);
+    } catch (err: any) {
+      toast.error('Lỗi cập nhật trạng thái: ' + (err.message || err));
+    } finally {
+      setChangingStatusId(null);
+    }
+  };
 
   // Can create: check DB permission + scope, with role fallback for impersonation
   const canCreate = useMemo(() => {
@@ -230,102 +279,16 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     resetDeps: [debouncedSearch, statusFilter, effectiveUnitId, yearFilter, sortBy, sortDir]
   });
 
-  // Extract unique years (We can keep this separate or hardcode for now since we don't have all data to derive from)
-  // For server-side, it's better to verify available years from API, but for now fallback to static range or keeping simple
-  const availableYears = ['2026', '2025', '2024', '2023'];
-
-  const getStatusColor = (status: ContractStatus | string) => {
-    switch (status) {
-      case 'Processing': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
-      case 'Suspended': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800';
-      case 'Acceptance': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800';
-      case 'Liquidated': return 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-200 dark:border-sky-800';
-      case 'Completed': return 'bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400 border border-slate-200 dark:border-slate-700';
-      // Legacy statuses
-      case 'Active': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
-      case 'Pending': return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800';
-      case 'Expired': return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-800';
-      default: return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-800';
-    }
-  };
-
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('vi-VN').format(Math.round(val / 1000) * 1000);
-  };
+  // Tự động sinh danh sách 5 năm gần nhất
+  const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => (currentYear + 1 - i).toString());
+  }, []);
 
   const formatCompactNumber = (number: number) => {
     return new Intl.NumberFormat('vi-VN', { notation: "compact", maximumFractionDigits: 1 }).format(number);
   };
 
-
-  // File input ref for import
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const promise = new Promise(async (resolve, reject) => {
-      try {
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data);
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-        let successCount = 0;
-        let failCount = 0;
-
-        // Process each row
-        // Expected headers: 'Mã HĐ', 'Tên HĐ', 'Khách hàng', 'Giá trị', 'Ngày ký', 'Trạng thái'
-        // Or simple object keys mapping
-        // We will try to map loosely
-        for (const row of jsonData as any[]) {
-          try {
-            // Minimal mapping
-            const contractData: any = {
-              id: row['Mã HĐ'] || row['id'] || `HD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-              title: row['Tên HĐ'] || row['title'] || 'Hợp đồng nhập khẩu',
-              partyA: row['Khách hàng'] || row['partyA'] || 'Khách hàng',
-              value: Number(row['Giá trị'] || row['value'] || 0),
-              actualRevenue: Number(row['Doanh thu'] || row['actualRevenue'] || 0),
-              signedDate: row['Ngày ký'] || row['signedDate'] || new Date().toISOString().split('T')[0],
-              status: row['Trạng thái'] || row['status'] || 'Processing',
-              // Defaults
-              contractType: 'HĐ',
-              unitId: selectedUnit?.id !== 'all' ? selectedUnit.id : (units[0]?.id || 'u1'),
-              customerId: 'mimock', // Placeholder, ideally should match by name
-              salespersonId: 'admin'
-            };
-
-            // Try create
-            // Note: ID must be unique. If 'Mã HĐ' exists, it might fail or we should use update?
-            // For now, assume create new items
-            await ContractService.create(contractData);
-            successCount++;
-          } catch (err) {
-            console.error("Row error", err);
-            failCount++;
-          }
-        }
-
-        // Refresh list
-        setDebouncedSearch(prev => prev + " "); // Trigger effect
-
-        resolve(`Nhập thành công ${successCount} hợp đồng. Thất bại ${failCount}.`);
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    toast.promise(promise, {
-      loading: 'Đang xử lý file...',
-      success: (data: any) => data,
-      error: 'Lỗi khi nhập file',
-    });
-
-    // Reset input
-    e.target.value = '';
-  };
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -357,13 +320,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImport}
-            className="hidden"
-            accept=".xlsx, .xls"
-          />
           <button
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-5 py-3 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
@@ -723,9 +679,52 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     </span>
                   </td>
                   <td className="px-4 py-5 text-center bg-white dark:bg-slate-900">
-                    <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-sm ${getStatusColor(contract.status)} inline-block min-w-[80px]`}>
-                      {CONTRACT_STATUS_LABELS[contract.status] || contract.status}
-                    </span>
+                    <div className="relative inline-block" ref={statusDropdownId === contract.id ? statusDropdownRef : undefined}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStatusDropdownId(statusDropdownId === contract.id ? null : contract.id);
+                        }}
+                        disabled={changingStatusId === contract.id}
+                        className={`group/status px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-sm ${getStatusColor(contract.status)} inline-flex items-center gap-1 min-w-[80px] justify-center hover:ring-2 hover:ring-indigo-300 dark:hover:ring-indigo-700 transition-all cursor-pointer`}
+                        title="Click để đổi trạng thái"
+                      >
+                        {changingStatusId === contract.id ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <>
+                            {CONTRACT_STATUS_LABELS[contract.status] || contract.status}
+                            <ChevronDown size={10} className="opacity-0 group-hover/status:opacity-100 transition-opacity" />
+                          </>
+                        )}
+                      </button>
+                      {statusDropdownId === contract.id && (
+                        <div className="absolute z-50 top-full mt-1 right-0 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                          <div className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Chuyển trạng thái</div>
+                          {ACTIVE_STATUSES.map(s => (
+                            <button
+                              key={s.value}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuickStatusChange(contract.id, s.value, contract.status);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${contract.status === s.value
+                                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                }`}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${s.value === 'Processing' ? 'bg-orange-500' :
+                                s.value === 'Suspended' ? 'bg-rose-500' :
+                                  s.value === 'Acceptance' ? 'bg-blue-500' :
+                                    s.value === 'Liquidated' ? 'bg-purple-500' : 'bg-emerald-500'
+                                }`} />
+                              {s.label}
+                              {contract.status === s.value && <Check size={14} className="ml-auto text-indigo-500" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-5 text-right bg-white dark:bg-slate-900">
                     <div className="flex items-center justify-end gap-1">

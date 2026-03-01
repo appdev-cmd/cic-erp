@@ -17,6 +17,21 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Heavy libs — lazy-loaded only when needed
+            'xlsx': ['xlsx'],
+            'recharts': ['recharts'],
+            // Supabase SDK
+            'supabase': ['@supabase/supabase-js'],
+            // React core
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          }
+        }
+      }
     }
   };
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Users, Pin, Sparkles, FileDown } from 'lucide-react';
+import { ArrowLeft, Users, Pin, Sparkles, FileDown, Trash2 } from 'lucide-react';
 import type { ChatRoomWithDetails } from '../../types';
 
 interface ChatHeaderProps {
@@ -14,6 +14,7 @@ interface ChatHeaderProps {
     onShowAI?: () => void;
     onExport?: () => void;
     onShowOnline?: () => void;
+    onDeleteRoom?: () => void;
 }
 
 function getInitials(name: string): string {
@@ -33,7 +34,7 @@ function getAvatarColor(name: string): string {
     return colors[Math.abs(hash) % colors.length];
 }
 
-const ChatHeader: React.FC<ChatHeaderProps> = ({ room, currentUserId, isOnline, onBack, typingUsers = [], pinnedCount = 0, onShowPinned, onSearch, onShowAI, onExport, onShowOnline }) => {
+const ChatHeader: React.FC<ChatHeaderProps> = ({ room, currentUserId, isOnline, onBack, typingUsers = [], pinnedCount = 0, onShowPinned, onSearch, onShowAI, onExport, onShowOnline, onDeleteRoom }) => {
     if (!room) return null;
 
     const otherMember = room.type === 'direct'
@@ -105,7 +106,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ room, currentUserId, isOnline, 
                 {onShowAI && (
                     <button
                         onClick={onShowAI}
-                        className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                        className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900 transition-colors"
                         title="AI Tóm tắt"
                     >
                         <Sparkles size={16} />
@@ -114,7 +115,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ room, currentUserId, isOnline, 
                 {pinnedCount > 0 && (
                     <button
                         onClick={onShowPinned}
-                        className="relative p-2 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                        className="relative p-2 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900 transition-colors"
                         title={`${pinnedCount} tin nhắn đã ghim`}
                     >
                         <Pin size={16} />
@@ -135,10 +136,19 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ room, currentUserId, isOnline, 
                 {onShowOnline && (
                     <button
                         onClick={onShowOnline}
-                        className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        title="Nhân viên online"
+                        className="p-2 ml-0.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        title="Thành viên"
                     >
                         <Users size={16} />
+                    </button>
+                )}
+                {onDeleteRoom && (
+                    <button
+                        onClick={onDeleteRoom}
+                        className="p-2 ml-0.5 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        title="Xoá cuộc trò chuyện"
+                    >
+                        <Trash2 size={16} />
                     </button>
                 )}
             </div>

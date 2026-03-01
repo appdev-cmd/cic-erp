@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { LineItem, AdministrativeCosts, ExecutionCostItem } from '../types';
+import { LineItem, ExecutionCostItem } from '../types';
 
 export interface FinancialTotals {
     signingValue: number;
@@ -9,18 +9,16 @@ export interface FinancialTotals {
     profitMargin: number;
     totalInput: number;
     totalDirectCosts: number;
-    adminSum: number;
     executionCostsSum: number;
 }
 
 /**
  * Shared hook for financial calculations.
- * Pure computed values from line items, admin costs, and execution costs.
- * Used by both ContractForm and ContractBusinessPlanTab.
+ * Pure computed values from line items and execution costs.
+ * Used by ContractForm, ContractBusinessPlanTab, and ContractDetail.
  */
 export function useFinancialCalculations(
     lineItems: LineItem[],
-    adminCosts: AdministrativeCosts,
     executionCosts: ExecutionCostItem[] = [],
 ): FinancialTotals {
     return useMemo(() => {
@@ -45,25 +43,18 @@ export function useFinancialCalculations(
             estimatedRevenue += itemOutputTotal;
         });
 
-        // Admin costs (legacy)
-        const adminSum = (Object.values(adminCosts) as number[])
-            .reduce((acc: number, val: number) => acc + val, 0);
-
-        // Execution costs (Chi phí thực hiện hợp đồng - dynamic list)
+        // Execution costs (Chi phí thực hiện hợp đồng)
         const executionCostsSum = executionCosts.reduce((acc, c) => acc + (c.amount || 0), 0);
 
-        // Overhead: executionCosts ưu tiên, fallback adminCosts cho HĐ cũ
-        const overheadSum = executionCostsSum > 0 ? executionCostsSum : adminSum;
-
-        // Total costs = Đầu vào + CP trực tiếp + CP thực hiện/quản lý
-        const totalCosts = totalInput + totalDirectCosts + overheadSum;
+        // Total costs = Đầu vào + CP trực tiếp + CP thực hiện
+        const totalCosts = totalInput + totalDirectCosts + executionCostsSum;
         // Lợi nhuận gộp = Doanh thu (trước VAT) - Tổng chi phí
         const grossProfit = estimatedRevenue - totalCosts;
         const profitMargin = estimatedRevenue > 0 ? (grossProfit / estimatedRevenue) * 100 : 0;
 
         return {
             signingValue, estimatedRevenue, totalCosts, grossProfit, profitMargin,
-            totalInput, totalDirectCosts, adminSum, executionCostsSum,
+            totalInput, totalDirectCosts, executionCostsSum,
         };
-    }, [lineItems, adminCosts, executionCosts]);
+    }, [lineItems, executionCosts]);
 }

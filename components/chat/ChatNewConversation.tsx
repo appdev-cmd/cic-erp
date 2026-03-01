@@ -96,8 +96,8 @@ const ChatNewConversation: React.FC<ChatNewConversationProps> = ({
                     <button
                         onClick={() => { setMode('direct'); setSelectedUsers([]); }}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'direct'
-                                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                            : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                             }`}
                     >
                         <User size={16} /> Cá nhân
@@ -105,8 +105,8 @@ const ChatNewConversation: React.FC<ChatNewConversationProps> = ({
                     <button
                         onClick={() => setMode('group')}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-colors ${mode === 'group'
-                                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                                : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                            : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                             }`}
                     >
                         <Users size={16} /> Nhóm
@@ -146,7 +146,7 @@ const ChatNewConversation: React.FC<ChatNewConversationProps> = ({
                             <span
                                 key={u.id}
                                 onClick={() => handleSelectUser(u)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-medium cursor-pointer hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 text-xs font-medium cursor-pointer hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors"
                             >
                                 {u.fullName}
                                 <X size={12} />
@@ -174,8 +174,8 @@ const ChatNewConversation: React.FC<ChatNewConversationProps> = ({
                                     onClick={() => handleSelectUser(user)}
                                     disabled={creating}
                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${isSelected
-                                            ? 'bg-indigo-50 dark:bg-indigo-900/20'
-                                            : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                                        ? 'bg-indigo-50 dark:bg-indigo-900/20'
+                                        : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                                         } disabled:opacity-50`}
                                 >
                                     {user.avatarUrl ? (

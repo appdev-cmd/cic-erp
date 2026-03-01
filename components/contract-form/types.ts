@@ -47,11 +47,8 @@ export interface StepBusinessProps {
     addLineItem: () => void;
     removeLineItem: (id: string) => void;
 
-    // Admin Costs
-    adminCosts: AdministrativeCosts;
-    adminCostPercentages: AdministrativeCosts;
-    setAdminCosts: (costs: AdministrativeCosts) => void;
-    setAdminCostPercentages: (costs: AdministrativeCosts) => void;
+
+
 
     // Cost Modal
     openCostModal: (index: number) => void;
