@@ -109,13 +109,17 @@ export function usePermissionCheck() {
 
     // Effective profile (impersonated or real)
     const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
-    const userId = profile?.id || '';
+    // IMPORTANT: user_permissions.user_id stores EMPLOYEE IDs, not auth UIDs.
+    // When impersonating: profile.id = employee_id (set by UserImpersonator)
+    // When logged in:     profile.id = auth_uid, profile.employeeId = employee_id
+    // So always prefer employeeId for DB permission lookups.
+    const userId = profile?.employeeId || profile?.id || '';
     const role = profile?.role;
     const unitId = profile?.unitId;
     const unitCode = profile?.unitCode;
     const employeeId = profile?.employeeId || profile?.id;
 
-    // Fetch DB permissions for the effective user
+    // Fetch DB permissions for the effective user (by employee ID)
     const { data: permissions, isLoading: permLoading } = useUserPermissions(userId);
 
     // Fetch cross-unit visibility for unit-scoped roles
