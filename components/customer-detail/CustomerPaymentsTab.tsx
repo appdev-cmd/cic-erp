@@ -46,7 +46,7 @@ const CustomerPaymentsTab: React.FC<CustomerPaymentsTabProps> = React.memo(({
                     </thead>
                     <tbody>
                         {[...payments].sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()).map(payment => (
-                            <tr key={payment.id} className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            <tr key={payment.id} className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                                 <td className="py-3 px-4">
                                     <div className="flex items-center gap-2">
                                         <Calendar size={13} className="text-slate-400" />

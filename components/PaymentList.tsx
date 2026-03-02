@@ -356,7 +356,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                     <tr
                                         key={payment.id}
                                         onClick={() => handleEdit(payment)}
-                                        className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-indigo-50/50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
+                                        className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-indigo-50/50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                     >
                                         <td className="py-4 px-5">
                                             <div className="flex items-center gap-3">

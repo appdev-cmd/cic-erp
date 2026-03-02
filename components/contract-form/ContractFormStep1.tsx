@@ -333,6 +333,7 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                             type="date"
                             value={signedDate}
                             onChange={(e) => setSignedDate(e.target.value)}
+                            style={{ colorScheme: 'dark' }}
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 transition-all"
                         />
                     </div>

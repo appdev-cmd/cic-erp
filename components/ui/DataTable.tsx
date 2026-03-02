@@ -145,7 +145,7 @@ function DataTable<T extends Record<string, any>>({
     const headerPadding = compact ? 'px-3 py-2' : 'px-4 py-3';
 
     return (
-        <div className={`overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 ${className}`}>
+        <div className={`overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800/60 bg-white dark:bg-slate-900 ${className}`}>
             <div className="overflow-x-auto">
                 <table className="w-full">
                     {/* Header */}
@@ -168,8 +168,8 @@ function DataTable<T extends Record<string, any>>({
                                     style={{ width: col.width }}
                                     className={`
                     ${headerPadding}
-                    text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide
-                    ${col.sortable ? 'cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 select-none' : ''}
+                    text-left text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider
+                    ${col.sortable ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 select-none transition-colors' : ''}
                     ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''}
                   `}
                                 >
@@ -183,7 +183,7 @@ function DataTable<T extends Record<string, any>>({
                     </thead>
 
                     {/* Body */}
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody className="bg-white dark:bg-slate-900">
                         {isLoading ? (
                             <tr>
                                 <td colSpan={columns.length + (selectable ? 1 : 0)} className="px-4 py-12">
@@ -213,7 +213,8 @@ function DataTable<T extends Record<string, any>>({
                                         onClick={() => onRowClick?.(row)}
                                         className={`
                       ${onRowClick ? 'cursor-pointer' : ''}
-                      ${isSelected ? 'bg-orange-50 dark:bg-orange-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}
+                      ${isSelected ? 'bg-orange-50 dark:bg-orange-900/20' : `hover:bg-orange-50/30 dark:hover:bg-slate-700 ${index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-transparent dark:bg-transparent'}`}
+                      border-b border-slate-100 dark:border-slate-700/50 last:border-b-0
                       transition-colors
                       ${rowClassName?.(row) || ''}
                     `}
@@ -253,7 +254,7 @@ function DataTable<T extends Record<string, any>>({
 
             {/* Pagination */}
             {pagination && !isLoading && sortedData.length > 0 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800">
+                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/30">
                     <p className="text-sm text-slate-500 dark:text-slate-400">
                         Hiển thị {((pagination.currentPage - 1) * pagination.pageSize) + 1} - {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems)} / {pagination.totalItems}
                     </p>

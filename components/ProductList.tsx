@@ -396,7 +396,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+                                <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                                     <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mã SP</th>
                                     <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tên sản phẩm</th>
                                     <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Danh mục</th>
@@ -417,7 +417,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                         <tr
                                             key={product.id}
                                             onClick={() => onSelectProduct?.(product.id)}
-                                            className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
+                                            className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                         >
                                             {/* Code */}
                                             <td className="py-4 px-6">

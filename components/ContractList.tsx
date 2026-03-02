@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import { Search, Filter, Plus, MoreVertical, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Check } from 'lucide-react';
+import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Check } from 'lucide-react';
 import { ContractService, EmployeeService, UnitService } from '../services';
 import { ContractStatus, Unit, Contract, Employee, UserRole } from '../types';
 import { CONTRACT_STATUS_LABELS } from '../constants';
@@ -510,8 +510,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       </div>
 
       {/* TABLE */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-lg transition-colors overflow-x-auto">
-        <table className="w-full text-left border-separate border-spacing-0 min-w-[1600px]">
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto">
+        <table className="w-full text-left">
           <thead>
             <tr className="z-20">
               {[
@@ -525,13 +525,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 { label: 'Tiền về', align: 'right' },
                 { label: 'Tỷ suất LN/DT', align: 'center' },
                 { label: 'Trạng thái', align: 'center', sortKey: 'status' },
-                { label: '', align: 'right' }
               ].map((col, idx) => (
                 <th
                   key={idx}
-                  className={`sticky top-0 z-20 bg-slate-50 dark:bg-slate-800 px-4 py-5 text-[10px] font-black uppercase tracking-widest border-b border-slate-200 dark:border-slate-700
+                  className={`sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-3 py-4 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700
                     ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}
-                    ${col.color || 'text-slate-500 dark:text-slate-400'}
+                    ${col.color || 'text-slate-700 dark:text-slate-300'}
                     ${col.width || ''}
                     ${col.sortKey ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 select-none transition-colors' : ''}`}
                   onClick={() => {
@@ -564,13 +563,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+          <tbody className="bg-white dark:bg-slate-900">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}>
-                  <td className="px-4 py-5"><div className="flex justify-center"><div className="w-8 h-6 bg-slate-100 dark:bg-slate-800 rounded animate-pulse"></div></div></td>
-                  <td className="px-4 py-5">
-                    <div className="flex items-center gap-3">
+                <tr key={i} className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${i % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : ''}`}>
+                  <td className="px-3 py-4"><div className="flex justify-center"><div className="w-8 h-6 bg-slate-100 dark:bg-slate-800 rounded animate-pulse"></div></div></td>
+                  <td className="px-3 py-4">
+                    <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse"></div>
                       <div className="space-y-2">
                         <div className="w-24 h-4 bg-slate-100 dark:bg-slate-800 rounded animate-pulse"></div>
@@ -609,13 +608,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 <tr
                   key={contract.id}
                   onClick={() => onSelectContract(contract.id)}
-                  className="group hover:bg-indigo-50/50 dark:hover:bg-slate-800/30 transition-all cursor-pointer"
+                  className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-transparent dark:bg-transparent'}`}
                   title="Click để xem chi tiết"
                 >
-                  <td className="px-4 py-5 text-center text-xs font-bold text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900">
+                  <td className="px-3 py-4 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
                     {stt.toString().padStart(2, '0')}
                   </td>
-                  <td className="px-4 py-5 bg-white dark:bg-slate-900">
+                  <td className="px-3 py-4">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0 ${contract.contractType === 'HĐ' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'}`}>
                         {contract.contractType}
@@ -636,11 +635,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-5 bg-white dark:bg-slate-900 text-sm font-black text-slate-800 dark:text-slate-200">
+                  <td className="px-3 py-4 text-[11px] font-bold text-slate-800 dark:text-slate-200">
                     <p className="line-clamp-2" title={contract.title}>{contract.title}</p>
-                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">{contract.partyA}</p>
+                    <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1">{contract.partyA}</p>
                   </td>
-                  <td className="px-4 py-5 bg-white dark:bg-slate-900">
+                  <td className="px-3 py-4">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-400">
                         {salesperson?.name ? salesperson.name[0] : '?'}
@@ -649,36 +648,36 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     </div>
                   </td>
                   {/* Ký kết (Giá trị ký) */}
-                  <td className="px-4 py-5 text-right bg-white dark:bg-slate-900">
-                    <span className="text-sm font-black text-slate-900 dark:text-slate-100">
+                  <td className="px-3 py-4 text-right">
+                    <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">
                       {formatCurrency(contract.value || 0)}
                     </span>
                   </td>
                   {/* Doanh thu */}
-                  <td className="px-4 py-5 text-right bg-white dark:bg-slate-900">
-                    <span className="text-sm font-black text-slate-900 dark:text-slate-100">
+                  <td className="px-3 py-4 text-right">
+                    <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">
                       {formatCurrency(revenue)}
                     </span>
                   </td>
                   {/* Lợi nhuận gộp */}
-                  <td className="px-4 py-5 text-right bg-white dark:bg-slate-900">
-                    <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">
+                  <td className="px-3 py-4 text-right">
+                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
                       {formatCurrency(profit)}
                     </span>
                   </td>
                   {/* Tiền về */}
-                  <td className="px-4 py-5 text-right bg-white dark:bg-slate-900">
-                    <span className={`text-sm font-black ${cashReceived > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-slate-400 dark:text-slate-600'}`}>
+                  <td className="px-3 py-4 text-right">
+                    <span className={`text-[11px] font-bold ${cashReceived > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-slate-400 dark:text-slate-600'}`}>
                       {formatCurrency(cashReceived)}
                     </span>
                   </td>
                   {/* Tỷ suất LN/DT */}
-                  <td className="px-4 py-5 text-center bg-white dark:bg-slate-900">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${margin > 50 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400' : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400'}`}>
+                  <td className="px-3 py-4 text-center">
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${margin > 50 ? 'bg-emerald-100/50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
                       {margin.toFixed(0)}%
                     </span>
                   </td>
-                  <td className="px-4 py-5 text-center bg-white dark:bg-slate-900">
+                  <td className="px-3 py-4 text-center">
                     <div className="relative inline-block" ref={statusDropdownId === contract.id ? statusDropdownRef : undefined}>
                       <button
                         onClick={(e) => {
@@ -686,15 +685,21 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                           setStatusDropdownId(statusDropdownId === contract.id ? null : contract.id);
                         }}
                         disabled={changingStatusId === contract.id}
-                        className={`group/status px-3 py-1.5 rounded-lg text-[9px] font-black uppercase shadow-sm ${getStatusColor(contract.status)} inline-flex items-center gap-1 min-w-[80px] justify-center hover:ring-2 hover:ring-indigo-300 dark:hover:ring-indigo-700 transition-all cursor-pointer`}
+                        className={`group/status w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold shadow-sm transition-all focus:ring-2 focus:ring-orange-500 cursor-pointer ${contract.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/20' :
+                          contract.status === 'Processing' ? 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 hover:bg-orange-500/20' :
+                            contract.status === 'Suspended' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 hover:bg-rose-500/20' :
+                              contract.status === 'Liquidated' ? 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 hover:bg-purple-500/20' :
+                                contract.status === 'Acceptance' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 hover:bg-blue-500/20' :
+                                  'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                          }`}
                         title="Click để đổi trạng thái"
                       >
                         {changingStatusId === contract.id ? (
-                          <Loader2 size={12} className="animate-spin" />
+                          <Loader2 size={12} className="animate-spin shrink-0" />
                         ) : (
                           <>
-                            {CONTRACT_STATUS_LABELS[contract.status] || contract.status}
-                            <ChevronDown size={10} className="opacity-0 group-hover/status:opacity-100 transition-opacity" />
+                            <span className="truncate">{CONTRACT_STATUS_LABELS[contract.status] || contract.status}</span>
+                            <ChevronDown size={12} className="opacity-0 group-hover/status:opacity-50 transition-opacity shrink-0" />
                           </>
                         )}
                       </button>
@@ -726,24 +731,19 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-5 text-right bg-white dark:bg-slate-900">
-                    <div className="flex items-center justify-end gap-1">
-                      {(onClone && (isGlobalScope || contract.unitId === profile?.unitId)) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onClone(contract);
-                          }}
-                          className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                          title="Nhân bản hợp đồng"
-                        >
-                          <Copy size={18} />
-                        </button>
-                      )}
-                      <button className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-700 dark:hover:text-indigo-400">
-                        <MoreVertical size={20} />
+                  <td className="px-3 py-4 text-right">
+                    {(onClone && (isGlobalScope || contract.unitId === profile?.unitId)) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onClone(contract);
+                        }}
+                        className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                        title="Nhân bản hợp đồng"
+                      >
+                        <Copy size={18} />
                       </button>
-                    </div>
+                    )}
                   </td>
                 </tr>
               );

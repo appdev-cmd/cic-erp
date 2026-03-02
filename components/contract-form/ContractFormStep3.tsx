@@ -54,6 +54,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                             newSched[idx].date = e.target.value;
                                             setRevenueSchedules(newSched);
                                         }}
+                                        style={{ colorScheme: 'dark' }}
                                         className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
                                     />
                                 </div>
@@ -120,6 +121,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                             newSched[idx].date = e.target.value;
                                             setPaymentSchedules(newSched);
                                         }}
+                                        style={{ colorScheme: 'dark' }}
                                         className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
                                     />
                                 </div>
@@ -195,6 +197,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                         newSched[idx].date = e.target.value;
                                         setSupplierSchedules(newSched);
                                     }}
+                                    style={{ colorScheme: 'dark' }}
                                     className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
                                 />
                             </div>

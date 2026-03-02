@@ -432,7 +432,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                     <tr
                                         key={person.id}
                                         onClick={() => handleViewDetail(person)}
-                                        className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
+                                        className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                     >
                                         {/* Name & Position */}
                                         <td className="py-4 px-6">

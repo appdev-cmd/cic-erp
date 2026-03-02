@@ -113,7 +113,7 @@ export const ListPageSkeleton: React.FC = () => (
             </div>
             {/* Table Rows */}
             {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="grid grid-cols-6 gap-4 p-4 border-b border-slate-50 dark:border-slate-800/50">
+                <div key={i} className="grid grid-cols-6 gap-4 p-4 border-b border-slate-100 dark:border-slate-700 last:border-b-0">
                     <Skeleton className="h-3.5 w-16" />
                     <Skeleton className="h-3.5 w-full" />
                     <Skeleton className="h-3.5 w-20" />

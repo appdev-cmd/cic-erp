@@ -59,7 +59,7 @@ const CustomerContractsTab: React.FC<CustomerContractsTabProps> = React.memo(({
                         {filteredContracts.map((contract) => (
                             <tr
                                 key={contract.id}
-                                className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
+                                className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                 onClick={() => onViewContract(contract.id)}
                             >
                                 <td className="py-3.5 px-5">

@@ -5,595 +5,946 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tài Liệu Đặc Tả Công Thức Tài Chính & Phân Bổ KPI - CIC ERP</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #1e293b;
-            --secondary-color: #475569;
-            --accent-brand: #ea580c;
-            --accent-blue: #0284c7;
-            --success-color: #059669;
-            --danger-color: #e11d48;
-            --bg-body: #f8fafc;
+            /* CIC Colors / Modern Slate + Brand Palette */
+            --slate-50: #f8fafc;
+            --slate-100: #f1f5f9;
+            --slate-200: #e2e8f0;
+            --slate-300: #cbd5e1;
+            --slate-400: #94a3b8;
+            --slate-500: #64748b;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-800: #1e293b;
+            --slate-900: #0f172a;
+
+            --blue-50: #eff6ff;
+            --blue-100: #dbeafe;
+            --blue-500: #3b82f6;
+            --blue-600: #2563eb;
+            --blue-700: #1d4ed8;
+
+            --emerald-50: #ecfdf5;
+            --emerald-100: #d1fae5;
+            --emerald-500: #10b981;
+            --emerald-600: #059669;
+
+            --rose-50: #fff1f2;
+            --rose-100: #ffe4e6;
+            --rose-500: #f43f5e;
+            --rose-600: #e11d48;
+
+            --amber-50: #fffbeb;
+            --amber-100: #fef3c7;
+            --amber-500: #f59e0b;
+            --amber-600: #d97706;
+
+            --purple-50: #faf5ff;
+            --purple-100: #f3e8ff;
+            --purple-600: #9333ea;
+
+            --bg-body: var(--slate-50);
             --bg-card: #ffffff;
-            --border-color: #cbd5e1;
-            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --border-color: var(--slate-200);
+            --text-main: var(--slate-700);
+            --text-heading: var(--slate-900);
+
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
-            font-family: var(--font-main);
-            color: var(--secondary-color);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-main);
             background-color: var(--bg-body);
             line-height: 1.6;
-            margin: 0;
             padding: 40px 20px;
         }
 
-        .document-container {
-            max-width: 1100px;
+        .container {
+            max-width: 1200px;
             margin: 0 auto;
             background: var(--bg-card);
-            border-radius: 8px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            padding: 50px 60px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
         }
 
-        /* Tiêu đề & Header */
         header {
+            background-color: var(--slate-900);
+            color: white;
+            padding: 50px 40px;
             text-align: center;
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 30px;
-            margin-bottom: 40px;
         }
 
         .doc-title {
-            color: var(--primary-color);
             font-size: 32px;
-            font-weight: 700;
-            margin: 0 0 15px 0;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-weight: 800;
+            margin-bottom: 24px;
+            letter-spacing: -0.025em;
+            color: white;
         }
 
         .doc-meta {
             display: flex;
             justify-content: center;
-            gap: 20px;
-            color: var(--secondary-color);
-            font-size: 14px;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 24px;
         }
 
         .meta-tag {
-            background-color: #f1f5f9;
+            background-color: rgba(255, 255, 255, 0.15);
+            color: white;
             padding: 6px 16px;
-            border-radius: 20px;
-            border: 1px solid var(--border-color);
+            border-radius: 9999px;
+            font-size: 14px;
             font-weight: 500;
+            backdrop-filter: blur(4px);
         }
 
-        /* Heading Style */
-        h2 {
-            color: var(--primary-color);
-            font-size: 24px;
-            border-bottom: 2px solid var(--accent-brand);
-            padding-bottom: 8px;
-            margin-top: 50px;
-            margin-bottom: 25px;
-            display: inline-block;
+        .doc-desc {
+            max-width: 800px;
+            margin: 0 auto;
+            color: var(--slate-300);
+            font-size: 16px;
         }
 
-        h3 {
-            color: var(--accent-blue);
-            font-size: 18px;
-            margin-top: 30px;
-            margin-bottom: 15px;
+        .content {
+            padding: 40px;
         }
 
-        /* Bảng Dữ Liệu */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
+        .alert-warning {
+            background-color: var(--amber-50);
+            border-left: 4px solid var(--amber-500);
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 40px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .alert-warning svg {
+            color: var(--amber-600);
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .alert-warning div {
+            color: var(--amber-600);
             font-size: 15px;
         }
 
-        table th,
-        table td {
+        .alert-warning strong {
+            color: var(--slate-900);
+            display: block;
+            margin-bottom: 4px;
+            font-size: 16px;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-top: 50px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--slate-200);
+        }
+
+        h2::before {
+            content: '';
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background-color: var(--blue-600);
+            border-radius: 6px;
+        }
+
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--slate-800);
+            margin-top: 32px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h3::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--slate-400);
+            border-radius: 50%;
+        }
+
+        /* Table Styles */
+        .table-responsive {
+            overflow-x: auto;
+            margin-bottom: 32px;
+            border-radius: 8px;
+            box-shadow: var(--shadow-sm);
             border: 1px solid var(--border-color);
-            padding: 12px 18px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: var(--slate-50);
+            color: var(--slate-700);
+            font-weight: 600;
             text-align: left;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--slate-100);
             vertical-align: top;
         }
 
-        table th {
-            background-color: #f8fafc;
-            color: var(--primary-color);
-            font-weight: 600;
+        tr:last-child td {
+            border-bottom: none;
         }
 
-        table tr:nth-child(even) {
-            background-color: #fdfdfd;
+        tr:hover td {
+            background-color: var(--slate-50);
         }
 
         .var-name {
-            font-family: monospace;
-            color: var(--accent-brand);
-            background: #fff7ed;
-            padding: 3px 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: var(--blue-700);
+            background-color: var(--blue-50);
+            padding: 4px 8px;
             border-radius: 4px;
             font-weight: 600;
+            font-size: 13px;
         }
 
-        /* Block Công thức */
-        .formula-section {
-            background-color: #f0f9ff;
-            border-left: 5px solid var(--accent-blue);
-            padding: 24px;
-            margin-bottom: 25px;
-            border-radius: 0 8px 8px 0;
+        /* Formula Card Design */
+        .formula-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
         }
 
-        .formula-section.cost {
-            background-color: #fff1f2;
-            border-left-color: var(--danger-color);
-        }
-
-        .formula-section.profit {
-            background-color: #f0fdf4;
-            border-left-color: var(--success-color);
-        }
-
-        .formula-name {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 10px;
-        }
-
-        .formula-description {
-            margin-bottom: 15px;
-            color: var(--secondary-color);
-        }
-
-        .formula-equation {
+        .formula-card {
             background: white;
-            padding: 16px 20px;
-            border-radius: 6px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            font-family: 'Consolas', monospace;
-            font-size: 16px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
-        }
-
-        .math-symbol {
-            color: #94a3b8;
-            padding: 0 5px;
-        }
-
-        /* Khối Ví dụ */
-        .case-study {
-            background-color: white;
             border: 1px solid var(--border-color);
             border-radius: 8px;
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
             overflow: hidden;
-            margin-top: 40px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }
 
-        .case-study-header {
-            background-color: var(--primary-color);
+        .formula-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .formula-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+
+        .formula-card.blue::before {
+            background-color: var(--blue-500);
+        }
+
+        .formula-card.emerald::before {
+            background-color: var(--emerald-500);
+        }
+
+        .formula-card.rose::before {
+            background-color: var(--rose-500);
+        }
+
+        .formula-card.amber::before {
+            background-color: var(--amber-500);
+        }
+
+        .formula-card.purple::before {
+            background-color: var(--purple-600);
+        }
+
+        .f-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-heading);
+            margin-bottom: 8px;
+        }
+
+        .f-desc {
+            font-size: 13px;
+            color: var(--slate-500);
+            margin-bottom: 16px;
+            min-height: 40px;
+        }
+
+        .f-eq {
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--slate-800);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .math-op {
+            color: var(--slate-400);
+            font-weight: 400;
+        }
+
+        .hl-blue {
+            color: var(--blue-600);
+        }
+
+        .hl-emerald {
+            color: var(--emerald-600);
+        }
+
+        .hl-rose {
+            color: var(--rose-600);
+        }
+
+        .hl-amber {
+            color: var(--amber-600);
+        }
+
+        .hl-purple {
+            color: var(--purple-600);
+        }
+
+        /* Case Study Section */
+        .case-study {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            margin-top: 40px;
+        }
+
+        .cs-header {
+            background: var(--slate-800);
             color: white;
-            padding: 16px 24px;
+            padding: 20px 32px;
             font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .cs-content {
+            padding: 32px;
+        }
+
+        .cs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+        }
+
+        @media (max-width: 900px) {
+            .cs-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--slate-50);
+            border: 1px solid var(--slate-200);
+            border-radius: 8px;
+            padding: 24px;
+        }
+
+        .panel-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--slate-800);
+            border-bottom: 2px solid var(--slate-200);
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .calc-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 10px 0;
+            border-bottom: 1px dashed var(--slate-300);
+            font-size: 14px;
+        }
+
+        .calc-row:last-child {
+            border-bottom: none;
+        }
+
+        .calc-label {
+            color: var(--slate-600);
+        }
+
+        .calc-val {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-weight: 600;
+            color: var(--slate-900);
+        }
+
+        .calc-equation {
+            font-size: 12px;
+            color: var(--slate-400);
+            font-weight: normal;
+            margin-right: 8px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .calc-total {
+            background: white;
+            border: 1px solid var(--slate-200);
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 16px;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .calc-total .label-top {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--slate-500);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .calc-total .val-bottom {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--blue-600);
+        }
+
+        .calc-total.success .val-bottom {
+            color: var(--emerald-600);
+        }
+
+        .calc-total.danger .val-bottom {
+            color: var(--rose-600);
+        }
+
+        /* List inside panel */
+        .data-list {
+            list-style: none;
+        }
+
+        .data-list li {
+            margin-bottom: 16px;
+            background: white;
+            padding: 16px;
+            border-radius: 6px;
+            border: 1px solid var(--slate-200);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .data-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        .item-name {
+            font-weight: 600;
+            color: var(--slate-800);
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .item-prop {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 4px 0;
+            color: var(--slate-600);
+        }
+
+        .item-prop span:last-child {
+            font-weight: 500;
+            color: var(--slate-900);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 12px;
             font-weight: 600;
         }
 
-        .case-study-content {
-            padding: 25px;
+        .badge-blue {
+            background: var(--blue-100);
+            color: var(--blue-700);
         }
 
-        .data-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-bottom: 30px;
+        .badge-slate {
+            background: var(--slate-200);
+            color: var(--slate-700);
         }
 
-        .data-panel {
-            background: #f8fafc;
-            padding: 20px;
-            border-radius: 6px;
-            border: 1px dashed var(--border-color);
+        .badge-emerald {
+            background: var(--emerald-100);
+            color: var(--emerald-700);
         }
 
-        .data-panel h4 {
-            margin-top: 0;
-            color: var(--accent-brand);
-            border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 10px;
+        .badge-purple {
+            background: var(--purple-100);
+            color: var(--purple-700);
         }
 
-        .result-box {
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            padding: 20px;
-            border-radius: 6px;
-        }
-
-        .calc-line {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px dotted #cbd5e1;
-            font-family: Consolas, monospace;
-        }
-
-        .calc-line.total {
-            font-weight: 700;
-            font-size: 16px;
-            color: var(--primary-color);
-            border-bottom: none;
-            padding-top: 15px;
-            border-top: 2px solid var(--border-color);
-            margin-top: 5px;
-        }
-
-        .highlight-success {
-            color: var(--success-color);
-        }
-
-        .highlight-danger {
-            color: var(--danger-color);
-        }
-
-        ul.rule-list {
+        ul.rules {
             padding-left: 20px;
+            color: var(--slate-700);
         }
 
-        ul.rule-list li {
-            margin-bottom: 10px;
+        ul.rules li {
+            margin-bottom: 12px;
+            padding-left: 8px;
         }
 
-        /* Cảnh báo / Chú ý */
-        .attention-box {
-            background: #fffbeb;
-            border: 1px solid #fde68a;
-            border-left: 4px solid #f59e0b;
-            padding: 15px 20px;
-            border-radius: 4px;
-            color: #92400e;
-            margin-bottom: 30px;
+        ul.rules li::marker {
+            color: var(--blue-500);
         }
     </style>
 </head>
 
 <body>
 
-    <div class="document-container">
+    <div class="container">
         <header>
             <h1 class="doc-title">Đặc Tả Công Thức Tài Chính & Phân Bổ KPI</h1>
             <div class="doc-meta">
                 <span class="meta-tag">Hệ thống: CIC ERP</span>
                 <span class="meta-tag">Mô-đun: Hợp đồng & PAKD</span>
-                <span class="meta-tag">Bản sửa đổi: 1.0 (Ban hành chính thức)</span>
+                <span class="meta-tag">Bản sửa đổi: 2.0 (Cập nhật đầy đủ chỉ số)</span>
             </div>
-            <p style="margin-top: 20px; color: var(--secondary-color);">Tài liệu quy định chuẩn xác các logic toán học
-                áp dụng trong tính toán Lợi nhuận, Doanh thu và phân bổ thành tích kinh doanh trên toàn hệ thống giải
-                pháp phần mềm CIC.</p>
+            <p class="doc-desc">Tài liệu chuẩn hóa các logic toán học áp dụng tính toán Doanh thu, Chi phí, Thuế, Lợi
+                nhuận và phân bổ thành tích kinh doanh trên toàn hệ thống phần mềm CIC.</p>
         </header>
 
-        <div class="attention-box">
-            <strong>Nguyên tắc kế toán trọng yếu:</strong>
-            Mọi chỉ tiêu đo lường hiệu quả kinh doanh (Doanh thu thực nhận, Lợi nhuận, Tỷ suất Margin) <b>bắt buộc phải
-                được tính trên cơ sở KHÔNG BAO GỒM thuế GTGT (VAT)</b>. Khoản Thuế GTGT trên Hợp đồng là khoản Thu hộ,
-            Nộp hộ Ngân sách Nhà nước, không được phép ghi nhận vào thành tích của Đơn vị hay Cá nhân.
-        </div>
+        <div class="content">
 
-        <!-- PHẦN 1 -->
-        <h2>1. Định Nghĩa Thuật Ngữ và Tham Số</h2>
-        <p>Các tham số dưới đây được ánh xạ trực tiếp từ Cơ sở dữ liệu của phần mềm CIC ERP.</p>
-        <table>
-            <thead>
-                <tr>
-                    <th width="20%">Thực thể Dữ liệu</th>
-                    <th width="15%">Biến (Code)</th>
-                    <th width="65%">Mô tả chi tiết và Quy tắc áp dụng</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><strong>Hạng mục Sản phẩm/Dịch vụ</strong></td>
-                    <td><span class="var-name">LineItem</span></td>
-                    <td>Là danh sách các khoản mục được cung cấp cho khách hàng. Chứa các tham số thành phần bao gồm: Số
-                        lượng (<code>quantity</code>), Đơn giá mua vào (<code>inputPrice</code>), Đơn giá bán ra
-                        (<code>outputPrice</code>), Thuế suất (<code>vatRate</code>).</td>
-                </tr>
-                <tr>
-                    <td><strong>Đơn giá Đầu vào / Đầu ra</strong></td>
-                    <td><span class="var-name">inputPrice</span> / <span class="var-name">outputPrice</span></td>
-                    <td>Là đơn giá của <strong>một</strong> Đơn vị sản phẩm. Quy định bắt buộc: <strong>Luôn nhập đơn
-                            giá chưa bao gồm VAT</strong>.</td>
-                </tr>
-                <tr>
-                    <td><strong>Chi phí Trực tiếp</strong></td>
-                    <td><span class="var-name">directCosts</span></td>
-                    <td>Là các khoản phí phát sinh gắn liền trực tiếp với quá trình thực hiện 1 Hạng mục cụ thể. <br>Ví
-                        dụ: Chi phí xin cấp chứng nhận CO/CQ cho Lô thiết bị Máy in; Chi phí in ấn tài liệu cho Khóa đào
-                        tạo độc lập.</td>
-                </tr>
-                <tr>
-                    <td><strong>Chi phí Thực hiện (Chung)</strong></td>
-                    <td><span class="var-name">executionCosts</span></td>
-                    <td>Gồm các khoản phí phục vụ vận hành Hợp đồng nhưng không thể (hoặc khó) chia tách cho từng sản
-                        phẩm cụ thể. <br>Ví dụ: Công tác phí đi lại, phí xuất bảo lãnh ngân hàng, chi phí tiếp khách,
-                        chi phí chuyển tiền.</td>
-                </tr>
-                <tr>
-                    <td><strong>Chiết khấu NCC (Kick-back)</strong></td>
-                    <td><span class="var-name">supplierDiscount</span></td>
-                    <td>Là khoản tiền mà Hãng/Nhà cung cấp trả lại/chiết khấu cho phía CIC sau khi mua hàng. Bản chất
-                        tài chính: <strong>Làm giảm Giá Vốn Hàng Bán</strong>.</td>
-                </tr>
-                <tr>
-                    <td><strong>Tỷ lệ Phân bổ KPI</strong></td>
-                    <td><span class="var-name">unitAllocations</span></td>
-                    <td>Mảng dữ liệu phân định tỷ lệ % công sức đóng góp của Đơn vị Chính (Lead) và các Đơn vị Phối hợp
-                        (Support). Tổng tỷ lệ của toàn Hợp đồng phải là 100%.</td>
-                </tr>
-            </tbody>
-        </table>
-
-        <!-- PHẦN 2 -->
-        <h2>2. Quy Chuẩn Công Thức Xét Duyệt Phương Án Kinh Doanh (PAKD)</h2>
-
-        <p>Ký hiệu toán học <span style="font-family: serif; font-size: 20px; font-weight: bold;">Σ</span> biểu thị hành
-            động lặp cộng gộp qua tất cả các phần tử Hạng mục sản phẩm (LineItem) có trong Khai báo Hợp đồng.</p>
-
-        <!-- Doanh thu -->
-        <h3>2.1. Nhóm cấu thành Ký kết & Doanh số</h3>
-        <div class="formula-section">
-            <div class="formula-name">Giá Trị Ký Kết (Tổng giá trị Hợp đồng Pháp lý)</div>
-            <div class="formula-description">Con số cấu thành nên Giá trị mặt Hợp đồng được ký đóng dấu với Khách hàng.
-                Là tổng số tiền mà Khách hàng có nghĩa vụ thanh toán cho CIC (Bao gồm tiền hàng hóa và Thuế VAT). <i>Lưu
-                    ý: Không cộng Chiết khấu NCC vào khoản này.</i></div>
-            <div class="formula-equation">
-                Giá trị Ký kết <span class="math-symbol">=</span> Σ <span class="math-symbol">[</span> Số_lượng <span
-                    class="math-symbol">×</span> Đơn_giá_Bán <span class="math-symbol">×</span> (1 + Thuế_suất_VAT)
-                <span class="math-symbol">]</span>
+            <div class="alert-warning">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                    <strong>Nguyên tắc kế toán trọng yếu hệ thống</strong>
+                    Mọi chỉ tiêu đo lường hiệu quả kinh doanh (Doanh thu thực nhận, Lợi nhuận, Tỷ suất) <b>BẮT BUỘC PHẢI
+                        TÍNH TRÊN CƠ SỞ CHƯA BAO GỒM THUẾ GTGT (VAT)</b>. Thuế GTGT trên Hợp đồng là khoản Thu hộ/Nộp hộ
+                    NSNN, tuyệt đối không được ghi nhận vào thành tích của Đơn vị hay Cá nhân.
+                </div>
             </div>
-        </div>
 
-        <div class="formula-section">
-            <div class="formula-name">Doanh Thu Thuần (Không có VAT)</div>
-            <div class="formula-description">Là cội nguồn để ghi nhận KPI Doanh số bán hàng. Đại diện cho Giá trị Hàng
-                hóa/Dịch vụ thực tế mà CIC cung cấp đổi lấy tiền.</div>
-            <div class="formula-equation">
-                <span style="color:var(--accent-blue)">Doanh Thu Thuần</span> <span class="math-symbol">=</span> Σ <span
-                    class="math-symbol">(</span> Số_lượng <span class="math-symbol">×</span> Đơn_giá_Bán <span
-                    class="math-symbol">)</span>
+            <h2>1. Định Nghĩa Thuật Ngữ và Tham Số Hệ Thống</h2>
+            <p style="margin-bottom: 20px; color: var(--slate-600);">Các tham số dưới đây được ánh xạ trực tiếp từ Cơ sở
+                dữ liệu của phần mềm CIC ERP, đóng vai trò là biến đầu vào cho việc tính toán.</p>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="20%">Thực thể Dữ liệu</th>
+                            <th width="20%">Biến Hệ thống</th>
+                            <th width="60%">Mô tả chi tiết và Quy tắc áp dụng</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Hạng mục (Item)</strong></td>
+                            <td><span class="var-name">LineItem</span></td>
+                            <td>Danh sách sản phẩm/dịch vụ cho khách hàng. Mỗi dòng bao gồm Thuộc tính: Số lượng <span
+                                    class="var-name">qty</span>, Đơn giá mua <span class="var-name">inputPrice</span>,
+                                Đơn giá bán <span class="var-name">outputPrice</span>, Thuế suất <span
+                                    class="var-name">vatRate</span>.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Đơn giá Đầu vào / Đầu ra</strong></td>
+                            <td><span class="var-name">inputPrice</span> / <span class="var-name">outputPrice</span>
+                            </td>
+                            <td>Đơn giá của 1 Đơn vị sản phẩm. <span
+                                    style="color:var(--rose-600); font-weight: 600;">Luôn nhập đơn giá CHƯA bao gồm
+                                    VAT</span>.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Thuế suất VAT</strong></td>
+                            <td><span class="var-name">vatOut</span> / <span class="var-name">vatIn</span></td>
+                            <td>Thuế suất GTGT đầu ra (Bán cho KH) và Thuế suất GTGT đầu vào (Mua từ NCC/Hãng). Mặc định
+                                nếu không nhập là 0%.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Chi phí Trực tiếp</strong></td>
+                            <td><span class="var-name">directCosts</span></td>
+                            <td>Chi phí phát sinh gắn liền trực tiếp để cấu thành nên 1 Hạng mục. (Ví dụ: Giấy phép con,
+                                Phí CO/CQ, Phí vận chuyển hàng hóa).</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Chi phí Thực hiện</strong></td>
+                            <td><span class="var-name">executionCosts</span></td>
+                            <td>Chi phí phục vụ vận hành dự án, không chia tách được cho Hạng mục. (Ví dụ: Công tác phí,
+                                Phí tiếp khách, Phí bảo lãnh NH).</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Chiết khấu NCC</strong></td>
+                            <td><span class="var-name">supplierDiscount</span></td>
+                            <td>Khoản tiền Hãng/NCC chiết khấu (Kick-back). Bản chất: <span
+                                    style="font-weight: 600; color:var(--emerald-600);">Làm GIẢM Tổng Chi Phí Hoạt
+                                    Động</span>.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tỷ lệ Phân bổ KPI</strong></td>
+                            <td><span class="var-name">unitAllocations</span></td>
+                            <td>Tỷ lệ % đóng góp của các Đơn vị/Phòng ban. Tổng các đơn vị = 100%.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tỷ lệ Hoa hồng</strong></td>
+                            <td><span class="var-name">commissionRate</span></td>
+                            <td>Tỷ lệ % quy định trả thưởng hoa hồng cá nhân trên phần Lợi nhuận phòng ban kiếm được.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-        </div>
 
-        <!-- Chi phí -->
-        <h3>2.2. Nhóm cấu thành Lỗ / Lãi (Chi phí & Lợi nhuận)</h3>
-        <div class="formula-section cost">
-            <div class="formula-name">Tổng Chi Phí Hoạt Động (Total Actual Costs)</div>
-            <div class="formula-description">Được cấu thành từ toàn bộ chi phí mua hàng đầu vào, phí trực tiếp, phí
-                chung, và có cấn trừ khoản Chiết khấu tài trợ từ hãng. Toàn bộ thông số ở mức Chưa VAT.</div>
-            <div class="formula-equation">
-                Tổng Chi Phí <span class="math-symbol">=</span> <span class="math-symbol">[</span> Σ(Số_lượng <span
-                    class="math-symbol">×</span> Đơn_giá_Mua) - <span
-                    style="color:var(--danger-color)">Tiền_Chiết_Khấu_NCC</span> <span class="math-symbol">]</span>
-                <span class="math-symbol">+</span> Σ(CP_Trực_Tiếp) <span class="math-symbol">+</span> Σ(CP_Thực_Hiện)
-            </div>
-        </div>
+            <h2>2. Bộ Chỉ Số Công Thức Tài Chính (Financial Metrics)</h2>
+            <p style="margin-bottom: 24px; color: var(--slate-600);">Ký hiệu <span
+                    style="font-family: serif; font-size: 20px; font-weight: bold; color:var(--slate-800);">Σ</span>
+                biểu thị vòng lặp tính tổng qua tất cả các Hạng mục sản phẩm (LineItem) trong hợp đồng.</p>
 
-        <div class="formula-section profit">
-            <div class="formula-name">Lợi Nhuận Gộp (Gross Profit) & Tỷ Suất (Margin)</div>
-            <div class="formula-description">Kết quả cuối cùng của việc kinh doanh sau khi lấy Doanh thu thuần trừ đi
-                mọi loại Chi phí thực tế.</div>
-            <div class="formula-equation" style="margin-bottom: 10px;">
-                <span style="color:var(--success-color)">Lợi Nhuận Gộp</span> <span class="math-symbol">=</span> Doanh
-                Thu Thuần <span class="math-symbol">-</span> Tổng Chi Phí Hoạt Động
-            </div>
-            <div class="formula-equation">
-                <span style="color:var(--success-color)">Tỷ Suất LN (%)</span> <span class="math-symbol">=</span> ( Lợi
-                Nhuận Gộp <span class="math-symbol">÷</span> Doanh Thu Thuần ) <span class="math-symbol">×</span> 100%
-            </div>
-        </div>
-
-        <!-- PHẦN 3 -->
-        <h2>3. Quy Chế Phân Bổ KPI Cấp Phòng Ban và Cá Nhân</h2>
-        <p>Đối với hệ sinh thái CIC, một Hợp đồng thường xuyên có sự giao thoa thực hiện bởi nhiều nguồn lực (Ví dụ:
-            Trung tâm phần mềm bán giải pháp, nhưng Trung tâm thiết bị đảm nhiệm cấu hình). KPI sẽ được ghi nhận và phân
-            chia minh bạch thông qua biến `unitAllocations`.</p>
-
-        <ul class="rule-list">
-            <li><strong>Cấp Thành tích Tổ Chức:</strong> Hệ thống tự động tách Doanh thu Thuần và Lợi Nhuận Gộp của toàn
-                Hợp Đồng nhân với <span class="var-name">% Tỷ lệ Phân bổ</span> của Trung tâm/Phòng đó.</li>
-            <li><strong>Cấp Thành tích Cá nhân:</strong> KPI tổ chức được chuyển hóa cho các nhân viên, dựa theo % nhân
-                sự đó đảm nhiệm trong phần việc của Phòng mỉnh. Nhằm phục vụ tính hoa hồng (Commission).</li>
-        </ul>
-
-        <!-- PHẦN 4 -->
-        <h2>4. Phân Tích Thực Tiễn (Dữ liệu Hệ thống)</h2>
-
-        <div class="case-study">
-            <div class="case-study-header">
-                Tình huống: Hợp Đồng Phân Phối Phần Mềm Quản Lý Tòa Nhà & Bảo Trì Hệ Thống Máy Chủ
-            </div>
-            <div class="case-study-content">
-                <p><strong>Cơ cấu nhân sự:</strong> Dự án do <strong>Phòng PMXD</strong> (Đơn vị Chủ trì - 70%) đảm
-                    nhiệm mảng bán license, phối hợp với <strong>Trung Tâm IT</strong> (Đơn vị Phối hợp - 30%) thi công
-                    hệ thống mạng.</p>
-
-                <div class="data-grid">
-                    <!-- Data Input -->
-                    <div class="data-panel">
-                        <h4>A. Khai báo Hạng mục & Sản phẩm</h4>
-                        <ul style="font-size:14px; margin-top:10px; padding-left:15px">
-                            <li><strong>1. License Phần mềm PMS (x10 user):</strong><br>
-                                - Đơn giá Nhập (Từ Hãng): 8,000,000 đ/user<br>
-                                - Đơn giá Bán (Tính cho KH): 15,000,000 đ/user<br>
-                                - Thuế VAT: 10%
-                            </li>
-                            <li style="margin-top:10px"><strong>2. Dịch vụ bảo trì & Kéo mạng (1 gói):</strong><br>
-                                - Mua vật tư Cáp (Đầu vào): 5,000,000 đ<br>
-                                - Giá Bán Gói Dịch vụ: 20,000,000 đ<br>
-                                - Thuế VAT: 0%<br>
-                                - CP Trực tiếp (Thuê thang nâng): 2,000,000 đ
-                            </li>
-                        </ul>
-
-                        <h4 style="margin-top:20px">B. Chi phí Khác & Chiết khấu</h4>
-                        <ul style="font-size:14px; margin-top:10px; padding-left:15px">
-                            <li><strong>CP Thực hiện:</strong> Công tác phí 3,000,000 đ.</li>
-                            <li><strong>Chiết khấu NCC:</strong> Hãng phần mềm thưởng đại lý (Kick-back) đạt doanh số:
-                                5,000,000 đ.</li>
-                        </ul>
+            <h3>2.1. Nhóm chỉ số Doanh thu & Ký kết</h3>
+            <div class="formula-grid">
+                <div class="formula-card blue">
+                    <div class="f-name hl-blue">1. Doanh Thu Thuần (Net Revenue)</div>
+                    <div class="f-desc">Cội nguồn ghi nhận KPI. Giá trị Hàng hóa/Dịch vụ thực tế bán ra chưa tính VAT.
                     </div>
+                    <div class="f-eq"><span class="hl-blue">Doanh Thu Thuần</span> <span class="math-op">=</span> Σ(
+                        Số_Lượng <span class="math-op">×</span> Đơn_Giá_Bán )</div>
+                </div>
+                <div class="formula-card blue">
+                    <div class="f-name">2. Thuế GTGT Đầu Ra (Output VAT)</div>
+                    <div class="f-desc">Phần thuế thu hộ Nhà nước từ Khách hàng dựa trên Doanh thu thuần từng dòng.
+                    </div>
+                    <div class="f-eq">Thuế VAT Đầu Ra <span class="math-op">=</span> Σ( Doanh_Thu_Dòng <span
+                            class="math-op">×</span> %VAT_Bán )</div>
+                </div>
+                <div class="formula-card blue">
+                    <div class="f-name">3. Giá Trị Ký Kết (Total Contract Value)</div>
+                    <div class="f-desc">Tổng số tiền Khách hàng có nghĩa vụ thanh toán theo Mặt Hợp đồng Pháp lý.</div>
+                    <div class="f-eq">Giá Trị Ký Kết <span class="math-op">=</span> Doanh Thu Thuần <span
+                            class="math-op">+</span> Thuế VAT Đầu Ra</div>
+                </div>
+            </div>
 
-                    <!-- Calculation Output -->
-                    <div class="result-box">
-                        <h4
-                            style="margin-top:0; color:var(--success-color); border-bottom:1px solid #bbf7d0; padding-bottom:10px">
-                            C. Kết Quả Xử Lý Báo Cáo Tài Chính (ERP)</h4>
-
-                        <div style="font-size:13px; color:var(--secondary-color); font-weight:bold; margin-bottom:5px">
-                            1. DOANH SỐ VÀ DÒNG TIỀN</div>
-                        <div class="calc-line">
-                            <span>Doanh thu Thuần (Chưa VAT)</span>
-                            <span>150tr (PMS) + 20tr (Bảo trì) = 170,000,000 đ</span>
-                        </div>
-                        <div class="calc-line">
-                            <span>Giá trị Ký kết (KH phải trả)</span>
-                            <span>[150tr × 110%] + [20tr × 100%] = <span
-                                    style="font-weight:bold; color:var(--primary-color)">185,000,000 đ</span></span>
-                        </div>
-
-                        <div
-                            style="font-size:13px; color:var(--secondary-color); font-weight:bold; margin-top:15px; margin-bottom:5px">
-                            2. TỔNG CHI PHÍ HOẠT ĐỘNG</div>
-                        <div class="calc-line">
-                            <span>[+] Tổng Đầu vào (Mua License + Cáp)</span>
-                            <span>80tr + 5tr = 85,000,000 đ</span>
-                        </div>
-                        <div class="calc-line">
-                            <span>[-] Tiền Chiết khấu (Giảm Giá Vốn)</span>
-                            <span class="highlight-success">- 5,000,000 đ</span>
-                        </div>
-                        <div class="calc-line">
-                            <span>[+] CP Trực tiếp (Thang nâng) + Phí Công tác</span>
-                            <span>2tr + 3tr = 5,000,000 đ</span>
-                        </div>
-                        <div class="calc-line"
-                            style="background:#fee2e2; padding:4px 8px; margin-top:5px; border-radius:4px">
-                            <span style="font-weight:bold; color:var(--danger-color)">= TỔNG CHI PHÍ THỰC TẾ</span>
-                            <span style="font-weight:bold; color:var(--danger-color)">85,000,000 đ</span>
-                        </div>
-
-                        <div
-                            style="font-size:13px; color:var(--secondary-color); font-weight:bold; margin-top:15px; margin-bottom:5px">
-                            3. LỢI NHUẬN TỔNG</div>
-                        <div class="calc-line total">
-                            <span class="highlight-success">LỢI NHUẬN GỘP (HỢP ĐỒNG)</span>
-                            <span class="highlight-success">(170tr - 85tr) = 85,000,000 đ</span>
-                        </div>
-                        <div class="calc-line" style="border:none">
-                            <span>Tỷ suất Lợi Nhuận (Margin)</span>
-                            <span
-                                style="background:var(--success-color); color:white; padding:2px 6px; border-radius:4px; font-weight:bold">50.0%</span>
-                        </div>
+            <h3>2.2. Nhóm chỉ số Chi phí & Nghĩa vụ Thuế</h3>
+            <div class="formula-grid">
+                <div class="formula-card rose">
+                    <div class="f-name">4. Giá Vốn Hàng Bán (COGS)</div>
+                    <div class="f-desc">Chỉ bao gồm phần giá trị vật tư/phần mềm nhập khẩu từ NCC, đã trừ chiết khấu.
+                    </div>
+                    <div class="f-eq">Giá Vốn <span class="math-op">=</span> Σ( Số_Lượng <span class="math-op">×</span>
+                        Đơn_Giá_Mua ) <span class="math-op">-</span> Chiết_Khấu_NCC</div>
+                </div>
+                <div class="formula-card amber">
+                    <div class="f-name">5. Thuế GTGT Đầu Vào (Input VAT)</div>
+                    <div class="f-desc">Số tiền thuế trả cho NCC khi mua hàng, được Nhà nước cho phép khấu trừ.</div>
+                    <div class="f-eq">Thuế VAT Đầu Vào <span class="math-op">=</span> Σ( Giá_Mua_Dòng <span
+                            class="math-op">×</span> %VAT_Mua )</div>
+                </div>
+                <div class="formula-card rose">
+                    <div class="f-name hl-rose">6. Tổng Chi Phí Hoạt Động (Total Costs)</div>
+                    <div class="f-desc">Chi phí thực tế cấu thành dự án, loại bỏ các yếu tố thuế đầu vào.</div>
+                    <div class="f-eq"><span class="hl-rose">Tổng Chi Phí</span> <span class="math-op">=</span> Giá Vốn
+                        <span class="math-op">+</span> Σ(CP_Trực_Tiếp) <span class="math-op">+</span> Σ(CP_Thực_Hiện)
                     </div>
                 </div>
-
-                <!-- KPI Allocation -->
-                <div
-                    style="background:#f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 20px;">
-                    <h4
-                        style="margin-top:0; color:var(--accent-blue); border-bottom:1px solid #e2e8f0; padding-bottom:10px">
-                        D. Phân Bổ KPI Lợi Nhuận Cho Các Đơn Vị Phối Hợp</h4>
-
-                    <table style="margin-bottom:0">
-                        <thead>
-                            <tr>
-                                <th>Đơn Vị Thực Hiện</th>
-                                <th>Vai trò</th>
-                                <th>Trọng số</th>
-                                <th>Lợi Nhuận Phân Bổ (Ghi nhận KPI)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><strong>Phòng PMXD</strong> (Phụ trách bán License)</td>
-                                <td>Đơn vị Chủ Trì (Lead)</td>
-                                <td><span
-                                        style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:12px; font-weight:bold">70%</span>
-                                </td>
-                                <td style="font-family:Consolas, monospace; font-size:15px">85,000,000 đ × 70% =
-                                    <strong>59,500,000 đ</strong>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><strong>Trung Tâm IT</strong> (Phụ trách thi công mạng)</td>
-                                <td>Đơn vị Phối Hợp (Support)</td>
-                                <td><span
-                                        style="background:#f1f5f9; color:#475569; padding:2px 8px; border-radius:12px; font-weight:bold">30%</span>
-                                </td>
-                                <td style="font-family:Consolas, monospace; font-size:15px">85,000,000 đ × 30% =
-                                    <strong>25,500,000 đ</strong>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="formula-card amber">
+                    <div class="f-name hl-amber">7. Thuế Phải Nộp (Payable VAT)</div>
+                    <div class="f-desc">Phần chênh lệch dòng tiền giữa số thuế thu của KH và trả cho NCC, chờ nộp NSNN.
+                    </div>
+                    <div class="f-eq"><span class="hl-amber">VAT Phải Nộp</span> <span class="math-op">=</span> Thuế VAT
+                        Đầu Ra <span class="math-op">-</span> Thuế VAT Đầu Vào</div>
                 </div>
+            </div>
 
-                <!-- Individual KPI Allocation -->
-                <div
-                    style="background:#faf5ff; border: 1px solid #e9d5ff; border-radius: 6px; padding: 20px; margin-top: 20px;">
-                    <h4 style="margin-top:0; color:var(--purple); border-bottom:1px solid #e9d5ff; padding-bottom:10px">
-                        E. Phân Bổ KPI Thành Tích Năng Lực Cấp Cá Nhân (Bonus Commission)</h4>
+            <h3>2.3. Nhóm chỉ số Lợi nhuận & Hiệu suất kinh doanh</h3>
+            <div class="formula-grid">
+                <div class="formula-card emerald">
+                    <div class="f-name hl-emerald">8. Lợi Nhuận Gộp (Gross Profit)</div>
+                    <div class="f-desc">Lãi ròng tuyệt đối đem lại cho công ty từ Hợp đồng này.</div>
+                    <div class="f-eq"><span class="hl-emerald">Lợi Nhuận Gộp</span> <span class="math-op">=</span> Doanh
+                        Thu Thuần <span class="math-op">-</span> Tổng Chi Phí</div>
+                </div>
+                <div class="formula-card emerald">
+                    <div class="f-name">9. Tỷ suất Lợi nhuận / Doanh thu (Margin)</div>
+                    <div class="f-desc">Mỗi 100 đồng Doanh thu đem lại bao nhiêu đồng Lợi nhuận.</div>
+                    <div class="f-eq">Gross Margin % <span class="math-op">=</span> ( Lợi Nhuận Gộp <span
+                            class="math-op">÷</span> Doanh Thu Thuần ) <span class="math-op">×</span> 100%</div>
+                </div>
+                <div class="formula-card emerald">
+                    <div class="f-name">10. Tỷ suất LN / Chi phí (Markup / ROI)</div>
+                    <div class="f-desc">Mỗi đồng Chi phí bỏ ra thu về được tỷ lệ bao nhiêu phần trăm tiền lời.</div>
+                    <div class="f-eq">Markup / ROI % <span class="math-op">=</span> ( Lợi Nhuận Gộp <span
+                            class="math-op">÷</span> Tổng Chi Phí ) <span class="math-op">×</span> 100%</div>
+                </div>
+            </div>
 
-                    <p style="font-size: 14px; margin-bottom: 15px; color: var(--secondary-color);">
-                        Giai đoạn này hệ thống ERP đẩy dữ liệu sang phòng Nhân sự (HR).
-                        Lấy "Miếng bánh" <b>59,500,000 đ</b> của Phòng PMXD chia cho các nhân viên bán hàng (Sales)
-                        tương ứng với % Công sức trong phòng đó.
-                    </p>
+            <h2>3. Quy Chế Phân Bổ KPI & Trả Thưởng Cấp Cá Nhân</h2>
+            <ul class="rules">
+                <li><strong>Mức 1 (Cấp Phòng ban / Khối):</strong> Hệ thống tách <span class="hl-emerald">Lợi Nhuận
+                        Gộp</span> toàn bộ Hợp đồng nhân với biến <span class="var-name">% Tỷ lệ Phân bổ</span>
+                    (unitAllocations) của từng Phòng. Giúp đánh giá năng lực hoạt động độc lập của phòng.</li>
+                <li><strong>Mức 2 (Tiền Hoa hồng Cá nhân):</strong> Dựa trên phần Lợi nhuận vừa phân chia cho Phòng,
+                    nhân với % công sức nội bộ của từng nhân viên (Sales, Support) và nhân tiếp với Chính sách % Hoa
+                    hồng công ty để quy ra tiền thực nhận cho kỳ lương.</li>
+            </ul>
+            <div class="formula-card purple" style="max-width: 800px; margin-top: 16px;">
+                <div class="f-name">Tính Toán Tiền Hoa Hồng (Commission)</div>
+                <div class="f-eq">Hoa Hồng Cá Nhân <span class="math-op">=</span> ( Lợi Nhuận Gộp <span
+                        class="math-op">×</span> %Phân_bổ_Phòng ) <span class="math-op">×</span> %Công_sức <span
+                        class="math-op">×</span> %Mức_thưởng</div>
+            </div>
 
-                    <div class="result-box" style="background: white; border-color: #e9d5ff;">
-                        <div class="calc-line">
-                            <span><strong>NVKD Nguyễn Văn A</strong> (Chốt Deal - Đóng góp 80% công sức P.PMXD)</span>
-                            <span style="color:#6b21a8">59.5tr × 80% = <strong style="font-size: 16px;">47,600,000
-                                    đ</strong></span>
+            <h2>4. Phân Tích Thực Tiễn (Dữ liệu ERP Case Study)</h2>
+            <div class="case-study">
+                <div class="cs-header">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        style="margin-right:8px">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    Tình huống: Hợp Đồng Tư vấn & Triển khai License O365, Hạ tầng Mạng
+                </div>
+                <div class="cs-content">
+                    <p style="margin-bottom: 24px; font-size: 15px;">Dự án do <strong>Phòng PMXD</strong> <span
+                            class="badge badge-blue">Chủ trì - 70%</span> đảm nhiệm bán phần mềm, phối hợp với
+                        <strong>Trung Tâm IT</strong> <span class="badge badge-slate">Hỗ trợ - 30%</span> để thi công
+                        vật tư mạng.</p>
+
+                    <div class="cs-grid">
+                        <!-- Data Input Panel -->
+                        <div class="panel">
+                            <div class="panel-title">A. Dữ Liệu Khai Báo Đầu Vào</div>
+                            <ul class="data-list">
+                                <li>
+                                    <div class="item-name">1. License Phần mềm O365 (SL: 10 user)</div>
+                                    <div class="item-prop"><span>Giá Hãng (Đầu vào chưa VAT)</span><span>8,000,000
+                                            đ</span></div>
+                                    <div class="item-prop"><span>Giá Bán (Đầu ra chưa VAT)</span><span>15,000,000
+                                            đ</span></div>
+                                    <div class="item-prop"><span>Mức Thuế GTGT Đầu Ra/Vào</span><span>10%</span></div>
+                                </li>
+                                <li>
+                                    <div class="item-name">2. Cáp Mạng & Thi công (SL: 1 gói)</div>
+                                    <div class="item-prop"><span>Vật tư cáp (Đầu vào chưa VAT)</span><span>5,000,000
+                                            đ</span></div>
+                                    <div class="item-prop"><span>Bán Dịch vụ (Đầu ra chưa VAT)</span><span>20,000,000
+                                            đ</span></div>
+                                    <div class="item-prop"><span>Mức Thuế GTGT</span><span>0%</span></div>
+                                    <div class="item-prop"><span>CP Trực tiếp (Thuê thang nâng)</span><span>2,000,000
+                                            đ</span></div>
+                                </li>
+                            </ul>
+
+                            <div style="margin-top: 24px;">
+                                <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--slate-700);">Chi Phí &
+                                    Chiết Khấu Thêm</h4>
+                                <div class="calc-row">
+                                    <span class="calc-label">CP Thực hiện (Công tác phí tiếp khách)</span>
+                                    <span class="calc-val">3,000,000 đ</span>
+                                </div>
+                                <div class="calc-row">
+                                    <span class="calc-label">Chiết khấu Hạng mục 1 từ Hãng O365</span>
+                                    <span class="calc-val hl-emerald">- 5,000,000 đ</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="calc-line total" style="border-top: none; padding-top: 5px;">
-                            <span
-                                style="font-size: 13px; font-weight: normal; color: var(--secondary-color); margin-left: 20px;">└
-                                Tiền hoa hồng thực nhận của A (Giả sử cty thưởng 5%):</span>
-                            <span style="font-size: 14px; color: var(--accent-brand);">47.6tr × 5% = 2,380,000 đ</span>
-                        </div>
 
-                        <div class="calc-line" style="margin-top: 15px;">
-                            <span><strong>Trợ lý Sale Trần Thị B</strong> (Hỗ trợ hồ sơ - 20% công sức P.PMXD)</span>
-                            <span style="color:#6b21a8">59.5tr × 20% = <strong style="font-size: 16px;">11,900,000
-                                    đ</strong></span>
+                        <!-- Processed Data Panel -->
+                        <div class="panel">
+                            <div class="panel-title">B. Kết Quả Tính Toán Dashboard ERP</div>
+
+                            <div
+                                style="font-size: 13px; font-weight: 700; color: var(--slate-400); margin-bottom: 8px;">
+                                1. DOANH THU & VAT</div>
+                            <div class="calc-row">
+                                <span class="calc-label">Doanh Thu Thuần</span>
+                                <span class="calc-val"><span class="calc-equation">(15tr×10) + 20tr =</span> 170,000,000
+                                    đ</span>
+                            </div>
+                            <div class="calc-row">
+                                <span class="calc-label">Thuế VAT Đầu Ra <span
+                                        style="font-weight:normal; font-size:12px">(Thu hộ NSNN)</span></span>
+                                <span class="calc-val"><span class="calc-equation">(150tr×10%) + 0 =</span> 15,000,000
+                                    đ</span>
+                            </div>
+                            <div class="calc-row">
+                                <span class="calc-label">Thuế VAT Đầu Vào <span
+                                        style="font-weight:normal; font-size:12px">(Được khấu trừ)</span></span>
+                                <span class="calc-val"><span class="calc-equation">(8tr×10)×10% =</span> 8,000,000
+                                    đ</span>
+                            </div>
+                            <div class="calc-row"
+                                style="background:#fffbeb; padding:8px 12px; border-radius:4px; border:none; margin: 4px 0 12px 0;">
+                                <span class="calc-label" style="font-weight:600; color:var(--amber-700);">Thuế VAT Phải
+                                    Nộp</span>
+                                <span class="calc-val" style="color:var(--amber-700);"><span class="calc-equation">15tr
+                                        - 8tr =</span> 7,000,000 đ</span>
+                            </div>
+                            <div class="calc-total blue"
+                                style="flex-direction: row; justify-content: space-between; align-items: center; padding: 12px 16px; margin-top:8px;">
+                                <span class="label-top" style="color: var(--blue-700);">Giá Trị Hợp Đồng Ký Kết</span>
+                                <span class="val-bottom" style="font-size: 18px;">185,000,000 đ</span>
+                            </div>
+
+                            <div
+                                style="font-size: 13px; font-weight: 700; color: var(--slate-400); margin-top: 24px; margin-bottom: 8px;">
+                                2. CHI PHÍ & LỢI NHUẬN TỔNG</div>
+                            <div class="calc-row">
+                                <span class="calc-label">Giá Vốn (Mua Hàng - Chiết Khấu)</span>
+                                <span class="calc-val"><span class="calc-equation">80tr + 5tr - 5tr =</span> 80,000,000
+                                    đ</span>
+                            </div>
+                            <div class="calc-row">
+                                <span class="calc-label">Cộng CP Trực tiếp & Thực hiện</span>
+                                <span class="calc-val"><span class="calc-equation">2tr + 3tr =</span> 5,000,000 đ</span>
+                            </div>
+                            <div class="calc-total danger"
+                                style="flex-direction: row; justify-content: space-between; align-items: center; padding: 12px 16px;">
+                                <span class="label-top" style="color: var(--rose-700);">Tổng Chi Phí Hoạt Động</span>
+                                <span class="val-bottom" style="font-size: 18px;">85,000,000 đ</span>
+                            </div>
+
+                            <div class="calc-total success" style="margin-top: 12px;">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span class="label-top" style="color: var(--emerald-700);">Lợi Nhuận Gộp (Gross
+                                        Profit)</span>
+                                    <span class="val-bottom">85,000,000 đ</span>
+                                </div>
+                                <div style="display: flex; gap: 12px; font-size: 13px;">
+                                    <span class="badge badge-slate">Margin: 50.0%</span>
+                                    <span class="badge badge-slate">Markup: 100.0%</span>
+                                </div>
+                            </div>
+
                         </div>
-                        <div class="calc-line total" style="border-top: none; padding-top: 5px;">
-                            <span
-                                style="font-size: 13px; font-weight: normal; color: var(--secondary-color); margin-left: 20px;">└
-                                Tiền hoa hồng thực nhận của B (Giả sử cty thưởng 2%):</span>
-                            <span style="font-size: 14px; color: var(--accent-brand);">11.9tr × 2% = 238,000 đ</span>
+                    </div> <!-- End Grid -->
+
+                    <div class="panel" style="margin-top: 24px; background: white;">
+                        <div class="panel-title" style="color: var(--purple-700); border-color: var(--purple-100);">C.
+                            Ghi Nhận KPI & Trả Thưởng Cuối Kỳ</div>
+
+                        <div style="display: flex; flex-direction: column; gap: 16px;">
+
+                            <div style="border: 1px solid var(--slate-200); border-radius: 8px; padding: 20px;">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                    <div style="font-weight: 700; font-size: 16px;">🏢 Phòng Phần mềm Xây dựng (PMXD)
+                                    </div>
+                                    <span class="badge badge-blue">Quỹ LN: 59,500,000 đ (70%)</span>
+                                </div>
+
+                                <div class="calc-row"
+                                    style="background: var(--slate-50); padding: 12px 16px; border-radius: 6px; border: none; margin-bottom: 8px;">
+                                    <div>
+                                        <div style="font-weight: 600; color: var(--slate-800);">NVKD Nguyễn Văn A (Sales
+                                            Lead)</div>
+                                        <div style="font-size: 12px; color: var(--slate-500);">Đóng góp P.PMXD: 80% •
+                                            Cty thưởng 5% KPI</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div class="calc-val hl-purple" style="font-size: 15px;">Kpi: 47,600,000 đ</div>
+                                        <div
+                                            style="font-size: 14px; font-weight: 700; color: var(--emerald-600); margin-top:2px;">
+                                            Thực nhận: 2,380,000 đ</div>
+                                    </div>
+                                </div>
+
+                                <div class="calc-row"
+                                    style="background: var(--slate-50); padding: 12px 16px; border-radius: 6px; border: none;">
+                                    <div>
+                                        <div style="font-weight: 600; color: var(--slate-800);">NV Trần Thị B (Sales
+                                            Admin)</div>
+                                        <div style="font-size: 12px; color: var(--slate-500);">Đóng góp P.PMXD: 20% •
+                                            Cty thưởng 2% KPI</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div class="calc-val hl-purple" style="font-size: 15px;">Kpi: 11,900,000 đ</div>
+                                        <div
+                                            style="font-size: 14px; font-weight: 700; color: var(--emerald-600); margin-top:2px;">
+                                            Thực nhận: 238,000 đ</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="border: 1px solid var(--slate-200); border-radius: 8px; padding: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="font-weight: 700; font-size: 16px;">💻 Trung Tâm IT (Thi công)</div>
+                                    <span class="badge badge-slate">Quỹ LN: 25,500,000 đ (30%)</span>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
+
                 </div>
-
             </div>
-        </div>
 
+        </div>
     </div>
 
 </body>
