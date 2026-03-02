@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Save, Loader2, X } from 'lucide-react';
+import { Save, Loader2, X, AlertCircle } from 'lucide-react';
 import { EmployeeService, UnitService } from '../services';
 import { Employee, Unit } from '../types';
 import { supabase } from '../lib/supabase';
@@ -55,6 +55,7 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
     const [previewUrl, setPreviewUrl] = useState<string>('');
     const [formData, setFormData] = useState<FormData>(initialFormData);
     const [units, setUnits] = useState<Unit[]>([]);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Fetch units on open
     useEffect(() => {
@@ -141,8 +142,34 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
         }
     };
 
+    const validateForm = (): boolean => {
+        const newErrors: Record<string, string> = {};
+
+        if (!formData.name.trim()) {
+            newErrors.name = 'Tên nhân viên là bắt buộc';
+        }
+        if (!formData.unitId) {
+            newErrors.unitId = 'Vui lòng chọn đơn vị';
+        }
+        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+            newErrors.email = 'Định dạng email không hợp lệ';
+        }
+        if (formData.phone && !/^[0-9+\-\s()]{8,15}$/.test(formData.phone)) {
+            newErrors.phone = 'Số điện thoại không hợp lệ';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!validateForm()) {
+            toast.error('Vui lòng kiểm tra lại thông tin');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             let avatarUrl = formData.avatar_url;
@@ -187,7 +214,6 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
             onClose();
             toast.success("Lưu Nhân sự thành công!");
         } catch (error) {
-            console.error(error);
             toast.error("Có lỗi xảy ra khi lưu.");
         } finally {
             setIsSubmitting(false);
@@ -211,6 +237,18 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                    {/* Validation Errors Summary */}
+                    {Object.keys(errors).length > 0 && (
+                        <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                            <AlertCircle size={18} className="text-red-500 mt-0.5 shrink-0" />
+                            <div className="text-sm text-red-700 dark:text-red-400">
+                                {Object.values(errors).map((err, i) => (
+                                    <p key={i}>{err}</p>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Avatar & Basic Info */}
                     <div className="flex gap-6">
                         <AvatarSection previewUrl={previewUrl} onFileChange={handleFileChange} />

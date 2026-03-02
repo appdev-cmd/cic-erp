@@ -482,7 +482,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 { label: 'Nội dung hợp đồng', align: 'left', sortKey: 'title' },
                 { label: 'Phụ trách KD', align: 'left' },
                 { label: 'Ký kết', align: 'right', sortKey: 'value' },
-                { label: 'Doanh thu', align: 'right', sortKey: 'actualRevenue' },
+                { label: 'Doanh thu TT', align: 'right', sortKey: 'actualRevenue' },
                 { label: 'Lợi nhuận gộp', align: 'right', color: 'text-emerald-700 dark:text-emerald-400', sortKey: 'estimatedCost' },
                 { label: 'Tiền về', align: 'right' },
                 { label: 'Tỷ suất LN/DT', align: 'center' },
@@ -558,11 +558,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               </tr>
             ) : contracts.map((contract, index) => {
               const profit = (contract.value || 0) - (contract.estimatedCost || 0);
-              // Doanh thu: ưu tiên actual_revenue từ DB (tính từ payments), fallback = value / (1+VAT%)
-              const vatDivisor = (contract.hasVat !== false && (contract.vatRate ?? 10) > 0) ? (1 + (contract.vatRate ?? 10) / 100) : 1;
-              const revenue = contract.actualRevenue != null && contract.actualRevenue > 0
-                ? contract.actualRevenue
-                : Math.round((contract.value || 0) / vatDivisor);
+              // Doanh thu thực tế: chỉ hiển thị actual_revenue (ghi nhận sau xuất hóa đơn), không fallback
+              const revenue = contract.actualRevenue || 0;
               const cashReceived = contract.cashReceived || 0;
               const margin = revenue > 0 ? (profit / revenue) * 100 : ((contract.value || 0) > 0 ? (profit / contract.value) * 100 : 0);
               const salesperson = salespeople.find(s => s.id === contract.salespersonId);

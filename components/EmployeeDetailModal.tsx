@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, User, Phone, Mail, MapPin, Calendar, GraduationCap, CreditCard, Heart, Building, Pencil, Trash2 } from 'lucide-react';
 import { Employee, Unit } from '../types';
+import { usePermissionCheck } from '../hooks/usePermissions';
 
 interface EmployeeDetailModalProps {
     isOpen: boolean;
@@ -15,6 +16,7 @@ type TabType = 'personal' | 'contact' | 'education' | 'contract';
 
 const EmployeeDetailModal: React.FC<EmployeeDetailModalProps> = ({ isOpen, onClose, employee, unit, onEdit, onDelete }) => {
     const [activeTab, setActiveTab] = useState<TabType>('personal');
+    const { can } = usePermissionCheck();
 
     if (!isOpen || !employee) return null;
 
@@ -190,18 +192,22 @@ const EmployeeDetailModal: React.FC<EmployeeDetailModalProps> = ({ isOpen, onClo
                         )}
                     </div>
                     <div className="flex gap-2">
-                        <button
-                            onClick={() => { onEdit(employee); onClose(); }}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
-                        >
-                            <Pencil size={16} /> Chỉnh sửa
-                        </button>
-                        <button
-                            onClick={() => { onDelete(employee.id); onClose(); }}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                        >
-                            <Trash2 size={16} /> Xóa
-                        </button>
+                        {can('employees', 'update') && (
+                            <button
+                                onClick={() => { onEdit(employee); onClose(); }}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                            >
+                                <Pencil size={16} /> Chỉnh sửa
+                            </button>
+                        )}
+                        {can('employees', 'delete') && (
+                            <button
+                                onClick={() => { onDelete(employee.id); onClose(); }}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                            >
+                                <Trash2 size={16} /> Xóa
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

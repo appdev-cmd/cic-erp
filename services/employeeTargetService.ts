@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { dataClient as supabase } from '../lib/dataClient';
 import { KPIPlan } from '../types';
 
 export interface EmployeeTarget {

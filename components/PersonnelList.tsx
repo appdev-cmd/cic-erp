@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Search, User, Building, ChevronDown, Loader2, Plus, Pencil, Trash2, MoreVertical, Phone, Mail, Calendar, GraduationCap, MapPin, CreditCard, Eye, Upload, Download } from 'lucide-react';
+import { Search, User, Building, ChevronDown, Loader2, Plus, Pencil, Trash2, MoreVertical, Phone, Mail, Calendar, GraduationCap, MapPin, CreditCard, Eye, Upload, Download, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { EmployeeService, UnitService } from '../services';
 import { Employee, Unit } from '../types';
 import PersonnelForm from './PersonnelForm';
@@ -10,7 +11,6 @@ import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useImpersonation } from '../contexts/ImpersonationContext';
-import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 
 interface PersonnelListProps {
     selectedUnit: Unit;
@@ -33,6 +33,10 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     const [units, setUnits] = useState<Unit[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 12;
+
     // Form state
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingPerson, setEditingPerson] = useState<Employee | undefined>(undefined);
@@ -45,32 +49,26 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     // Import modal state
     const [isImportOpen, setIsImportOpen] = useState(false);
 
+    // Delete confirmation state
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     // Fetch data
     useEffect(() => {
-        console.log('[PersonnelList] Fetch effect triggered');
-
-        // Safety timeout
-        const timeoutId = setTimeout(() => {
-            console.warn('[PersonnelList] Safety timeout - forcing loading to false');
-            setIsLoading(false);
-        }, 10000);
+        const timeoutId = setTimeout(() => setIsLoading(false), 10000);
 
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                console.log('[PersonnelList] Starting data fetch...');
                 const [employeesData, unitsData] = await Promise.all([
                     EmployeeService.getAll(),
                     UnitService.getAll()
                 ]);
-                console.log('[PersonnelList] Data received:', { employees: employeesData.length, units: unitsData.length });
                 setAllPersonnel(employeesData);
                 setUnits(unitsData);
             } catch (error) {
-                console.error('[PersonnelList] Error fetching data:', error);
                 toast.error('Lỗi tải dữ liệu nhân sự');
             } finally {
-                console.log('[PersonnelList] Setting loading to false');
                 setIsLoading(false);
                 clearTimeout(timeoutId);
             }
@@ -120,27 +118,8 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
         return 30;
     };
 
-    // Infinite scroll batch size
-    const PAGE_SIZE = 20;
-
-    // Debounced search
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
-
-    // Infinite scroll fetch function
-    const fetchPersonnelPage = useCallback(async (page: number) => {
-        // Implement real pagination here if the API supports it.
-        // For now, we will simulate it with the existing `allPersonnel` array.
-        // If the API supports pagination, replace this part with a real API call.
-
-        // Note: Currently, `EmployeeService.getAll()` gets all data.
-        // Since we want infinite scroll, we must paginate client-side for now
-        // if the API doesn't support limit/offset.
-
-        // We use the existing logic to filter and sort `allPersonnel`.
+    // Filter and sort personnel (compute full filtered list for accurate count)
+    const filteredAll = useMemo(() => {
         let filtered = allPersonnel;
 
         // Filter by visibility first
@@ -154,8 +133,8 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
         }
 
         // Filter by search query
-        if (debouncedSearch) {
-            const q = debouncedSearch.toLowerCase();
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
             filtered = filtered.filter(p =>
                 p.name.toLowerCase().includes(q) ||
                 p.email?.toLowerCase().includes(q) ||
@@ -165,7 +144,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
         }
 
         // Sort by position priority, then unit, then name
-        const sorted = [...filtered].sort((a, b) => {
+        return [...filtered].sort((a, b) => {
             const priorityA = getPositionPriority(a.position, a.roleCode);
             const priorityB = getPositionPriority(b.position, b.roleCode);
             if (priorityB !== priorityA) return priorityB - priorityA;
@@ -174,68 +153,58 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
             if (unitA !== unitB) return unitA.localeCompare(unitB);
             return a.name.localeCompare(b.name);
         });
+    }, [allPersonnel, unitFilter, searchQuery, units, visibleUnits]);
 
-        const from = (page - 1) * PAGE_SIZE;
-        const pageData = sorted.slice(from, from + PAGE_SIZE);
+    // Total and pagination (based on filtered results)
+    const totalCount = filteredAll.length;
+    const totalPages = Math.ceil(totalCount / pageSize);
 
-        return {
-            data: pageData,
-            hasMore: from + PAGE_SIZE < sorted.length,
-            totalCount: sorted.length
-        };
-    }, [allPersonnel, unitFilter, debouncedSearch, units, visibleUnits]);
+    // Paginated personnel for current page
+    const filteredPersonnel = useMemo(() => {
+        const from = (currentPage - 1) * pageSize;
+        return filteredAll.slice(from, from + pageSize);
+    }, [filteredAll, currentPage]);
 
-    const {
-        items: filteredPersonnel,
-        isLoadingMore,
-        hasMore,
-        totalCount,
-        sentinelRef,
-        reset: resetInfiniteScroll,
-        setItems: setFilteredPersonnel
-    } = useInfiniteScroll<Employee>({
-        fetchFn: fetchPersonnelPage,
-        pageSize: PAGE_SIZE,
-        resetDeps: [debouncedSearch, unitFilter, visibleUnits, allPersonnel, units]
-    });
+    // Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [unitFilter, searchQuery]);
 
     const handleSave = async (data: any) => {
-        console.log('[PersonnelList.handleSave] Starting...', { id: data.id });
         try {
             if (data.id) {
-                console.log('[PersonnelList.handleSave] Calling update...');
                 await EmployeeService.update(data.id, data);
-                console.log('[PersonnelList.handleSave] Update completed');
             } else {
-                console.log('[PersonnelList.handleSave] Calling create...');
                 await EmployeeService.create(data);
-                console.log('[PersonnelList.handleSave] Create completed');
             }
-            // Refresh data
-            console.log('[PersonnelList.handleSave] Refreshing data...');
             const employeesData = await EmployeeService.getAll();
-            console.log('[PersonnelList.handleSave] Refresh completed, count:', employeesData.length);
             setAllPersonnel(employeesData);
             toast.success("Lưu thông tin nhân viên thành công!");
             setIsFormOpen(false);
             setEditingPerson(undefined);
         } catch (error) {
-            console.error('[PersonnelList.handleSave] Failed:', error);
             toast.error('Lỗi lưu dữ liệu');
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (window.confirm('Bạn có chắc chắn muốn xóa nhân sự này?')) {
-            try {
-                await EmployeeService.delete(id);
-                setAllPersonnel(prev => prev.filter(p => p.id !== id));
-                toast.success("Đã xóa nhân viên");
-            } catch (error) {
-                console.error('Lỗi khi xóa nhân viên:', error);
-                toast.error('Không thể xóa nhân viên này.');
-            }
+    const handleDeleteConfirm = async () => {
+        if (!deleteConfirmId) return;
+        setIsDeleting(true);
+        try {
+            await EmployeeService.delete(deleteConfirmId);
+            setAllPersonnel(prev => prev.filter(p => p.id !== deleteConfirmId));
+            toast.success("Đã xóa nhân viên");
+        } catch (error) {
+            toast.error('Không thể xóa nhân viên này.');
+        } finally {
+            setIsDeleting(false);
+            setDeleteConfirmId(null);
+            setActionMenuId(null);
         }
+    };
+
+    const handleDelete = (id: string) => {
+        setDeleteConfirmId(id);
         setActionMenuId(null);
     };
 
@@ -253,6 +222,48 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
         } catch { return '—'; }
     };
 
+    // Export to Excel
+    const handleExport = () => {
+        try {
+            const exportData = filteredAll.map(p => ({
+                'Mã NV': p.employeeCode || '',
+                'Họ và tên': p.name,
+                'Đơn vị': units.find(u => u.id === p.unitId)?.name || '',
+                'Chức vụ': p.position || '',
+                'Email': p.email || '',
+                'SĐT': p.phone || '',
+                'Telegram': p.telegram || '',
+                'Ngày sinh': p.dateOfBirth ? formatDate(p.dateOfBirth) : '',
+                'Giới tính': p.gender === 'male' ? 'Nam' : p.gender === 'female' ? 'Nữ' : '',
+                'Địa chỉ': p.address || '',
+                'Ngày vào làm': p.dateJoined ? formatDate(p.dateJoined) : '',
+                'Loại HĐ': p.contractType || '',
+                'Ngày hết HĐ': p.contractEndDate ? formatDate(p.contractEndDate) : '',
+                'Học vấn': p.education || '',
+                'Chuyên ngành': p.specialization || '',
+                'Số CCCD': p.idNumber || '',
+                'STK ngân hàng': p.bankAccount || '',
+                'Ngân hàng': p.bankName || '',
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Nhân sự');
+
+            // Auto-width columns
+            const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+                wch: Math.max(key.length, ...exportData.map(row => String((row as any)[key] || '').length)) + 2
+            }));
+            ws['!cols'] = colWidths;
+
+            const fileName = `nhan_su_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            toast.success(`Đã xuất ${exportData.length} nhân viên ra file ${fileName}`);
+        } catch (error) {
+            toast.error('Lỗi khi xuất file Excel');
+        }
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
@@ -262,7 +273,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         Quản lý Nhân sự
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                        {totalCount} nhân viên
+                        {totalCount} nhân viên • Trang {currentPage}/{totalPages || 1}
                     </p>
                 </div>
 
@@ -331,6 +342,14 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                 <Download size={18} />
                                 <span className="hidden sm:inline">Template</span>
                             </a>
+                            <button
+                                onClick={handleExport}
+                                disabled={filteredAll.length === 0}
+                                className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-emerald-300 transition-all disabled:opacity-50"
+                            >
+                                <FileSpreadsheet size={18} />
+                                <span className="hidden sm:inline">Export</span>
+                            </button>
                         </>
                     )}
 
@@ -442,31 +461,25 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         <Loader2 size={32} className="animate-spin text-indigo-500" />
                     </div>
                 ) : (
-                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-360px)]">
+                    <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
-                                <tr className="z-20">
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-4 px-3 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12">STT</th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nhân viên</th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Đơn vị</th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Ngày sinh</th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Ngày vào</th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 py-4 px-6"></th>
+                                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nhân viên</th>
+                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Đơn vị</th>
+                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
+                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Ngày sinh</th>
+                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Ngày vào</th>
+                                    <th className="py-4 px-6"></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredPersonnel.map((person, index) => (
+                                {filteredPersonnel.map((person) => (
                                     <tr
                                         key={person.id}
                                         onClick={() => handleViewDetail(person)}
                                         className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                     >
-                                        <td className="py-4 px-3 text-center">
-                                            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                                                {index + 1}
-                                            </span>
-                                        </td>
                                         {/* Name & Position */}
                                         <td className="py-4 px-6">
                                             <div className="flex items-center gap-4">
@@ -570,41 +583,76 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                 ))}
                                 {filteredPersonnel.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} className="py-16 text-center text-slate-400">
+                                        <td colSpan={6} className="py-16 text-center text-slate-400">
                                             Không tìm thấy nhân viên nào
                                         </td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
-
-                        {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
-                        <div className="p-4 flex flex-col items-center justify-center">
-                            <div ref={sentinelRef} className="h-4 w-full" />
-                            {isLoadingMore && (
-                                <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
-                                    <Loader2 size={20} className="animate-spin" />
-                                    <span className="text-sm font-medium">Đang tải thêm...</span>
-                                </div>
-                            )}
-                            {!hasMore && filteredPersonnel.length > 0 && !isLoading && (
-                                <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
-                                    Đã hiển thị tất cả {totalCount} nhân viên
-                                </div>
-                            )}
-                        </div>
                     </div>
                 )}
 
-                {/* STATUS BAR */}
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-                    <div className="flex items-center justify-between">
-                        <div className="text-sm font-bold text-slate-500">
-                            Hiển thị {filteredPersonnel.length} / {totalCount} nhân viên
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            Hiển thị {((currentPage - 1) * pageSize) + 1}–{Math.min(currentPage * pageSize, totalCount)} trên tổng số {totalCount} nhân viên
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Trước
+                            </button>
+                            <span className="text-sm text-slate-600 dark:text-slate-400">Trang {currentPage} / {totalPages}</span>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Sau
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl w-full max-w-sm p-6 animate-in zoom-in-95 duration-200">
+                        <div className="text-center">
+                            <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Trash2 size={24} className="text-red-600 dark:text-red-400" />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Xác nhận xóa</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                                Bạn có chắc chắn muốn xóa nhân viên <strong className="text-slate-700 dark:text-slate-300">{allPersonnel.find(p => p.id === deleteConfirmId)?.name}</strong>? Hành động này không thể hoàn tác.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setDeleteConfirmId(null)}
+                                    disabled={isDeleting}
+                                    className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleDeleteConfirm}
+                                    disabled={isDeleting}
+                                    className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                                    Xóa
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

@@ -45,9 +45,7 @@ const mapEmployee = (s: any): Employee => {
 
 export const EmployeeService = {
     getAll: async (): Promise<Employee[]> => {
-        console.log('[EmployeeService.getAll] Fetching...');
         const { data, error } = await supabase.from('employees').select('*');
-        console.log('[EmployeeService.getAll] Result:', { count: data?.length, error });
         if (error) throw error;
         return data.map(mapEmployee);
     },
@@ -133,10 +131,6 @@ export const EmployeeService = {
     },
 
     update: async (id: string, payload: Partial<Employee>): Promise<Employee> => {
-        console.log('[employeeService.update] ====== UPDATE START ======');
-        console.log('[employeeService.update] ID:', id);
-        console.log('[employeeService.update] Input payload:', JSON.stringify(payload, null, 2));
-
         // Map frontend camelCase to DB snake_case
         const dbPayload: any = {};
 
@@ -169,18 +163,11 @@ export const EmployeeService = {
         if (payload.specialization !== undefined) dbPayload.specialization = payload.specialization;
         if (payload.certificates !== undefined) dbPayload.certificates = payload.certificates;
 
-        console.log('[employeeService.update] DB payload keys:', Object.keys(dbPayload));
-        console.log('[employeeService.update] DB payload:', JSON.stringify(dbPayload, null, 2));
-
         if (Object.keys(dbPayload).length === 0) {
-            console.warn('[employeeService.update] WARNING: Empty payload, nothing to update!');
+            throw new Error('No fields to update');
         }
 
         const { data, error } = await supabase.from('employees').update(dbPayload).eq('id', id).select().single();
-
-        console.log('[employeeService.update] DB response:', { data, error });
-        console.log('[employeeService.update] ====== UPDATE END ======');
-
         if (error) throw error;
         return mapEmployee(data);
     },
@@ -193,31 +180,42 @@ export const EmployeeService = {
 
     getStats: async (id: string, year?: number | null): Promise<any> => {
         try {
-            const { data, error } = await supabase.rpc('get_kpi_stats', {
-                p_entity_id: id,
-                p_type: 'employee',
-                p_year: year !== undefined ? year : new Date().getFullYear()
-            });
+            // Fetch KPI stats and employee target in parallel
+            const [rpcResult, employee] = await Promise.all([
+                supabase.rpc('get_kpi_stats', {
+                    p_entity_id: id,
+                    p_type: 'employee',
+                    p_year: year !== undefined ? year : new Date().getFullYear()
+                }),
+                EmployeeService.getById(id)
+            ]);
 
-            if (error) {
-                console.error('Error fetching employee KPI:', error);
+            if (rpcResult.error) {
                 return {
                     contractCount: 0,
                     totalSigning: 0,
                     totalRevenue: 0,
+                    activeContracts: 0,
+                    completedContracts: 0,
                     signingProgress: 0,
                     revenueProgress: 0
                 };
             }
 
+            const data = rpcResult.data;
+            const totalSigning = data.totalSigning || 0;
+            const totalRevenue = data.totalRevenue || 0;
+            const target = employee?.target || { signing: 0, revenue: 0 };
+
             return {
                 contractCount: data.contractCount || 0,
-                totalSigning: data.totalSigning || 0,
-                totalRevenue: data.totalRevenue || 0,
+                totalSigning,
+                totalRevenue,
                 totalProfit: data.totalProfit || 0,
-                // Progress handled by UI since target is on Employee object, not returned by RPC
-                signingProgress: 0,
-                revenueProgress: 0
+                activeContracts: data.activeContracts || 0,
+                completedContracts: data.completedContracts || 0,
+                signingProgress: target.signing > 0 ? (totalSigning / target.signing) * 100 : 0,
+                revenueProgress: target.revenue > 0 ? (totalRevenue / target.revenue) * 100 : 0
             };
         } catch (error) {
             console.error('Error in getStats:', error);
@@ -225,6 +223,8 @@ export const EmployeeService = {
                 contractCount: 0,
                 totalSigning: 0,
                 totalRevenue: 0,
+                activeContracts: 0,
+                completedContracts: 0,
                 signingProgress: 0,
                 revenueProgress: 0
             };
@@ -232,7 +232,6 @@ export const EmployeeService = {
     },
 
     getWithStats: async (unitId?: string, search?: string, year?: number | null): Promise<Employee[]> => {
-        console.log('[EmployeeService.getWithStats] Fetching with RPC...');
         try {
             const { data, error } = await supabase.rpc('get_employees_with_stats', {
                 p_unit_id: unitId === 'all' ? null : unitId,
@@ -241,7 +240,6 @@ export const EmployeeService = {
             });
 
             if (error) {
-                console.warn('[EmployeeService.getWithStats] RPC failed, falling back to getAll:', error.message);
                 // Fallback to regular getAll
                 let employees: Employee[];
                 if (unitId && unitId !== 'all') {
@@ -249,7 +247,6 @@ export const EmployeeService = {
                 } else {
                     employees = await EmployeeService.getAll();
                 }
-                // Filter by search if provided
                 if (search) {
                     const lowerSearch = search.toLowerCase();
                     employees = employees.filter(e => e.name.toLowerCase().includes(lowerSearch));
@@ -260,7 +257,6 @@ export const EmployeeService = {
                 }));
             }
 
-            console.log('[EmployeeService.getWithStats] RPC success, count:', data?.length);
             return data.map((e: any) => ({
                 ...mapEmployee(e),
                 stats: {
@@ -271,8 +267,7 @@ export const EmployeeService = {
                 }
             }));
         } catch (error) {
-            console.error('[EmployeeService.getWithStats] Exception, falling back to getAll:', error);
-            // Fallback
+            console.error('[EmployeeService.getWithStats] Fallback to getAll:', error);
             let employees: Employee[];
             if (unitId && unitId !== 'all') {
                 employees = await EmployeeService.getByUnitId(unitId);

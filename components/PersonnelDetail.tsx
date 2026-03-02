@@ -47,6 +47,7 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
     const [stats, setStats] = useState<PersonnelStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
+    const [showAllContracts, setShowAllContracts] = useState(false);
 
     // Fetch data on mount
     const fetchData = async () => {
@@ -391,7 +392,7 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
                                 </tr>
                             </thead>
                             <tbody>
-                                {contracts.slice(0, 15).map((contract) => (
+                                {(showAllContracts ? contracts : contracts.slice(0, 15)).map((contract) => (
                                     <tr
                                         key={contract.id}
                                         className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
@@ -437,9 +438,12 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
 
                 {contracts.length > 15 && (
                     <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 text-center">
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Hiển thị 15 / {contracts.length} hợp đồng
-                        </p>
+                        <button
+                            onClick={() => setShowAllContracts(!showAllContracts)}
+                            className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                        >
+                            {showAllContracts ? 'Thu gọn' : `Xem tất cả ${contracts.length} hợp đồng`}
+                        </button>
                     </div>
                 )}
             </div>
