@@ -5,9 +5,9 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
     AreaChart, Area, ComposedChart, Line
 } from 'recharts';
-import { Calendar, ChevronDown, Building2, Filter, Download, PieChart as PieChartIcon } from 'lucide-react';
-import { ContractService, UnitService, EmployeeService, PaymentService } from '../services';
-import { Unit, Contract, Payment, Employee } from '../types';
+import { PieChartIcon, Calendar, Download, Building2, ChevronDown } from 'lucide-react';
+import { ContractService, UnitService, EmployeeService, PaymentService, HistoricalProductionService } from '../services';
+import { Unit, Contract, Employee, Payment, HistoricalProduction } from '../types';
 import { toast } from 'sonner';
 import { getChartColors, getAccentColor, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill } from '../lib/themeColors';
 import { useCurrentUserVisibleUnits } from '../hooks';
@@ -30,21 +30,24 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
     const [units, setUnits] = useState<Unit[]>([]);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
+    const [historicalData, setHistoricalData] = useState<HistoricalProduction[]>([]);
 
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                const [c, u, e, payRes] = await Promise.all([
+                const [c, u, e, payRes, hRes] = await Promise.all([
                     ContractService.getAll(),
                     UnitService.getAll(),
                     EmployeeService.getAll(),
-                    PaymentService.list({ page: 1, limit: 10000 })
+                    PaymentService.list({ page: 1, limit: 10000 }),
+                    HistoricalProductionService.getAll()
                 ]);
                 setContracts(c);
                 setUnits(u);
                 setEmployees(e);
                 setPayments(payRes.data);
+                setHistoricalData(hRes);
             } catch (error) {
                 toast.error("Lỗi tải dữ liệu thống kê");
             } finally {
@@ -175,6 +178,26 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
             };
         });
     }, [payments, filteredContracts, yearFilter]);
+
+    // 5. Historical Comparison (YoY)
+    const historicalComparisonData = useMemo(() => {
+        const relevantHist = historicalData.filter(h => selectedUnit.id === 'all' ? true : h.unitId === selectedUnit.id);
+
+        const yearMap = new Map<number, any>();
+        relevantHist.forEach(h => {
+            if (!yearMap.has(h.year)) {
+                yearMap.set(h.year, { name: h.year.toString(), 'Ký kết': 0, 'Doanh thu': 0, 'LNG QT': 0, 'LNG DT': 0 });
+            }
+            const entry = yearMap.get(h.year);
+            entry['Ký kết'] += h.signing * 1000000;
+            entry['Doanh thu'] += h.revenue * 1000000;
+            entry['LNG QT'] += h.adminProfit * 1000000;
+            entry['LNG DT'] += h.revProfit * 1000000;
+        });
+
+        // Convert to array and sort by year ascending
+        return Array.from(yearMap.values()).sort((a, b) => parseInt(a.name) - parseInt(b.name));
+    }, [historicalData, selectedUnit]);
 
     const formatCurrency = (val: number) => {
         if (val >= 1e9) return `${(val / 1e9).toFixed(1)}B`;
@@ -351,6 +374,31 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
                     </ResponsiveContainer>
                 </div>
             </div>
+
+            {/* 5. Historical Comparison YoY */}
+            {historicalComparisonData.length > 0 && (
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm mt-6">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
+                        Biểu đồ So sánh Cùng kỳ (Lịch sử)
+                    </h3>
+                    <p className="text-sm font-medium text-slate-500 mb-6">Theo dõi sự tăng trưởng qua các năm của đơn vị</p>
+                    <div className="h-[400px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={historicalComparisonData} barCategoryGap={25}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 13, fontWeight: 700 }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
+                                <Tooltip cursor={{ fill: getCursorFill() }} formatter={(value: any) => formatCurrency(value as number)} contentStyle={getTooltipStyle()} />
+                                <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 600 }} />
+                                <Bar dataKey="Ký kết" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="Doanh thu" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="LNG QT" fill="#a855f7" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="LNG DT" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

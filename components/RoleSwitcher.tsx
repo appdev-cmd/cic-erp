@@ -8,6 +8,7 @@ import { Shield, RefreshCw } from 'lucide-react';
 const ROLES: { value: UserRole; label: string }[] = [
     { value: 'Leadership', label: 'Lãnh đạo' },
     { value: 'NVKD', label: 'NVKD' },
+    { value: 'NVKT', label: 'NV Kỹ thuật' },
     { value: 'UnitLeader', label: 'Lãnh đạo Đơn vị' },
     { value: 'AdminUnit', label: 'Admin Đơn vị' },
     { value: 'Accountant', label: 'Kế toán' },
@@ -84,7 +85,7 @@ export const RoleSwitcher: React.FC = () => {
                 </select>
             </div>
 
-            {['NVKD', 'UnitLeader', 'AdminUnit'].includes(profile?.role || '') && (
+            {['NVKD', 'NVKT', 'UnitLeader', 'AdminUnit'].includes(profile?.role || '') && (
                 <div className="flex flex-col gap-1">
                     <label className="text-[10px] text-slate-400">Đơn vị:</label>
                     <select

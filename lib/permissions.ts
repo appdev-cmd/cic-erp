@@ -23,7 +23,7 @@ export const GLOBAL_VIEW_ROLES: UserRole[] = [
 
 /** Roles scoped to their own unit only */
 export const UNIT_SCOPED_ROLES: UserRole[] = [
-    'NVKD', 'AdminUnit', 'UnitLeader'
+    'NVKD', 'NVKT', 'AdminUnit', 'UnitLeader'
 ];
 
 // ═══════════════════════════════════════════

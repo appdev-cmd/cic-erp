@@ -178,11 +178,11 @@ const PilotRunner = () => {
     };
 
     return (
-        <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-lg border border-slate-200 dark:border-slate-800">
+        <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-lg border border-slate-200 dark:border-slate-800">
             <div className="flex justify-between items-center mb-4">
                 <div>
                     <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">Pilot Test Runner</h3>
-                    <p className="text-sm text-slate-500">Chạy kịch bản kiểm thử tự động trên môi trường thật.</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Chạy kịch bản kiểm thử tự động trên môi trường thật.</p>
                 </div>
                 <button
                     onClick={runPilot}

@@ -38,8 +38,8 @@ import {
 } from 'lucide-react';
 import { Skeleton } from './ui/Skeleton';
 import ErrorBoundary from './ErrorBoundary';
-import { ContractService, UnitService, EmployeeService } from '../services';
-import { Unit, KPIPlan, Contract } from '../types';
+import { ContractService, UnitService, EmployeeService, HistoricalProductionService } from '../services';
+import { Unit, KPIPlan, Contract, HistoricalProduction } from '../types';
 import { getSmartInsightsWithDeepSeek } from '../services/openaiService';
 import { getChartColors, getAccentColor, getAccentColorLight, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill } from '../lib/themeColors';
 import { useCurrentUserVisibleUnits } from '../hooks';
@@ -115,6 +115,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [chartDataCurrent, setChartDataCurrent] = useState<any[]>([]);
   const [chartDataLast, setChartDataLast] = useState<any[]>([]);
+  const [historicalData, setHistoricalData] = useState<HistoricalProduction[]>([]);
 
   // Distribution Data
   const [distributionData, setDistributionData] = useState<any[]>([]);
@@ -188,11 +189,32 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         console.log('[Dashboard] Chart current received:', chartCurrent?.length);
         if (!isCancelled) setChartDataCurrent(chartCurrent || []);
 
-        // STEP 3: Fetch Chart Data (Previous Year) 
+        // STEP 3: Fetch Chart Data (Previous Year) - Keep for compatibility if needed elsewhere
         if (prevYear !== 'All') {
           const chartLast = await ContractService.getChartDataRPC(unitId, prevYear);
           if (!isCancelled) setChartDataLast(chartLast || []);
         }
+
+        // STEP 3.5: Fetch Historical Data
+        console.log('[Dashboard] Step 3.5: Fetching historical data...');
+        let hist: HistoricalProduction[] = [];
+        if (unitId === 'all') {
+          const allHist = await HistoricalProductionService.getAll();
+          const yearMap: Record<number, HistoricalProduction> = {};
+          allHist.forEach(h => {
+            if (!yearMap[h.year]) {
+              yearMap[h.year] = { unitId: 'all', year: h.year, signing: 0, revenue: 0, adminProfit: 0, revProfit: 0 };
+            }
+            yearMap[h.year].signing += h.signing;
+            yearMap[h.year].revenue += h.revenue;
+            yearMap[h.year].adminProfit += h.adminProfit;
+            yearMap[h.year].revProfit += h.revProfit;
+          });
+          hist = Object.values(yearMap);
+        } else {
+          hist = await HistoricalProductionService.getByUnit(unitId);
+        }
+        if (!isCancelled) setHistoricalData(hist);
 
         // STEP 4: Fetch Distribution Data
         console.log('[Dashboard] Step 4: Fetching distribution...');
@@ -329,10 +351,26 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   useEffect(() => {
     const months = ['Th.1', 'Th.2', 'Th.3', 'Th.4', 'Th.5', 'Th.6', 'Th.7', 'Th.8', 'Th.9', 'Th.10', 'Th.11', 'Th.12'];
 
+    const currentYear = yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter);
+    const lastYear = currentYear - 1;
+    const prevYear = currentYear - 2;
+
     const mapped = months.map((m, idx) => {
       const monthNum = idx + 1;
       const curr = chartDataCurrent.find(c => c.month === monthNum);
-      const last = chartDataLast.find(c => c.month === monthNum);
+
+      const lastYearData = historicalData.find(h => h.year === lastYear);
+      const prevYearData = historicalData.find(h => h.year === prevYear);
+
+      const getHistVal = (d: HistoricalProduction | undefined) => {
+        if (!d) return null;
+        let v = 0;
+        if (activeMetric === 'signing') v = d.signing;
+        else if (activeMetric === 'revenue') v = d.revenue;
+        else if (activeMetric === 'adminProfit') v = d.adminProfit;
+        else if (activeMetric === 'revProfit') v = d.revProfit;
+        return (v * 1_000_000) / 12; // monthly average in VND
+      };
 
       const getValue = (d: any) => {
         if (!d) return 0;
@@ -344,12 +382,13 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
       return {
         name: m,
         current: getValue(curr),
-        lastYear: getValue(last)
+        lastYearLine: getHistVal(lastYearData),
+        prevYearLine: getHistVal(prevYearData)
       };
     });
 
     setMonthlyData(mapped);
-  }, [chartDataCurrent, chartDataLast, activeMetric]);
+  }, [chartDataCurrent, historicalData, activeMetric, yearFilter]);
 
 
   const fetchAI = async (contracts: Contract[]) => {
@@ -373,10 +412,27 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   };
 
   const getYoY = (metric: keyof KPIPlan) => {
-    const curr = stats.actual[metric];
-    // This needs logic. For now mock based on stats
-    const growth = 10;
-    return { value: growth.toFixed(1), isUp: true };
+    const curr = stats.actual[metric] || 0;
+    if (yearFilter === 'All') return { value: '0.0', isUp: true };
+    const currentYear = parseInt(yearFilter);
+    const lastYear = currentYear - 1;
+    const lastYearData = historicalData.find(h => h.year === lastYear);
+
+    if (!lastYearData) return { value: '0.0', isUp: true };
+
+    let lastYearVal = 0;
+    if (metric === 'signing') lastYearVal = lastYearData.signing;
+    else if (metric === 'revenue') lastYearVal = lastYearData.revenue;
+    else if (metric === 'adminProfit') lastYearVal = lastYearData.adminProfit;
+    else if (metric === 'revProfit') lastYearVal = lastYearData.revProfit;
+
+    if (lastYearVal === 0) return { value: '0.0', isUp: true };
+
+    // Convert millions to actual VND for calculation
+    const trueLastYearVal = lastYearVal * 1_000_000;
+    const growth = ((curr - trueLastYearVal) / trueLastYearVal) * 100;
+
+    return { value: Math.abs(growth).toFixed(1), isUp: growth >= 0 };
   };
 
   // Safe Unit for Display
@@ -405,7 +461,8 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
       return sumTarget;
     }
     // Đơn vị cụ thể: revProfit target cũng lấy bằng adminProfit
-    return { ...safeUnit.target, revProfit: safeUnit.target.adminProfit };
+    const t = safeUnit.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+    return { ...t, revProfit: t.adminProfit };
   }, [safeUnit, rawDistData]);
 
   if (loadingConfig || !selectedUnit) {
@@ -479,7 +536,14 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
               </div>
               <div className="flex gap-6 text-xs font-bold uppercase text-slate-400">
                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-indigo-600 rounded-full shadow-lg shadow-indigo-200"></div> {yearFilter === 'All' ? new Date().getFullYear() : yearFilter}</div>
-                <div className="flex items-center gap-2"><div className="w-3 h-3 bg-slate-200 dark:bg-slate-700 rounded-full"></div> Năm trước</div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-0.5 bg-slate-400 border-t-[3px] border-dashed border-slate-400"></div>
+                  TB năm trước
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-0.5 bg-slate-300 border-t-[3px] border-dotted border-slate-300"></div>
+                  TB năm liền trước
+                </div>
               </div>
             </div>
             <div className="h-[350px]">
@@ -493,10 +557,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                     cursor={{ fill: getCursorFill() }}
                     contentStyle={getTooltipStyle()}
                     itemStyle={{ fontSize: '13px', fontWeight: 600, padding: '4px 0' }}
+                    formatter={(value: any, name: any) => [formatCurrency(value as number), name]}
                   />
-                  <Bar dataKey="lastYear" fill={getMutedBarFill()} radius={[6, 6, 0, 0]} barSize={32} />
-                  <Bar dataKey="current" fill={getAccentColor()} radius={[6, 6, 0, 0]} barSize={32} />
-                  <Line type="monotone" dataKey="current" stroke={getAccentColorLight()} strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6, strokeWidth: 0 }} />
+                  <Bar dataKey="current" name={yearFilter === 'All' ? 'Năm nay' : `Năm ${yearFilter}`} fill={getAccentColor()} radius={[6, 6, 0, 0]} barSize={32} />
+                  <Line type="monotone" dataKey="lastYearLine" name="TB năm trước" stroke={getMutedBarFill()} strokeWidth={3} dot={false} strokeDasharray="6 4" />
+                  <Line type="monotone" dataKey="prevYearLine" name="TB năm liền trước" stroke="#cbd5e1" strokeWidth={3} dot={false} strokeDasharray="3 3" />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>

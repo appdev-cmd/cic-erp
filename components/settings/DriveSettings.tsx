@@ -88,7 +88,7 @@ const DriveSettings: React.FC = () => {
         return (
             <div className="flex items-center justify-center py-12">
                 <Loader2 className="animate-spin text-orange-500" size={24} />
-                <span className="ml-2 text-slate-500">Đang kiểm tra...</span>
+                <span className="ml-2 text-slate-500 dark:text-slate-400">Đang kiểm tra...</span>
             </div>
         );
     }
@@ -102,7 +102,7 @@ const DriveSettings: React.FC = () => {
                 </div>
                 <div>
                     <h3 className="font-bold text-slate-800 dark:text-slate-200">Google Drive Integration</h3>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                         Quản lý cấu trúc thư mục trên Google Drive
                     </p>
                 </div>
@@ -143,7 +143,7 @@ const DriveSettings: React.FC = () => {
             </div>
 
             {/* Folder Structure Preview */}
-            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-600">
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
                 <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
                     <FolderTree size={16} className="text-orange-500" />
                     Cấu trúc thư mục: {ROOT_FOLDER_NAME}
@@ -156,7 +156,7 @@ const DriveSettings: React.FC = () => {
                             <div key={id}>
                                 <div className="pl-4">
                                     📁 {prefix}/
-                                    <span className="text-slate-400 ml-2">
+                                    <span className="text-slate-400 dark:text-slate-500 ml-2">
                                         ({subfolders.join(', ')})
                                     </span>
                                 </div>
@@ -184,7 +184,7 @@ const DriveSettings: React.FC = () => {
                             style={{ width: `${progress.total > 0 ? (progress.current / progress.total * 100) : 0}%` }}
                         />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         {progress.current} / {progress.total}
                     </p>
                 </div>

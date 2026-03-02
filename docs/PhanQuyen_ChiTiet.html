@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tài liệu Phân quyền — CIC ERP</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --card2: #334155;
+            --border: #475569;
+            --text: #e2e8f0;
+            --text2: #94a3b8;
+            --accent: #f97316;
+            --accent2: #fb923c;
+            --green: #22c55e;
+            --red: #ef4444;
+            --blue: #3b82f6;
+            --purple: #a855f7;
+            --teal: #14b8a6;
+            --cyan: #06b6d4;
+            --amber: #f59e0b;
+            --indigo: #6366f1;
+            --emerald: #10b981
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 0
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 32px 64px
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e293b 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 48px 40px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(249, 115, 22, .12) 0%, transparent 70%);
+            pointer-events: none
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px
+        }
+
+        .header .sub {
+            font-size: 14px;
+            color: var(--text2)
+        }
+
+        .header .meta {
+            display: flex;
+            gap: 24px;
+            margin-top: 16px;
+            flex-wrap: wrap
+        }
+
+        .header .meta span {
+            font-size: 12px;
+            color: var(--text2);
+            background: var(--card2);
+            padding: 4px 12px;
+            border-radius: 6px
+        }
+
+        /* TOC */
+        .toc {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px 32px;
+            margin-bottom: 32px
+        }
+
+        .toc h2 {
+            font-size: 16px;
+            color: var(--accent);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700
+        }
+
+        .toc ol {
+            padding-left: 20px;
+            columns: 2;
+            column-gap: 32px
+        }
+
+        .toc li {
+            font-size: 13px;
+            color: var(--text2);
+            padding: 3px 0
+        }
+
+        .toc a {
+            color: var(--text);
+            text-decoration: none;
+            transition: color .2s
+        }
+
+        .toc a:hover {
+            color: var(--accent)
+        }
+
+        /* Section */
+        section {
+            margin-bottom: 40px
+        }
+
+        h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--accent);
+            display: inline-block
+        }
+
+        h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent2);
+            margin: 20px 0 12px
+        }
+
+        h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            margin: 16px 0 8px
+        }
+
+        p {
+            font-size: 14px;
+            color: var(--text2);
+            margin-bottom: 12px
+        }
+
+        /* Architecture */
+        .arch {
+            display: grid;
+            gap: 0;
+            margin: 20px 0
+        }
+
+        .arch-layer {
+            padding: 16px 24px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 16px
+        }
+
+        .arch-layer:first-child {
+            border-radius: 12px 12px 0 0
+        }
+
+        .arch-layer:last-child {
+            border-radius: 0 0 12px 12px
+        }
+
+        .arch-num {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 14px;
+            color: #fff;
+            flex-shrink: 0
+        }
+
+        .arch-layer:nth-child(1) .arch-num {
+            background: var(--accent)
+        }
+
+        .arch-layer:nth-child(2) .arch-num {
+            background: var(--purple)
+        }
+
+        .arch-layer:nth-child(3) .arch-num {
+            background: var(--blue)
+        }
+
+        .arch-layer:nth-child(4) .arch-num {
+            background: var(--teal)
+        }
+
+        .arch-layer:nth-child(5) .arch-num {
+            background: var(--emerald)
+        }
+
+        .arch-layer:nth-child(1) {
+            background: rgba(249, 115, 22, .08)
+        }
+
+        .arch-layer:nth-child(2) {
+            background: rgba(168, 85, 247, .08)
+        }
+
+        .arch-layer:nth-child(3) {
+            background: rgba(59, 130, 246, .08)
+        }
+
+        .arch-layer:nth-child(4) {
+            background: rgba(20, 184, 166, .08)
+        }
+
+        .arch-layer:nth-child(5) {
+            background: rgba(16, 185, 129, .08)
+        }
+
+        .arch-title {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text)
+        }
+
+        .arch-desc {
+            font-size: 12px;
+            color: var(--text2)
+        }
+
+        /* Roles */
+        .roles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+            margin: 16px 0
+        }
+
+        .role-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            transition: transform .2s, border-color .2s
+        }
+
+        .role-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent)
+        }
+
+        .role-card .icon {
+            font-size: 24px;
+            margin-bottom: 8px
+        }
+
+        .role-card .name {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text)
+        }
+
+        .role-card .code {
+            font-size: 11px;
+            font-family: monospace;
+            color: var(--accent);
+            background: rgba(249, 115, 22, .15);
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: 8px
+        }
+
+        .role-card .scope {
+            font-size: 11px;
+            margin-top: 4px
+        }
+
+        .role-card .scope .badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600
+        }
+
+        .scope-global .badge {
+            background: rgba(59, 130, 246, .15);
+            color: var(--blue)
+        }
+
+        .scope-unit .badge {
+            background: rgba(20, 184, 166, .15);
+            color: var(--teal)
+        }
+
+        .role-card .desc {
+            font-size: 12px;
+            color: var(--text2);
+            margin-top: 8px
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin: 12px 0;
+            background: var(--card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border)
+        }
+
+        thead {
+            background: var(--card2)
+        }
+
+        th {
+            padding: 10px 12px;
+            font-weight: 700;
+            color: var(--text);
+            text-align: center;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            border-bottom: 2px solid var(--border)
+        }
+
+        th:first-child {
+            text-align: left
+        }
+
+        td {
+            padding: 8px 12px;
+            text-align: center;
+            border-bottom: 1px solid rgba(71, 85, 105, .3);
+            color: var(--text2)
+        }
+
+        td:first-child {
+            text-align: left;
+            font-weight: 600;
+            color: var(--text)
+        }
+
+        tr:last-child td {
+            border-bottom: none
+        }
+
+        tr:hover td {
+            background: rgba(249, 115, 22, .04)
+        }
+
+        .yes {
+            color: var(--green);
+            font-weight: 700
+        }
+
+        .no {
+            color: var(--red);
+            opacity: .5
+        }
+
+        /* Notes */
+        .note {
+            background: rgba(59, 130, 246, .08);
+            border-left: 3px solid var(--blue);
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 12px 0;
+            font-size: 12px;
+            color: var(--text2)
+        }
+
+        .note.warn {
+            background: rgba(249, 115, 22, .08);
+            border-left-color: var(--accent)
+        }
+
+        .note.danger {
+            background: rgba(239, 68, 68, .08);
+            border-left-color: var(--red)
+        }
+
+        .note strong {
+            color: var(--text)
+        }
+
+        /* Flow */
+        .flow {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 16px 0
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px
+        }
+
+        .flow-step:last-child {
+            margin-bottom: 0
+        }
+
+        .flow-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+            flex-shrink: 0
+        }
+
+        .flow-text {
+            font-size: 13px;
+            color: var(--text2);
+            padding-top: 4px
+        }
+
+        .flow-text strong {
+            color: var(--text)
+        }
+
+        /* Two col */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin: 16px 0
+        }
+
+        .col-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px
+        }
+
+        .col-box h4 {
+            margin-top: 0;
+            color: var(--text);
+            font-size: 14px
+        }
+
+        .col-box ul {
+            padding-left: 16px;
+            font-size: 13px;
+            color: var(--text2)
+        }
+
+        .col-box li {
+            margin: 4px 0
+        }
+
+        /* Print */
+        @media print {
+            body {
+                background: #fff;
+                color: #1a1a1a
+            }
+
+            .container {
+                max-width: 100%
+            }
+
+            .header {
+                background: #f8f9fa;
+                border-color: #ddd
+            }
+
+            .header h1 {
+                -webkit-text-fill-color: var(--accent);
+                color: var(--accent)
+            }
+
+            .card,
+            .role-card,
+            .flow,
+            .col-box,
+            .toc {
+                background: #fff;
+                border-color: #ddd
+            }
+
+            table {
+                background: #fff
+            }
+
+            thead {
+                background: #f1f5f9
+            }
+
+            th,
+            td {
+                color: #1a1a1a;
+                border-color: #ddd
+            }
+
+            .yes {
+                color: #16a34a
+            }
+
+            .no {
+                color: #dc2626
+            }
+
+            h2 {
+                color: #1a1a1a;
+                border-bottom-color: var(--accent)
+            }
+
+            h3 {
+                color: #c2410c
+            }
+
+            p,
+            .arch-desc,
+            .role-card .desc,
+            .note,
+            .flow-text,
+            td:first-child,
+            .text2 {
+                color: #555
+            }
+        }
+
+        @media(max-width:768px) {
+            .container {
+                padding: 16px
+            }
+
+            .two-col,
+            .toc ol {
+                columns: 1;
+                grid-template-columns: 1fr
+            }
+
+            .roles-grid {
+                grid-template-columns: 1fr
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- HEADER -->
+        <div class="header">
+            <h1>📋 Tài liệu Phân quyền Chi tiết</h1>
+            <p class="sub">CIC ERP — Phần mềm Quản lý Hợp đồng</p>
+            <div class="meta">
+                <span>📅 Phiên bản 2.1 — 28/02/2026</span>
+                <span>⚙️ React + Supabase (PostgreSQL)</span>
+                <span>🔐 Google OAuth</span>
+            </div>
+        </div>
+
+        <!-- TOC -->
+        <div class="toc">
+            <h2>Mục lục</h2>
+            <ol>
+                <li><a href="#s1">Kiến trúc phân quyền 5 tầng</a></li>
+                <li><a href="#s2">Xác thực (Authentication)</a></li>
+                <li><a href="#s3">Vai trò người dùng (9 vai trò)</a></li>
+                <li><a href="#s4">Phân quyền RBAC chi tiết</a></li>
+                <li><a href="#s5">Phạm vi dữ liệu (Data Scoping)</a></li>
+                <li><a href="#s6">Ma trận phân quyền theo chức năng</a></li>
+                <li><a href="#s7">Quy trình quản trị</a></li>
+                <li><a href="#s8">Phụ lục</a></li>
+            </ol>
+        </div>
+
+        <!-- 1. ARCHITECTURE -->
+        <section id="s1">
+            <h2>1. Kiến trúc phân quyền 5 tầng</h2>
+            <div class="arch">
+                <div class="arch-layer">
+                    <div class="arch-num">1</div>
+                    <div>
+                        <div class="arch-title">Xác thực (Authentication)</div>
+                        <div class="arch-desc">Google OAuth → Email @cic.com.vn → Employee lookup</div>
+                    </div>
+                </div>
+                <div class="arch-layer">
+                    <div class="arch-num">2</div>
+                    <div>
+                        <div class="arch-title">Vai trò (Roles)</div>
+                        <div class="arch-desc">profiles.role → 9 vai trò (Admin, Leadership, UnitLeader, AdminUnit,
+                            NVKD, NVKT...)</div>
+                    </div>
+                </div>
+                <div class="arch-layer">
+                    <div class="arch-num">3</div>
+                    <div>
+                        <div class="arch-title">Phân quyền chi tiết (RBAC)</div>
+                        <div class="arch-desc">user_permissions → resource × action (view / create / update / delete)
+                        </div>
+                    </div>
+                </div>
+                <div class="arch-layer">
+                    <div class="arch-num">4</div>
+                    <div>
+                        <div class="arch-title">Phạm vi dữ liệu (Data Scoping)</div>
+                        <div class="arch-desc">profiles.unit_id + cross_unit_visibility → giới hạn dữ liệu theo đơn vị
+                        </div>
+                    </div>
+                </div>
+                <div class="arch-layer">
+                    <div class="arch-num">5</div>
+                    <div>
+                        <div class="arch-title">Kiểm toán (Audit Log)</div>
+                        <div class="arch-desc">audit_logs → ghi nhận mọi thay đổi với old_data / new_data</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. AUTH -->
+        <section id="s2">
+            <h2>2. Xác thực (Authentication)</h2>
+            <h3>Luồng đăng nhập</h3>
+            <div class="flow">
+                <div class="flow-step">
+                    <div class="flow-num">1</div>
+                    <div class="flow-text"><strong>Google OAuth Login</strong> qua Supabase Auth</div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">2</div>
+                    <div class="flow-text">Kiểm tra email domain → phải là <strong>@cic.com.vn</strong></div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">3</div>
+                    <div class="flow-text">Tìm hồ sơ trong bảng <strong>profiles</strong> (theo auth user ID)</div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">4</div>
+                    <div class="flow-text">Tìm nhân viên trong bảng <strong>employees</strong> (theo email)</div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">5</div>
+                    <div class="flow-text">Tự động liên kết <strong>profile ↔ employee</strong>, đồng bộ role, unit_id
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">6</div>
+                    <div class="flow-text">Fetch <strong>unit code</strong> từ bảng units → Set UserProfile</div>
+                </div>
+            </div>
+            <div class="note danger"><strong>Lưu ý:</strong> Người ngoài công ty hoặc nhân sự chưa được tạo hồ sơ sẽ
+                <strong>không thể đăng nhập</strong>.</div>
+        </section>
+
+        <!-- 3. ROLES -->
+        <section id="s3">
+            <h2>3. Vai trò người dùng (9 vai trò)</h2>
+            <div class="roles-grid">
+                <div class="role-card">
+                    <div class="icon">🔑</div>
+                    <div class="name">Quản trị hệ thống <span class="code">Admin</span></div>
+                    <div class="scope scope-global"><span class="badge">🌐 Toàn công ty</span></div>
+                    <div class="desc">Toàn quyền: cài đặt, phân quyền, quản lý user, CRUD tất cả. Bypass mọi permission
+                        check.</div>
+                </div>
+                <div class="role-card">
+                    <div class="icon">👔</div>
+                    <div class="name">Ban lãnh đạo <span class="code">Leadership</span></div>
+                    <div class="scope scope-global"><span class="badge">🌐 Toàn công ty</span></div>
+                    <div class="desc">Xem báo cáo tổng hợp, quản lý toàn công ty, CRUD dữ liệu, phê duyệt HĐ.</div>
+                </div>
+                <div class="role-card">
+                    <div class="icon">🏢</div>
+                    <div class="name">Lãnh đạo đơn vị <span class="code">UnitLeader</span></div>
+                    <div class="scope scope-unit"><span class="badge">🏢 Đơn vị mình</span></div>
+                    <div class="desc">Giám đốc/Phó GĐ đơn vị, sửa tất cả HĐ trong đơn vị, phê duyệt PAKD.</div>
+                </div>
+                <div class="role-card">
+                    <div class="icon">📋</div>
+                    <div class="name">Admin đơn vị <span class="code">AdminUnit</span></div>
+                    <div class="scope scope-unit"><span class="badge">🏢 Đơn vị mình</span></div>
+                    <div class="desc">Hỗ trợ vận hành, nhập liệu cho đơn vị. Nếu thuộc HCNS → truy cập module Nhân sự.
+                    </div>
+                </div>
+                <div class="role-card">
+                    <div class="icon">💼</div>
+                    <div class="name">NV Kinh doanh <span class="code">NVKD</span></div>
+                    <div class="scope scope-unit"><span class="badge">🏢 Đơn vị mình</span></div>
+                    <div class="desc">Tạo/theo dõi hợp đồng, khách hàng. Chỉ sửa HĐ do chính mình tạo/được phân công.
+                    </div>
+                </div>
+                <div class="role-card">
+                    <div class="icon">🔧</div>
+                    <div class="name">NV Kỹ thuật <span class="code">NVKT</span></div>
+                    <div class="scope scope-unit"><span class="badge">🏢 Đơn vị mình</span></div>
+                    <div class="desc">Triển khai kỹ thuật, hỗ trợ thực hiện HĐ. Quản lý SP/DV. Không tạo/sửa HĐ, không
+                        nhập thanh toán.</div>
+                </div>
+                <div class="role-card">
+                    <div class="icon">💰</div>
+                    <div class="name">Kế toán trưởng <span class="code">ChiefAccountant</span></div>
+                    <div class="scope scope-global"><span class="badge">🌐 Toàn công ty</span></div>
+                    <div class="desc">Phê duyệt tài chính, toàn quyền thanh toán thực tế, xóa thanh toán, xem nhân sự.
+                    </div>
+                </div>
+                <div class="role-card">
+                    <div class="icon">📊</div>
+                    <div class="name">Kế toán <span class="code">Accountant</span></div>
+                    <div class="scope scope-global"><span class="badge">🌐 Toàn công ty</span></div>
+                    <div class="desc">Ghi nhận thu chi thực tế, xuất hóa đơn doanh thu. Không xóa thanh toán.</div>
+                </div>
+                <div class="role-card">
+                    <div class="icon">⚖️</div>
+                    <div class="name">Pháp chế <span class="code">Legal</span></div>
+                    <div class="scope scope-global"><span class="badge">🌐 Toàn công ty</span></div>
+                    <div class="desc">Rà soát pháp lý hợp đồng (chỉ xem). VCU customers/products.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. RBAC -->
+        <section id="s4">
+            <h2>4. Phân quyền RBAC chi tiết</h2>
+
+            <h3>📄 Hợp đồng (contracts)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Admin</th>
+                        <th>Leadership</th>
+                        <th>UnitLeader</th>
+                        <th>AdminUnit</th>
+                        <th>NVKD</th>
+                        <th>NVKT</th>
+                        <th>ChiefAcct</th>
+                        <th>Accountant</th>
+                        <th>Legal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>view</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>create</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>update</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅ ¹</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅ ²</td>
+                        <td class="yes">✅ ²</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>delete</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="note"><strong>¹</strong> NVKD chỉ sửa HĐ do mình tạo/được phân công &nbsp;|&nbsp;
+                <strong>²</strong> Kế toán chỉ sửa trường tài chính</div>
+
+            <h3>👥 Khách hàng (customers)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Admin</th>
+                        <th>Leadership</th>
+                        <th>UnitLeader</th>
+                        <th>AdminUnit</th>
+                        <th>NVKD</th>
+                        <th>NVKT</th>
+                        <th>ChiefAcct</th>
+                        <th>Accountant</th>
+                        <th>Legal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>view</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>create</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>update</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>delete</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="note">Dữ liệu khách hàng chia sẻ toàn công ty, không phân chia theo đơn vị. NVKT chỉ xem.</div>
+
+            <h3>💰 Thanh toán (payments)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Admin</th>
+                        <th>Leadership</th>
+                        <th>UnitLeader</th>
+                        <th>AdminUnit</th>
+                        <th>NVKD</th>
+                        <th>NVKT</th>
+                        <th>ChiefAcct</th>
+                        <th>Accountant</th>
+                        <th>Legal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>view</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>create</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅ ³</td>
+                        <td class="yes">✅ ³</td>
+                        <td class="yes">✅ ³</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅ ⁴</td>
+                        <td class="yes">✅ ⁴</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>update</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅ ⁴</td>
+                        <td class="yes">✅ ⁴</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>delete</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="note"><strong>³</strong> Kinh doanh chỉ nhập <strong>dự kiến</strong> (kế hoạch tạm ứng, xuất DT
+                dự kiến) &nbsp;|&nbsp; <strong>⁴</strong> Kế toán chỉ nhập/sửa <strong>thực tế</strong></div>
+
+            <div class="two-col">
+                <div class="col-box">
+                    <h4>🏢 Bộ phận Kinh doanh</h4>
+                    <p style="font-size:12px;color:var(--text2)">NVKD, AdminUnit, UnitLeader</p>
+                    <ul>
+                        <li>✅ Nhập <strong>DỰ KIẾN</strong></li>
+                        <li>❌ Nhập THỰC TẾ</li>
+                    </ul>
+                </div>
+                <div class="col-box">
+                    <h4>💵 Bộ phận Kế toán</h4>
+                    <p style="font-size:12px;color:var(--text2)">Accountant, ChiefAccountant</p>
+                    <ul>
+                        <li>✅ Nhập <strong>THỰC TẾ</strong></li>
+                        <li>❌ Nhập DỰ KIẾN</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="note warn"><strong>NVKT</strong> chỉ có quyền <strong>xem</strong> thanh toán, không nhập dự
+                kiến cũng không nhập thực tế.</div>
+
+            <h3>📦 Sản phẩm / Dịch vụ (products)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Admin</th>
+                        <th>Leadership</th>
+                        <th>UnitLeader</th>
+                        <th>AdminUnit</th>
+                        <th>NVKD</th>
+                        <th>NVKT</th>
+                        <th>ChiefAcct</th>
+                        <th>Accountant</th>
+                        <th>Legal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>view</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>create</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>update</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>delete</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>👤 Nhân sự (employees)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Admin</th>
+                        <th>Leadership</th>
+                        <th>ChiefAcct</th>
+                        <th>HCNS AdminUnit</th>
+                        <th>Các vai trò khác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>view</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>create</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>update</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>delete</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="note"><strong>HCNS AdminUnit</strong> = AdminUnit thuộc Phòng Tổng hợp (mã đơn vị HCNS)</div>
+
+            <h3>🏢 Đơn vị (units) &amp; ⚙️ Cài đặt</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Resource</th>
+                        <th>Admin</th>
+                        <th>Leadership</th>
+                        <th>Các vai trò khác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Đơn vị (units) — VCUD</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Cài đặt (settings) — VCUD</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Phân quyền (permissions) — VCUD</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- 5. DATA SCOPING -->
+        <section id="s5">
+            <h2>5. Phạm vi dữ liệu (Data Scoping)</h2>
+            <div class="two-col">
+                <div class="col-box">
+                    <h4>🌐 Nhóm Global View</h4>
+                    <p style="font-size:12px;color:var(--text2)">Admin, Leadership, Legal, Accountant, ChiefAccountant
+                    </p>
+                    <ul>
+                        <li>Xem dữ liệu <strong>tất cả đơn vị</strong></li>
+                        <li><code>getVisibleUnitIds() = null</code></li>
+                    </ul>
+                </div>
+                <div class="col-box">
+                    <h4>🏢 Nhóm Unit-Scoped</h4>
+                    <p style="font-size:12px;color:var(--text2)">NVKD, NVKT, AdminUnit, UnitLeader</p>
+                    <ul>
+                        <li>Chỉ xem dữ liệu <strong>đơn vị mình</strong></li>
+                        <li>+ đơn vị được cấp quyền cross-unit</li>
+                        <li><code>getVisibleUnitIds() = [ownUnit, ...]</code></li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Quyền xem liên đơn vị (Cross-Unit Visibility)</h3>
+            <div class="note">Cross-unit chỉ cho phép <strong>xem (view)</strong>, không bao gồm quyền tạo/sửa/xóa dữ
+                liệu của đơn vị khác. Chỉ Admin quản lý cross-unit visibility.</div>
+
+            <h3>Quy tắc đặc biệt cho Hợp đồng</h3>
+            <div class="flow">
+                <div class="flow-step">
+                    <div class="flow-num">1</div>
+                    <div class="flow-text">Kiểm tra DB: <strong>can('contracts', 'update')</strong> → false? → <span
+                            style="color:var(--red)">TỪ CHỐI</span></div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">2</div>
+                    <div class="flow-text">Admin hoặc Leadership? → <span style="color:var(--green)">CHO PHÉP</span>
+                        (tất cả HĐ)</div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">3</div>
+                    <div class="flow-text">Accountant / ChiefAccountant? → <span style="color:var(--green)">CHO
+                            PHÉP</span> (chỉ trường tài chính)</div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">4</div>
+                    <div class="flow-text">Legal hoặc NVKT? → <span style="color:var(--red)">TỪ CHỐI</span> (chỉ xem)
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">5</div>
+                    <div class="flow-text">HĐ khác đơn vị? → <span style="color:var(--red)">TỪ CHỐI</span></div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">6</div>
+                    <div class="flow-text">AdminUnit / UnitLeader? → <span style="color:var(--green)">CHO PHÉP</span>
+                        (tất cả HĐ đơn vị)</div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">7</div>
+                    <div class="flow-text">NVKD? → <span style="color:var(--green)">CHO PHÉP</span> nếu salespersonId
+                        === employeeId</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 6. NAVIGATION -->
+        <section id="s6">
+            <h2>6. Ma trận Navigation (Sidebar)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Menu</th>
+                        <th>Admin</th>
+                        <th>Leadership</th>
+                        <th>UnitLeader</th>
+                        <th>AdminUnit</th>
+                        <th>NVKD</th>
+                        <th>NVKT</th>
+                        <th>ChiefAcct</th>
+                        <th>Accountant</th>
+                        <th>Legal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Dashboard</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>Hợp đồng</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>Tài chính</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>Thống kê</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>AI Phân tích</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>Đơn vị</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Tài liệu</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>Nhân sự</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅ *</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                    </tr>
+                    <tr>
+                        <td>Sản phẩm</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>Khách hàng</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                        <td class="yes">✅</td>
+                    </tr>
+                    <tr>
+                        <td>Cài đặt</td>
+                        <td class="yes">✅</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                        <td class="no">❌</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="note"><strong>*</strong> Chỉ AdminUnit thuộc Phòng Tổng hợp (unitCode = HCNS)</div>
+        </section>
+
+        <!-- 7. ADMIN WORKFLOWS -->
+        <section id="s7">
+            <h2>7. Quy trình quản trị</h2>
+
+            <h3>Thêm nhân viên mới</h3>
+            <div class="flow">
+                <div class="flow-step">
+                    <div class="flow-num">1</div>
+                    <div class="flow-text">Admin tạo hồ sơ nhân sự (<strong>employees</strong>) với email @cic.com.vn
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">2</div>
+                    <div class="flow-text">Nhân viên đăng nhập Google OAuth <strong>lần đầu</strong></div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">3</div>
+                    <div class="flow-text">Hệ thống tự động: tạo profile, liên kết employee, <strong>gán role +
+                            unit_id</strong></div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">4</div>
+                    <div class="flow-text">DB seed <strong>default permissions</strong> theo role</div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">5</div>
+                    <div class="flow-text">Nhân viên sử dụng hệ thống với quyền mặc định ✅</div>
+                </div>
+            </div>
+
+            <h3>Thay đổi quyền cá nhân</h3>
+            <div class="flow">
+                <div class="flow-step">
+                    <div class="flow-num">1</div>
+                    <div class="flow-text">Admin → <strong>Cài đặt → Phân quyền người dùng</strong></div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">2</div>
+                    <div class="flow-text">Chọn user → Bật/tắt từng action trên từng resource</div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">3</div>
+                    <div class="flow-text">Upsert vào <strong>user_permissions</strong> → Audit log ghi nhận</div>
+                </div>
+            </div>
+
+            <h3>Cấp quyền xem liên đơn vị</h3>
+            <div class="flow">
+                <div class="flow-step">
+                    <div class="flow-num">1</div>
+                    <div class="flow-text">Admin → <strong>Cài đặt → Quyền xem liên đơn vị</strong></div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">2</div>
+                    <div class="flow-text">Chọn nhân viên → Tick các đơn vị được phép xem</div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-num">3</div>
+                    <div class="flow-text">Nhân viên thấy dữ liệu đơn vị bổ sung (<strong>chỉ xem, không sửa</strong>)
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8. APPENDIX -->
+        <section id="s8">
+            <h2>8. Phụ lục</h2>
+            <h3>Ký hiệu viết tắt</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ký hiệu</th>
+                        <th>Ý nghĩa</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>V</td>
+                        <td>View (xem)</td>
+                    </tr>
+                    <tr>
+                        <td>C</td>
+                        <td>Create (tạo)</td>
+                    </tr>
+                    <tr>
+                        <td>U</td>
+                        <td>Update (sửa)</td>
+                    </tr>
+                    <tr>
+                        <td>D</td>
+                        <td>Delete (xóa)</td>
+                    </tr>
+                    <tr>
+                        <td>VCU</td>
+                        <td>View + Create + Update</td>
+                    </tr>
+                    <tr>
+                        <td>VCUD</td>
+                        <td>View + Create + Update + Delete</td>
+                    </tr>
+                    <tr>
+                        <td>HĐ</td>
+                        <td>Hợp đồng</td>
+                    </tr>
+                    <tr>
+                        <td>PAKD</td>
+                        <td>Phương án kinh doanh</td>
+                    </tr>
+                    <tr>
+                        <td>HCNS</td>
+                        <td>Hành chính Nhân sự (Phòng Tổng hợp)</td>
+                    </tr>
+                    <tr>
+                        <td>TCKT</td>
+                        <td>Tài chính Kế toán</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Bảng cơ sở dữ liệu liên quan</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Bảng</th>
+                        <th>Mô tả</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>profiles</td>
+                        <td>Thông tin user (role, unit_id, employee_id)</td>
+                    </tr>
+                    <tr>
+                        <td>user_permissions</td>
+                        <td>Quyền chi tiết (resource × actions)</td>
+                    </tr>
+                    <tr>
+                        <td>cross_unit_visibility</td>
+                        <td>Quyền xem liên đơn vị</td>
+                    </tr>
+                    <tr>
+                        <td>employees</td>
+                        <td>Hồ sơ nhân sự</td>
+                    </tr>
+                    <tr>
+                        <td>units</td>
+                        <td>Đơn vị / phòng ban</td>
+                    </tr>
+                    <tr>
+                        <td>audit_logs</td>
+                        <td>Nhật ký hoạt động</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <div
+            style="text-align:center;padding:32px 0;border-top:1px solid var(--border);margin-top:40px;font-size:12px;color:var(--text2)">
+            <p>Tài liệu được tạo từ source code CIC ERP và tài liệu PHANQUYENHETHONG.md v1.1</p>
+            <p>Cập nhật lần cuối: 28/02/2026 — Phiên bản 2.1</p>
+        </div>
+
+    </div>
+</body>
+
+</html>

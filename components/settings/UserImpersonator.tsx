@@ -175,7 +175,7 @@ const UserImpersonator: React.FC = () => {
                                             <span className="font-semibold text-slate-700 dark:text-slate-300 block">
                                                 {RESOURCE_LABELS[resource]}
                                             </span>
-                                            <span className="text-slate-500">
+                                            <span className="text-slate-500 dark:text-slate-400">
                                                 {actions.length > 0 ? actions.map(a => a.charAt(0).toUpperCase()).join(' ') : '—'}
                                             </span>
                                         </div>
@@ -197,7 +197,7 @@ const UserImpersonator: React.FC = () => {
                     type="button"
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     disabled={loading}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-all duration-200 cursor-pointer"
+                    className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-all duration-200 cursor-pointer"
                 >
                     <span className={loading ? 'text-slate-400' : 'text-slate-700 dark:text-slate-300'}>
                         {loading ? 'Đang tải danh sách...' : `${users.length} nhân viên có sẵn`}
@@ -207,7 +207,7 @@ const UserImpersonator: React.FC = () => {
 
                 {/* Dropdown Content */}
                 {isDropdownOpen && !loading && (
-                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-2xl dark:shadow-black/40 overflow-hidden">
+                    <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl dark:shadow-black/40 overflow-hidden">
                         {/* Search inside dropdown */}
                         <div className="p-3 border-b border-slate-100 dark:border-slate-700">
                             <div className="relative">
@@ -217,7 +217,7 @@ const UserImpersonator: React.FC = () => {
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
                                     placeholder="Tìm theo tên, chức vụ, đơn vị..."
-                                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg text-sm"
+                                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200"
                                     autoFocus
                                 />
                             </div>
@@ -239,7 +239,7 @@ const UserImpersonator: React.FC = () => {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{user.fullName}</p>
-                                            <p className="text-xs text-slate-500 truncate">
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                                                 {user.position || ROLE_LABELS[user.role]}
                                                 {user.unitName && ` • ${user.unitName}`}
                                             </p>

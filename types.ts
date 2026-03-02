@@ -20,6 +20,18 @@ export interface KPIPlan {
   cash: number;        // Tiền về thực tế
 }
 
+export interface HistoricalProduction {
+  id?: string;
+  unitId: string;
+  year: number;
+  signing: number;     // Ký kết (triệu đồng)
+  revenue: number;     // Doanh thu thực hiện (triệu đồng)
+  adminProfit: number; // LNG Quản trị (triệu đồng)
+  revProfit: number;   // LNG theo Doanh thu (triệu đồng)
+  notes?: string;
+  updatedBy?: string;
+}
+
 export interface Employee {
   id: string;
   name: string;
@@ -432,7 +444,7 @@ export interface CustomerBank {
 // WORKFLOW & PERMISSIONS
 // ============================================
 
-export type UserRole = 'Admin' | 'NVKD' | 'AdminUnit' | 'UnitLeader' | 'Accountant' | 'ChiefAccountant' | 'Legal' | 'Leadership';
+export type UserRole = 'Admin' | 'NVKD' | 'NVKT' | 'AdminUnit' | 'UnitLeader' | 'Accountant' | 'ChiefAccountant' | 'Legal' | 'Leadership';
 
 export interface UserProfile {
   id: string; // Links to auth.users
@@ -562,6 +574,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     customers: ['view', 'create', 'update'],
     products: ['view', 'create', 'update'],
     payments: ['view', 'create', 'update'],              // §6.4: thêm/sửa thực tế, không xóa
+  },
+  // Nhân viên kỹ thuật — Triển khai KT, hỗ trợ thực hiện HĐ, quản lý SP
+  NVKT: {
+    contracts: ['view'],                                 // Chỉ xem HĐ
+    customers: ['view'],                                 // Chỉ xem KH
+    products: ['view', 'create', 'update'],              // Quản lý kỹ thuật SP/DV
+    payments: ['view'],                                  // Chỉ xem thanh toán
   },
   // Pháp chế — Rà soát, KHÔNG employees/units
   Legal: {

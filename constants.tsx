@@ -17,6 +17,7 @@ import { UserRole, PlanStatus } from './types';
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   'NVKD': 'Nhân viên Kinh doanh',
+  'NVKT': 'Nhân viên Kỹ thuật',
   'UnitLeader': 'Lãnh đạo Đơn vị',
   'AdminUnit': 'Quản trị Đơn vị',
   'Accountant': 'Kế toán Viễn thông',

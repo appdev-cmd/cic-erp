@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive } from 'lucide-react';
+import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3 } from 'lucide-react';
 import PilotRunner from './admin/PilotRunner';
 import PermissionManager from './settings/PermissionManager';
 import RoleDefaultsManager from './settings/RoleDefaultsManager';
 import UserImpersonator from './settings/UserImpersonator';
 import DriveSettings from './settings/DriveSettings';
+import HistoricalProductionManager from './settings/HistoricalProductionManager';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 
-type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'drive' | 'testing';
+type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'historical' | 'drive' | 'testing';
 
 const Settings: React.FC = () => {
     const { theme, setTheme, accent, setAccent } = useLayoutContext();
@@ -21,6 +22,7 @@ const Settings: React.FC = () => {
         { id: 'system', label: 'Cài đặt hệ thống', icon: <Settings2 size={18} /> },
         { id: 'role-defaults', label: 'Quyền theo Role', icon: <ShieldCheck size={18} />, adminOnly: true },
         { id: 'permissions', label: 'Phân quyền User', icon: <Shield size={18} />, adminOnly: true },
+        { id: 'historical', label: 'Sản lượng lịch sử', icon: <BarChart3 size={18} />, adminOnly: true },
         { id: 'drive', label: 'Google Drive', icon: <HardDrive size={18} />, adminOnly: true },
         { id: 'testing', label: 'Kiểm thử', icon: <FlaskConical size={18} /> },
     ];
@@ -128,7 +130,7 @@ const Settings: React.FC = () => {
                             </div>
                             <div>
                                 <h3 className="font-bold text-slate-800 dark:text-slate-200">Phân quyền người dùng</h3>
-                                <p className="text-xs text-slate-500">Quản lý quyền truy cập cho từng nhân viên</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Quản lý quyền truy cập cho từng nhân viên</p>
                             </div>
                         </div>
                         <PermissionManager />
@@ -143,11 +145,15 @@ const Settings: React.FC = () => {
                             </div>
                             <div>
                                 <h3 className="font-bold text-slate-800 dark:text-slate-200">Quyền mặc định theo Role</h3>
-                                <p className="text-xs text-slate-500">Cấu hình quyền cơ bản cho từng vai trò trong hệ thống</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Cấu hình quyền cơ bản cho từng vai trò trong hệ thống</p>
                             </div>
                         </div>
                         <RoleDefaultsManager />
                     </div>
+                )}
+
+                {activeTab === 'historical' && isAdmin && (
+                    <HistoricalProductionManager />
                 )}
 
                 {activeTab === 'drive' && isAdmin && (
@@ -165,7 +171,7 @@ const Settings: React.FC = () => {
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-slate-800 dark:text-slate-200">Giả làm người dùng</h3>
-                                        <p className="text-xs text-slate-500">Test phân quyền bằng cách đóng vai user khác</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">Test phân quyền bằng cách đóng vai user khác</p>
                                     </div>
                                 </div>
                                 <UserImpersonator />
@@ -183,7 +189,7 @@ const Settings: React.FC = () => {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-slate-800 dark:text-slate-200">Kiểm thử tự động</h3>
-                                    <p className="text-xs text-slate-500">Chạy các bài test hệ thống</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Chạy các bài test hệ thống</p>
                                 </div>
                             </div>
                             <PilotRunner />

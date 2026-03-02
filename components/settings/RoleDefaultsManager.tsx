@@ -36,6 +36,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
     UnitLeader: 'Lãnh đạo ĐV',
     AdminUnit: 'Admin ĐV',
     NVKD: 'NV Kinh doanh',
+    NVKT: 'NV Kỹ thuật',
     Accountant: 'Kế toán',
     ChiefAccountant: 'KT Trưởng',
     Legal: 'Pháp chế',
@@ -47,12 +48,13 @@ const ROLE_COLORS: Record<UserRole, { bg: string; active: string }> = {
     UnitLeader: { bg: 'text-blue-500 dark:text-blue-400', active: 'bg-blue-500/10 border-blue-500 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' },
     AdminUnit: { bg: 'text-cyan-500 dark:text-cyan-400', active: 'bg-cyan-500/10 border-cyan-500 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400' },
     NVKD: { bg: 'text-emerald-500 dark:text-emerald-400', active: 'bg-emerald-500/10 border-emerald-500 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' },
+    NVKT: { bg: 'text-teal-500 dark:text-teal-400', active: 'bg-teal-500/10 border-teal-500 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400' },
     Accountant: { bg: 'text-amber-500 dark:text-amber-400', active: 'bg-amber-500/10 border-amber-500 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' },
     ChiefAccountant: { bg: 'text-orange-500 dark:text-orange-400', active: 'bg-orange-500/10 border-orange-500 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400' },
     Legal: { bg: 'text-indigo-500 dark:text-indigo-400', active: 'bg-indigo-500/10 border-indigo-500 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' },
 };
 
-const ALL_ROLES: UserRole[] = ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD', 'Accountant', 'ChiefAccountant', 'Legal'];
+const ALL_ROLES: UserRole[] = ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD', 'NVKT', 'Accountant', 'ChiefAccountant', 'Legal'];
 const ACTIONS: PermissionAction[] = ['view', 'create', 'update', 'delete'];
 const RESOURCES: PermissionResource[] = ['contracts', 'customers', 'products', 'payments', 'employees', 'units', 'settings', 'permissions'];
 
@@ -245,10 +247,10 @@ const RoleDefaultsManager: React.FC = () => {
             </div>
 
             {/* ─── Permission Matrix ─── */}
-            <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-600/50">
+            <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="border-b border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800">
+                        <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
                             <th className="text-left py-3 px-4 font-bold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
                                 Module
                             </th>
@@ -334,14 +336,14 @@ const RoleDefaultsManager: React.FC = () => {
             {/* ─── Apply Confirm Dialog ─── */}
             {showApplyConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl dark:shadow-black/40 border border-slate-200 dark:border-slate-600/50">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl dark:shadow-black/40 border border-slate-200 dark:border-slate-700">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                                 <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400" />
                             </div>
                             <div>
                                 <h3 className="font-bold text-slate-800 dark:text-slate-200">Áp dụng quyền mặc định</h3>
-                                <p className="text-xs text-slate-500">Thao tác không thể hoàn tác</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Thao tác không thể hoàn tác</p>
                             </div>
                         </div>
 
