@@ -308,16 +308,17 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
             {/* Table */}
             <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-360px)]">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
-                                <th className="text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mã / Hóa đơn</th>
-                                <th className="text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Khách hàng</th>
-                                <th className="text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Hợp đồng</th>
-                                <th className="text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Hạn</th>
-                                <th className="text-right py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Số tiền</th>
-                                <th className="text-center py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng thái</th>
+                            <tr className="z-20">
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-4 px-3 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12">STT</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mã / Hóa đơn</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Khách hàng</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Hợp đồng</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Hạn</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-right py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Số tiền</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng thái</th>
 
                             </tr>
                         </thead>
@@ -328,7 +329,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                         <Loader2 className="animate-spin inline-block mr-2" /> Đang tải dữ liệu...
                                     </td>
                                 </tr>
-                            ) : payments.map((payment) => {
+                            ) : payments.map((payment, index) => {
                                 const statusConfig = getStatusConfig(payment.status);
                                 const StatusIcon = statusConfig.icon;
 
@@ -338,6 +339,11 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                         onClick={() => handleEdit(payment)}
                                         className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-indigo-50/50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                     >
+                                        <td className="py-4 px-3 text-center">
+                                            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                                {index + 1}
+                                            </span>
+                                        </td>
                                         <td className="py-4 px-5">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
@@ -392,28 +398,31 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                             })}
                         </tbody>
                     </table>
+
+                    {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
+                    <div className="p-4 flex flex-col items-center justify-center">
+                        <div ref={sentinelRef} className="h-4 w-full" />
+                        {isLoadingMore && (
+                            <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
+                                <Loader2 size={20} className="animate-spin" />
+                                <span className="text-sm font-medium">Đang tải thêm...</span>
+                            </div>
+                        )}
+                        {!hasMore && payments.length > 0 && !isLoading && (
+                            <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+                                Đã hiển thị tất cả {totalCount} kết quả
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* INFINITE SCROLL SENTINEL + STATUS */}
-                <div className="p-4 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center justify-between mb-3">
+                {/* STATUS BAR */}
+                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex items-center justify-between">
                         <div className="text-sm font-bold text-slate-500">
                             Hiển thị {payments.length} / {totalCount} kết quả
                         </div>
                     </div>
-                    {/* Sentinel for IntersectionObserver */}
-                    <div ref={sentinelRef} className="h-1" />
-                    {isLoadingMore && (
-                        <div className="flex items-center justify-center py-6 gap-2 text-indigo-600 dark:text-indigo-400">
-                            <Loader2 size={20} className="animate-spin" />
-                            <span className="text-sm font-medium">Đang tải thêm...</span>
-                        </div>
-                    )}
-                    {!hasMore && payments.length > 0 && !isLoading && (
-                        <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
-                            Đã hiển thị tất cả {totalCount} kết quả
-                        </div>
-                    )}
                 </div>
 
                 {!isLoading && payments.length === 0 && (

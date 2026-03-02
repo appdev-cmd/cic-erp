@@ -106,14 +106,14 @@ export function useInfiniteScroll<T>({
                 }
             },
             {
-                rootMargin: '200px', // Start loading before user reaches the bottom
+                rootMargin: '400px', // Start loading earlier before user reaches the bottom
                 threshold: 0.1
             }
         );
 
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [hasMore]);
+    }, [hasMore, isLoading]);
 
     const reset = useCallback(() => {
         setPage(1);

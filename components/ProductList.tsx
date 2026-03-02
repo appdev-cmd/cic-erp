@@ -393,22 +393,23 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                         <Loader2 size={32} className="animate-spin text-indigo-500" />
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-360px)]">
                         <table className="w-full">
                             <thead>
-                                <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mã SP</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tên sản phẩm</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Danh mục</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Đơn vị</th>
-                                    <th className="text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Đơn giá</th>
-                                    <th className="text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">LN %</th>
-                                    <th className="text-center py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Trạng thái</th>
-                                    <th className="py-4 px-6 w-12"></th>
+                                <tr className="z-20">
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center py-4 px-3 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12">STT</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mã SP</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tên sản phẩm</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Danh mục</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Đơn vị</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Đơn giá</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">LN %</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Trạng thái</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-4 px-6 w-12"></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredProducts.map((product) => {
+                                {filteredProducts.map((product, index) => {
                                     const margin = product.costPrice
                                         ? ((product.basePrice - product.costPrice) / product.basePrice) * 100
                                         : 50;
@@ -419,6 +420,11 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                             onClick={() => onSelectProduct?.(product.id)}
                                             className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                         >
+                                            <td className="py-4 px-3 text-center">
+                                                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                                    {index + 1}
+                                                </span>
+                                            </td>
                                             {/* Code */}
                                             <td className="py-4 px-6">
                                                 <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-sm">{product.code}</span>
@@ -521,8 +527,33 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                 })}
                             </tbody>
                         </table>
+
+                        {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
+                        <div className="flex flex-col items-center justify-center p-4">
+                            <div ref={sentinelRef} className="h-4 w-full" />
+                            {isLoadingMore && (
+                                <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
+                                    <Loader2 size={20} className="animate-spin" />
+                                    <span className="text-sm font-medium">Đang tải thêm...</span>
+                                </div>
+                            )}
+                            {!hasMore && filteredProducts.length > 0 && !isLoading && (
+                                <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+                                    Đã hiển thị tất cả {totalCount} sản phẩm
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
+
+                {/* STATUS BAR */}
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex items-center justify-between">
+                        <div className="text-sm font-bold text-slate-500">
+                            Hiển thị {filteredProducts.length} / {totalCount} sản phẩm
+                        </div>
+                    </div>
+                </div>
 
                 {!isLoading && filteredProducts.length === 0 && (
                     <div className="text-center py-16">
@@ -533,27 +564,6 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
                     </div>
                 )}
-                {/* INFINITE SCROLL SENTINEL + STATUS */}
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="text-sm text-slate-500 dark:text-slate-400">
-                            Hiển thị <strong>{filteredProducts.length}</strong> trên tổng số <strong>{totalCount}</strong> sản phẩm
-                        </div>
-                    </div>
-                    {/* Sentinel for IntersectionObserver */}
-                    <div ref={sentinelRef} className="h-1" />
-                    {isLoadingMore && (
-                        <div className="flex items-center justify-center py-6 gap-2 text-indigo-600 dark:text-indigo-400">
-                            <Loader2 size={20} className="animate-spin" />
-                            <span className="text-sm font-medium">Đang tải thêm...</span>
-                        </div>
-                    )}
-                    {!hasMore && filteredProducts.length > 0 && !isLoading && (
-                        <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
-                            Đã hiển thị tất cả {totalCount} sản phẩm
-                        </div>
-                    )}
-                </div>
 
                 <ScrollToTop />
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Search, User, Building, ChevronDown, Loader2, Plus, Pencil, Trash2, MoreVertical, Phone, Mail, Calendar, GraduationCap, MapPin, CreditCard, Eye, Upload, Download } from 'lucide-react';
 import { EmployeeService, UnitService } from '../services';
@@ -10,6 +10,7 @@ import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useImpersonation } from '../contexts/ImpersonationContext';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 
 interface PersonnelListProps {
     selectedUnit: Unit;
@@ -31,10 +32,6 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     const [allPersonnel, setAllPersonnel] = useState<Employee[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const pageSize = 12;
 
     // Form state
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -123,12 +120,27 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
         return 30;
     };
 
-    // Total and pagination
-    const totalCount = allPersonnel.length;
-    const totalPages = Math.ceil(totalCount / pageSize);
+    // Infinite scroll batch size
+    const PAGE_SIZE = 20;
 
-    // Filter and sort personnel
-    const filteredPersonnel = useMemo(() => {
+    // Debounced search
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Infinite scroll fetch function
+    const fetchPersonnelPage = useCallback(async (page: number) => {
+        // Implement real pagination here if the API supports it.
+        // For now, we will simulate it with the existing `allPersonnel` array.
+        // If the API supports pagination, replace this part with a real API call.
+
+        // Note: Currently, `EmployeeService.getAll()` gets all data.
+        // Since we want infinite scroll, we must paginate client-side for now
+        // if the API doesn't support limit/offset.
+
+        // We use the existing logic to filter and sort `allPersonnel`.
         let filtered = allPersonnel;
 
         // Filter by visibility first
@@ -142,8 +154,8 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
         }
 
         // Filter by search query
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase();
+        if (debouncedSearch) {
+            const q = debouncedSearch.toLowerCase();
             filtered = filtered.filter(p =>
                 p.name.toLowerCase().includes(q) ||
                 p.email?.toLowerCase().includes(q) ||
@@ -163,14 +175,29 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
             return a.name.localeCompare(b.name);
         });
 
-        const from = (currentPage - 1) * pageSize;
-        return sorted.slice(from, from + pageSize);
-    }, [allPersonnel, unitFilter, searchQuery, currentPage, units]);
+        const from = (page - 1) * PAGE_SIZE;
+        const pageData = sorted.slice(from, from + PAGE_SIZE);
 
-    // Reset page on filter change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [unitFilter, searchQuery]);
+        return {
+            data: pageData,
+            hasMore: from + PAGE_SIZE < sorted.length,
+            totalCount: sorted.length
+        };
+    }, [allPersonnel, unitFilter, debouncedSearch, units, visibleUnits]);
+
+    const {
+        items: filteredPersonnel,
+        isLoadingMore,
+        hasMore,
+        totalCount,
+        sentinelRef,
+        reset: resetInfiniteScroll,
+        setItems: setFilteredPersonnel
+    } = useInfiniteScroll<Employee>({
+        fetchFn: fetchPersonnelPage,
+        pageSize: PAGE_SIZE,
+        resetDeps: [debouncedSearch, unitFilter, visibleUnits, allPersonnel, units]
+    });
 
     const handleSave = async (data: any) => {
         console.log('[PersonnelList.handleSave] Starting...', { id: data.id });
@@ -235,7 +262,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         Quản lý Nhân sự
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                        {totalCount} nhân viên • Trang {currentPage}/{totalPages || 1}
+                        {totalCount} nhân viên
                     </p>
                 </div>
 
@@ -415,25 +442,31 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         <Loader2 size={32} className="animate-spin text-indigo-500" />
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-360px)]">
                         <table className="w-full">
                             <thead>
-                                <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nhân viên</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Đơn vị</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Ngày sinh</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Ngày vào</th>
-                                    <th className="py-4 px-6"></th>
+                                <tr className="z-20">
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-4 px-3 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12">STT</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nhân viên</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Đơn vị</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Ngày sinh</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Ngày vào</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 py-4 px-6"></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredPersonnel.map((person) => (
+                                {filteredPersonnel.map((person, index) => (
                                     <tr
                                         key={person.id}
                                         onClick={() => handleViewDetail(person)}
                                         className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                     >
+                                        <td className="py-4 px-3 text-center">
+                                            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                                {index + 1}
+                                            </span>
+                                        </td>
                                         {/* Name & Position */}
                                         <td className="py-4 px-6">
                                             <div className="flex items-center gap-4">
@@ -537,41 +570,40 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                 ))}
                                 {filteredPersonnel.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="py-16 text-center text-slate-400">
+                                        <td colSpan={7} className="py-16 text-center text-slate-400">
                                             Không tìm thấy nhân viên nào
                                         </td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
-                    </div>
-                )}
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800">
-                        <p className="text-sm text-slate-500">
-                            Hiển thị {filteredPersonnel.length} trên tổng số {totalCount} nhân viên
-                        </p>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Trước
-                            </button>
-                            <span className="text-sm text-slate-600">Trang {currentPage} / {totalPages}</span>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Sau
-                            </button>
+                        {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
+                        <div className="p-4 flex flex-col items-center justify-center">
+                            <div ref={sentinelRef} className="h-4 w-full" />
+                            {isLoadingMore && (
+                                <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
+                                    <Loader2 size={20} className="animate-spin" />
+                                    <span className="text-sm font-medium">Đang tải thêm...</span>
+                                </div>
+                            )}
+                            {!hasMore && filteredPersonnel.length > 0 && !isLoading && (
+                                <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+                                    Đã hiển thị tất cả {totalCount} nhân viên
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
+
+                {/* STATUS BAR */}
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex items-center justify-between">
+                        <div className="text-sm font-bold text-slate-500">
+                            Hiển thị {filteredPersonnel.length} / {totalCount} nhân viên
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

@@ -733,19 +733,15 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
             })}
           </tbody>
         </table>
+
+
       </div>
 
-      {/* INFINITE SCROLL SENTINEL + STATUS */}
-      <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-sm font-bold text-slate-500">
-            Hiển thị {contracts.length} / {totalCount} kết quả
-          </div>
-        </div>
-        {/* Sentinel for IntersectionObserver */}
-        <div ref={sentinelRef} className="h-1" />
+      {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
+      <div className="p-4 flex flex-col items-center justify-center">
+        <div ref={sentinelRef} className="h-4 w-full" />
         {isLoadingMore && (
-          <div className="flex items-center justify-center py-6 gap-2 text-indigo-600 dark:text-indigo-400">
+          <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
             <Loader2 size={20} className="animate-spin" />
             <span className="text-sm font-medium">Đang tải thêm...</span>
           </div>
@@ -755,6 +751,15 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
             Đã hiển thị tất cả {totalCount} kết quả
           </div>
         )}
+      </div>
+
+      {/* STATUS BAR */}
+      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-bold text-slate-500">
+            Hiển thị {contracts.length} / {totalCount} kết quả
+          </div>
+        </div>
       </div>
 
       <ScrollToTop />

@@ -339,16 +339,17 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
 
             {/* Customer List */}
             <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-slate-100 dark:border-slate-700">
-                                <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Đối tác</th>
-                                <th className="text-center py-4 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell w-20">Hạng</th>
-                                <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
-                                <th className="text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">HĐ</th>
-                                <th className="text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Giá trị</th>
-                                <th className="py-4 px-6"></th>
+                            <tr className="z-20">
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-center py-4 px-3 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12">STT</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Đối tác</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-center py-4 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell w-20">Hạng</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">HĐ</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Giá trị</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 py-4 px-6"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -366,7 +367,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                                     </td>
                                 </tr>
                             ) : (
-                                customers.map((customer) => {
+                                customers.map((customer, index) => {
                                     const stats = customer.stats || { contractCount: 0, totalValue: 0, totalRevenue: 0, activeContracts: 0 };
                                     return (
                                         <tr
@@ -374,6 +375,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                                             className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                             onClick={() => onSelectCustomer?.(customer.id)}
                                         >
+                                            <td className="py-4 px-3 text-center">
+                                                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                                    {index + 1}
+                                                </span>
+                                            </td>
                                             <td className="py-4 px-6">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center font-black text-slate-600 dark:text-slate-300 text-sm">
@@ -464,28 +470,31 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                             )}
                         </tbody>
                     </table>
+
+                    {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
+                    <div className="p-4 flex flex-col items-center justify-center">
+                        <div ref={sentinelRef} className="h-4 w-full" />
+                        {isLoadingMore && (
+                            <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
+                                <Loader2 size={20} className="animate-spin" />
+                                <span className="text-sm font-medium">Đang tải thêm...</span>
+                            </div>
+                        )}
+                        {!hasMore && customers.length > 0 && !isLoading && (
+                            <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+                                Đã hiển thị tất cả {totalCount} đối tác
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* INFINITE SCROLL SENTINEL + STATUS */}
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="text-sm text-slate-500 dark:text-slate-400">
-                            Hiển thị <strong>{customers.length}</strong> trên tổng số <strong>{totalCount}</strong> đối tác
+                {/* STATUS BAR */}
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex items-center justify-between">
+                        <div className="text-sm font-bold text-slate-500">
+                            Hiển thị {customers.length} / {totalCount} đối tác
                         </div>
                     </div>
-                    {/* Sentinel for IntersectionObserver */}
-                    <div ref={sentinelRef} className="h-1" />
-                    {isLoadingMore && (
-                        <div className="flex items-center justify-center py-6 gap-2 text-indigo-600 dark:text-indigo-400">
-                            <Loader2 size={20} className="animate-spin" />
-                            <span className="text-sm font-medium">Đang tải thêm...</span>
-                        </div>
-                    )}
-                    {!hasMore && customers.length > 0 && !isLoading && (
-                        <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
-                            Đã hiển thị tất cả {totalCount} đối tác
-                        </div>
-                    )}
                 </div>
 
                 <ScrollToTop />
