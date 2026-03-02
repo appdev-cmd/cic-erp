@@ -16,7 +16,7 @@ import {
     Plus
 } from 'lucide-react';
 import { Payment, PaymentStatus, Customer, Unit } from '../types';
-import { PaymentService, ContractService, CustomerService } from '../services';
+import { PaymentService, ContractService, CustomerService, UnitService } from '../services';
 import { useLayoutContext } from './layout/MainLayout';
 import PaymentForm from './PaymentForm';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
@@ -44,6 +44,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<'Revenue' | 'Expense'>('Revenue');
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [units, setUnits] = useState<Unit[]>([]);
     const [stats, setStats] = useState<any>(null);
 
     // Infinite scroll batch size
@@ -65,7 +66,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
     // Infinite scroll fetch function
     const fetchPaymentPage = useCallback(async (page: number) => {
-        const [listRes, statsRes, customersData] = await Promise.all([
+        const [listRes, statsRes, customersData, unitsData] = await Promise.all([
             PaymentService.list({
                 page,
                 limit: PAGE_SIZE,
@@ -78,7 +79,8 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 type: typeFilter,
                 unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter]
             }) : Promise.resolve(null),
-            page === 1 && customers.length === 0 ? CustomerService.getAll({ pageSize: 200 }) : Promise.resolve(null)
+            page === 1 && customers.length === 0 ? CustomerService.getAll({ pageSize: 200 }) : Promise.resolve(null),
+            page === 1 && units.length === 0 ? UnitService.getAll() : Promise.resolve(null)
         ]);
 
         if (statsRes) setStats(statsRes);
@@ -86,13 +88,16 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             const incoming = (customersData as any).data || customersData;
             setCustomers(incoming as Customer[]);
         }
+        if (unitsData) {
+            setUnits(unitsData as Unit[]);
+        }
 
         return {
             data: listRes.data,
             hasMore: listRes.data.length >= PAGE_SIZE,
             totalCount: listRes.count
         };
-    }, [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits, customers.length]);
+    }, [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits, customers.length, units.length]);
 
     const {
         items: payments,
@@ -137,6 +142,12 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
         if (!customerId) return '—';
         const customer = customers.find(c => c.id === customerId);
         return customer ? customer.name : '—';
+    };
+
+    const getUnitName = (unitId?: string) => {
+        if (!unitId) return '—';
+        const unit = units.find(u => u.id === unitId);
+        return unit ? unit.name : '—';
     };
 
     // CRUD handlers
@@ -312,20 +323,21 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                     <table className="w-full">
                         <thead>
                             <tr className="z-20">
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-4 px-3 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12">STT</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mã / Hóa đơn</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Khách hàng</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Hợp đồng</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Hạn</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-right py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Số tiền</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-4 px-5 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng thái</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-3 px-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-10">STT</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mã / Hóa đơn</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Khách hàng</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Hợp đồng</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Đơn vị</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Hạn</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-right py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Số tiền</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng thái</th>
 
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={6} className="p-8 text-center text-slate-500">
+                                    <td colSpan={8} className="p-8 text-center text-slate-500">
                                         <Loader2 className="animate-spin inline-block mr-2" /> Đang tải dữ liệu...
                                     </td>
                                 </tr>
@@ -339,56 +351,61 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                         onClick={() => handleEdit(payment)}
                                         className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-indigo-50/50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                     >
-                                        <td className="py-4 px-3 text-center">
-                                            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                        <td className="py-3 px-2 text-center">
+                                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                                                 {index + 1}
                                             </span>
                                         </td>
-                                        <td className="py-4 px-5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                                                    <CreditCard size={16} className="text-slate-500" />
+                                        <td className="py-3 px-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                                    <CreditCard size={14} className="text-slate-500" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{payment.id}</p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">{payment.invoiceNumber}</p>
+                                                    <p className="font-bold text-slate-900 dark:text-slate-100 text-xs">{payment.id}</p>
+                                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{payment.invoiceNumber}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="py-4 px-5 hidden lg:table-cell">
-                                            <div className="flex items-center gap-2">
-                                                <Building2 size={14} className="text-slate-400" />
-                                                <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                                        <td className="py-3 px-3 hidden lg:table-cell">
+                                            <div className="flex items-center gap-1.5">
+                                                <Building2 size={12} className="text-slate-400 flex-shrink-0" />
+                                                <span className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate max-w-[160px]" title={getCustomerName(payment.customerId)}>
                                                     {getCustomerName(payment.customerId)}
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="py-4 px-5 hidden md:table-cell">
+                                        <td className="py-3 px-3 hidden md:table-cell">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onSelectContract?.(payment.contractId); }}
-                                                className="flex items-center gap-2 text-indigo-600 hover:text-indigo-700"
+                                                className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700"
                                             >
-                                                <FileText size={14} />
-                                                <span className="text-sm font-medium">{payment.contractId}</span>
+                                                <FileText size={12} />
+                                                <span className="text-xs font-medium">{payment.contractId}</span>
                                             </button>
                                         </td>
-                                        <td className="py-4 px-5 hidden sm:table-cell">
-                                            <div className="flex items-center gap-2">
-                                                <Calendar size={14} className="text-slate-400" />
-                                                <span className="text-sm text-slate-600 dark:text-slate-400">
+                                        <td className="py-3 px-3 hidden lg:table-cell">
+                                            <span className="text-xs font-medium text-slate-600 dark:text-slate-400 truncate max-w-[120px] block">
+                                                {getUnitName((payment as any).unitId)}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-3 hidden sm:table-cell">
+                                            <div className="flex items-center gap-1.5">
+                                                <Calendar size={12} className="text-slate-400" />
+                                                <span className="text-xs text-slate-600 dark:text-slate-400">
                                                     {new Date(payment.dueDate).toLocaleDateString('vi-VN')}
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="py-4 px-5 text-right">
-                                            <p className="font-black text-slate-900 dark:text-slate-100">{formatCurrency(payment.amount)}</p>
+                                        <td className="py-3 px-3 text-right">
+                                            <p className="font-black text-slate-900 dark:text-slate-100 text-xs">{formatCurrency(payment.amount)}</p>
                                             {payment.paidAmount > 0 && payment.paidAmount < payment.amount && (
-                                                <p className="text-[10px] text-emerald-600">Đã thu: {formatCurrency(payment.paidAmount)}</p>
+                                                <p className="text-[9px] text-emerald-600">Đã thu: {formatCurrency(payment.paidAmount)}</p>
                                             )}
                                         </td>
-                                        <td className="py-4 px-5 text-center">
-                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase ${statusConfig.color}`}>
-                                                <StatusIcon size={12} />
+                                        <td className="py-3 px-3 text-center">
+                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${statusConfig.color}`}>
+                                                <StatusIcon size={11} />
                                                 {statusConfig.label}
                                             </span>
                                         </td>

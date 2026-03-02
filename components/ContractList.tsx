@@ -577,7 +577,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   key={contract.id}
                   onClick={() => onSelectContract(contract.id)}
                   className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${isCollaborative ? 'bg-blue-50/40 dark:bg-blue-900/10' : index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-transparent dark:bg-transparent'}`}
-                  title={isCollaborative ? `HĐ phối hợp — Phân bổ ${allocationPct}%` : 'Click để xem chi tiết'}
+                  title={isCollaborative ? `HĐ phối hợp — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * (allocationPct || 100) / 100))}` : allocationRole === 'lead' && allocationPct !== undefined && allocationPct < 100 ? `HĐ chủ trì — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * allocationPct / 100))}` : 'Click để xem chi tiết'}
                 >
                   <td className="px-3 py-4 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
                     {stt.toString().padStart(2, '0')}

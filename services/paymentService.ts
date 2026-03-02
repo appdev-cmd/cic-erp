@@ -2,7 +2,7 @@ import { dataClient as supabase } from '../lib/dataClient';
 import { Payment } from '../types';
 
 // Helper to map DB Payment to Frontend Payment
-const mapPayment = (p: any): Payment => ({
+const mapPayment = (p: any): Payment & { unitId?: string } => ({
     id: p.id,
     contractId: p.contract_id,
     customerId: p.customer_id,
@@ -20,7 +20,8 @@ const mapPayment = (p: any): Payment => ({
     externalInvoiceId: p.external_invoice_id,
     source: p.source || 'manual',
     notes: p.notes,
-    paymentType: p.payment_type || 'Revenue'
+    paymentType: p.payment_type || 'Revenue',
+    unitId: p.contracts?.unit_id || undefined
 });
 
 export const PaymentService = {
@@ -44,7 +45,7 @@ export const PaymentService = {
 
         let query = supabase
             .from('payments')
-            .select('*', { count: 'exact' });
+            .select('*, contracts(unit_id)', { count: 'exact' });
 
         // Filters
         if (search) {
