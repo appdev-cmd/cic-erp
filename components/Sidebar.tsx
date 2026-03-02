@@ -57,9 +57,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { impersonatedUser, isImpersonating } = useImpersonation();
   // Use impersonated role for nav filtering when impersonating
   const effectiveProfile = isImpersonating && impersonatedUser ? impersonatedUser : profile;
-  const hiddenItems = effectiveProfile ? getHiddenNavItems(effectiveProfile.role, effectiveProfile.unitCode) : new Set<string>();
+  const hiddenItems = effectiveProfile ? getHiddenNavItems(effectiveProfile.role, effectiveProfile.unitCode, effectiveProfile.email) : new Set<string>();
 
-  const managementItems = NAV_ITEMS.filter(item => ['dashboard', 'contracts', 'payments', 'analytics', 'ai-assistant'].includes(item.id) && !hiddenItems.has(item.id));
+  const managementItems = NAV_ITEMS.filter(item => ['dashboard', 'contracts', 'payments', 'analytics', 'ai-assistant', 'tools'].includes(item.id) && !hiddenItems.has(item.id));
   const categoryItems = NAV_ITEMS.filter(item => ['units', 'personnel', 'products', 'customers', 'user-guide'].includes(item.id) && !hiddenItems.has(item.id));
   const settingsItem = NAV_ITEMS.find(item => item.id === 'settings' && !hiddenItems.has(item.id));
 

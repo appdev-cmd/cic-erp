@@ -67,7 +67,7 @@ export function canViewUnits(role: UserRole): boolean {
  * Items that should be hidden from sidebar based on role.
  * Returns Set of nav item IDs to HIDE.
  */
-export function getHiddenNavItems(role: UserRole, userUnitCode?: string): Set<string> {
+export function getHiddenNavItems(role: UserRole, userUnitCode?: string, userEmail?: string): Set<string> {
     const hidden = new Set<string>();
 
     // Settings: only Admin
@@ -83,6 +83,12 @@ export function getHiddenNavItems(role: UserRole, userUnitCode?: string): Set<st
     // Personnel: only Admin, Leadership, ChiefAccountant, AdminUnit of HCNS
     if (!canViewEmployees(role, userUnitCode)) {
         hidden.add('personnel');
+    }
+
+    // Tools: only anhnq@cic.com.vn
+    const TOOLS_ALLOWED_EMAILS = ['anhnq@cic.com.vn'];
+    if (!userEmail || !TOOLS_ALLOWED_EMAILS.includes(userEmail.toLowerCase())) {
+        hidden.add('tools');
     }
 
     return hidden;
