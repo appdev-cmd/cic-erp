@@ -41,7 +41,7 @@ import ErrorBoundary from './ErrorBoundary';
 import { ContractService, UnitService, EmployeeService, HistoricalProductionService } from '../services';
 import { Unit, KPIPlan, Contract, HistoricalProduction } from '../types';
 import { getSmartInsightsWithDeepSeek } from '../services/openaiService';
-import { getChartColors, getAccentColor, getAccentColorLight, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill } from '../lib/themeColors';
+import { getChartColors, getAccentColor, getAccentColorLight, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill, isDarkTheme } from '../lib/themeColors';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -269,8 +269,9 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
     let perfData: any[] = [];
 
     if (unitId === 'all') {
-      // For All Units: map raw unit data
-      perfData = rawDistData.map(u => ({
+      // For All Units: map raw unit data (exclude non-business units)
+      const businessUnits = rawDistData.filter((u: any) => u.type === 'Center' || u.type === 'Branch');
+      perfData = businessUnits.map(u => ({
         id: u.id,
         name: u.name,
         subText: u.type === 'Branch' ? 'Chi nhánh' : 'Trung tâm',
@@ -320,6 +321,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         id: e.id,
         name: e.name,
         subText: e.employeeCode || 'NVKD',
+        avatar: e.avatar || '',
         target: activeMetric === 'signing' ? (e.target?.signing || 0)
           : activeMetric === 'revenue' ? (e.target?.revenue || 0)
             : activeMetric === 'adminProfit' ? (e.target?.adminProfit || 0)
@@ -489,26 +491,6 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           <OnlineUsers />
         </div>
 
-        {/* STICKY FILTER BAR - Metric Tabs Only */}
-        <div className="sticky top-16 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-4 border-b border-slate-200/50 dark:border-slate-800">
-          <div className="flex items-center">
-            <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto no-scrollbar">
-              {metricTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveMetric(tab.id as keyof KPIPlan)}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeMetric === tab.id
-                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20 dark:shadow-orange-500/10'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                    }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
         {/* Main KPI Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
           <KPIItem title="Ký kết" metric="signing" stats={stats.actual} target={displayTarget} yoy={getYoY('signing')} color="indigo" icon={<FileText size={20} />} />
@@ -524,6 +506,26 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           {/* CRM: "Chờ phê duyệt" card hidden — will be re-enabled in CRM module */}
           <StatusCard label="Đã hoàn thành" count={stats.statusCounts.completed} icon={<CheckCircle2 size={24} className="text-emerald-600" />} color="emerald" />
           <StatusCard label="Hợp đồng quá hạn" count={stats.statusCounts.expired} icon={<AlertCircle size={24} className="text-rose-600" />} color="rose" />
+        </div>
+
+        {/* STICKY FILTER BAR - Metric Tabs */}
+        <div className="sticky top-16 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-4 border-b border-slate-200/50 dark:border-slate-800">
+          <div className="flex items-center">
+            <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto no-scrollbar">
+              {metricTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveMetric(tab.id as keyof KPIPlan)}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${activeMetric === tab.id
+                    ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20 dark:shadow-orange-500/10'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Charts Section */}
@@ -602,14 +604,17 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                         ))}
                       </Pie>
                       <Tooltip
-                        contentStyle={getTooltipStyle()}
-                        itemStyle={{ fontSize: '12px', fontWeight: 600 }}
+                        contentStyle={{ ...getTooltipStyle(), zIndex: 50 }}
+                        itemStyle={{ fontSize: '13px', fontWeight: 700, color: isDarkTheme() ? '#f1f5f9' : '#1e293b' }}
+                        labelStyle={{ fontSize: '11px', fontWeight: 800, color: isDarkTheme() ? '#94a3b8' : '#64748b', marginBottom: 4 }}
+                        formatter={(value: any, name: any) => [formatCurrency(value as number), name]}
+                        wrapperStyle={{ zIndex: 50 }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng số</p>
-                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{formatCurrency(stats.actual[activeMetric] || 0)}</p>
+                    <p className="text-[10px] font-black text-slate-300 dark:text-slate-300 uppercase tracking-widest">Tổng số</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{formatCurrency(stats.actual[activeMetric] || 0)}</p>
                   </div>
                 </div>
 
@@ -674,9 +679,13 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                     <tr key={row.id} className="group cursor-pointer transition-colors">
                       <td className="py-4 pl-4 rounded-l-3xl bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-l border-transparent transition-colors">
                         <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-lg ${safeUnit?.id === 'all' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'} flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform`}>
-                            {row.name.substring(0, 1)}
-                          </div>
+                          {row.avatar ? (
+                            <img src={row.avatar} alt={row.name} className={`w-12 h-12 rounded-lg object-cover shadow-sm group-hover:scale-105 transition-transform`} referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className={`w-12 h-12 rounded-lg ${safeUnit?.id === 'all' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'} flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform`}>
+                              {row.name.substring(0, 1)}
+                            </div>
+                          )}
                           <div>
                             <p className="text-base font-black text-slate-900 dark:text-slate-100">{row.name}</p>
                             <p className="text-xs font-bold text-slate-400">{row.subText}</p>

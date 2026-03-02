@@ -16,7 +16,8 @@ import {
     Plus
 } from 'lucide-react';
 import { Payment, PaymentStatus, Customer, Unit } from '../types';
-import { PaymentService, ContractService, CustomerService, UnitService } from '../services';
+import { PaymentService, ContractService, CustomerService } from '../services';
+import { useLayoutContext } from './layout/MainLayout';
 import PaymentForm from './PaymentForm';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useCurrentUserVisibleUnits } from '../hooks';
@@ -36,12 +37,13 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const { can } = usePermissionCheck();
     const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
 
+    const { selectedUnit } = useLayoutContext();
+    const unitFilter = selectedUnit?.id || 'all';
+
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [unitFilter, setUnitFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<'Revenue' | 'Expense'>('Revenue');
     const [customers, setCustomers] = useState<Customer[]>([]);
-    const [units, setUnits] = useState<Unit[]>([]);
     const [stats, setStats] = useState<any>(null);
 
     // Infinite scroll batch size
@@ -63,7 +65,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
     // Infinite scroll fetch function
     const fetchPaymentPage = useCallback(async (page: number) => {
-        const [listRes, statsRes, customersData, unitsData] = await Promise.all([
+        const [listRes, statsRes, customersData] = await Promise.all([
             PaymentService.list({
                 page,
                 limit: PAGE_SIZE,
@@ -76,8 +78,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 type: typeFilter,
                 unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter]
             }) : Promise.resolve(null),
-            page === 1 && customers.length === 0 ? CustomerService.getAll({ pageSize: 200 }) : Promise.resolve(null),
-            page === 1 && units.length === 0 ? UnitService.getAll() : Promise.resolve(null)
+            page === 1 && customers.length === 0 ? CustomerService.getAll({ pageSize: 200 }) : Promise.resolve(null)
         ]);
 
         if (statsRes) setStats(statsRes);
@@ -85,16 +86,13 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             const incoming = (customersData as any).data || customersData;
             setCustomers(incoming as Customer[]);
         }
-        if (unitsData) {
-            setUnits(unitsData as Unit[]);
-        }
 
         return {
             data: listRes.data,
             hasMore: listRes.data.length >= PAGE_SIZE,
             totalCount: listRes.count
         };
-    }, [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits, customers.length, units.length]);
+    }, [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits, customers.length]);
 
     const {
         items: payments,
@@ -293,25 +291,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                     />
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
-                    <Building2 size={16} className="text-slate-400" />
-                    <select
-                        value={unitFilter}
-                        onChange={(e) => { setUnitFilter(e.target.value); }}
-                        className="bg-transparent text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none"
-                    >
-                        {(visibleUnits === 'all' || visibleUnits.length > 1) && (
-                            <option value="all">Tất cả đơn vị</option>
-                        )}
-                        {units.filter(u =>
-                            u.id !== 'all' &&
-                            u.type !== 'Company' &&
-                            (visibleUnits === 'all' || visibleUnits.includes(u.id))
-                        ).map(u => (
-                            <option key={u.id} value={u.id}>{u.name}</option>
-                        ))}
-                    </select>
-                </div>
+
                 <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
                     <Filter size={16} className="text-slate-400" />
                     <select

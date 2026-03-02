@@ -77,6 +77,8 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [unitName, setUnitName] = useState('...');
   const [salesName, setSalesName] = useState('...');
   const [customerName, setCustomerName] = useState('...');
+  // Allocation display names
+  const [allocationNames, setAllocationNames] = useState<{ unitName: string; employeeName: string; percent: number; role: string }[]>([]);
 
   // Documents State
   const [documents, setDocuments] = useState<ContractDocument[]>([]);
@@ -136,6 +138,30 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
           setCustomerName(c?.name || 'Unknown');
         } else if (contract.partyA) {
           setCustomerName(contract.partyA);
+        }
+
+        // Unit Allocations — resolve names for display
+        if (contract.unitAllocations && contract.unitAllocations.length > 0) {
+          const allocResults = await Promise.all(
+            contract.unitAllocations.map(async (alloc) => {
+              let uName = alloc.unitId;
+              let eName = alloc.employeeId || '';
+              try {
+                const unit = await UnitService.getById(alloc.unitId);
+                if (unit) uName = unit.name;
+              } catch { /* fallback to ID */ }
+              if (alloc.employeeId) {
+                try {
+                  const emp = await EmployeeService.getById(alloc.employeeId);
+                  if (emp) eName = emp.name;
+                } catch { /* fallback to ID */ }
+              }
+              return { unitName: uName, employeeName: eName, percent: alloc.percent, role: alloc.role };
+            })
+          );
+          setAllocationNames(allocResults);
+        } else {
+          setAllocationNames([]);
         }
 
       } catch (e) {
@@ -347,6 +373,28 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                   <span>Khách hàng: <b className="text-slate-700 dark:text-slate-200">{customerName}</b></span>
                 </div>
               </div>
+              {/* Unit Allocations Display */}
+              {allocationNames.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {allocationNames.map((alloc, i) => (
+                    <div
+                      key={i}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${alloc.role === 'lead'
+                          ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
+                          : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                        }`}
+                    >
+                      <Building2 size={12} />
+                      <span className="font-bold">{alloc.role === 'lead' ? 'Chủ trì' : 'Phối hợp'}:</span>
+                      <span>{alloc.unitName}</span>
+                      {alloc.employeeName && (
+                        <><span className="text-slate-400 dark:text-slate-500">•</span><User size={11} /><span>{alloc.employeeName}</span></>
+                      )}
+                      <span className="ml-1 px-1.5 py-0.5 rounded bg-white/60 dark:bg-slate-800/60 text-[10px] font-black">{alloc.percent}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">

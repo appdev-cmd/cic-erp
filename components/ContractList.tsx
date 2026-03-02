@@ -567,6 +567,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               const margin = revenue > 0 ? (profit / revenue) * 100 : ((contract.value || 0) > 0 ? (profit / contract.value) * 100 : 0);
               const salesperson = salespeople.find(s => s.id === contract.salespersonId);
 
+              // Allocation info (tagged by ContractService.list for collaborative contracts)
+              const allocationRole = (contract as any)._allocationRole as 'lead' | 'support' | undefined;
+              const allocationPct = (contract as any)._allocationPct as number | undefined;
+              const isCollaborative = allocationRole === 'support';
+
               // STT - sequential across infinite scroll
               const stt = index + 1;
 
@@ -574,8 +579,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 <tr
                   key={contract.id}
                   onClick={() => onSelectContract(contract.id)}
-                  className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-transparent dark:bg-transparent'}`}
-                  title="Click để xem chi tiết"
+                  className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${isCollaborative ? 'bg-blue-50/40 dark:bg-blue-900/10' : index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-transparent dark:bg-transparent'}`}
+                  title={isCollaborative ? `HĐ phối hợp — Phân bổ ${allocationPct}%` : 'Click để xem chi tiết'}
                 >
                   <td className="px-3 py-4 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
                     {stt.toString().padStart(2, '0')}
@@ -602,7 +607,19 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     </div>
                   </td>
                   <td className="px-3 py-4 text-[11px] font-bold text-slate-800 dark:text-slate-200">
-                    <p className="line-clamp-2" title={contract.title}>{contract.title}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="line-clamp-2" title={contract.title}>{contract.title}</p>
+                      {isCollaborative && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 whitespace-nowrap flex-shrink-0" title={`Đơn vị phối hợp — Phân bổ ${allocationPct}%`}>
+                          Phối hợp {allocationPct}%
+                        </span>
+                      )}
+                      {!isCollaborative && allocationRole === 'lead' && allocationPct !== undefined && allocationPct < 100 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap flex-shrink-0" title={`Đơn vị chủ trì — Phân bổ ${allocationPct}%`}>
+                          Chủ trì {allocationPct}%
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1">{contract.partyA}</p>
                   </td>
                   <td className="px-3 py-4">

@@ -374,64 +374,133 @@ export const ContractService = {
         sortDir?: 'asc' | 'desc';
     }): Promise<{ data: Contract[]; count: number }> => {
         const { page, limit, search, status, unitId, year, sortBy, sortDir } = params;
-        const from = (page - 1) * limit;
-        const to = from + limit - 1;
 
-        let query = supabase
-            .from('contracts')
-            .select('*, payments(amount, paid_amount, status, payment_type)', { count: 'exact' });
+        // Determine if we need allocation-aware filtering (single unit, not 'All' or comma-separated)
+        const isSingleUnitFilter = unitId && unitId !== 'All' && unitId !== 'all' && !unitId.includes(',');
 
-        // Apply filters
-        if (search) {
-            query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%`);
-        }
-        if (status && status !== 'All') {
-            query = query.eq('status', status);
-        }
-        if (unitId && unitId !== 'All' && unitId !== 'all') {
-            // Support comma-separated unit IDs for cross-unit visibility
-            if (unitId.includes(',')) {
-                query = query.in('unit_id', unitId.split(',').map(id => id.trim()));
-            } else {
-                query = query.eq('unit_id', unitId);
+        if (isSingleUnitFilter) {
+            // === ALLOCATION-AWARE MODE ===
+            // Fetch ALL contracts (no unit_id filter) to find collaborative contracts
+            let query = supabase
+                .from('contracts')
+                .select('*, payments(amount, paid_amount, status, payment_type)');
+
+            if (search) {
+                query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%`);
             }
-        }
-        if (year && year !== 'All') {
-            const startDate = `${year}-01-01`;
-            const endDate = `${year}-12-31`;
-            query = query.gte('signed_date', startDate).lte('signed_date', endDate);
-        }
+            if (status && status !== 'All') {
+                query = query.eq('status', status);
+            }
+            if (year && year !== 'All') {
+                const startDate = `${year}-01-01`;
+                const endDate = `${year}-12-31`;
+                query = query.gte('signed_date', startDate).lte('signed_date', endDate);
+            }
 
-        // Sort mapping: frontend key → DB column
-        const SORT_MAP: Record<string, string> = {
-            id: 'id',
-            signedDate: 'signed_date',
-            value: 'value',
-            actualRevenue: 'actual_revenue',
-            estimatedCost: 'estimated_cost',
-            status: 'status',
-            title: 'title',
-            partyA: 'party_a',
-        };
+            // Sort mapping
+            const SORT_MAP: Record<string, string> = {
+                id: 'id', signedDate: 'signed_date', value: 'value',
+                actualRevenue: 'actual_revenue', estimatedCost: 'estimated_cost',
+                status: 'status', title: 'title', partyA: 'party_a',
+            };
+            const dbSortColumn = sortBy ? SORT_MAP[sortBy] : null;
+            if (dbSortColumn) {
+                query = query.order(dbSortColumn, { ascending: sortDir === 'asc' });
+            } else {
+                query = query.order('created_at', { ascending: false });
+            }
 
-        const dbSortColumn = sortBy ? SORT_MAP[sortBy] : null;
-        if (dbSortColumn) {
-            query = query.order(dbSortColumn, { ascending: sortDir === 'asc' });
+            const { data, error } = await query;
+            if (error) throw error;
+
+            // Filter in JS: include contracts where this unit is lead or support
+            const filteredContracts: Contract[] = [];
+            (data || []).forEach((c: any) => {
+                const allocations: any[] = c.unit_allocations?.allocations || [];
+                const isLeadUnit = c.unit_id === unitId;
+                const supportAlloc = allocations.find((a: any) => a.unitId === unitId && a.role === 'support');
+
+                let allocationRole: 'lead' | 'support' | null = null;
+                let allocationPct = 100;
+
+                if (isLeadUnit && allocations.length > 0) {
+                    const leadAlloc = allocations.find((a: any) => a.unitId === unitId && a.role === 'lead');
+                    allocationRole = 'lead';
+                    allocationPct = leadAlloc ? (leadAlloc.percent || 100) : 100;
+                } else if (isLeadUnit) {
+                    allocationRole = 'lead';
+                    allocationPct = 100;
+                } else if (supportAlloc) {
+                    allocationRole = 'support';
+                    allocationPct = supportAlloc.percent || 0;
+                }
+
+                if (allocationRole) {
+                    const mapped = mapContract(c);
+                    // Tag with allocation info for UI display
+                    (mapped as any)._allocationRole = allocationRole;
+                    (mapped as any)._allocationPct = allocationPct;
+                    filteredContracts.push(mapped);
+                }
+            });
+
+            // Apply JS-level pagination
+            const totalCount = filteredContracts.length;
+            const from = (page - 1) * limit;
+            const pageData = filteredContracts.slice(from, from + limit);
+
+            return { data: pageData, count: totalCount };
+
         } else {
-            query = query.order('created_at', { ascending: false });
+            // === STANDARD MODE (All units or comma-separated) ===
+            const from = (page - 1) * limit;
+            const to = from + limit - 1;
+
+            let query = supabase
+                .from('contracts')
+                .select('*, payments(amount, paid_amount, status, payment_type)', { count: 'exact' });
+
+            if (search) {
+                query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%`);
+            }
+            if (status && status !== 'All') {
+                query = query.eq('status', status);
+            }
+            if (unitId && unitId !== 'All' && unitId !== 'all') {
+                if (unitId.includes(',')) {
+                    query = query.in('unit_id', unitId.split(',').map(id => id.trim()));
+                } else {
+                    query = query.eq('unit_id', unitId);
+                }
+            }
+            if (year && year !== 'All') {
+                const startDate = `${year}-01-01`;
+                const endDate = `${year}-12-31`;
+                query = query.gte('signed_date', startDate).lte('signed_date', endDate);
+            }
+
+            const SORT_MAP: Record<string, string> = {
+                id: 'id', signedDate: 'signed_date', value: 'value',
+                actualRevenue: 'actual_revenue', estimatedCost: 'estimated_cost',
+                status: 'status', title: 'title', partyA: 'party_a',
+            };
+            const dbSortColumn = sortBy ? SORT_MAP[sortBy] : null;
+            if (dbSortColumn) {
+                query = query.order(dbSortColumn, { ascending: sortDir === 'asc' });
+            } else {
+                query = query.order('created_at', { ascending: false });
+            }
+
+            query = query.range(from, to);
+
+            const { data, error, count } = await query;
+            if (error) throw error;
+
+            return {
+                data: data.map(mapContract),
+                count: count || 0
+            };
         }
-
-        // Apply pagination
-        query = query.range(from, to);
-
-        const { data, error, count } = await query;
-
-        if (error) throw error;
-
-        return {
-            data: data.map(mapContract),
-            count: count || 0
-        };
     },
 
     // Optimized Search for Performance
@@ -476,8 +545,9 @@ export const ContractService = {
         totalCash: number
     }> => {
         const { search, status, unitId, year } = params;
-        // Include payment status+type to calculate revenue from invoiced payments (same as getStatsFallback)
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)');
+        // Fetch ALL contracts with unit_allocations for allocation-aware filtering
+        // Unit filter is done in JS to support contracts where the unit is a collaborative partner
+        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)');
 
         if (search) {
             query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%`);
@@ -485,13 +555,7 @@ export const ContractService = {
         if (status && status !== 'All') {
             query = query.eq('status', status);
         }
-        if (unitId && unitId !== 'All' && unitId !== 'all') {
-            if (unitId.includes(',')) {
-                query = query.in('unit_id', unitId.split(',').map(id => id.trim()));
-            } else {
-                query = query.eq('unit_id', unitId);
-            }
-        }
+        // NOTE: Unit filter is NOT applied at SQL level — done in JS below for allocation support
         if (year && year !== 'All') {
             const startDate = `${year}-01-01`;
             const endDate = `${year}-12-31`;
@@ -501,8 +565,14 @@ export const ContractService = {
         const { data, error } = await query;
         if (error) throw error;
 
-        // Calculate aggregates in JS — revenue computed from payments (not stale actual_revenue)
-        return data.reduce((acc, curr: any) => {
+        // Determine if filtering by specific unit(s)
+        const isFilteringByUnit = unitId && unitId !== 'All' && unitId !== 'all';
+        const unitIds = isFilteringByUnit && unitId!.includes(',')
+            ? unitId!.split(',').map(id => id.trim())
+            : isFilteringByUnit ? [unitId!] : [];
+
+        // Calculate aggregates in JS — with unit_allocations support (same as getStatsFallback)
+        return (data || []).reduce((acc, curr: any) => {
             const val = curr.value || 0;
             const cost = curr.estimated_cost || 0;
             const actCost = curr.actual_cost || 0;
@@ -511,14 +581,40 @@ export const ContractService = {
             const rev = calculateRevenueFromPayments(curr.payments || [], curr.vat_rate ?? 10, curr.has_vat !== false, curr.actual_revenue || 0);
             const cash = calculateCashReceived(curr.payments || []);
 
+            // Determine this unit's share percentage (0-100)
+            let sharePct = 100; // Default: 100% for "all" view
+
+            if (isFilteringByUnit) {
+                const allocations: any[] = curr.unit_allocations?.allocations || [];
+                let matchedPct = 0;
+                for (const targetUnitId of unitIds) {
+                    const isLeadUnit = curr.unit_id === targetUnitId;
+                    const supportAlloc = allocations.find((a: any) => a.unitId === targetUnitId && a.role === 'support');
+
+                    if (isLeadUnit && allocations.length > 0) {
+                        const leadAlloc = allocations.find((a: any) => a.unitId === targetUnitId && a.role === 'lead');
+                        matchedPct = Math.max(matchedPct, leadAlloc ? (leadAlloc.percent || 100) : 100);
+                    } else if (isLeadUnit) {
+                        matchedPct = Math.max(matchedPct, 100);
+                    } else if (supportAlloc) {
+                        matchedPct = Math.max(matchedPct, supportAlloc.percent || 0);
+                    }
+                }
+                sharePct = matchedPct;
+            }
+
+            if (sharePct === 0) return acc; // Skip contracts where unit has no share
+
+            const fraction = sharePct / 100;
+
             return {
                 totalContracts: acc.totalContracts + 1,
-                totalValue: acc.totalValue + val,
-                totalRevenue: acc.totalRevenue + rev,
-                totalProfit: acc.totalProfit + (val - cost), // Legacy
-                totalSigningProfit: acc.totalSigningProfit + (val - cost),
-                totalRevenueProfit: acc.totalRevenueProfit + (rev > 0 ? Math.round(rev - actCost) : 0),
-                totalCash: acc.totalCash + cash
+                totalValue: acc.totalValue + val * fraction,
+                totalRevenue: acc.totalRevenue + rev * fraction,
+                totalProfit: acc.totalProfit + (val - cost) * fraction,
+                totalSigningProfit: acc.totalSigningProfit + (val - cost) * fraction,
+                totalRevenueProfit: acc.totalRevenueProfit + (rev > 0 ? Math.round((rev - actCost) * fraction) : 0),
+                totalCash: acc.totalCash + cash * fraction
             };
         }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0 });
     },
