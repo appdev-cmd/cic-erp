@@ -451,44 +451,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           />
         </div>
 
-        {/* Year Filter */}
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
-          <Calendar size={18} className="text-slate-500" />
-          <select
-            className="bg-transparent py-3 text-sm font-black text-slate-900 dark:text-slate-100 outline-none w-[100px]"
-            value={yearFilter}
-            onChange={(e) => {
-              setYearFilter(e.target.value);
-            }}
-          >
-            <option value="All">Tất cả năm</option>
-            {availableYears.map(year => (
-              <option key={year} value={year}>Năm {year}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Unit Filter (Local) - Only show if Global is All */}
-        {selectedUnit?.id === 'all' && (
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
-            <Building2 size={18} className="text-slate-500" />
-            <select
-              className="bg-transparent py-3 text-sm font-black text-slate-900 dark:text-slate-100 outline-none max-w-[150px]"
-              value={unitFilter}
-              onChange={(e) => {
-                setUnitFilter(e.target.value);
-              }}
-            >
-              {canSeeAll && <option value="All">Tất cả đơn vị</option>}
-              {units
-                .filter(u => visibleUnits === 'all' || visibleUnits.includes(u.id))
-                .map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-            </select>
-          </div>
-        )}
-
         {/* Status Filter */}
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
           <Filter size={18} className="text-slate-500" />
@@ -510,7 +472,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       </div>
 
       {/* TABLE */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-360px)]">
         <table className="w-full text-left">
           <thead>
             <tr className="z-20">
@@ -596,7 +558,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               </tr>
             ) : contracts.map((contract, index) => {
               const profit = (contract.value || 0) - (contract.estimatedCost || 0);
-              const revenue = contract.actualRevenue || 0;
+              // Doanh thu: ưu tiên actual_revenue từ DB (tính từ payments), fallback = value / (1+VAT%)
+              const vatDivisor = (contract.hasVat !== false && (contract.vatRate ?? 10) > 0) ? (1 + (contract.vatRate ?? 10) / 100) : 1;
+              const revenue = contract.actualRevenue != null && contract.actualRevenue > 0
+                ? contract.actualRevenue
+                : Math.round((contract.value || 0) / vatDivisor);
               const cashReceived = contract.cashReceived || 0;
               const margin = revenue > 0 ? (profit / revenue) * 100 : ((contract.value || 0) > 0 ? (profit / contract.value) * 100 : 0);
               const salesperson = salespeople.find(s => s.id === contract.salespersonId);
