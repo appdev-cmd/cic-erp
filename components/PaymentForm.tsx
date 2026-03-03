@@ -90,9 +90,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
             contractId,
             customerId,
             dueDate,
-            paymentDate: status === 'Tiền về' && !paymentDate ? new Date().toISOString().split('T')[0] : paymentDate,
+            paymentDate: (status === 'Tiền về' || status === 'Tạm ứng') && !paymentDate ? new Date().toISOString().split('T')[0] : paymentDate,
             amount,
-            paidAmount: status === 'Tiền về' ? amount : 0,
+            paidAmount: (status === 'Tiền về' || status === 'Tạm ứng') ? amount : 0,
             status,
             method,
             invoiceNumber,
@@ -106,7 +106,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
 
     const formatCurrency = (val: number) => formatNumber(val);
 
-    const statuses: PaymentStatus[] = ['Đã xuất HĐ', 'Tiền về'];
+    const statuses: PaymentStatus[] = ['Tạm ứng', 'Đã xuất HĐ', 'Tiền về'];
     const methods: PaymentMethod[] = ['Chuyển khoản', 'Tiền mặt', 'LC', 'Khác'];
 
     return (
@@ -263,20 +263,21 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 uppercase">Trạng thái *</label>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                                 {statuses.map(s => (
                                     <button
                                         key={s}
                                         type="button"
                                         onClick={() => {
                                             setStatus(s);
-                                            if (s === 'Tiền về' && !paymentDate) {
+                                            if ((s === 'Tiền về' || s === 'Tạm ứng') && !paymentDate) {
                                                 setPaymentDate(new Date().toISOString().split('T')[0]);
                                             }
                                         }}
                                         className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${status === s
                                             ? s === 'Tiền về' ? 'bg-emerald-600 text-white'
-                                                : 'bg-blue-600 text-white'
+                                                : s === 'Tạm ứng' ? 'bg-amber-600 text-white'
+                                                    : 'bg-blue-600 text-white'
                                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                                             }`}
                                     >

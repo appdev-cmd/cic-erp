@@ -17,8 +17,77 @@ export interface ContractExtraction {
     remaining?: number;        // Còn lại
 }
 
-// Lấy api key từ config (nếu có để làm fallback)
-const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+// ─── Gemini API Source Types ─────────────────────────────
+export type GeminiApiSource = 'system' | 'personal';
+
+const PERSONAL_GEMINI_KEY = 'cic_custom_gemini_key';
+
+/** Kiểm tra user đã có API key cá nhân chưa */
+export function hasPersonalGeminiKey(): boolean {
+    try {
+        return !!localStorage.getItem(PERSONAL_GEMINI_KEY);
+    } catch {
+        return false;
+    }
+}
+
+// ─── Gemini Proxy Helper ─────────────────────────────────
+// apiSource = 'system' → gọi qua Vercel Serverless Proxy (key server)
+// apiSource = 'personal' → gọi trực tiếp với key cá nhân từ localStorage
+async function callGeminiProxy(
+    parts: any[],
+    maxTokens = 8192,
+    temperature = 0.1,
+    model = 'gemini-2.0-flash',
+    apiSource: GeminiApiSource = 'system'
+): Promise<string> {
+    // --- Personal key: gọi trực tiếp ---
+    if (apiSource === 'personal') {
+        const personalKey = localStorage.getItem(PERSONAL_GEMINI_KEY);
+        if (!personalKey) {
+            throw new Error('Chưa có API Key cá nhân. Vui lòng nhập key trong Cài đặt AI hoặc chọn "API hệ thống".');
+        }
+        const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${personalKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts }],
+                    generationConfig: { temperature, maxOutputTokens: maxTokens },
+                }),
+            }
+        );
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`Gemini (key cá nhân): ${res.status} - ${err.substring(0, 150)}`);
+        }
+        const json = await res.json();
+        return json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
+    // --- System proxy: gọi qua Vercel ---
+    // Gửi JWT để server verify quyền
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+    } catch { /* ignore — dev mode */ }
+
+    const res = await fetch('/api/gemini-extract', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ parts, maxTokens, temperature, model }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(err.error || `Gemini Proxy: ${res.status}`);
+    }
+    const json = await res.json();
+    return json.text || '';
+}
 
 import { supabase } from '../lib/supabase';
 
@@ -102,35 +171,8 @@ async function callEdgeFunction(functionName: string, payload: Record<string, an
 }
 
 async function callGemini(parts: any[]): Promise<any> {
-    try {
-        const payload = { action: 'chat', modelId: 'gemini-2.0-flash', history: [], newMessage: parts[0]?.text || '', parts: parts };
-        // For vision/files, passing inline_data might be complex via edge depending on size, but we can try direct if Edge fails or if it's simpler.
-        // In this specific extractService, since it passes `inline_data` for images, we need to pass that to the Edge Function.
-        // Wait, the new `ai-proxy` only supports text? No, Gemini proxy supports what?
-        // Let's keep direct Gemini call for vision for now, or update edge function later. 
-        // For now, let's keep direct Gemini API call since it handles base64 well and proxy might have limits.
-        if (!GOOGLE_API_KEY) throw new Error('Chưa cấu hình VITE_GOOGLE_API_KEY');
-
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts }],
-                    generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
-                }),
-            }
-        );
-        if (!res.ok) {
-            const err = await res.text();
-            throw new Error(`Gemini: ${res.status} - ${err.substring(0, 150)}`);
-        }
-        const json = await res.json();
-        return parseJsonFromText(json?.candidates?.[0]?.content?.parts?.[0]?.text || '');
-    } catch (e) {
-        throw e;
-    }
+    const rawText = await callGeminiProxy(parts, 2048);
+    return parseJsonFromText(rawText);
 }
 
 async function callDeepSeek(prompt: string): Promise<any> {
@@ -411,45 +453,14 @@ export const AIExtractService = {
         let rawText: string;
 
         if (actualModel === 'gemini') {
-            if (!GOOGLE_API_KEY) throw new Error('Chưa cấu hình VITE_GOOGLE_API_KEY');
-            const res = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [
-                                { text: CONTRACT_EXTRACT_PROMPT },
-                                { inline_data: { mime_type: mimeType, data: base64 } },
-                            ]
-                        }],
-                        generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-                    }),
-                }
-            );
-            if (!res.ok) {
-                const err = await res.text();
-                throw new Error(`Gemini: ${res.status} - ${err.substring(0, 150)}`);
-            }
-            const json = await res.json();
-            rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            rawText = await callGeminiProxy([
+                { text: CONTRACT_EXTRACT_PROMPT },
+                { inlineData: { mimeType, data: base64 } },
+            ], 8192);
         } else {
             // GPT-4o
             const apiKey = localStorage.getItem('cic_custom_openai_key') || import.meta.env.VITE_OPENAI_API_KEY;
-
             if (!apiKey) {
-                // Try edge function if no config
-                const data = await callEdgeFunction('ai-proxy', {
-                    action: 'chat',
-                    provider: 'openai',
-                    modelId: 'gpt-4o',
-                    newMessage: CONTRACT_EXTRACT_PROMPT + `\n\n[Image Content Provided: data:${mimeType};base64,...]`,
-                    // Note: ai-proxy edge function doesn't support image directly in this basic version.
-                    // This is a limitation. We will throw an error telling user to use Gemini or config OpenAI Key locally.
-                    // We can also implement vision array support in Edge Function.
-                });
-                // To keep it simple, we throw error if no api key for GPT-4 vision.
                 throw new Error('Bạn cần nhập OpenAI API Key trong Cài đặt để dùng GPT-4o với ảnh, hoặc sử dụng Gemini.');
             }
 
@@ -615,7 +626,8 @@ QUY TẮC:
 // ─── PAKD AI Extraction ──────────────────────────────────
 export async function extractPAKDFromImage(
     file: File,
-    model: ExtractModel = 'gemini'
+    model: ExtractModel = 'gemini',
+    apiSource: GeminiApiSource = 'system'
 ): Promise<PAKDExtraction> {
     const base64 = await fileToBase64(file);
     const mimeType = file.type || 'image/png';
@@ -628,29 +640,11 @@ export async function extractPAKDFromImage(
 
     let rawText = '';
 
-    if (actualModel === 'gemini' && GOOGLE_API_KEY) {
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: PAKD_EXTRACT_PROMPT },
-                            { inlineData: { mimeType, data: base64 } },
-                        ],
-                    }],
-                    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-                }),
-            }
-        );
-        if (!res.ok) {
-            const err = await res.text();
-            throw new Error(`Gemini: ${res.status} - ${err.substring(0, 150)}`);
-        }
-        const json = await res.json();
-        rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (actualModel === 'gemini') {
+        rawText = await callGeminiProxy([
+            { text: PAKD_EXTRACT_PROMPT },
+            { inlineData: { mimeType, data: base64 } },
+        ], 8192, 0.1, 'gemini-2.0-flash', apiSource);
     } else if (model === 'gpt4o') {
         const apiKey = localStorage.getItem('cic_custom_openai_key') || import.meta.env.VITE_OPENAI_API_KEY;
         if (!apiKey) throw new Error('Bạn cần nhập OpenAI API Key trong Cài đặt để dùng GPT-4o với ảnh, hoặc sử dụng Gemini.');
@@ -704,34 +698,17 @@ export async function extractPAKDFromImage(
 // ─── PAKD AI Extraction (Text) ───────────────────────────
 export async function extractPAKDFromText(
     text: string,
-    model: ExtractModel = 'gemini'
+    model: ExtractModel = 'gemini',
+    apiSource: GeminiApiSource = 'system'
 ): Promise<PAKDExtraction> {
     const actualModel = model === 'deepseek' ? 'gemini' : model;
     let rawText = '';
 
-    if (actualModel === 'gemini' && GOOGLE_API_KEY) {
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: PAKD_EXTRACT_PROMPT },
-                            { text }
-                        ],
-                    }],
-                    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-                }),
-            }
-        );
-        if (!res.ok) {
-            const err = await res.text();
-            throw new Error(`Gemini: ${res.status} - ${err.substring(0, 150)}`);
-        }
-        const json = await res.json();
-        rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (actualModel === 'gemini') {
+        rawText = await callGeminiProxy([
+            { text: PAKD_EXTRACT_PROMPT },
+            { text },
+        ], 8192, 0.1, 'gemini-2.0-flash', apiSource);
     } else if (model === 'gpt4o') {
         const apiKey = localStorage.getItem('cic_custom_openai_key') || import.meta.env.VITE_OPENAI_API_KEY;
         if (!apiKey) throw new Error('Chưa cấu hình OPENAI_API_KEY');

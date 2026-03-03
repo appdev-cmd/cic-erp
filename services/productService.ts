@@ -112,11 +112,11 @@ export const ProductService = {
 
     update: async (id: string, data: Partial<Product>): Promise<Product | undefined> => {
         const payload: any = {};
-        if (data.code) payload.code = data.code;
-        if (data.name) payload.name = data.name;
-        if (data.category) payload.category = data.category;
+        if (data.code !== undefined) payload.code = data.code;
+        if (data.name !== undefined) payload.name = data.name;
+        if (data.category !== undefined) payload.category = data.category;
         if (data.description !== undefined) payload.description = data.description;
-        if (data.unit) payload.unit = data.unit;
+        if (data.unit !== undefined) payload.unit = data.unit;
         if (data.basePrice !== undefined) payload.base_price = data.basePrice;
         if (data.costPrice !== undefined) payload.cost_price = data.costPrice;
         if (data.isActive !== undefined) payload.is_active = data.isActive;
@@ -133,7 +133,7 @@ export const ProductService = {
         return mapProduct(res);
     },
 
-    list: async (params: { page?: number; pageSize?: number; search?: string; category?: string; brandId?: string; supplierId?: string }): Promise<{ data: Product[]; total: number }> => {
+    list: async (params: { page?: number; pageSize?: number; search?: string; category?: string; brandId?: string; supplierId?: string; isActive?: boolean; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ data: Product[]; total: number }> => {
         let query = supabase.from('products').select(SELECT_WITH_JOINS, { count: 'exact' });
 
         if (params.category && params.category !== 'all') {
@@ -145,6 +145,9 @@ export const ProductService = {
         if (params.supplierId && params.supplierId !== 'all') {
             query = query.eq('supplier_id', params.supplierId);
         }
+        if (params.isActive !== undefined) {
+            query = query.eq('is_active', params.isActive);
+        }
         if (params.search) {
             query = query.or(`name.ilike.%${params.search}%,code.ilike.%${params.search}%,sku.ilike.%${params.search}%`);
         }
@@ -155,7 +158,10 @@ export const ProductService = {
             query = query.range(from, to);
         }
 
-        query = query.order('created_at', { ascending: false });
+        // Sorting
+        const sortColumn = params.sortBy || 'created_at';
+        const ascending = params.sortOrder === 'asc';
+        query = query.order(sortColumn, { ascending });
 
         const { data, error, count } = await query;
         if (error) throw error;
@@ -223,7 +229,7 @@ export const ProductService = {
             .single();
 
         if (createError) throw createError;
-        console.log('[ProductService] Created new product:', created.name);
+        // Debug log removed for production
         return mapProduct(created);
     },
 };

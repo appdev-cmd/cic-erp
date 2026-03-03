@@ -135,12 +135,18 @@ export const PaymentService = {
 
         const total = data.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-        // Đã xuất HĐ
-        const invoicedData = data.filter(p => p.status === 'Đã xuất HĐ');
+        // Đã xuất HĐ (only Revenue payments)
+        const invoicedData = data.filter(p =>
+            p.status === 'Đã xuất HĐ' &&
+            (!p.payment_type || p.payment_type === 'Revenue')
+        );
         const invoiced = invoicedData.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-        // Tiền về
-        const cashData = data.filter(p => p.status === 'Tiền về' || p.status === 'Paid');
+        // Tiền về (only Revenue payments — cash actually received, including advances)
+        const cashData = data.filter(p =>
+            (p.status === 'Tạm ứng' || p.status === 'Tiền về' || p.status === 'Paid') &&
+            (!p.payment_type || p.payment_type === 'Revenue')
+        );
         const cash = cashData.reduce((sum, p) => sum + (p.amount || 0), 0);
 
         return {
@@ -159,7 +165,7 @@ export const PaymentService = {
             customer_id: data.customerId || null,
             phase_id: data.phaseId || null,
             amount: data.amount,
-            paid_amount: data.status === 'Tiền về' ? data.amount : 0,
+            paid_amount: (data.status === 'Tiền về' || data.status === 'Tạm ứng') ? data.amount : 0,
             status: data.status || 'Đã xuất HĐ',
             method: data.method || null,
             due_date: data.dueDate || null,
@@ -186,8 +192,8 @@ export const PaymentService = {
         if (data.amount !== undefined) payload.amount = data.amount;
         if (data.status) {
             payload.status = data.status;
-            // When status changes to Tiền về, set paid_amount = amount
-            if (data.status === 'Tiền về') {
+            // When status changes to Tiền về or Tạm ứng, set paid_amount = amount
+            if (data.status === 'Tiền về' || data.status === 'Tạm ứng') {
                 if (data.amount !== undefined) {
                     payload.paid_amount = data.amount;
                 } else {
@@ -198,12 +204,13 @@ export const PaymentService = {
             }
         }
         if (data.method !== undefined) payload.method = data.method;
-        if (data.dueDate !== undefined) payload.due_date = data.dueDate;
-        if (data.paymentDate !== undefined) payload.payment_date = data.paymentDate;
+        // Sanitize empty date strings to null (Postgres rejects empty strings for date columns)
+        if (data.dueDate !== undefined) payload.due_date = data.dueDate || null;
+        if (data.paymentDate !== undefined) payload.payment_date = data.paymentDate || null;
         if (data.bankAccount !== undefined) payload.bank_account = data.bankAccount;
         if (data.reference !== undefined) payload.reference = data.reference;
         if (data.invoiceNumber !== undefined) payload.invoice_number = data.invoiceNumber;
-        if (data.invoiceDate !== undefined) payload.invoice_date = data.invoiceDate;
+        if (data.invoiceDate !== undefined) payload.invoice_date = data.invoiceDate || null;
         if (data.externalInvoiceId !== undefined) payload.external_invoice_id = data.externalInvoiceId;
         if (data.notes !== undefined) payload.notes = data.notes;
         if (data.paymentType !== undefined) payload.payment_type = data.paymentType;

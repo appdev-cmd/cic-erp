@@ -83,7 +83,18 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                         </div>
 
                         {/* Row 2: Actual Cashflow */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            {(contract.advanceAmount || 0) > 0 && (
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                                        <Wallet size={12} /> Tạm ứng
+                                    </p>
+                                    <p className="text-xl font-black text-amber-600 dark:text-amber-400">
+                                        {formatVND(contract.advanceAmount || 0)}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400">Chưa xuất HĐ</p>
+                                </div>
+                            )}
                             <div className="space-y-1">
                                 <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1">
                                     <FileText size={12} /> Đã xuất Hóa đơn
@@ -111,10 +122,10 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-1">
                                     <AlertCircle size={12} /> Công nợ phải thu
                                 </p>
-                                <p className="text-xl font-black text-amber-600 dark:text-amber-400">
+                                <p className="text-xl font-black text-rose-600 dark:text-rose-400">
                                     {formatVND((contract.invoicedAmount || 0) - (contract.actualRevenue || 0))}
                                 </p>
                                 <p className="text-[10px] text-slate-400">Chưa thu / Đã xuất</p>

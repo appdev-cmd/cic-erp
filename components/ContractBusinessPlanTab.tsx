@@ -182,7 +182,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                 line_items: lineItems,
                 execution_costs: executionCosts,
                 payment_phases: allPaymentPhases,
-                value: financials.revenue,
+                value: financials.signingValue,
                 estimated_cost: financials.costs
             })
             .eq('id', contract.id);
@@ -429,9 +429,10 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                                 {lineItems.map((item, idx) => {
                                     const inputTotal = item.quantity * item.inputPrice;
-                                    const outputTotal = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100);
-                                    const lineMargin = outputTotal - inputTotal - (item.directCosts || 0);
-                                    const lineMarginRate = outputTotal > 0 ? (lineMargin / outputTotal) * 100 : 0;
+                                    const outputNoVat = item.quantity * item.outputPrice;
+                                    const outputWithVat = outputNoVat * (1 + (item.vatRate ?? 10) / 100);
+                                    const lineMargin = outputNoVat - inputTotal - (item.directCosts || 0);
+                                    const lineMarginRate = outputNoVat > 0 ? (lineMargin / outputNoVat) * 100 : 0;
 
                                     return (
                                         <tr key={item.id || idx} className="group hover:bg-slate-50 dark:hover:bg-slate-700">
@@ -555,7 +556,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                                 )}
                                             </td>
                                             <td className="px-3 py-3 text-right">
-                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{fmtVND(outputTotal)}</span>
+                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{fmtVND(outputWithVat)}</span>
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 {isEditing ? (
@@ -626,7 +627,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                     </td>
                                     <td className={`px-4 py-3 text-right ${financials.grossProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                         {fmtVND(lineItems.reduce((acc, item) => {
-                                            const out = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100);
+                                            const out = item.quantity * item.outputPrice;
                                             const inp = item.quantity * item.inputPrice;
                                             return acc + (out - inp - (item.directCosts || 0));
                                         }, 0))}

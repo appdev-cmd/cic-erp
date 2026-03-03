@@ -199,8 +199,44 @@ const logOperation = async (
 // ============================================================================
 
 /**
+ * Case-insensitive check for "All" / "all" / "ALL" filter values.
+ */
+const isAll = (value: string | undefined | null): boolean =>
+    !value || value.toLowerCase() === 'all';
+
+/**
+ * Calculate a unit's share percentage from a contract's unit_allocations.
+ * Eliminates 4x duplicated allocation logic across getStats, getStatsFallback,
+ * list (allocation-aware mode), and getChartDataFallback.
+ * @returns 0-100 percentage. 0 means "skip this contract for this unit".
+ */
+export const getUnitSharePct = (
+    contract: { unit_id?: string; unit_allocations?: { allocations?: any[] } },
+    targetUnitId: string
+): number => {
+    const allocations: any[] = contract.unit_allocations?.allocations || [];
+    const isLeadUnit = contract.unit_id === targetUnitId;
+    const supportAlloc = allocations.find(
+        (a: any) => a.unitId === targetUnitId && a.role === 'support'
+    );
+
+    if (isLeadUnit && allocations.length > 0) {
+        const leadAlloc = allocations.find(
+            (a: any) => a.unitId === targetUnitId && a.role === 'lead'
+        );
+        return leadAlloc ? (leadAlloc.percent || 100) : 100;
+    } else if (isLeadUnit) {
+        return 100; // Lead unit, no allocations → full share
+    } else if (supportAlloc) {
+        return supportAlloc.percent || 0;
+    }
+    return 0; // Not associated with this unit
+};
+
+/**
  * Calculate revenue from payments, excluding VAT.
- * Reused by mapContract, getStats, getStatsFallback.
+ * Only counts payments with status 'Đã xuất HĐ', 'Tiền về', 'Paid'.
+ * Falls back to DB actual_revenue ONLY when no payments exist at all.
  */
 export const calculateRevenueFromPayments = (
     payments: any[],
@@ -208,6 +244,9 @@ export const calculateRevenueFromPayments = (
     hasVat: boolean = true,
     fallbackRevenue: number = 0
 ): number => {
+    // Only use fallback when there are truly no payment records
+    if (!payments || payments.length === 0) return fallbackRevenue;
+
     const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
     const revenuePayments = payments.filter(
         (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
@@ -216,10 +255,19 @@ export const calculateRevenueFromPayments = (
     const invoicedGross = revenuePayments.reduce(
         (sum: number, p: any) => sum + (Number(p.amount) || 0), 0
     );
-    if (invoicedGross > 0) {
-        return Math.round(invoicedGross / vatDivisor);
-    }
-    return fallbackRevenue;
+    return Math.round(invoicedGross / vatDivisor);
+};
+
+/**
+ * Calculate invoiced amount from payments (payments with HĐ issued).
+ * Only counts payments with status 'Đã xuất HĐ', 'Tiền về', 'Paid'.
+ */
+export const calculateInvoicedFromPayments = (payments: any[]): number => {
+    if (!payments || payments.length === 0) return 0;
+    return payments
+        .filter((p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
+            ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status))
+        .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
 };
 
 /**
@@ -228,8 +276,18 @@ export const calculateRevenueFromPayments = (
 export const calculateCashReceived = (payments: any[]): number => {
     return payments
         .filter((p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
-            ['Tiền về', 'Paid'].includes(p.status))
-        .reduce((sum: number, p: any) => sum + (Number(p.paid_amount) || 0), 0);
+            ['Tạm ứng', 'Tiền về', 'Paid'].includes(p.status))
+        .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+};
+
+/**
+ * Calculate advance (Tạm ứng) amount — cash received without invoice.
+ */
+export const calculateAdvanceAmount = (payments: any[]): number => {
+    return payments
+        .filter((p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
+            p.status === 'Tạm ứng')
+        .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
 };
 
 // Helper to map DB Contract to Frontend Contract
@@ -266,7 +324,6 @@ const mapContract = (c: any): Contract => {
         salespersonId: c.employee_id || c.salesperson_id || undefined,
         value: c.value || 0,
         estimatedCost: c.estimated_cost || 0,
-        invoicedAmount: c.invoiced_amount || 0,
         actualCost: c.actual_cost || 0,
         status: c.status || 'Processing',
         stage: c.stage || 'Signed',
@@ -289,7 +346,12 @@ const mapContract = (c: any): Contract => {
         actualRevenue: calculateRevenueFromPayments(
             payments, c.vat_rate ?? 10, c.has_vat !== false, c.actual_revenue || 0
         ),
+        // Invoiced: prefer calculated from payments over stale DB column
+        invoicedAmount: payments.length > 0
+            ? calculateInvoicedFromPayments(payments)
+            : (c.invoiced_amount || 0),
         cashReceived: calculateCashReceived(payments),
+        advanceAmount: calculateAdvanceAmount(payments),
         // Parallel approval workflow fields
         legal_approved: c.legal_approved || false,
         finance_approved: c.finance_approved || false
@@ -330,7 +392,7 @@ export const ContractService = {
 
         const { data: contractData, error: contractError } = await supabase
             .from('contracts')
-            .select('*')
+            .select('*, payments(amount, paid_amount, status, payment_type, phase_id)')
             .eq('id', id)
             .single();
 
@@ -342,17 +404,18 @@ export const ContractService = {
 
         const contract = mapContract(contractData);
 
-        // 2. Fetch Payments to sync status (Optimization: Could be a Join or separate service call logic)
-        // Keeping logic from original api.ts for consistency
-        const { data: paymentsData } = await supabase.from('payments').select('phase_id, status, paid_amount').eq('contract_id', id);
+        // Sync payment phase statuses from actual payments
+        const paymentsData: any[] = contractData?.payments || [];
 
-        if (paymentsData && paymentsData.length > 0 && contract.paymentPhases) {
+        if (paymentsData.length > 0 && contract.paymentPhases) {
             contract.paymentPhases = contract.paymentPhases.map(phase => {
                 const linkedPayment = paymentsData.find((p: any) => p.phase_id === phase.id);
                 if (linkedPayment) {
                     let newStatus = phase.status;
                     if (linkedPayment.status === 'Tiền về' || linkedPayment.status === 'Paid') {
                         newStatus = 'Paid';
+                    } else if (linkedPayment.status === 'Tạm ứng') {
+                        newStatus = 'Advance';
                     }
                     return { ...phase, status: newStatus as any };
                 }
@@ -376,7 +439,7 @@ export const ContractService = {
         const { page, limit, search, status, unitId, year, sortBy, sortDir } = params;
 
         // Determine if we need allocation-aware filtering (single unit, not 'All' or comma-separated)
-        const isSingleUnitFilter = unitId && unitId !== 'All' && unitId !== 'all' && !unitId.includes(',');
+        const isSingleUnitFilter = !isAll(unitId) && !unitId!.includes(',');
 
         if (isSingleUnitFilter) {
             // === ALLOCATION-AWARE MODE ===
@@ -416,32 +479,17 @@ export const ContractService = {
             // Filter in JS: include contracts where this unit is lead or support
             const filteredContracts: Contract[] = [];
             (data || []).forEach((c: any) => {
-                const allocations: any[] = c.unit_allocations?.allocations || [];
+                const allocationPct = getUnitSharePct(c, unitId!);
+                if (allocationPct === 0) return;
+
                 const isLeadUnit = c.unit_id === unitId;
-                const supportAlloc = allocations.find((a: any) => a.unitId === unitId && a.role === 'support');
+                const allocationRole = isLeadUnit ? 'lead' : 'support';
 
-                let allocationRole: 'lead' | 'support' | null = null;
-                let allocationPct = 100;
-
-                if (isLeadUnit && allocations.length > 0) {
-                    const leadAlloc = allocations.find((a: any) => a.unitId === unitId && a.role === 'lead');
-                    allocationRole = 'lead';
-                    allocationPct = leadAlloc ? (leadAlloc.percent || 100) : 100;
-                } else if (isLeadUnit) {
-                    allocationRole = 'lead';
-                    allocationPct = 100;
-                } else if (supportAlloc) {
-                    allocationRole = 'support';
-                    allocationPct = supportAlloc.percent || 0;
-                }
-
-                if (allocationRole) {
-                    const mapped = mapContract(c);
-                    // Tag with allocation info for UI display
-                    (mapped as any)._allocationRole = allocationRole;
-                    (mapped as any)._allocationPct = allocationPct;
-                    filteredContracts.push(mapped);
-                }
+                const mapped = mapContract(c);
+                // Tag with allocation info for UI display
+                (mapped as any)._allocationRole = allocationRole;
+                (mapped as any)._allocationPct = allocationPct;
+                filteredContracts.push(mapped);
             });
 
             // Apply JS-level pagination
@@ -566,7 +614,7 @@ export const ContractService = {
         if (error) throw error;
 
         // Determine if filtering by specific unit(s)
-        const isFilteringByUnit = unitId && unitId !== 'All' && unitId !== 'all';
+        const isFilteringByUnit = !isAll(unitId);
         const unitIds = isFilteringByUnit && unitId!.includes(',')
             ? unitId!.split(',').map(id => id.trim())
             : isFilteringByUnit ? [unitId!] : [];
@@ -581,24 +629,13 @@ export const ContractService = {
             const rev = calculateRevenueFromPayments(curr.payments || [], curr.vat_rate ?? 10, curr.has_vat !== false, curr.actual_revenue || 0);
             const cash = calculateCashReceived(curr.payments || []);
 
-            // Determine this unit's share percentage (0-100)
+            // Determine this unit's share percentage using shared helper
             let sharePct = 100; // Default: 100% for "all" view
 
             if (isFilteringByUnit) {
-                const allocations: any[] = curr.unit_allocations?.allocations || [];
                 let matchedPct = 0;
                 for (const targetUnitId of unitIds) {
-                    const isLeadUnit = curr.unit_id === targetUnitId;
-                    const supportAlloc = allocations.find((a: any) => a.unitId === targetUnitId && a.role === 'support');
-
-                    if (isLeadUnit && allocations.length > 0) {
-                        const leadAlloc = allocations.find((a: any) => a.unitId === targetUnitId && a.role === 'lead');
-                        matchedPct = Math.max(matchedPct, leadAlloc ? (leadAlloc.percent || 100) : 100);
-                    } else if (isLeadUnit) {
-                        matchedPct = Math.max(matchedPct, 100);
-                    } else if (supportAlloc) {
-                        matchedPct = Math.max(matchedPct, supportAlloc.percent || 0);
-                    }
+                    matchedPct = Math.max(matchedPct, getUnitSharePct(curr, targetUnitId));
                 }
                 sharePct = matchedPct;
             }
@@ -683,7 +720,7 @@ export const ContractService = {
 
         console.log('[ContractService.getStatsFallback] Got contracts:', data?.length);
 
-        const isFilteringByUnit = unitId && unitId !== 'all';
+        const isFilteringByUnit = !isAll(unitId);
 
         return (data || []).reduce((acc: any, curr: any) => {
             const val = curr.value || 0;
@@ -694,26 +731,11 @@ export const ContractService = {
             const rev = calculateRevenueFromPayments(curr.payments || [], curr.vat_rate ?? 10, curr.has_vat !== false, curr.actual_revenue || 0);
             const cash = calculateCashReceived(curr.payments || []);
 
-            // Determine this unit's share percentage (0-100)
-            let sharePct = 100; // Default: 100% for "all" view or lead unit without allocations
+            // Determine this unit's share percentage using shared helper
+            let sharePct = 100;
 
             if (isFilteringByUnit) {
-                const allocations: any[] = curr.unit_allocations?.allocations || [];
-                const isLeadUnit = curr.unit_id === unitId;
-                const supportAlloc = allocations.find((a: any) => a.unitId === unitId && a.role === 'support');
-
-                if (isLeadUnit && allocations.length > 0) {
-                    // Lead unit with allocations: gets the lead allocation percentage
-                    const leadAlloc = allocations.find((a: any) => a.unitId === unitId && a.role === 'lead');
-                    sharePct = leadAlloc ? (leadAlloc.percent || 100) : 100;
-                } else if (supportAlloc) {
-                    // Support unit: gets their declared percentage
-                    sharePct = supportAlloc.percent || 0;
-                } else if (!isLeadUnit) {
-                    // Not the lead unit and not in allocations → skip this contract
-                    sharePct = 0;
-                }
-                // isLeadUnit && no allocations → sharePct stays 100
+                sharePct = getUnitSharePct(curr, unitId);
             }
 
             if (sharePct === 0) return acc; // Skip contracts where unit has no share
@@ -773,7 +795,7 @@ export const ContractService = {
     getChartDataFallback: async (unitId: string = 'all', year: string = 'all'): Promise<Array<{ month: number, revenue: number, profit: number, signing: number }>> => {
         console.log('[ContractService.getChartDataFallback] Using direct query');
         // Fetch all contracts with unit_allocations for allocation-aware filtering
-        let query = supabase.from('contracts').select('signed_date, value, actual_revenue, estimated_cost, unit_id, unit_allocations');
+        let query = supabase.from('contracts').select('signed_date, value, actual_revenue, estimated_cost, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)');
 
         // Only apply year filter at query level (unit filter is done in JS)
         if (year && year !== 'All' && year !== 'all') {
@@ -788,7 +810,7 @@ export const ContractService = {
             return [];
         }
 
-        const isFilteringByUnit = unitId && unitId !== 'all';
+        const isFilteringByUnit = !isAll(unitId);
 
         // Aggregate by month
         const monthlyData: Record<number, { revenue: number, profit: number, signing: number }> = {};
@@ -799,30 +821,23 @@ export const ContractService = {
         (data || []).forEach((c: any) => {
             if (!c.signed_date) return;
 
-            // Determine unit share percentage
+            // Determine unit share percentage using shared helper
             let sharePct = 100;
             if (isFilteringByUnit) {
-                const allocations: any[] = c.unit_allocations?.allocations || [];
-                const isLeadUnit = c.unit_id === unitId;
-                const supportAlloc = allocations.find((a: any) => a.unitId === unitId && a.role === 'support');
-
-                if (isLeadUnit && allocations.length > 0) {
-                    const leadAlloc = allocations.find((a: any) => a.unitId === unitId && a.role === 'lead');
-                    sharePct = leadAlloc ? (leadAlloc.percent || 100) : 100;
-                } else if (supportAlloc) {
-                    sharePct = supportAlloc.percent || 0;
-                } else if (!isLeadUnit) {
-                    sharePct = 0;
-                }
+                sharePct = getUnitSharePct(c, unitId);
             }
 
             if (sharePct === 0) return;
 
             const fraction = sharePct / 100;
             const month = new Date(c.signed_date).getMonth() + 1;
+            // Use payment-calculated revenue (consistent with stats)
+            const rev = calculateRevenueFromPayments(
+                c.payments || [], c.vat_rate ?? 10, c.has_vat !== false, c.actual_revenue || 0
+            );
             if (monthlyData[month]) {
                 monthlyData[month].signing += (c.value || 0) * fraction;
-                monthlyData[month].revenue += (c.actual_revenue || 0) * fraction;
+                monthlyData[month].revenue += rev * fraction;
                 monthlyData[month].profit += ((c.value || 0) - (c.estimated_cost || 0)) * fraction;
             }
         });

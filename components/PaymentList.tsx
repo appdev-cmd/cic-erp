@@ -129,6 +129,8 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
     const getStatusConfig = (status: PaymentStatus) => {
         switch (status) {
+            case 'Tạm ứng':
+                return { color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: DollarSign, label: 'Tạm ứng' };
             case 'Tiền về':
                 return { color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', icon: CheckCircle2, label: typeFilter === 'Revenue' ? 'Tiền về' : 'Đã chi' };
             case 'Đã xuất HĐ':
@@ -311,6 +313,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         className="bg-transparent text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none"
                     >
                         <option value="all">Tất cả trạng thái</option>
+                        <option value="Tạm ứng">Tạm ứng</option>
                         <option value="Đã xuất HĐ">Đã xuất HĐ</option>
                         <option value="Tiền về">Tiền về</option>
                     </select>

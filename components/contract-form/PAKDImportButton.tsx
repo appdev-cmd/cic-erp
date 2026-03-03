@@ -1,7 +1,8 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { Upload, FileSpreadsheet, Download, X, CheckCircle, Loader2, Sparkles, ImagePlus } from 'lucide-react';
+import { Upload, FileSpreadsheet, Download, X, CheckCircle, Loader2, Sparkles, ImagePlus, Server, Key } from 'lucide-react';
 import { parsePAKDExcel, generatePAKDTemplate, ParsedPAKD, PAKDLineItem as ParsedLineItem, PAKDAdminCosts, PAKDFinancials, PAKDExecutionCost } from '../../services/pakdExcelParser';
-import { extractPAKDFromText, extractPAKDFromImage, PAKDExtraction } from '../../services/aiExtractService';
+import { extractPAKDFromText, extractPAKDFromImage, PAKDExtraction, GeminiApiSource, hasPersonalGeminiKey } from '../../services/aiExtractService';
+import { useAIPermission } from '../../hooks/useAIPermission';
 import { toast } from 'sonner';
 
 interface PAKDImportButtonProps {
@@ -107,7 +108,14 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
     const [aiText, setAIText] = useState('');
     const [aiImage, setAIImage] = useState<{ file: File; dataUrl: string } | null>(null);
     const [isAIProcessing, setIsAIProcessing] = useState(false);
+    const aiPerm = useAIPermission();
+    const [apiSource, setApiSource] = useState<GeminiApiSource>(aiPerm.defaultApiSource);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // Sync apiSource when permission loads
+    React.useEffect(() => {
+        if (!aiPerm.isLoading) setApiSource(aiPerm.defaultApiSource);
+    }, [aiPerm.isLoading, aiPerm.defaultApiSource]);
 
     const handleFileSelect = async (file: File) => {
         if (!file) return;
@@ -175,10 +183,10 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
 
             if (aiImage) {
                 // Extract from image
-                aiResult = await extractPAKDFromImage(aiImage.file, 'gemini');
+                aiResult = await extractPAKDFromImage(aiImage.file, 'gemini', apiSource);
             } else {
                 // Extract from text
-                aiResult = await extractPAKDFromText(aiText, 'gemini');
+                aiResult = await extractPAKDFromText(aiText, 'gemini', apiSource);
             }
 
             const parsed = convertAIToParsedPAKD(aiResult);
@@ -338,6 +346,56 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
                                 <p className="text-[10px] text-slate-400 dark:text-slate-500">
                                     💡 <strong>Ảnh:</strong> Ctrl+V dán ảnh chụp màn hình Excel, PDF... &nbsp;|&nbsp; <strong>Text:</strong> Dán bảng từ Excel, email, tài liệu. AI sẽ tự nhận dạng.
                                 </p>
+                            </div>
+
+                            {/* API Source Toggle */}
+                            <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 rounded-xl p-3">
+                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">Nguồn API:</span>
+                                <div className="flex flex-1 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-0.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!aiPerm.canUseSystemApi) {
+                                                toast.error('Bạn chưa được cấp quyền dùng API hệ thống. Liên hệ Admin.');
+                                                return;
+                                            }
+                                            setApiSource('system');
+                                        }}
+                                        disabled={!aiPerm.canUseSystemApi}
+                                        className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${apiSource === 'system'
+                                                ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 shadow-sm'
+                                                : !aiPerm.canUseSystemApi
+                                                    ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                            }`}
+                                    >
+                                        <Server size={12} />
+                                        Hệ thống
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!hasPersonalGeminiKey()) {
+                                                toast.error('Chưa có API Key cá nhân. Vui lòng nhập key trong Cài đặt AI (⚙️).');
+                                                return;
+                                            }
+                                            setApiSource('personal');
+                                        }}
+                                        className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${apiSource === 'personal'
+                                                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 shadow-sm'
+                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                            }`}
+                                    >
+                                        <Key size={12} />
+                                        Cá nhân
+                                    </button>
+                                </div>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 hidden sm:block">
+                                    {apiSource === 'system'
+                                        ? (aiPerm.canUseSystemApi ? 'Dùng key hệ thống' : '❌ Không có quyền')
+                                        : 'Dùng key cá nhân của bạn'
+                                    }
+                                </span>
                             </div>
                         </div>
 

@@ -105,7 +105,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const [hasVat, setHasVat] = useState(contract?.hasVat !== false);
   const [vatRate, setVatRate] = useState(contract?.vatRate ?? 10);
 
-  // ==================== CONTRACT SYNC (Edit Mode) ====================
+  // ==================== CONTRACT SYNC (Edit/Clone Mode) ====================
   useEffect(() => {
     if (contract) {
       setContractType(contract.contractType || 'HĐ');
@@ -133,6 +133,12 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           ...item,
           vatRate: item.vatRate ?? contractVat,
         })));
+      }
+
+      // When cloning: reset ID to empty so generateId can auto-create a new one
+      if (isCloning) {
+        setFormContractId('');
+        setIsIdTouched(false);
       }
     }
   }, [contract]);
@@ -258,7 +264,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   useEffect(() => {
     const generateId = async () => {
       try {
-        if (isEditing || isIdTouched || !unitId) return;
+        // When cloning, always generate new ID (ignore isIdTouched)
+        if (isEditing || (!isCloning && isIdTouched) || !unitId) return;
         const unit = units.find(u => u.id === unitId);
         const unitCode = unit?.code || 'UNIT';
         const year = new Date(signedDate).getFullYear();

@@ -105,7 +105,7 @@ export interface PaymentPhase {
   id: string;
   name: string;
   dueDate: string;
-  status: 'Paid' | 'Overdue' | 'Pending';
+  status: 'Paid' | 'Overdue' | 'Pending' | 'Advance';
   percentage: number;
   amount: number;
   type?: 'Revenue' | 'Expense'; // Thu hoặc Chi
@@ -238,6 +238,7 @@ export interface Contract {
   actualRevenue: number;
   invoicedAmount?: number; // Đã xuất hóa đơn
   cashReceived?: number; // Tiền về thực tế (tổng paid_amount từ payments)
+  advanceAmount?: number; // Tạm ứng — tiền đã nhận chưa xuất HĐ
   actualCost: number;
   status: ContractStatus;
   stage: ImplementationStage;
@@ -396,7 +397,7 @@ export interface Product {
  * Đã xuất HĐ = Invoice issued (revenue recognized)
  * Tiền về = Cash received in bank account
  */
-export type PaymentStatus = 'Đã xuất HĐ' | 'Tiền về';
+export type PaymentStatus = 'Tạm ứng' | 'Đã xuất HĐ' | 'Tiền về';
 
 /**
  * Payment method type

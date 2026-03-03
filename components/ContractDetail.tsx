@@ -63,6 +63,8 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [loading, setLoading] = useState(!initialContract);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'pakd'>('overview');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
   const { can, canOnContract } = usePermissionCheck();
@@ -289,6 +291,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
       case 'Paid': return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">TIỀN VỀ</span>;
       case 'Overdue': return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400">QUÁ HẠN</span>;
       case 'Pending': return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">CHỜ THU</span>;
+      case 'Advance': return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">TẠM ỨNG</span>;
       default: return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">ĐÃ XUẤT HĐ</span>;
     }
   }, []);
@@ -380,8 +383,8 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                     <div
                       key={i}
                       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${alloc.role === 'lead'
-                          ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
-                          : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
+                        : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800'
                         }`}
                     >
                       <Building2 size={12} />
@@ -400,14 +403,10 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
           <div className="flex items-center gap-2">
             {can('contracts', 'delete') && (
               <button
-                onClick={() => {
-                  if (window.confirm("Bạn có chắc chắn muốn xóa hợp đồng này không? hành động này không thể hoàn tác.")) {
-                    onDelete();
-                  }
-                }}
+                onClick={() => setShowDeleteConfirm(true)}
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
               >
-                <div className="w-4 h-4"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></svg></div>
+                <Trash2 size={16} />
                 Xóa
               </button>
             )}
@@ -509,6 +508,53 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
             }
           }}
         />
+      )}
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                <Trash2 size={24} className="text-rose-600 dark:text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Xóa hợp đồng</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Hành động này không thể hoàn tác</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">
+              Bạn có chắc chắn muốn xóa hợp đồng <strong className="text-slate-900 dark:text-slate-100">{contract?.id}</strong> không? Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    await onDelete();
+                  } catch {
+                    setIsDeleting(false);
+                    setShowDeleteConfirm(false);
+                  }
+                }}
+                disabled={isDeleting}
+                className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <><Loader2 size={16} className="animate-spin" /> Đang xóa...</>
+                ) : (
+                  <><Trash2 size={16} /> Xác nhận xóa</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </ErrorBoundary>
   );

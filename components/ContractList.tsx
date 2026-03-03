@@ -561,6 +561,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               // Doanh thu thực tế: chỉ hiển thị actual_revenue (ghi nhận sau xuất hóa đơn), không fallback
               const revenue = contract.actualRevenue || 0;
               const cashReceived = contract.cashReceived || 0;
+              const advanceAmount = contract.advanceAmount || 0;
               const margin = revenue > 0 ? (profit / revenue) * 100 : ((contract.value || 0) > 0 ? (profit / contract.value) * 100 : 0);
               const salesperson = salespeople.find(s => s.id === contract.salespersonId);
 
@@ -647,9 +648,33 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   </td>
                   {/* Tiền về */}
                   <td className="px-3 py-4 text-right">
-                    <span className={`text-[11px] font-bold ${cashReceived > 0 ? 'text-blue-700 dark:text-blue-400' : 'text-slate-400 dark:text-slate-600'}`}>
-                      {formatCurrency(cashReceived)}
-                    </span>
+                    {cashReceived > 0 ? (
+                      advanceAmount > 0 && advanceAmount >= cashReceived ? (
+                        // All cash is from advance payments
+                        <span
+                          className="text-[11px] font-bold text-amber-600 dark:text-amber-400 cursor-help"
+                          title={`💰 Tạm ứng: ${formatCurrency(advanceAmount)} (chưa xuất HĐ)`}
+                        >
+                          {formatCurrency(cashReceived)}
+                          <span className="block text-[8px] font-bold text-amber-500/70 dark:text-amber-500/60 uppercase tracking-wider mt-0.5">Tạm ứng</span>
+                        </span>
+                      ) : advanceAmount > 0 ? (
+                        // Mixed: some advance + some regular
+                        <span className="cursor-help" title={`Tiền về: ${formatCurrency(cashReceived - advanceAmount)} + Tạm ứng: ${formatCurrency(advanceAmount)}`}>
+                          <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400">{formatCurrency(cashReceived - advanceAmount)}</span>
+                          <span className="block text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">+ TU: {formatCurrency(advanceAmount)}</span>
+                        </span>
+                      ) : (
+                        // Normal cash received
+                        <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400">
+                          {formatCurrency(cashReceived)}
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-[11px] font-bold text-slate-400 dark:text-slate-600">
+                        {formatCurrency(0)}
+                      </span>
+                    )}
                   </td>
                   {/* Tỷ suất LN/DT */}
                   <td className="px-3 py-4 text-center">
