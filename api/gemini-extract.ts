@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
     try {
-        const apiKey = process.env.GEMINI_API_KEY;
+        const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GOOGLE_API_KEY;
         if (!apiKey) {
             return res.status(500).json({ error: 'GEMINI_API_KEY chưa được cấu hình trên server.' });
         }
