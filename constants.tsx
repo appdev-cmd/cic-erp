@@ -43,6 +43,10 @@ export const INDUSTRIES = [
   'Thương mại', 'Dịch vụ', 'Giáo dục', 'Y tế', 'Khác'
 ] as const;
 
+export const PRODUCT_CATEGORIES = [
+  'Phần mềm', 'Tư vấn', 'Thiết kế', 'Thi công', 'Bảo trì', 'Đào tạo'
+] as const;
+
 export const CONTRACT_STATUS_LABELS: Record<string, string> = {
   'Processing': 'Đang thực hiện',
   'Suspended': 'Tạm dừng',

@@ -1,5 +1,6 @@
 import { dataClient as supabase } from '../lib/dataClient';
 import { Payment } from '../types';
+import { TelegramNotificationService } from './telegramNotificationService';
 
 // Helper to map DB Payment to Frontend Payment
 const mapPayment = (p: any): Payment & { unitId?: string } => ({
@@ -181,6 +182,21 @@ export const PaymentService = {
         };
         const { data: res, error } = await supabase.from('payments').insert(payload).select().single();
         if (error) throw error;
+
+        // Telegram notification (fire-and-forget)
+        if (data.contractId) {
+            supabase.from('contracts').select('title').eq('id', data.contractId).single().then(({ data: c }) => {
+                TelegramNotificationService.notifyPaymentChange({
+                    eventType: 'created',
+                    contractTitle: c?.title || data.contractId!,
+                    contractId: data.contractId!,
+                    amount: data.amount,
+                    status: data.status,
+                    paymentType: data.paymentType,
+                }).catch(() => { });
+            });
+        }
+
         return mapPayment(res);
     },
 
@@ -218,12 +234,47 @@ export const PaymentService = {
 
         const { data: res, error } = await supabase.from('payments').update(payload).eq('id', id).select().single();
         if (error) throw error;
-        return mapPayment(res);
+        const mapped = mapPayment(res);
+
+        // Telegram notification (fire-and-forget)
+        if (mapped.contractId) {
+            supabase.from('contracts').select('title').eq('id', mapped.contractId).single().then(({ data: c }) => {
+                TelegramNotificationService.notifyPaymentChange({
+                    eventType: 'updated',
+                    contractTitle: c?.title || mapped.contractId,
+                    contractId: mapped.contractId,
+                    amount: mapped.amount,
+                    status: mapped.status,
+                    paymentType: mapped.paymentType,
+                    oldStatus: data.status ? undefined : undefined,
+                    newStatus: data.status,
+                }).catch(() => { });
+            });
+        }
+
+        return mapped;
     },
 
     delete: async (id: string): Promise<boolean> => {
+        // Fetch payment info before deleting for notification
+        const { data: payment } = await supabase.from('payments').select('contract_id, amount, payment_type').eq('id', id).single();
+
         const { error } = await supabase.from('payments').delete().eq('id', id);
         if (error) throw error;
+
+        // Telegram notification (fire-and-forget)
+        if (payment?.contract_id) {
+            supabase.from('contracts').select('title').eq('id', payment.contract_id).single().then(({ data: c }) => {
+                TelegramNotificationService.notifyPaymentChange({
+                    eventType: 'deleted',
+                    contractTitle: c?.title || payment.contract_id,
+                    contractId: payment.contract_id,
+                    amount: payment.amount || 0,
+                    paymentType: payment.payment_type || 'Revenue',
+                }).catch(() => { });
+            });
+        }
+
         return true;
     },
 };

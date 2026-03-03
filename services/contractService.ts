@@ -1,6 +1,7 @@
 import { dataClient as supabase } from '../lib/dataClient';
 import { Contract, ExecutionCostItem } from '../types';
 import { AuditLogService } from './auditLogService';
+import { TelegramNotificationService } from './telegramNotificationService';
 
 // Error messages in Vietnamese for better UX
 const ERROR_MESSAGES = {
@@ -951,6 +952,15 @@ export const ContractService = {
         // 5. Log audit
         await logOperation('CREATE', result.id);
 
+        // 6. Telegram notification (fire-and-forget)
+        TelegramNotificationService.notifyContractChange({
+            eventType: 'created',
+            contractTitle: data.title || data.id,
+            contractId: result.id,
+            value: data.value,
+            changedBy: (await supabase.auth.getUser()).data.user?.email || undefined,
+        }).catch(() => { }); // Silent
+
         return mapContract(result);
     },
 
@@ -1001,7 +1011,21 @@ export const ContractService = {
         // 4. Log audit
         await logOperation('UPDATE', id, payload);
 
-        return mapContract(result);
+        // 5. Telegram notification (fire-and-forget)
+        const mapped = mapContract(result);
+        const isStatusChange = data.status && payload.status;
+        TelegramNotificationService.notifyContractChange({
+            eventType: isStatusChange ? 'status_changed' : 'updated',
+            contractTitle: mapped.title || id,
+            contractId: id,
+            value: mapped.value,
+            oldStatus: isStatusChange ? undefined : undefined, // old status not available here
+            newStatus: isStatusChange ? data.status : undefined,
+            changedFields: Object.keys(payload).filter(k => k !== 'updated_at'),
+            changedBy: (await supabase.auth.getUser()).data.user?.email || undefined,
+        }).catch(() => { });
+
+        return mapped;
     },
 
     /**
@@ -1033,6 +1057,14 @@ export const ContractService = {
 
         // Log audit
         await logOperation('DELETE', id);
+
+        // Telegram notification (fire-and-forget)
+        TelegramNotificationService.notifyContractChange({
+            eventType: 'deleted',
+            contractTitle: id,
+            contractId: id,
+            changedBy: (await supabase.auth.getUser()).data.user?.email || undefined,
+        }).catch(() => { });
 
         return true;
     },
