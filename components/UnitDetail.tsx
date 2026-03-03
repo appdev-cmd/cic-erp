@@ -114,9 +114,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
     };
 
     const formatCurrency = (val: number) => {
-        if (val >= 1e9) return `${(val / 1e9).toFixed(2)} tỷ`;
-        if (val >= 1e6) return `${(val / 1e6).toFixed(0)} tr`;
-        return val.toLocaleString('vi-VN');
+        return (val || 0).toLocaleString('vi-VN') + ' ₫';
     };
 
     // Status mapping to Vietnamese

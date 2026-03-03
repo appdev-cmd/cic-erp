@@ -77,9 +77,7 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
     }, [units, searchQuery]);
 
     const formatCurrency = (val: number) => {
-        if (val >= 1e9) return `${(val / 1e9).toFixed(1)} tỷ`;
-        if (val >= 1e6) return `${(val / 1e6).toFixed(0)} tr`;
-        return val.toLocaleString('vi-VN');
+        return (val || 0).toLocaleString('vi-VN') + ' ₫';
     };
 
     const handleAdd = () => {

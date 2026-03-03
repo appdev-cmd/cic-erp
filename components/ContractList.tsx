@@ -444,7 +444,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
-            placeholder="Tìm mã HĐ, tên khách hàng hoặc dự án..."
+            placeholder="Tìm mã HĐ, tên khách hàng, nội dung, end user, số HĐ KH..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold text-slate-900 dark:text-slate-100"
@@ -584,7 +584,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     {stt.toString().padStart(2, '0')}
                   </td>
                   <td className="px-3 py-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 group/contract-id relative">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0 ${contract.contractType === 'HĐ' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'}`}>
                         {contract.contractType}
                       </div>
@@ -602,6 +602,14 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                           {contract.signedDate ? new Date(contract.signedDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Chưa ký'}
                         </p>
                       </div>
+                      {/* Tooltip: Số HĐ Khách hàng */}
+                      {contract.clientInitials && (
+                        <div className="absolute left-0 top-full mt-1 z-30 hidden group-hover/contract-id:block">
+                          <div className="bg-slate-800 dark:bg-slate-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap border border-slate-700 dark:border-slate-600">
+                            <span className="text-slate-400 dark:text-slate-300">Số HĐ KH:</span> {contract.clientInitials}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-3 py-4 text-[11px] font-bold text-slate-800 dark:text-slate-200">
@@ -618,7 +626,17 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1">{contract.partyA}</p>
+                    <div className="group/customer relative">
+                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1">{contract.partyA}</p>
+                      {/* Tooltip: End User */}
+                      {contract.endUserName && (
+                        <div className="absolute left-0 top-full mt-1 z-30 hidden group-hover/customer:block">
+                          <div className="bg-slate-800 dark:bg-slate-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap border border-slate-700 dark:border-slate-600">
+                            <span className="text-slate-400 dark:text-slate-300">End User:</span> {contract.endUserName}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-4">
                     <div className="flex items-center gap-2">

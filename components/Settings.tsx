@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3, Bot } from 'lucide-react';
+import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3, Bot, Tag } from 'lucide-react';
 import PilotRunner from './admin/PilotRunner';
 import PermissionManager from './settings/PermissionManager';
 import RoleDefaultsManager from './settings/RoleDefaultsManager';
@@ -7,10 +7,11 @@ import UserImpersonator from './settings/UserImpersonator';
 import DriveSettings from './settings/DriveSettings';
 import AIPermissionManager from './settings/AIPermissionManager';
 import HistoricalProductionManager from './settings/HistoricalProductionManager';
+import BrandManager from './settings/BrandManager';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 
-type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'ai-api' | 'historical' | 'drive' | 'testing';
+type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'brands' | 'ai-api' | 'historical' | 'drive' | 'testing';
 
 const Settings: React.FC = () => {
     const { theme, setTheme, accent, setAccent } = useLayoutContext();
@@ -23,6 +24,7 @@ const Settings: React.FC = () => {
         { id: 'system', label: 'Cài đặt hệ thống', icon: <Settings2 size={18} /> },
         { id: 'role-defaults', label: 'Quyền theo Role', icon: <ShieldCheck size={18} />, adminOnly: true },
         { id: 'permissions', label: 'Phân quyền User', icon: <Shield size={18} />, adminOnly: true },
+        { id: 'brands', label: 'Hãng sản xuất', icon: <Tag size={18} />, adminOnly: true },
         { id: 'historical', label: 'Sản lượng lịch sử', icon: <BarChart3 size={18} />, adminOnly: true },
         { id: 'ai-api', label: 'AI API', icon: <Bot size={18} />, adminOnly: true },
         { id: 'drive', label: 'Google Drive', icon: <HardDrive size={18} />, adminOnly: true },
@@ -152,6 +154,10 @@ const Settings: React.FC = () => {
                         </div>
                         <RoleDefaultsManager />
                     </div>
+                )}
+
+                {activeTab === 'brands' && isAdmin && (
+                    <BrandManager />
                 )}
 
                 {activeTab === 'historical' && isAdmin && (

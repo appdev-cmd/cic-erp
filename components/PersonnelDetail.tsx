@@ -92,9 +92,7 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
     };
 
     const formatCurrency = (val: number) => {
-        if (val >= 1e9) return `${(val / 1e9).toFixed(2)} tỷ`;
-        if (val >= 1e6) return `${(val / 1e6).toFixed(0)} triệu`;
-        return val.toLocaleString('vi-VN') + ' đ';
+        return (val || 0).toLocaleString('vi-VN') + ' ₫';
     };
 
     const getStatusColor = (status: string) => {

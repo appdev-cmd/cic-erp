@@ -120,12 +120,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     // Memoized is removed as we depend on API result now
 
     const formatCurrency = (val: number) => {
-        if (val >= 1e9) return `${(val / 1e9).toFixed(2).replace(/\.?0+$/, '')} tỷ`;
-        if (val >= 1e6) {
-            const m = (val / 1e6).toFixed(1);
-            return `${m.replace('.0', '').replace('.', ',')} triệu`;
-        }
-        return val.toLocaleString('vi-VN') + ' đ';
+        return (val || 0).toLocaleString('vi-VN') + ' ₫';
     };
 
     const getStatusConfig = (status: PaymentStatus) => {

@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Từ Điển Thuật Ngữ - CIC ERP Contract</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f172a;--surface:#1e293b;--surface2:#334155;--border:#475569;--text:#f1f5f9;--text2:#94a3b8;--accent:#818cf8;--accent2:#6366f1;--green:#34d399;--yellow:#fbbf24;--red:#f87171;--blue:#60a5fa;--pink:#f472b6;--orange:#fb923c;--cyan:#22d3ee}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.container{max-width:1100px;margin:0 auto;padding:20px}
+
+/* Hero */
+.hero{text-align:center;padding:60px 20px;background:linear-gradient(135deg,#1e1b4b,#312e81,#1e293b);border-radius:24px;margin-bottom:40px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(99,102,241,0.1) 0%,transparent 60%);animation:pulse 4s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.hero h1{font-size:2.5em;font-weight:800;background:linear-gradient(135deg,#818cf8,#c084fc,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px;position:relative}
+.hero p{color:var(--text2);font-size:1.1em;position:relative}
+
+/* TOC */
+.toc{background:var(--surface);border-radius:16px;padding:24px 32px;margin-bottom:40px;border:1px solid var(--border)}
+.toc h2{font-size:1.2em;margin-bottom:16px;color:var(--accent)}
+.toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px}
+.toc a{color:var(--text2);text-decoration:none;padding:8px 12px;border-radius:8px;display:flex;align-items:center;gap:8px;transition:.2s}
+.toc a:hover{background:var(--surface2);color:var(--text)}
+.toc a .num{background:var(--accent2);color:#fff;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.75em;font-weight:700;flex-shrink:0}
+
+/* Section */
+.section{margin-bottom:48px}
+.section-header{display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:12px;border-bottom:2px solid var(--surface2)}
+.section-header .icon{font-size:1.8em}
+.section-header h2{font-size:1.6em;font-weight:700}
+.section-header h2 span{color:var(--accent)}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px;transition:.3s}
+.card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px rgba(99,102,241,0.15)}
+.card h3{font-size:1.1em;font-weight:600;margin-bottom:8px;color:var(--accent)}
+.card p{color:var(--text2);font-size:.95em}
+.card .example{margin-top:12px;background:var(--bg);border-radius:10px;padding:12px 16px;border-left:3px solid var(--accent);font-size:.9em}
+.card .example code{color:var(--green);background:rgba(52,211,153,0.1);padding:2px 6px;border-radius:4px;font-size:.85em}
+.card .example .label{font-size:.75em;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-weight:600;margin-bottom:4px}
+
+/* Grid layouts */
+.grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:16px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+@media(max-width:600px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.9em}
+th{background:var(--surface2);text-align:left;padding:12px 16px;font-weight:600;color:var(--accent);border-bottom:2px solid var(--border)}
+td{padding:10px 16px;border-bottom:1px solid var(--surface2);color:var(--text2)}
+tr:hover td{background:rgba(99,102,241,0.05);color:var(--text)}
+td code{color:var(--green);background:rgba(52,211,153,0.1);padding:2px 6px;border-radius:4px;font-size:.85em}
+
+/* Tags */
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75em;font-weight:600;margin:2px}
+.tag-blue{background:rgba(96,165,250,0.15);color:var(--blue)}
+.tag-green{background:rgba(52,211,153,0.15);color:var(--green)}
+.tag-yellow{background:rgba(251,191,36,0.15);color:var(--yellow)}
+.tag-red{background:rgba(248,113,113,0.15);color:var(--red)}
+.tag-pink{background:rgba(244,114,182,0.15);color:var(--pink)}
+.tag-purple{background:rgba(129,140,248,0.15);color:var(--accent)}
+
+/* Flow diagram */
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:20px;background:var(--surface);border-radius:12px;margin:16px 0}
+.flow-step{padding:8px 16px;border-radius:8px;font-size:.85em;font-weight:600;white-space:nowrap}
+.flow-arrow{color:var(--text2);font-size:1.2em}
+
+/* Compare */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.compare-good,.compare-bad{border-radius:12px;padding:20px;font-size:.9em}
+.compare-good{background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.3)}
+.compare-bad{background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.3)}
+.compare-good h4{color:var(--green);margin-bottom:12px}
+.compare-bad h4{color:var(--red);margin-bottom:12px}
+.compare ul{list-style:none;padding:0}
+.compare li{padding:6px 0;color:var(--text2);font-size:.9em}
+.compare li::before{margin-right:8px}
+.compare-good li::before{content:'✅'}
+.compare-bad li::before{content:'❌'}
+@media(max-width:600px){.compare{grid-template-columns:1fr}}
+
+/* File tree */
+.file-tree{background:var(--surface);border-radius:12px;padding:20px 24px;font-family:'Courier New',monospace;font-size:.85em;line-height:2;color:var(--text2)}
+.file-tree .folder{color:var(--yellow)}
+.file-tree .file{color:var(--text2)}
+.file-tree .comment{color:var(--accent);font-family:'Inter',sans-serif;font-style:italic}
+
+/* Visual example boxes */
+.visual-demo{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin:12px 0}
+.visual-demo .demo-label{font-size:.75em;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-weight:600;margin-bottom:12px}
+.demo-btn{padding:8px 20px;border-radius:8px;border:none;font-weight:600;font-size:.85em;cursor:pointer;margin:4px}
+.demo-btn-primary{background:var(--accent2);color:#fff}
+.demo-btn-danger{background:var(--red);color:#fff}
+.demo-btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.demo-input{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);width:200px;margin:4px}
+.demo-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:.8em;font-weight:600;margin:4px}
+
+/* Scroll to top */
+.scroll-top{position:fixed;bottom:30px;right:30px;width:48px;height:48px;border-radius:50%;background:var(--accent2);color:#fff;border:none;font-size:1.2em;cursor:pointer;box-shadow:0 4px 20px rgba(99,102,241,0.4);transition:.3s;z-index:999}
+.scroll-top:hover{transform:scale(1.1)}
+
+/* Formula box */
+.formula{background:linear-gradient(135deg,rgba(99,102,241,0.1),rgba(196,132,252,0.1));border:1px solid rgba(99,102,241,0.3);border-radius:12px;padding:20px;margin:16px 0;text-align:center}
+.formula code{font-size:1.1em;color:var(--accent);font-weight:600}
+.formula .example-text{color:var(--text2);font-size:.9em;margin-top:12px;text-align:left}
+
+/* Sub heading */
+.sub-heading{font-size:1.1em;font-weight:600;color:var(--text);margin:24px 0 12px;display:flex;align-items:center;gap:8px}
+.sub-heading::before{content:'';width:4px;height:20px;background:var(--accent);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<!-- HERO -->
+<div class="hero">
+  <h1>📖 Từ Điển Thuật Ngữ Dự Án</h1>
+  <p>CIC ERP Contract — Hiểu để mô tả chính xác hơn cho AI</p>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h2>📋 Mục Lục</h2>
+  <div class="toc-grid">
+    <a href="#s1"><span class="num">1</span> Tổng quan công nghệ</a>
+    <a href="#s2"><span class="num">2</span> Frontend — Giao diện</a>
+    <a href="#s3"><span class="num">3</span> Backend — Máy chủ</a>
+    <a href="#s4"><span class="num">4</span> Database — Cơ sở dữ liệu</a>
+    <a href="#s5"><span class="num">5</span> UI Components — Thành phần giao diện</a>
+    <a href="#s6"><span class="num">6</span> UX — Trải nghiệm người dùng</a>
+    <a href="#s7"><span class="num">7</span> Module nghiệp vụ</a>
+    <a href="#s8"><span class="num">8</span> Cấu trúc file dự án</a>
+    <a href="#s9"><span class="num">9</span> Thuật ngữ lập trình</a>
+    <a href="#s10"><span class="num">10</span> Mẹo mô tả cho AI</a>
+  </div>
+</div>
+
+<!-- SECTION 1: TECH OVERVIEW -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <span class="icon">🛠️</span>
+    <h2><span>1.</span> Tổng Quan Công Nghệ</h2>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h3>⚛️ React 19</h3>
+      <p>Thư viện xây dựng giao diện. Chia giao diện thành các <strong>component</strong> nhỏ, tái sử dụng được.</p>
+      <div class="example"><div class="label">Ví dụ minh họa</div>
+        Trang <strong>Danh sách hợp đồng</strong> = 1 component <code>ContractList.tsx</code><br>
+        Nút "Thêm mới" bên trong = 1 component <code>Button</code> nhỏ hơn
+      </div>
+    </div>
+    <div class="card">
+      <h3>🟦 TypeScript</h3>
+      <p>JavaScript nâng cấp, kiểm tra kiểu dữ liệu. File <code>.ts</code> = logic, <code>.tsx</code> = giao diện.</p>
+      <div class="example"><div class="label">Ví dụ</div>
+        <code>types.ts</code> định nghĩa: Hợp đồng có <code>title</code> (text), <code>value</code> (số), <code>status</code> (trạng thái)
+      </div>
+    </div>
+    <div class="card">
+      <h3>⚡ Vite</h3>
+      <p>Công cụ chạy dự án. Gõ <code>npm run dev</code> → mở trình duyệt xem ứng dụng.</p>
+      <div class="example"><div class="label">Các lệnh</div>
+        <code>npm run dev</code> = chạy thử &nbsp;|&nbsp; <code>npm run build</code> = đóng gói
+      </div>
+    </div>
+    <div class="card">
+      <h3>🟩 Supabase</h3>
+      <p>Backend-as-a-Service: cơ sở dữ liệu (PostgreSQL), đăng nhập, lưu file, realtime — không cần tự xây server.</p>
+      <div class="example"><div class="label">Ví dụ</div>
+        Khi bấm "Lưu hợp đồng" → gọi API Supabase → lưu vào bảng <code>contracts</code> trong database
+      </div>
+    </div>
+    <div class="card">
+      <h3>🎨 TailwindCSS</h3>
+      <p>Tạo giao diện bằng class có sẵn, không cần viết file CSS riêng.</p>
+      <div class="example"><div class="label">Ví dụ class</div>
+        <code>bg-white</code> = nền trắng &nbsp;|&nbsp; <code>dark:bg-slate-900</code> = nền tối trong dark mode<br>
+        <code>text-lg</code> = chữ lớn &nbsp;|&nbsp; <code>rounded-lg</code> = bo góc
+      </div>
+    </div>
+    <div class="card">
+      <h3>🚀 Vercel</h3>
+      <p>Nền tảng deploy ứng dụng lên internet. Push code → tự động build và cập nhật website.</p>
+      <div class="example"><div class="label">Quy trình</div>
+        Code → Push GitHub → Vercel tự build → Website cập nhật (2-3 phút)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2: FRONTEND -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <span class="icon">🖥️</span>
+    <h2><span>2.</span> Frontend — Giao Diện Người Dùng</h2>
+  </div>
+  <p style="color:var(--text2);margin-bottom:20px"><strong>Frontend</strong> = tất cả những gì bạn <strong>nhìn thấy và tương tác</strong> trên trình duyệt.</p>
+
+  <div class="sub-heading">Các thành phần giao diện cơ bản</div>
+  <div class="grid-3">
+    <div class="card">
+      <h3>📦 Component</h3>
+      <p>Khối giao diện độc lập, tái sử dụng. Mỗi file <code>.tsx</code> = 1 component.</p>
+      <div class="example"><div class="label">Cách nói</div>"Sửa <strong>component</strong> danh sách hợp đồng"</div>
+    </div>
+    <div class="card">
+      <h3>📄 Page (Trang)</h3>
+      <p>Trang đầy đủ khi truy cập 1 URL.</p>
+      <div class="example"><div class="label">Cách nói</div>"Mở <strong>trang</strong> Dashboard" "Trang chi tiết hợp đồng"</div>
+    </div>
+    <div class="card">
+      <h3>📝 Form (Biểu mẫu)</h3>
+      <p>Giao diện nhập liệu: ô input, dropdown, nút Lưu.</p>
+      <div class="example"><div class="label">Cách nói</div>"<strong>Form</strong> tạo hợp đồng mới" "Sửa form thanh toán"</div>
+    </div>
+    <div class="card">
+      <h3>💬 Modal / Dialog</h3>
+      <p>Cửa sổ popup bật lên để xác nhận hoặc nhập nhanh.</p>
+      <div class="example"><div class="label">Cách nói</div>"<strong>Modal</strong> xác nhận xóa" "Dialog thêm KH nhanh"</div>
+    </div>
+    <div class="card">
+      <h3>📋 List (Danh sách)</h3>
+      <p>Bảng hiển thị nhiều bản ghi dạng hàng/cột.</p>
+      <div class="example"><div class="label">Cách nói</div>"<strong>Danh sách</strong> thanh toán" "Bảng hợp đồng"</div>
+    </div>
+    <div class="card">
+      <h3>🔍 Detail (Chi tiết)</h3>
+      <p>Trang xem đầy đủ thông tin 1 bản ghi.</p>
+      <div class="example"><div class="label">Cách nói</div>"Trang <strong>chi tiết</strong> khách hàng"</div>
+    </div>
+    <div class="card">
+      <h3>📑 Tab</h3>
+      <p>Các thẻ chuyển đổi nội dung trong cùng 1 trang.</p>
+      <div class="example"><div class="label">Cách nói</div>"<strong>Tab</strong> Phương án KD" "Chuyển sang tab Thanh toán"</div>
+    </div>
+    <div class="card">
+      <h3>📌 Sidebar</h3>
+      <p>Thanh menu bên trái để chuyển giữa các module.</p>
+      <div class="example"><div class="label">Cách nói</div>"Thêm mục Báo cáo vào <strong>sidebar</strong>"</div>
+    </div>
+    <div class="card">
+      <h3>🔝 Header</h3>
+      <p>Thanh trên cùng: logo, tên user, chọn đơn vị.</p>
+      <div class="example"><div class="label">Cách nói</div>"Thêm nút thông báo vào <strong>header</strong>"</div>
+    </div>
+  </div>
+
+  <div class="sub-heading">Thuật ngữ nâng cao</div>
+  <table>
+    <tr><th>Thuật ngữ</th><th>Giải thích</th><th>Ví dụ mô tả</th></tr>
+    <tr><td><strong>State</strong></td><td>Dữ liệu thay đổi theo thời gian (form đang nhập, danh sách đã lọc)</td><td><em>"State filter không cập nhật"</em></td></tr>
+    <tr><td><strong>Props</strong></td><td>Dữ liệu truyền từ component cha → con</td><td><em>"Truyền thêm prop unitId"</em></td></tr>
+    <tr><td><strong>Hook</strong></td><td>Hàm tái sử dụng logic (thư mục <code>hooks/</code>)</td><td><em>"Hook usePermissions kiểm tra quyền"</em></td></tr>
+    <tr><td><strong>Context</strong></td><td>Chia sẻ dữ liệu toàn app (VD: user đang đăng nhập)</td><td><em>"AuthContext = thông tin đăng nhập"</em></td></tr>
+    <tr><td><strong>Router</strong></td><td>Hệ thống điều hướng: URL nào → trang nào</td><td><em>"Thêm route cho trang báo cáo"</em></td></tr>
+    <tr><td><strong>Dark Mode</strong></td><td>Chế độ giao diện tối, dùng class <code>dark:</code></td><td><em>"Sửa dark mode trang thanh toán"</em></td></tr>
+    <tr><td><strong>Responsive</strong></td><td>Giao diện co giãn theo màn hình (desktop/mobile)</td><td><em>"Làm responsive cho bảng"</em></td></tr>
+    <tr><td><strong>Lazy Loading</strong></td><td>Tải trang khi cần thay vì tải tất cả → nhanh hơn</td><td><code>LazyPages.tsx</code></td></tr>
+  </table>
+</div>
+
+<!-- SECTION 3: BACKEND -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <span class="icon">⚙️</span>
+    <h2><span>3.</span> Backend — Phía Máy Chủ</h2>
+  </div>
+  <p style="color:var(--text2);margin-bottom:20px"><strong>Backend</strong> = xử lý logic phía server, lưu dữ liệu, xác thực người dùng. Người dùng <strong>không nhìn thấy</strong>.</p>
+  <table>
+    <tr><th>Thuật ngữ</th><th>Giải thích</th><th>Ví dụ trong dự án</th></tr>
+    <tr><td><strong>API</strong></td><td>Cách frontend gọi lấy dữ liệu từ backend</td><td>Bấm "Xem HĐ" → gọi API → nhận dữ liệu → hiển thị</td></tr>
+    <tr><td><strong>Service</strong></td><td>File chứa logic gọi API. Mỗi module 1 service</td><td><code>contractService.ts</code>, <code>paymentService.ts</code></td></tr>
+    <tr><td><strong>Edge Function</strong></td><td>Hàm chạy trên server Supabase</td><td><code>gemini-proxy</code> — gọi AI Gemini</td></tr>
+    <tr><td><strong>Auth</strong></td><td>Hệ thống đăng nhập / xác thực</td><td>Email + mật khẩu → Supabase Auth</td></tr>
+    <tr><td><strong>RLS</strong></td><td>Row Level Security — ai được xem/sửa dòng nào</td><td>NVKD chỉ thấy HĐ đơn vị mình</td></tr>
+    <tr><td><strong>RBAC</strong></td><td>Phân quyền theo vai trò (Admin, NVKD, Kế toán...)</td><td><code>usePermissions.ts</code></td></tr>
+    <tr><td><strong>Migration</strong></td><td>File SQL thay đổi cấu trúc DB</td><td>Thêm bảng/cột mới → tạo migration</td></tr>
+    <tr><td><strong>Realtime</strong></td><td>Dữ liệu cập nhật tức thời, không cần refresh</td><td>Chat nội bộ, thông báo</td></tr>
+  </table>
+</div>
+
+<!-- SECTION 4: DATABASE -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <span class="icon">🗄️</span>
+    <h2><span>4.</span> Database — Cơ Sở Dữ Liệu</h2>
+  </div>
+
+  <div class="sub-heading">Thuật ngữ cơ sở dữ liệu</div>
+  <div class="grid-2">
+    <div class="card">
+      <h3>📊 Table (Bảng)</h3>
+      <p>Tập hợp dữ liệu cùng loại: bảng <code>contracts</code>, <code>customers</code>...</p>
+      <div class="example"><div class="label">Tưởng tượng</div>Như 1 sheet Excel — mỗi sheet = 1 table</div>
+    </div>
+    <div class="card">
+      <h3>📏 Column (Cột)</h3>
+      <p>Trường dữ liệu: <code>name</code>, <code>status</code>, <code>value</code>...</p>
+      <div class="example"><div class="label">Tưởng tượng</div>Như tiêu đề cột trong Excel: Tên, Trạng thái, Giá trị</div>
+    </div>
+    <div class="card">
+      <h3>📝 Row (Dòng)</h3>
+      <p>Một bản ghi cụ thể (1 hợp đồng, 1 khách hàng).</p>
+      <div class="example"><div class="label">Tưởng tượng</div>Mỗi dòng trong Excel = 1 bản ghi</div>
+    </div>
+    <div class="card">
+      <h3>🔗 Foreign Key (Khóa ngoại)</h3>
+      <p>Liên kết 2 bảng: <code>customerId</code> trong bảng HĐ trỏ đến bảng KH.</p>
+      <div class="example"><div class="label">Ví dụ</div>HĐ có <code>customerId = "abc"</code> → tìm KH có <code>id = "abc"</code></div>
+    </div>
+  </div>
+
+  <div class="sub-heading">Các bảng chính trong dự án</div>
+  <table>
+    <tr><th>Bảng</th><th>Mô tả</th><th>Liên kết</th></tr>
+    <tr><td><code>contracts</code></td><td>Hợp đồng</td><td>→ customers, units, employees</td></tr>
+    <tr><td><code>customers</code></td><td>Khách hàng / NCC</td><td>→ contracts, customer_contacts</td></tr>
+    <tr><td><code>employees</code></td><td>Nhân viên</td><td>→ units, user_profiles</td></tr>
+    <tr><td><code>units</code></td><td>Đơn vị (CN, TT)</td><td>→ employees, contracts</td></tr>
+    <tr><td><code>products</code></td><td>Sản phẩm / Dịch vụ</td><td>→ brands, product_suppliers</td></tr>
+    <tr><td><code>payments</code></td><td>Thanh toán (Thu/Chi)</td><td>→ contracts, customers</td></tr>
+    <tr><td><code>user_profiles</code></td><td>Tài khoản người dùng</td><td>→ employees</td></tr>
+    <tr><td><code>chat_rooms</code></td><td>Phòng chat</td><td>→ chat_messages</td></tr>
+    <tr><td><code>business_plans</code></td><td>Phương án KD</td><td>→ contracts</td></tr>
+    <tr><td><code>audit_logs</code></td><td>Nhật ký thao tác</td><td>—</td></tr>
+  </table>
+</div>
+
+<!-- SECTION 5: UI COMPONENTS -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <span class="icon">🧩</span>
+    <h2><span>5.</span> UI Components — Ví Dụ Trực Quan</h2>
+  </div>
+
+  <div class="visual-demo">
+    <div class="demo-label">Button (Nút bấm) — các kiểu nút trong dự án</div>
+    <button class="demo-btn demo-btn-primary">+ Thêm mới</button>
+    <button class="demo-btn demo-btn-danger">🗑️ Xóa</button>
+    <button class="demo-btn demo-btn-outline">Hủy</button>
+    <div style="margin-top:8px;color:var(--text2);font-size:.85em">Mô tả: <em>"Sửa màu <strong>nút</strong> Thêm mới"</em> hoặc <em>"Thêm <strong>nút</strong> Xuất PDF"</em></div>
+  </div>
+
+  <div class="visual-demo">
+    <div class="demo-label">Badge (Nhãn trạng thái)</div>
+    <span class="demo-badge" style="background:rgba(96,165,250,0.2);color:var(--blue)">📝 Nháp</span>
+    <span class="demo-badge" style="background:rgba(251,191,36,0.2);color:var(--yellow)">⏳ Chờ duyệt</span>
+    <span class="demo-badge" style="background:rgba(52,211,153,0.2);color:var(--green)">✅ Đã duyệt</span>
+    <span class="demo-badge" style="background:rgba(248,113,113,0.2);color:var(--red)">🔴 Tạm dừng</span>
+    <span class="demo-badge" style="background:rgba(129,140,248,0.2);color:var(--accent)">🔄 Đang TH</span>
+    <div style="margin-top:8px;color:var(--text2);font-size:.85em">Mô tả: <em>"Đổi màu <strong>badge</strong> trạng thái Đang thực hiện"</em></div>
+  </div>
+
+  <div class="visual-demo">
+    <div class="demo-label">Input (Ô nhập liệu) & SearchableSelect (Dropdown tìm kiếm)</div>
+    <input class="demo-input" placeholder="Nhập tên hợp đồng..." type="text">
+    <input class="demo-input" placeholder="🔍 Tìm khách hàng..." type="text">
+    <div style="margin-top:8px;color:var(--text2);font-size:.85em">Mô tả: <em>"Sửa <strong>ô nhập</strong> tên HĐ — thêm validate bắt buộc"</em> hoặc <em>"<strong>Dropdown</strong> chọn KH bị lag"</em></div>
+  </div>
+
+  <div class="visual-demo">
+    <div class="demo-label">Các component khác thường dùng</div>
+    <table>
+      <tr><th>Component</th><th>Mô tả</th><th>Khi nào nhắc đến</th></tr>
+      <tr><td><strong>Modal</strong></td><td>Popup bật lên</td><td><em>"Cái <strong>popup</strong> xác nhận xóa"</em></td></tr>
+      <tr><td><strong>DataTable</strong></td><td>Bảng dữ liệu có sort, pagination</td><td><em>"Cái <strong>bảng</strong> danh sách HĐ"</em></td></tr>
+      <tr><td><strong>Card</strong></td><td>Khung chứa thông tin có viền</td><td><em>"Cái <strong>ô thống kê</strong> trên Dashboard"</em></td></tr>
+      <tr><td><strong>Skeleton</strong></td><td>Khung xám khi đang tải</td><td><em>"Cái <strong>loading</strong> nhấp nháy"</em></td></tr>
+      <tr><td><strong>Toast</strong></td><td>Thông báo nhỏ góc màn hình</td><td><em>"Cái <strong>thông báo</strong> 'Đã lưu thành công'"</em></td></tr>
+      <tr><td><strong>Tooltip</strong></td><td>Chú thích khi hover chuột</td><td><em>"Thêm <strong>chú thích</strong> khi hover vào icon"</em></td></tr>
+      <tr><td><strong>Breadcrumb</strong></td><td>Đường dẫn phân cấp: Trang chủ > HĐ > Chi tiết</td><td><em>"Cái <strong>đường dẫn</strong> phía trên trang"</em></td></tr>
+      <tr><td><strong>CommandPalette</strong></td><td>Thanh tìm kiếm nhanh (Ctrl+K)</td><td><em>"Cái <strong>tìm kiếm nhanh</strong> Ctrl+K"</em></td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- SECTION 6: UX -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <span class="icon">✨</span>
+    <h2><span>6.</span> UX — Trải Nghiệm Người Dùng</h2>
+  </div>
+  <p style="color:var(--text2);margin-bottom:20px"><strong>UX</strong> = ứng dụng có <strong>dễ dùng</strong> hay không, phản hồi có <strong>nhanh</strong> hay không.</p>
+  <div class="grid-2">
+    <div class="card">
+      <h3>⏳ Loading State</h3>
+      <p>Trạng thái đang tải — hiển thị skeleton hoặc spinner.</p>
+      <div class="example"><div class="label">Cách nói</div>"Trang bị <strong>loading</strong> mãi không xong" hoặc "Thêm <strong>skeleton</strong> khi tải"</div>
+    </div>
+    <div class="card">
+      <h3>❌ Error State</h3>
+      <p>Khi có lỗi xảy ra — hiển thị thông báo lỗi.</p>
+      <div class="example"><div class="label">Cách nói</div>"Khi lỗi mạng, hiện trang trắng, cần hiển thị <strong>thông báo lỗi</strong>"</div>
+    </div>
+    <div class="card">
+      <h3>📭 Empty State</h3>
+      <p>Khi không có dữ liệu nào.</p>
+      <div class="example"><div class="label">Cách nói</div>"Khi chưa có HĐ nào, hiện trống, cần thêm <strong>hình minh họa</strong> + nút Tạo mới"</div>
+    </div>
+    <div class="card">
+      <h3>🔔 Feedback (Phản hồi)</h3>
+      <p>Phản hồi sau khi user thao tác: toast "Đã lưu", "Đã xóa".</p>
+      <div class="example"><div class="label">Cách nói</div>"Bấm Lưu xong không thấy <strong>thông báo</strong> gì"</div>
+    </div>
+    <div class="card">
+      <h3>🔍 Filter & Search</h3>
+      <p>Lọc + tìm kiếm dữ liệu.</p>
+      <div class="example"><div class="label">Cách nói</div>"Thêm <strong>bộ lọc</strong> theo trạng thái" hoặc "<strong>Ô tìm kiếm</strong> không ra kết quả"</div>
+    </div>
+    <div class="card">
+      <h3>📊 Pagination & Sort</h3>
+      <p>Phân trang + sắp xếp cột.</p>
+      <div class="example"><div class="label">Cách nói</div>"<strong>Phân trang</strong> 20 bản ghi/trang" hoặc "<strong>Sắp xếp</strong> theo giá trị giảm dần"</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 7: MODULES -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <span class="icon">📦</span>
+    <h2><span>7.</span> Các Module Nghiệp Vụ</h2>
+  </div>
+
+  <div class="sub-heading">Tổng quan module</div>
+  <table>
+    <tr><th>Module</th><th>Tiếng Việt</th><th>File chính</th><th>Service</th></tr>
+    <tr><td><span class="tag tag-blue">Contracts</span></td><td>Hợp đồng</td><td><code>ContractList</code>, <code>ContractForm</code>, <code>ContractDetail</code></td><td><code>contractService</code></td></tr>
+    <tr><td><span class="tag tag-green">Customers</span></td><td>Khách hàng</td><td><code>CustomerList</code>, <code>CustomerForm</code></td><td><code>customerService</code></td></tr>
+    <tr><td><span class="tag tag-yellow">Products</span></td><td>Sản phẩm</td><td><code>ProductList</code>, <code>ProductForm</code></td><td><code>productService</code></td></tr>
+    <tr><td><span class="tag tag-pink">Personnel</span></td><td>Nhân sự</td><td><code>PersonnelList</code>, <code>PersonnelForm</code></td><td><code>employeeService</code></td></tr>
+    <tr><td><span class="tag tag-red">Payments</span></td><td>Thanh toán</td><td><code>PaymentList</code>, <code>PaymentForm</code></td><td><code>paymentService</code></td></tr>
+    <tr><td><span class="tag tag-purple">Units</span></td><td>Đơn vị</td><td><code>UnitList</code>, <code>UnitForm</code></td><td><code>unitService</code></td></tr>
+    <tr><td><span class="tag tag-blue">Dashboard</span></td><td>Tổng quan</td><td><code>Dashboard.tsx</code></td><td>—</td></tr>
+    <tr><td><span class="tag tag-green">Chat</span></td><td>Chat nội bộ</td><td><code>components/chat/</code></td><td><code>chatService</code></td></tr>
+    <tr><td><span class="tag tag-purple">AI</span></td><td>Trợ lý AI</td><td><code>AIAssistant.tsx</code></td><td><code>geminiService</code></td></tr>
+  </table>
+
+  <div class="sub-heading">Quy trình hợp đồng (Contract Flow)</div>
+  <div class="flow">
+    <span class="flow-step" style="background:rgba(96,165,250,0.2);color:var(--blue)">📝 Nháp</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step" style="background:rgba(251,191,36,0.2);color:var(--yellow)">⏳ Chờ duyệt</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step" style="background:rgba(52,211,153,0.2);color:var(--green)">✅ Đã duyệt</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step" style="background:rgba(129,140,248,0.2);color:var(--accent)">✍️ Chờ ký</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step" style="background:rgba(244,114,182,0.2);color:var(--pink)">🔄 Đang TH</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step" style="background:rgba(34,211,238,0.2);color:var(--cyan)">🔍 Nghiệm thu</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step" style="background:rgba(52,211,153,0.2);color:var(--green)">✅ Hoàn thành</span>
+  </div>
+
+  <div class="sub-heading">Vai trò người dùng (Roles)</div>
+  <table>
+    <tr><th>Vai trò</th><th>Tên tiếng Việt</th><th>Quyền chính</th></tr>
+    <tr><td><span class="tag tag-red">Admin</span></td><td>Quản trị hệ thống</td><td>Toàn quyền mọi thứ</td></tr>
+    <tr><td><span class="tag tag-purple">Leadership</span></td><td>Ban lãnh đạo</td><td>Xem + sửa tất cả, không cài đặt</td></tr>
+    <tr><td><span class="tag tag-blue">UnitLeader</span></td><td>Lãnh đạo đơn vị</td><td>Quản lý HĐ/KH/SP trong đơn vị</td></tr>
+    <tr><td><span class="tag tag-green">NVKD</span></td><td>NV kinh doanh</td><td>Tạo/sửa HĐ, KH, SP được phân công</td></tr>
+    <tr><td><span class="tag tag-yellow">ChiefAccountant</span></td><td>Kế toán trưởng</td><td>Toàn quyền thanh toán</td></tr>
+    <tr><td><span class="tag tag-yellow">Accountant</span></td><td>Kế toán</td><td>Nhập/sửa thanh toán</td></tr>
+    <tr><td><span class="tag tag-pink">Legal</span></td><td>Pháp chế</td><td>Rà soát hợp đồng</td></tr>
+    <tr><td><span class="tag tag-blue">NVKT</span></td><td>NV kỹ thuật</td><td>Xem HĐ, quản lý SP/DV</td></tr>
+  </table>
+</div>
+
+<!-- SECTION 8: FILE STRUCTURE -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <span class="icon">📁</span>
+    <h2><span>8.</span> Cấu Trúc File Dự Án</h2>
+  </div>
+  <div class="file-tree">
+    <span class="folder">📂 cic-erp-contract/</span><br>
+    ├── <span class="folder">📂 components/</span> <span class="comment">← 🖥️ Giao diện (tất cả UI)</span><br>
+    │&nbsp;&nbsp; ├── <span class="folder">📂 ui/</span> <span class="comment">← Button, Modal, Input, Badge...</span><br>
+    │&nbsp;&nbsp; ├── <span class="folder">📂 chat/</span> <span class="comment">← Chat nội bộ</span><br>
+    │&nbsp;&nbsp; ├── <span class="folder">📂 workflow/</span> <span class="comment">← Quy trình duyệt</span><br>
+    │&nbsp;&nbsp; ├── <span class="folder">📂 contract-form/</span> <span class="comment">← Form tạo/sửa HĐ</span><br>
+    │&nbsp;&nbsp; ├── <span class="file">ContractList.tsx</span> <span class="comment">← Danh sách HĐ</span><br>
+    │&nbsp;&nbsp; ├── <span class="file">Dashboard.tsx</span> <span class="comment">← Trang tổng quan</span><br>
+    │&nbsp;&nbsp; └── <span class="file">...</span><br>
+    ├── <span class="folder">📂 services/</span> <span class="comment">← 🔌 Logic gọi API Supabase</span><br>
+    ├── <span class="folder">📂 hooks/</span> <span class="comment">← 🪝 Logic tái sử dụng</span><br>
+    ├── <span class="folder">📂 contexts/</span> <span class="comment">← 🌐 Dữ liệu toàn app</span><br>
+    ├── <span class="file">types.ts</span> <span class="comment">← 📝 Định nghĩa kiểu dữ liệu</span><br>
+    ├── <span class="folder">📂 supabase/</span> <span class="comment">← 🗄️ Backend (migrations, functions)</span><br>
+    ├── <span class="folder">📂 styles/</span> <span class="comment">← 🎨 CSS</span><br>
+    └── <span class="folder">📂 docs/</span> <span class="comment">← 📄 Tài liệu</span>
+  </div>
+</div>
+
+<!-- SECTION 9: PROGRAMMING TERMS -->
+<div class="section" id="s9">
+  <div class="section-header">
+    <span class="icon">💻</span>
+    <h2><span>9.</span> Thuật Ngữ Lập Trình Phổ Biến</h2>
+  </div>
+  <div class="grid-3">
+    <div class="card"><h3>🐛 Bug</h3><p>Lỗi phần mềm</p><div class="example"><em>"Bug: bấm Lưu không phản hồi"</em></div></div>
+    <div class="card"><h3>🔧 Fix</h3><p>Sửa lỗi</p><div class="example"><em>"Fix lỗi dark mode"</em></div></div>
+    <div class="card"><h3>✨ Feature</h3><p>Tính năng mới</p><div class="example"><em>"Thêm feature xuất Excel"</em></div></div>
+    <div class="card"><h3>♻️ Refactor</h3><p>Viết lại code sạch hơn</p><div class="example"><em>"Refactor service HĐ"</em></div></div>
+    <div class="card"><h3>🚀 Deploy</h3><p>Đưa app lên internet</p><div class="example"><em>"Deploy lên Vercel"</em></div></div>
+    <div class="card"><h3>📦 Build</h3><p>Đóng gói app</p><div class="example"><code>npm run build</code></div></div>
+    <div class="card"><h3>💾 Commit</h3><p>Lưu code vào Git</p><div class="example"><em>"Commit file đã sửa"</em></div></div>
+    <div class="card"><h3>⬆️ Push</h3><p>Đẩy code lên GitHub</p><div class="example"><em>"Push lên main"</em></div></div>
+    <div class="card"><h3>⬇️ Pull</h3><p>Kéo code mới từ GitHub</p><div class="example"><em>"Pull trước khi push"</em></div></div>
+    <div class="card"><h3>📥 Import</h3><p>Nhập dữ liệu (Excel/CSV)</p><div class="example"><em>"Import KH từ Excel"</em></div></div>
+    <div class="card"><h3>📤 Export</h3><p>Xuất dữ liệu (PDF/Excel)</p><div class="example"><em>"Export báo cáo PDF"</em></div></div>
+    <div class="card"><h3>🔄 CRUD</h3><p>Thêm-Xem-Sửa-Xóa</p><div class="example"><em>"Làm CRUD module mới"</em></div></div>
+  </div>
+</div>
+
+<!-- SECTION 10: TIPS -->
+<div class="section" id="s10">
+  <div class="section-header">
+    <span class="icon">💡</span>
+    <h2><span>10.</span> Mẹo Mô Tả Yêu Cầu Cho AI</h2>
+  </div>
+
+  <div class="formula">
+    <div class="demo-label">🎯 Công thức vàng</div>
+    <code>[Hành động] + [Đối tượng] + [Vị trí] + [Chi tiết]</code>
+    <div class="example-text">
+      • <em>"<strong>Thêm</strong> [nút Xuất PDF] vào [trang chi tiết HĐ] [góc trên bên phải, cạnh nút Sửa]"</em><br>
+      • <em>"<strong>Sửa</strong> [dark mode] của [bảng danh sách thanh toán] [text không đọc được trên nền tối]"</em><br>
+      • <em>"<strong>Thêm</strong> [cột ngày thanh toán] vào [bảng payments] [kiểu date, sau cột số tiền]"</em>
+    </div>
+  </div>
+
+  <div class="compare">
+    <div class="compare-good">
+      <h4>✅ Mô tả TỐT</h4>
+      <ul>
+        <li>"Sửa <strong>component</strong> PaymentList: thêm <strong>cột</strong> Đơn vị"</li>
+        <li>"<strong>Bug</strong> form tạo HĐ: <strong>dropdown</strong> KH không hiển thị"</li>
+        <li>"Thêm <strong>feature</strong> xuất <strong>Excel</strong> cho danh sách HĐ"</li>
+        <li>"<strong>Dark mode</strong> bị lỗi ở <strong>bảng</strong> ContractList"</li>
+        <li>"<strong>Role</strong> Accountant cần quyền <strong>delete</strong> payments"</li>
+        <li>"Thêm <strong>cột</strong> note kiểu text vào <strong>bảng</strong> payments"</li>
+      </ul>
+    </div>
+    <div class="compare-bad">
+      <h4>❌ Mô tả KHÔNG TỐT</h4>
+      <ul>
+        <li>"Sửa trang thanh toán" → Sửa gì? UI? Logic? Data?</li>
+        <li>"Thêm cái nút" → Nút gì? Ở đâu? Làm gì khi bấm?</li>
+        <li>"Không chạy được" → Lỗi gì? Ở đâu? Thông báo?</li>
+        <li>"Sửa cho đẹp hơn" → Đẹp kiểu nào? Phần nào?</li>
+        <li>"Bị sai" → Cái gì sai? Mong đợi gì? Thực tế gì?</li>
+        <li>"Update lại" → Update cái gì? Ở đâu?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="border-color:var(--green);margin-top:20px">
+    <h3 style="color:var(--green)">💡 Mẹo cuối cùng</h3>
+    <p>Khi không biết thuật ngữ chính xác:<br>
+    • <strong>Chụp màn hình</strong> và gửi kèm mô tả<br>
+    • <strong>Mô tả vị trí</strong>: <em>"cái ô vuông góc trên bên trái"</em>, <em>"cái bảng ở giữa trang"</em><br>
+    • <strong>Mô tả hành vi</strong>: <em>"khi bấm vào thì không có gì xảy ra"</em><br>
+    → AI sẽ hiểu! 🎯</p>
+  </div>
+</div>
+
+</div>
+
+<button class="scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+</body>
+</html>

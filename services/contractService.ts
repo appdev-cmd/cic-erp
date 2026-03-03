@@ -450,7 +450,7 @@ export const ContractService = {
                 .select('*, payments(amount, paid_amount, status, payment_type)');
 
             if (search) {
-                query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%`);
+                query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,client_initials.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);
             }
             if (status && status !== 'All') {
                 query = query.eq('status', status);
@@ -510,7 +510,7 @@ export const ContractService = {
                 .select('*, payments(amount, paid_amount, status, payment_type)', { count: 'exact' });
 
             if (search) {
-                query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%`);
+                query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,client_initials.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);
             }
             if (status && status !== 'All') {
                 query = query.eq('status', status);
@@ -559,7 +559,7 @@ export const ContractService = {
         const { data, error } = await supabase
             .from('contracts')
             .select('*')
-            .or(`title.ilike.%${safeTerm}%,id.ilike.%${safeTerm}%,party_a.ilike.%${safeTerm}%`)
+            .or(`title.ilike.%${safeTerm}%,id.ilike.%${safeTerm}%,party_a.ilike.%${safeTerm}%,client_initials.ilike.%${safeTerm}%,content.ilike.%${safeTerm}%,end_user_name.ilike.%${safeTerm}%,category.ilike.%${safeTerm}%`)
             .order('signed_date', { ascending: false })
             .limit(limit);
 
@@ -599,7 +599,7 @@ export const ContractService = {
         let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)');
 
         if (search) {
-            query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%`);
+            query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,client_initials.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);
         }
         if (status && status !== 'All') {
             query = query.eq('status', status);

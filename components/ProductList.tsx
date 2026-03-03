@@ -146,10 +146,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
     };
 
     const formatPrice = (val: number) => {
-        if (val >= 1e9) return `${(val / 1e9).toFixed(1)} tỷ`;
-        if (val >= 1e6) return `${(val / 1e6).toFixed(0)} tr`;
-        if (val >= 1000) return `${(val / 1000).toFixed(0)}k`;
-        return val.toLocaleString('vi-VN');
+        return (val || 0).toLocaleString('vi-VN') + ' ₫';
     };
 
     const getCategoryColor = (category: ProductCategory) => {
@@ -440,6 +437,47 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                     )}
                 </div>
 
+                {/* Supplier Filter Dropdown */}
+                <div className="relative">
+                    <button
+                        onClick={() => setIsSupplierDropdownOpen(!isSupplierDropdownOpen)}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all cursor-pointer"
+                    >
+                        <Building2 size={14} className="text-slate-400" />
+                        <span className="truncate max-w-[100px]">{supplierFilter === 'all' ? 'Tất cả NCC' : suppliers.find(s => s.id === supplierFilter)?.name || 'NCC'}</span>
+                        <ChevronDown size={14} className={`text-slate-400 transition-transform ${isSupplierDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isSupplierDropdownOpen && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setIsSupplierDropdownOpen(false)} />
+                            <div className="absolute top-full left-0 mt-1 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden max-h-56 overflow-y-auto">
+                                <button
+                                    onClick={() => { setSupplierFilter('all'); setIsSupplierDropdownOpen(false); }}
+                                    className={`w-full px-3 py-2.5 text-xs text-left transition-colors cursor-pointer ${supplierFilter === 'all'
+                                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                        : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                        }`}
+                                >
+                                    Tất cả NCC
+                                </button>
+                                {suppliers.map(supplier => (
+                                    <button
+                                        key={supplier.id}
+                                        onClick={() => { setSupplierFilter(supplier.id); setIsSupplierDropdownOpen(false); }}
+                                        className={`w-full px-3 py-2.5 text-xs text-left transition-colors cursor-pointer ${supplierFilter === supplier.id
+                                            ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                            : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                            }`}
+                                    >
+                                        {supplier.name}{supplier.shortName ? ` (${supplier.shortName})` : ''}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+
                 {/* Search */}
                 <div className="relative flex-1 min-w-[180px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
@@ -546,6 +584,8 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                     <th onClick={() => handleSort('is_active')} className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors select-none">
                                         <span className="flex items-center gap-1 justify-center">Trạng thái <SortIcon column="is_active" /></span>
                                     </th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Hãng</th>
+                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">NCC</th>
                                     <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-2.5 px-2 w-10"></th>
                                 </tr>
                             </thead>
@@ -626,6 +666,26 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                                         <XCircle size={11} />
                                                         Ngừng bán
                                                     </span>
+                                                )}
+                                            </td>
+
+                                            {/* Brand */}
+                                            <td className="py-2.5 px-3 hidden xl:table-cell">
+                                                {product.brandName ? (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 rounded text-[10px] font-bold">
+                                                        {product.brandName}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-400">—</span>
+                                                )}
+                                            </td>
+
+                                            {/* Supplier */}
+                                            <td className="py-2.5 px-3 hidden xl:table-cell">
+                                                {product.supplierName ? (
+                                                    <span className="text-xs text-slate-700 dark:text-slate-300">{product.supplierName}</span>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-400">—</span>
                                                 )}
                                             </td>
 

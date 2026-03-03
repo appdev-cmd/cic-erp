@@ -79,9 +79,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
     }, [productId]);
 
     const formatCurrency = (val: number) => {
-        if (val >= 1e9) return `${(val / 1e9).toFixed(2)} tỷ`;
-        if (val >= 1e6) return `${(val / 1e6).toFixed(0)} triệu`;
-        return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
+        return (val || 0).toLocaleString('vi-VN') + ' ₫';
     };
 
     if (isLoading) {

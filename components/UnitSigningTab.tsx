@@ -123,10 +123,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
     }, [unit.target, totals.target.signing]);
 
     const formatCurrency = (val: number) => {
-        if (val >= 1e9) return `${(val / 1e9).toFixed(2)} tỷ`;
-        if (val >= 1e6) return `${(val / 1e6).toFixed(0)} tr`;
-        if (val === 0) return '0';
-        return val.toLocaleString('vi-VN');
+        return (val || 0).toLocaleString('vi-VN') + ' ₫';
     };
 
     const handleStartEdit = (emp: EmployeeWithStats) => {
