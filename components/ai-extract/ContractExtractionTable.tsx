@@ -5,16 +5,21 @@ import { cn } from '../../lib/utils';
 import { UnitService } from '../../services/unitService';
 import { EmployeeService } from '../../services/employeeService';
 
+// Extended row type with per-row salespersonId
+interface ContractRow extends ContractExtraction {
+    salespersonId?: string;
+}
+
 export const ContractExtractionTable: React.FC<{
     data: ContractExtraction[];
-    onSave: (rows: ContractExtraction[], unitId: string, salespersonId: string) => void;
+    onSave: (rows: ContractRow[], unitId: string, salespersonId: string) => void;
     saving: boolean;
 }> = ({ data, onSave, saving }) => {
     const [selected, setSelected] = useState<Set<number>>(new Set(data.map((_, i) => i)));
-    const [editRows, setEditRows] = useState<ContractExtraction[]>([...data]);
+    const [editRows, setEditRows] = useState<ContractRow[]>([...data]);
     const [editingCell, setEditingCell] = useState<{ row: number; col: string } | null>(null);
     const [unitId, setUnitId] = useState('');
-    const [salespersonId, setSalespersonId] = useState('');
+    const [globalSalespersonId, setGlobalSalespersonId] = useState('');
     const [units, setUnits] = useState<{ id: string; name: string }[]>([]);
     const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
 
@@ -25,12 +30,22 @@ export const ContractExtractionTable: React.FC<{
 
     // Load employees when unit changes
     useEffect(() => {
-        setSalespersonId('');
+        setGlobalSalespersonId('');
+        // Reset per-row salesperson when unit changes
+        setEditRows(prev => prev.map(r => ({ ...r, salespersonId: '' })));
         const promise = unitId
             ? EmployeeService.getByUnitId(unitId)
             : EmployeeService.getAll();
         promise.then(e => setEmployees(e.map(x => ({ id: x.id, name: x.name }))));
     }, [unitId]);
+
+    // When global salesperson changes, apply to all rows that don't have one set
+    const applyGlobalSalesperson = (spId: string) => {
+        setGlobalSalespersonId(spId);
+        if (spId) {
+            setEditRows(prev => prev.map(r => ({ ...r, salespersonId: r.salespersonId || spId })));
+        }
+    };
 
     const toggleRow = (idx: number) => {
         setSelected(prev => { const n = new Set(prev); n.has(idx) ? n.delete(idx) : n.add(idx); return n; });
@@ -48,10 +63,11 @@ export const ContractExtractionTable: React.FC<{
     };
 
     const fmtMoney = (v?: number) => v != null ? v.toLocaleString('vi-VN') : '—';
-    const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
 
     const selectedRows = editRows.filter((_, i) => selected.has(i));
-    const canSave = selectedRows.length > 0 && unitId && salespersonId;
+    // Check all selected rows have salespersonId
+    const allSelectedHaveSalesperson = selectedRows.every(r => r.salespersonId);
+    const canSave = selectedRows.length > 0 && unitId && allSelectedHaveSalesperson;
 
     // Editable cell component
     const EditableText = ({ row, col, value, className }: { row: number; col: string; value: string; className?: string }) => {
@@ -118,7 +134,7 @@ export const ContractExtractionTable: React.FC<{
                 </span>
             </div>
 
-            {/* Unit & Employee Selectors */}
+            {/* Unit & Global Employee Selectors */}
             <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-4 bg-slate-50/50 dark:bg-slate-800/50">
                 <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                     <Building2 size={14} className="text-indigo-500 shrink-0" />
@@ -137,16 +153,17 @@ export const ContractExtractionTable: React.FC<{
                 <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                     <User size={14} className="text-violet-500 shrink-0" />
                     <select
-                        value={salespersonId}
-                        onChange={e => setSalespersonId(e.target.value)}
+                        value={globalSalespersonId}
+                        onChange={e => applyGlobalSalesperson(e.target.value)}
                         className={cn(
                             "flex-1 text-xs rounded-lg px-3 py-2 border bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 cursor-pointer",
-                            salespersonId ? "border-violet-300 dark:border-violet-600" : "border-rose-300 dark:border-rose-600"
+                            "border-violet-300 dark:border-violet-600"
                         )}
                     >
-                        <option value="">— Chọn người thực hiện (*) —</option>
+                        <option value="">— Áp dụng cho tất cả —</option>
                         {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                     </select>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">Gán tất cả</span>
                 </div>
             </div>
 
@@ -164,6 +181,12 @@ export const ContractExtractionTable: React.FC<{
                             <th className="px-3 py-2 text-right font-bold text-slate-600 dark:text-slate-300">Giá trị ký</th>
                             <th className="px-3 py-2 text-center font-bold text-slate-600 dark:text-slate-300">Ngày ký</th>
                             <th className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">Nghiệm thu</th>
+                            <th className="px-3 py-2 text-left font-bold text-violet-600 dark:text-violet-400">
+                                <div className="flex items-center gap-1">
+                                    <User size={12} />
+                                    Người thực hiện
+                                </div>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -196,6 +219,22 @@ export const ContractExtractionTable: React.FC<{
                                 <td className="px-3 py-2 text-right">
                                     <EditableNumber row={idx} col="acceptanceValue" value={row.acceptanceValue} className="text-blue-600 dark:text-blue-400" />
                                 </td>
+                                <td className="px-3 py-2">
+                                    <select
+                                        value={row.salespersonId || ''}
+                                        onChange={e => updateCell(idx, 'salespersonId', e.target.value)}
+                                        className={cn(
+                                            "w-full text-xs rounded-lg px-2 py-1.5 border bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 cursor-pointer focus:outline-none",
+                                            row.salespersonId
+                                                ? "border-violet-300 dark:border-violet-600"
+                                                : "border-rose-300 dark:border-rose-600 bg-rose-50 dark:bg-rose-900/10"
+                                        )}
+                                        disabled={employees.length === 0}
+                                    >
+                                        <option value="">— Chọn —</option>
+                                        {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                                    </select>
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -204,13 +243,18 @@ export const ContractExtractionTable: React.FC<{
 
             {/* Save Button */}
             <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700">
-                {(!unitId || !salespersonId) && (
+                {!unitId && (
                     <p className="text-xs text-rose-500 dark:text-rose-400 mb-2 text-center">
-                        ⚠️ Vui lòng chọn <b>Đơn vị</b> và <b>Người thực hiện</b> trước khi nạp
+                        ⚠️ Vui lòng chọn <b>Đơn vị</b> trước khi nạp
+                    </p>
+                )}
+                {unitId && !allSelectedHaveSalesperson && (
+                    <p className="text-xs text-rose-500 dark:text-rose-400 mb-2 text-center">
+                        ⚠️ Vui lòng chọn <b>Người thực hiện</b> cho từng hợp đồng (hoặc dùng nút "Gán tất cả" ở trên)
                     </p>
                 )}
                 <button
-                    onClick={() => onSave(selectedRows, unitId, salespersonId)}
+                    onClick={() => onSave(selectedRows, unitId, globalSalespersonId)}
                     disabled={saving || !canSave}
                     className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >

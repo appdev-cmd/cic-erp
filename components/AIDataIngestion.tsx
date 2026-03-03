@@ -319,7 +319,7 @@ const AIDataIngestion: React.FC = () => {
                         endDate: null,
                         actualRevenue: row.acceptanceValue || 0,
                         unitId,
-                        salespersonId,
+                        salespersonId: (row as any).salespersonId || salespersonId,
                         contacts: row.contactPerson ? [{ id: crypto.randomUUID(), name: row.contactPerson, role: 'Đầu mối' }] : [],
                     };
 
