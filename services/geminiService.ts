@@ -174,34 +174,66 @@ export async function* streamGeminiChat(
     const shouldUseEdge = !customKey && await isEdgeFunctionAvailable();
 
     if (shouldUseEdge) {
-      // Gọi Edge Function với streaming
-      const { data, error } = await supabase.functions.invoke('gemini-proxy', {
-        body: {
+      // Dùng raw fetch để đọc SSE stream từ Edge Function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const edgeUrl = `${supabaseUrl}/functions/v1/gemini-proxy`;
+
+      const response = await fetch(edgeUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({
           action: 'chat',
           history,
           newMessage,
           modelId,
           systemInstruction,
-        },
+        }),
+        signal,
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Edge Function error ${response.status}: ${errText}`);
+      }
 
-      // Nếu response là SSE text, parse nó
-      if (typeof data === 'string') {
-        const lines = data.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-            try {
-              const parsed = JSON.parse(line.slice(6));
-              if (parsed.text) yield parsed.text;
-            } catch {
-              // skip invalid lines
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('text/event-stream') && response.body) {
+        // SSE streaming — đọc từng chunk
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          if (signal?.aborted) { reader.cancel(); return; }
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // giữ lại dòng chưa hoàn chỉnh
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed === 'data: [DONE]') continue;
+            if (trimmed.startsWith('data: ')) {
+              try {
+                const parsed = JSON.parse(trimmed.slice(6));
+                if (parsed.text) yield parsed.text;
+              } catch { /* skip invalid JSON */ }
             }
           }
         }
-      } else if (data?.result) {
-        yield data.result;
+      } else {
+        // JSON response (non-streaming fallback)
+        const data = await response.json();
+        if (data?.result) yield data.result;
+        else if (data?.error) throw new Error(data.error);
       }
       return;
     }
