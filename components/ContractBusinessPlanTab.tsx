@@ -289,7 +289,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
     const canAdjustCost = false;
 
     // Local formatVND for inline use
-    const fmtVND = (value: number) => new Intl.NumberFormat('vi-VN').format(Math.round(value / 1000) * 1000);
+    const fmtVND = (value: number) => new Intl.NumberFormat('vi-VN').format(Math.round(value));
 
     return (
         <>

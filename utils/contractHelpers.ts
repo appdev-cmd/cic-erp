@@ -1,10 +1,10 @@
 import { ContractStatus } from '../types';
 
 /**
- * Định dạng tiền tệ VND (làm tròn đến nghìn đồng)
+ * Định dạng tiền tệ VND (làm tròn đến hàng đồng)
  */
 export const formatVND = (amount: number): string => {
-    return new Intl.NumberFormat('vi-VN').format(Math.round(amount / 1000) * 1000);
+    return new Intl.NumberFormat('vi-VN').format(Math.round(amount));
 };
 
 /**

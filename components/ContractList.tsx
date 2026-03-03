@@ -639,11 +639,23 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{salesperson?.name || 'Chưa gán'}</span>
                     </div>
                   </td>
-                  {/* Ký kết (Giá trị ký) */}
+                  {/* Ký kết — hiển thị giá trị phân bổ, hover xem giá trị ký kết gốc */}
                   <td className="px-3 py-4 text-right">
-                    <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">
-                      {formatCurrency(contract.value || 0)}
-                    </span>
+                    {(() => {
+                      const fullValue = contract.value || 0;
+                      const allocatedValue = allocationPct !== undefined && allocationPct < 100
+                        ? Math.round(fullValue * allocationPct / 100)
+                        : fullValue;
+                      const hasAllocation = allocationPct !== undefined && allocationPct < 100;
+                      return (
+                        <span
+                          className={`text-[11px] font-bold ${hasAllocation ? 'text-indigo-700 dark:text-indigo-400 cursor-help' : 'text-slate-900 dark:text-slate-100'}`}
+                          title={hasAllocation ? `Giá trị ký kết: ${formatCurrency(fullValue)} — Phân bổ ${allocationPct}%` : `Giá trị ký kết: ${formatCurrency(fullValue)}`}
+                        >
+                          {formatCurrency(allocatedValue)}
+                        </span>
+                      );
+                    })()}
                   </td>
                   {/* Doanh thu */}
                   <td className="px-3 py-4 text-right">
