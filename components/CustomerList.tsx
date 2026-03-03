@@ -16,13 +16,15 @@ import {
     Loader2,
     Star,
     Crown,
-    ChevronDown
+    ChevronDown,
+    Tag
 } from 'lucide-react';
 import { Customer } from '../types';
 import { CustomerService } from '../services';
 import { INDUSTRIES } from '../constants';
 import CustomerForm from './CustomerForm';
 import ImportCustomerModal from './ImportCustomerModal';
+import BrandManager from './settings/BrandManager';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
@@ -39,6 +41,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
     const [industryFilter, setIndustryFilter] = useState<string>('all');
     const [typeFilter, setTypeFilter] = useState<'all' | 'Customer' | 'Supplier'>('all');
     const [ratingFilter, setRatingFilter] = useState<string>('all');
+    const [activeView, setActiveView] = useState<'partners' | 'brands'>('partners');
 
     // Infinite scroll batch size
     const PAGE_SIZE = 20;
@@ -239,264 +242,295 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
                 }}
             />
 
-            {/* Partner Type Tabs */}
+            {/* View Tabs: Partners vs Brands */}
             <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg w-fit">
-                {(['all', 'Customer', 'Supplier'] as const).map(type => (
-                    <button
-                        key={type}
-                        onClick={() => setTypeFilter(type)}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${typeFilter === type
-                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none'
-                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                            }`}
-                    >
-                        {type === 'all' ? 'Tất cả' : type === 'Customer' ? 'Khách hàng' : 'Nhà cung cấp'}
-                    </button>
-                ))}
+                <button
+                    onClick={() => setActiveView('partners')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${activeView === 'partners'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                >
+                    <span className="flex items-center gap-1.5"><Building2 size={15} />Đối tác</span>
+                </button>
+                <button
+                    onClick={() => setActiveView('brands')}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${activeView === 'brands'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                >
+                    <span className="flex items-center gap-1.5"><Tag size={15} />Hãng sản xuất</span>
+                </button>
             </div>
 
-            {/* Filter Bar */}
-            <div className="flex flex-wrap items-center gap-3">
-                {/* Industry Filter */}
-                <div className="flex gap-2 overflow-x-auto flex-1 no-scrollbar">
-                    {industries.map(industry => (
-                        <button
-                            key={industry}
-                            onClick={() => setIndustryFilter(industry)}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${industryFilter === industry
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-indigo-300'
-                                }`}
-                        >
-                            {industry === 'all' ? 'Tất cả ngành' : industry}
-                        </button>
-                    ))}
+            {activeView === 'brands' ? (
+                <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
+                    <BrandManager />
                 </div>
-                {/* Rating Filter */}
-                <div className="relative">
-                    <select
-                        value={ratingFilter}
-                        onChange={(e) => setRatingFilter(e.target.value)}
-                        className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                    >
-                        {RATINGS.map(r => (
-                            <option key={r} value={r}>{r === 'all' ? '⭐ Tất cả hạng' : r}</option>
+            ) : (
+                <>
+
+                    {/* Partner Type Tabs */}
+                    <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg w-fit">
+                        {(['all', 'Customer', 'Supplier'] as const).map(type => (
+                            <button
+                                key={type}
+                                onClick={() => setTypeFilter(type)}
+                                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer ${typeFilter === type
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none'
+                                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                    }`}
+                            >
+                                {type === 'all' ? 'Tất cả' : type === 'Customer' ? 'Khách hàng' : 'Nhà cung cấp'}
+                            </button>
                         ))}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-            </div>
+                    </div>
 
-            {/* Stats Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
-                            <Building2 size={20} />
+                    {/* Filter Bar */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Industry Filter */}
+                        <div className="flex gap-2 overflow-x-auto flex-1 no-scrollbar">
+                            {industries.map(industry => (
+                                <button
+                                    key={industry}
+                                    onClick={() => setIndustryFilter(industry)}
+                                    className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${industryFilter === industry
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-indigo-300'
+                                        }`}
+                                >
+                                    {industry === 'all' ? 'Tất cả ngành' : industry}
+                                </button>
+                            ))}
                         </div>
-                        <div>
-                            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{totalCount}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Đối tác</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
-                            <FileText size={20} />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{viewStats.totalContracts}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Hợp đồng</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
-                            <TrendingUp size={20} />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(viewStats.totalValue)}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Tổng giá trị</p>
+                        {/* Rating Filter */}
+                        <div className="relative">
+                            <select
+                                value={ratingFilter}
+                                onChange={(e) => setRatingFilter(e.target.value)}
+                                className="appearance-none pl-3 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                            >
+                                {RATINGS.map(r => (
+                                    <option key={r} value={r}>{r === 'all' ? '⭐ Tất cả hạng' : r}</option>
+                                ))}
+                            </select>
+                            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         </div>
                     </div>
-                </div>
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
-                            <Crown size={20} />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{viewStats.vipCount}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">VIP / Gold</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            {/* Customer List */}
-            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
-                <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="z-20">
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-center py-4 px-3 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12">STT</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Đối tác</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-center py-4 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell w-20">Hạng</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">HĐ</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Giá trị</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 py-4 px-6"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {isLoading ? (
-                                <tr>
-                                    <td colSpan={7} className="py-12 text-center text-slate-500">Đang tải dữ liệu...</td>
-                                </tr>
-                            ) : customers.length === 0 ? (
-                                <tr>
-                                    <td colSpan={7} className="py-12 text-center text-slate-500">
-                                        <div className="flex flex-col items-center">
-                                            <Building2 size={32} className="text-slate-300 mb-2" />
-                                            <p>Không tìm thấy đối tác nào</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                customers.map((customer, index) => {
-                                    const stats = customer.stats || { contractCount: 0, totalValue: 0, totalRevenue: 0, activeContracts: 0 };
-                                    return (
-                                        <tr
-                                            key={customer.id}
-                                            className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
-                                            onClick={() => onSelectCustomer?.(customer.id)}
-                                        >
-                                            <td className="py-4 px-3 text-center">
-                                                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                                                    {index + 1}
-                                                </span>
-                                            </td>
-                                            <td className="py-4 px-6">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center font-black text-slate-600 dark:text-slate-300 text-sm">
-                                                        {customer.shortName ? customer.shortName.substring(0, 3) : 'KH'}
-                                                    </div>
-                                                    <div>
-                                                        <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center">
-                                                            {customer.name}
-                                                            {getRatingBadge(customer.rating)}
-                                                        </h3>
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                                                            <MapPin size={12} />
-                                                            {customer.address?.split(',').pop()?.trim() || 'N/A'}
-                                                        </p>
-                                                    </div>
+                    {/* Stats Summary */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+                                    <Building2 size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{totalCount}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Đối tác</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
+                                    <FileText size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{viewStats.totalContracts}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Hợp đồng</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
+                                    <TrendingUp size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(viewStats.totalValue)}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Tổng giá trị</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
+                                    <Crown size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{viewStats.vipCount}</p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">VIP / Gold</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Customer List */}
+                    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
+                        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="z-20">
+                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-center py-4 px-3 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12">STT</th>
+                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Đối tác</th>
+                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-center py-4 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell w-20">Hạng</th>
+                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
+                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">HĐ</th>
+                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Giá trị</th>
+                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 py-4 px-6"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {isLoading ? (
+                                        <tr>
+                                            <td colSpan={7} className="py-12 text-center text-slate-500">Đang tải dữ liệu...</td>
+                                        </tr>
+                                    ) : customers.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={7} className="py-12 text-center text-slate-500">
+                                                <div className="flex flex-col items-center">
+                                                    <Building2 size={32} className="text-slate-300 mb-2" />
+                                                    <p>Không tìm thấy đối tác nào</p>
                                                 </div>
-                                            </td>
-                                            <td className="py-4 px-4 hidden md:table-cell text-center">
-                                                {getRatingBadge(customer.rating)}
-                                            </td>
-                                            <td className="py-4 px-6 hidden lg:table-cell">
-                                                <div className="space-y-1">
-                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{customer.contactPerson}</p>
-                                                    <div className="flex flex-col gap-0.5 text-xs text-slate-500 dark:text-slate-400">
-                                                        {customer.phone && (
-                                                            <span className="flex items-center gap-1"><Phone size={11} />{customer.phone}</span>
-                                                        )}
-                                                        {customer.email && (
-                                                            <span className="flex items-center gap-1 truncate max-w-[180px]"><Mail size={11} />{customer.email}</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-6 text-right">
-                                                <p className="font-bold text-slate-900 dark:text-slate-100">{stats.contractCount}</p>
-                                                {stats.activeContracts > 0 && (
-                                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{stats.activeContracts} đang thực hiện</p>
-                                                )}
-                                            </td>
-                                            <td className="py-4 px-6 text-right hidden sm:table-cell">
-                                                <p className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(stats.totalValue)}</p>
-                                                <p className="text-[10px] text-slate-500 dark:text-slate-400">DT: {formatCurrency(stats.totalRevenue)}</p>
-                                            </td>
-                                            <td className="py-4 px-6 relative">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setActionMenuId(actionMenuId === customer.id ? null : customer.id);
-                                                    }}
-                                                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all"
-                                                >
-                                                    <MoreVertical size={16} />
-                                                </button>
-
-                                                {actionMenuId === customer.id && (
-                                                    <>
-                                                        <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
-                                                        <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden">
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleEdit(customer);
-                                                                }}
-                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                                                            >
-                                                                <Pencil size={14} />
-                                                                Chỉnh sửa
-                                                            </button>
-                                                            {allowDelete && (
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleDelete(customer.id);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                    Xóa
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </>
-                                                )}
                                             </td>
                                         </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                                    ) : (
+                                        customers.map((customer, index) => {
+                                            const stats = customer.stats || { contractCount: 0, totalValue: 0, totalRevenue: 0, activeContracts: 0 };
+                                            return (
+                                                <tr
+                                                    key={customer.id}
+                                                    className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
+                                                    onClick={() => onSelectCustomer?.(customer.id)}
+                                                >
+                                                    <td className="py-4 px-3 text-center">
+                                                        <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                                            {index + 1}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-4 px-6">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center font-black text-slate-600 dark:text-slate-300 text-sm">
+                                                                {customer.shortName ? customer.shortName.substring(0, 3) : 'KH'}
+                                                            </div>
+                                                            <div>
+                                                                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center">
+                                                                    {customer.name}
+                                                                    {getRatingBadge(customer.rating)}
+                                                                </h3>
+                                                                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                                                                    <MapPin size={12} />
+                                                                    {customer.address?.split(',').pop()?.trim() || 'N/A'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-4 px-4 hidden md:table-cell text-center">
+                                                        {getRatingBadge(customer.rating)}
+                                                    </td>
+                                                    <td className="py-4 px-6 hidden lg:table-cell">
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{customer.contactPerson}</p>
+                                                            <div className="flex flex-col gap-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                                                {customer.phone && (
+                                                                    <span className="flex items-center gap-1"><Phone size={11} />{customer.phone}</span>
+                                                                )}
+                                                                {customer.email && (
+                                                                    <span className="flex items-center gap-1 truncate max-w-[180px]"><Mail size={11} />{customer.email}</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-4 px-6 text-right">
+                                                        <p className="font-bold text-slate-900 dark:text-slate-100">{stats.contractCount}</p>
+                                                        {stats.activeContracts > 0 && (
+                                                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{stats.activeContracts} đang thực hiện</p>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-4 px-6 text-right hidden sm:table-cell">
+                                                        <p className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(stats.totalValue)}</p>
+                                                        <p className="text-[10px] text-slate-500 dark:text-slate-400">DT: {formatCurrency(stats.totalRevenue)}</p>
+                                                    </td>
+                                                    <td className="py-4 px-6 relative">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActionMenuId(actionMenuId === customer.id ? null : customer.id);
+                                                            }}
+                                                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all"
+                                                        >
+                                                            <MoreVertical size={16} />
+                                                        </button>
 
-                    {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
-                    <div className="p-4 flex flex-col items-center justify-center">
-                        <div ref={sentinelRef} className="h-4 w-full" />
-                        {isLoadingMore && (
-                            <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
-                                <Loader2 size={20} className="animate-spin" />
-                                <span className="text-sm font-medium">Đang tải thêm...</span>
-                            </div>
-                        )}
-                        {!hasMore && customers.length > 0 && !isLoading && (
-                            <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
-                                Đã hiển thị tất cả {totalCount} đối tác
-                            </div>
-                        )}
-                    </div>
-                </div>
+                                                        {actionMenuId === customer.id && (
+                                                            <>
+                                                                <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
+                                                                <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden">
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleEdit(customer);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                                    >
+                                                                        <Pencil size={14} />
+                                                                        Chỉnh sửa
+                                                                    </button>
+                                                                    {allowDelete && (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleDelete(customer.id);
+                                                                            }}
+                                                                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                            Xóa
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
 
-                {/* STATUS BAR */}
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-                    <div className="flex items-center justify-between">
-                        <div className="text-sm font-bold text-slate-500">
-                            Hiển thị {customers.length} / {totalCount} đối tác
+                            {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
+                            <div className="p-4 flex flex-col items-center justify-center">
+                                <div ref={sentinelRef} className="h-4 w-full" />
+                                {isLoadingMore && (
+                                    <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
+                                        <Loader2 size={20} className="animate-spin" />
+                                        <span className="text-sm font-medium">Đang tải thêm...</span>
+                                    </div>
+                                )}
+                                {!hasMore && customers.length > 0 && !isLoading && (
+                                    <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+                                        Đã hiển thị tất cả {totalCount} đối tác
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                </div>
 
-                <ScrollToTop />
-            </div>
+                        {/* STATUS BAR */}
+                        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm font-bold text-slate-500">
+                                    Hiển thị {customers.length} / {totalCount} đối tác
+                                </div>
+                            </div>
+                        </div>
+
+                        <ScrollToTop />
+                    </div>
+                </>
+            )}
         </div>
     );
 };

@@ -578,38 +578,34 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   key={contract.id}
                   onClick={() => onSelectContract(contract.id)}
                   className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${isCollaborative ? 'bg-blue-50/40 dark:bg-blue-900/10' : index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-transparent dark:bg-transparent'}`}
-                  title={isCollaborative ? `HĐ phối hợp — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * (allocationPct || 100) / 100))}` : allocationRole === 'lead' && allocationPct !== undefined && allocationPct < 100 ? `HĐ chủ trì — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * allocationPct / 100))}` : 'Click để xem chi tiết'}
+                  title={isCollaborative ? `HĐ phối hợp — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * (allocationPct || 100) / 100))}` : allocationRole === 'lead' && allocationPct !== undefined && allocationPct < 100 ? `HĐ chủ trì — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * allocationPct / 100))}` : undefined}
                 >
                   <td className="px-3 py-4 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
                     {stt.toString().padStart(2, '0')}
                   </td>
                   <td className="px-3 py-4">
-                    <div className="flex items-center gap-3 group/contract-id relative">
+                    <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0 ${contract.contractType === 'HĐ' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'}`}>
                         {contract.contractType}
                       </div>
                       <div>
                         <p
-                          className="text-sm font-black text-slate-900 dark:text-slate-100 leading-none hover:text-indigo-600 cursor-pointer transition-colors"
+                          className="text-xs font-black text-slate-900 dark:text-slate-100 leading-none hover:text-indigo-600 cursor-pointer transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
                             navigator.clipboard.writeText(contract.id);
                             toast.success(`Đã copy: ${contract.id}`);
                           }}
-                          title="Click để copy mã hợp đồng"
                         >{contract.id}</p>
                         <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-tighter">
                           {contract.signedDate ? new Date(contract.signedDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Chưa ký'}
                         </p>
+                        {contract.customerContractNumber && (
+                          <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate max-w-[160px]">
+                            📋 {contract.customerContractNumber}
+                          </p>
+                        )}
                       </div>
-                      {/* Tooltip: Số HĐ Khách hàng */}
-                      {contract.clientInitials && (
-                        <div className="absolute left-0 top-full mt-1 z-30 hidden group-hover/contract-id:block">
-                          <div className="bg-slate-800 dark:bg-slate-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap border border-slate-700 dark:border-slate-600">
-                            <span className="text-slate-400 dark:text-slate-300">Số HĐ KH:</span> {contract.clientInitials}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </td>
                   <td className="px-3 py-4 text-[11px] font-bold text-slate-800 dark:text-slate-200">
@@ -626,15 +622,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                         </span>
                       )}
                     </div>
-                    <div className="group/customer relative">
-                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1">{contract.partyA}</p>
-                      {/* Tooltip: End User */}
+                    <div>
+                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1" title={contract.endUserName ? `End User: ${contract.endUserName}` : undefined}>{contract.partyA}</p>
                       {contract.endUserName && (
-                        <div className="absolute left-0 top-full mt-1 z-30 hidden group-hover/customer:block">
-                          <div className="bg-slate-800 dark:bg-slate-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap border border-slate-700 dark:border-slate-600">
-                            <span className="text-slate-400 dark:text-slate-300">End User:</span> {contract.endUserName}
-                          </div>
-                        </div>
+                        <p className="text-[9px] font-bold text-teal-600 dark:text-teal-400 mt-0.5 truncate max-w-[180px]" title={`End User: ${contract.endUserName}`}>
+                          👤 {contract.endUserName}
+                        </p>
                       )}
                     </div>
                   </td>

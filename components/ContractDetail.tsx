@@ -375,6 +375,18 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                   <Users size={14} />
                   <span>Khách hàng: <b className="text-slate-700 dark:text-slate-200">{customerName}</b></span>
                 </div>
+                {contract.customerContractNumber && (
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <FileText size={14} className="text-amber-500" />
+                    <span className="text-slate-500 dark:text-slate-400">Số HĐ KH: <b className="text-amber-600 dark:text-amber-400">{contract.customerContractNumber}</b></span>
+                  </div>
+                )}
+                {contract.endUserName && (
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <User size={14} className="text-teal-500" />
+                    <span className="text-slate-500 dark:text-slate-400">End User: <b className="text-teal-600 dark:text-teal-400">{contract.endUserName}</b></span>
+                  </div>
+                )}
               </div>
               {/* Unit Allocations Display */}
               {allocationNames.length > 0 && (

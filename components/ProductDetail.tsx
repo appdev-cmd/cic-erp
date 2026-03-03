@@ -11,11 +11,13 @@ import {
     Hash,
     Loader2,
     Edit3,
-    Trash2
+    Trash2,
+    AlertTriangle
 } from 'lucide-react';
 import { Product, Unit, Contract, Customer, Brand } from '../types';
 import { ProductService, UnitService, ContractService, CustomerService, BrandService } from '../services';
 import { usePermissionCheck } from '../hooks/usePermissions';
+import ConfirmDialog, { useConfirmDialog } from './ui/ConfirmDialog';
 
 interface ProductDetailProps {
     productId: string;
@@ -27,6 +29,7 @@ interface ProductDetailProps {
 const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit, onViewContract }) => {
     const { can } = usePermissionCheck();
     const allowDelete = can('products', 'delete');
+    const confirmDialog = useConfirmDialog();
 
     const [product, setProduct] = useState<Product | null>(null);
     const [unit, setUnit] = useState<Unit | null>(null);
@@ -147,7 +150,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
                     {allowDelete && (
                         <button
                             onClick={async () => {
-                                if (confirm('Bạn có chắc chắn muốn xóa sản phẩm này? hành động này không thể hoàn tác.')) {
+                                const confirmed = await confirmDialog.confirm({
+                                    title: 'Xóa sản phẩm',
+                                    message: `Bạn có chắc chắn muốn xóa sản phẩm "${product.name}"? Hành động này không thể hoàn tác.`,
+                                    variant: 'danger',
+                                });
+                                if (confirmed) {
                                     try {
                                         await ProductService.delete(productId);
                                         toast.success("Đã xóa sản phẩm thành công");
@@ -158,7 +166,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
                                     }
                                 }
                             }}
-                            className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/30 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/30 rounded-lg text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all cursor-pointer"
                         >
                             <Trash2 size={16} />
                             Xóa
@@ -349,6 +357,18 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
                     </div>
                 </div>
             </div>
+
+            {/* Confirm Dialog for delete */}
+            <ConfirmDialog
+                isOpen={confirmDialog.isOpen}
+                onClose={confirmDialog.close}
+                onConfirm={confirmDialog.onConfirm}
+                title={confirmDialog.title}
+                message={confirmDialog.message}
+                variant={confirmDialog.variant}
+                confirmText="Xóa"
+                cancelText="Hủy"
+            />
         </div>
     );
 };

@@ -225,6 +225,7 @@ export interface Contract {
   vatRate?: number; // Thuế suất VAT (0, 8, 10) - default 10
   endUserId?: string; // FK to Customer (End user khi bán qua đại lý)
   endUserName?: string; // Tên người dùng cuối
+  customerContractNumber?: string; // Số hợp đồng khách hàng
   partyA: string;
   partyB: string;
   clientInitials: string;
