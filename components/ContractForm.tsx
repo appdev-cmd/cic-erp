@@ -103,7 +103,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const [showAddEndUserDialog, setShowAddEndUserDialog] = useState(false);
   const [signedDate, setSignedDate] = useState(contract?.signedDate || new Date().toISOString().split('T')[0]);
   const [hasVat, setHasVat] = useState(contract?.hasVat !== false);
-  const [vatRate, setVatRate] = useState(contract?.vatRate ?? 10);
+  const [vatRate, setVatRate] = useState(contract?.vatRate ?? 0);
 
   // ==================== CONTRACT SYNC (Edit/Clone Mode) ====================
   useEffect(() => {
@@ -125,10 +125,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       setEndUserName(contract.endUserName || '');
       setSignedDate(contract.signedDate || new Date().toISOString().split('T')[0]);
       setHasVat(contract.hasVat !== false);
-      setVatRate(contract.vatRate ?? 10);
+      setVatRate(contract.vatRate ?? 0);
       if (contract.contacts && contract.contacts.length > 0) setContacts(contract.contacts);
       if (contract.lineItems && contract.lineItems.length > 0) {
-        const contractVat = contract.vatRate ?? 10;
+        const contractVat = contract.vatRate ?? 0;
         setLineItems(contract.lineItems.map(item => ({
           ...item,
           vatRate: item.vatRate ?? contractVat,
@@ -167,7 +167,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   // ==================== STEP 2: LINE ITEMS & COSTS ====================
   const [contacts, setContacts] = useState<ContractContact[]>(contract?.contacts || [{ id: '1', name: '', role: 'Mua sắm' }]);
   const [lineItems, setLineItems] = useState<LineItem[]>(contract?.lineItems || [{
-    id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10
+    id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 0
   }]);
 
   const [executionCosts, setExecutionCosts] = useState<ExecutionCostItem[]>(contract?.executionCosts || []);
@@ -371,7 +371,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   // ==================== HANDLERS ====================
   const addContact = () => setContacts([...contacts, { id: Date.now().toString(), name: '', role: '' }]);
   const removeContact = (id: string) => setContacts(contacts.filter(c => c.id !== id));
-  const addLineItem = () => setLineItems([...lineItems, { id: Date.now().toString(), name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10 }]);
+  const addLineItem = () => setLineItems([...lineItems, { id: Date.now().toString(), name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 0 }]);
   const removeLineItem = (id: string) => setLineItems(lineItems.filter(i => i.id !== id));
 
   const handleSave = () => {

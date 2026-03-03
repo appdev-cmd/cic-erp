@@ -13,12 +13,14 @@ import {
     Trash2,
     Save,
     X,
-    ExternalLink
+    ExternalLink,
+    Plus
 } from 'lucide-react';
 import { Brand, Product } from '../types';
 import { BrandService, ProductService } from '../services';
 import { formatCurrency } from '../utils/formatters';
 import ConfirmDialog, { useConfirmDialog } from './ui/ConfirmDialog';
+import ProductForm from './ProductForm';
 
 interface BrandDetailProps {
     brandId: string;
@@ -33,6 +35,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProd
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState<Partial<Brand>>({});
     const [isSaving, setIsSaving] = useState(false);
+    const [isAddProductOpen, setIsAddProductOpen] = useState(false);
     const confirmDialog = useConfirmDialog();
 
     useEffect(() => {
@@ -303,11 +306,18 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProd
 
             {/* Product List */}
             <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                         <Package size={16} className="text-indigo-500" />
                         Danh sách sản phẩm ({totalProducts})
                     </h3>
+                    <button
+                        onClick={() => setIsAddProductOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer"
+                    >
+                        <Plus size={14} />
+                        Thêm sản phẩm
+                    </button>
                 </div>
                 {products.length === 0 ? (
                     <div className="text-center py-12">
@@ -383,6 +393,26 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProd
                 variant={confirmDialog.variant}
                 confirmText="Xóa"
                 cancelText="Hủy"
+            />
+
+            {/* Add Product Form */}
+            <ProductForm
+                isOpen={isAddProductOpen}
+                onClose={() => setIsAddProductOpen(false)}
+                product={{ brandId: brandId } as any}
+                onSave={async (data) => {
+                    try {
+                        const payload = { ...data, brandId: brandId };
+                        await ProductService.create(payload as any);
+                        toast.success('Đã thêm sản phẩm');
+                        setIsAddProductOpen(false);
+                        // Refresh product list
+                        const refreshed = await ProductService.getByBrand(brandId);
+                        setProducts(refreshed);
+                    } catch (error: any) {
+                        toast.error('Lỗi: ' + (error.message || error));
+                    }
+                }}
             />
         </div>
     );

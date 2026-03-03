@@ -30,7 +30,7 @@ export function useFinancialCalculations(
         lineItems.forEach(item => {
             const itemOutputTotal = item.quantity * item.outputPrice;
             const itemInputTotal = item.quantity * item.inputPrice;
-            const itemVatRate = item.vatRate ?? 10;
+            const itemVatRate = item.vatRate ?? 0;
 
             // Giá trị ký HĐ = Đầu ra × (1 + VAT%) cho từng SP
             signingValue += itemOutputTotal * (1 + itemVatRate / 100);

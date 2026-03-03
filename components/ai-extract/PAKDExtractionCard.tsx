@@ -103,7 +103,7 @@ export const PAKDExtractionCard = ({ data, onSave, saving }: { data: PAKDExtract
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {(editedData.lineItems || []).map((item, idx) => {
-                                    const vatRate = (item as any).vatRate ?? 10;
+                                    const vatRate = (item as any).vatRate ?? 0;
                                     const outputWithVat = item.totalPrice * (1 + vatRate / 100);
                                     const margin = outputWithVat - item.totalCost;
                                     return (

@@ -38,7 +38,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
 
     // ==================== STEP 2: LINE ITEMS ====================
     const [lineItems, setLineItems] = useState<LineItem[]>(
-        contract?.lineItems || [{ id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10 }]
+        contract?.lineItems || [{ id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 0 }]
     );
 
     // ==================== STEP 2: EXECUTION COSTS ====================
@@ -150,7 +150,7 @@ export function useContractForm({ contract, isCloning = false }: UseContractForm
     const addLineItem = useCallback(() => {
         setLineItems(prev => [...prev, {
             id: Date.now().toString(),
-            name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 10
+            name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 0
         }]);
     }, []);
 

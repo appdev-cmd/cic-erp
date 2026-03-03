@@ -199,7 +199,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800">
                                 {lineItems.map((item, index) => {
                                     const inputTotal = item.quantity * item.inputPrice;
-                                    const outputTotal = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100);
+                                    const outputTotal = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 0) / 100);
                                     const lineMargin = outputTotal - inputTotal - item.directCosts;
                                     const lineMarginRate = outputTotal > 0 ? (lineMargin / outputTotal) * 100 : 0;
 
@@ -256,10 +256,13 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         const sup = suppliers.find(s => s.id === id);
                                                         return sup ? (sup.shortName || sup.name) : item.supplier || undefined;
                                                     }}
-                                                    onChange={(sId) => {
-                                                        const sup = sId ? suppliers.find(s => s.id === sId) : null;
+                                                    onChange={(sId, option) => {
                                                         const newList = [...lineItems];
-                                                        newList[index].supplier = sup ? (sup.shortName || sup.name) : '';
+                                                        if (sId && option) {
+                                                            newList[index].supplier = option.name;
+                                                        } else {
+                                                            newList[index].supplier = '';
+                                                        }
                                                         setLineItems(newList);
                                                     }}
                                                     onSearch={async (query) => {
@@ -328,7 +331,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                             </td>
                                             <td className="px-2 py-3 text-center">
                                                 <select
-                                                    value={item.vatRate ?? 10}
+                                                    value={item.vatRate ?? 0}
                                                     onChange={(e) => {
                                                         const newList = [...lineItems];
                                                         newList[index].vatRate = Number(e.target.value);
@@ -405,7 +408,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                     </td>
                                     <td className="px-2 py-4"></td>
                                     <td className="px-3 py-4 text-right text-indigo-600 font-black">
-                                        {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 10) / 100)), 0))}
+                                        {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 0) / 100)), 0))}
                                     </td>
                                     <td className="px-4 py-4 text-right text-rose-500">
                                         {formatVND(totals.totalDirectCosts)}
