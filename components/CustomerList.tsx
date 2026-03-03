@@ -25,15 +25,17 @@ import { INDUSTRIES } from '../constants';
 import CustomerForm from './CustomerForm';
 import ImportCustomerModal from './ImportCustomerModal';
 import BrandManager from './settings/BrandManager';
+import BrandDetail from './BrandDetail';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
 
 interface CustomerListProps {
     onSelectCustomer?: (id: string) => void;
+    onSelectProduct?: (id: string) => void;
 }
 
-const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
+const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectProduct }) => {
     const { can } = usePermissionCheck();
     const allowDelete = can('customers', 'delete');
 
@@ -42,6 +44,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
     const [typeFilter, setTypeFilter] = useState<'all' | 'Customer' | 'Supplier'>('all');
     const [ratingFilter, setRatingFilter] = useState<string>('all');
     const [activeView, setActiveView] = useState<'partners' | 'brands'>('partners');
+    const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
 
     // Infinite scroll batch size
     const PAGE_SIZE = 20;
@@ -265,9 +268,17 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer }) => {
             </div>
 
             {activeView === 'brands' ? (
-                <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
-                    <BrandManager />
-                </div>
+                selectedBrandId ? (
+                    <BrandDetail
+                        brandId={selectedBrandId}
+                        onBack={() => setSelectedBrandId(null)}
+                        onSelectProduct={onSelectProduct}
+                    />
+                ) : (
+                    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
+                        <BrandManager onSelectBrand={(id) => setSelectedBrandId(id)} />
+                    </div>
+                )
             ) : (
                 <>
 

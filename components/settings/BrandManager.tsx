@@ -17,6 +17,10 @@ import { Brand } from '../../types';
 import { BrandService } from '../../services';
 import ConfirmDialog, { useConfirmDialog } from '../ui/ConfirmDialog';
 
+interface BrandManagerProps {
+    onSelectBrand?: (id: string) => void;
+}
+
 const EMPTY_FORM: Omit<Brand, 'id'> = {
     name: '',
     code: '',
@@ -26,7 +30,7 @@ const EMPTY_FORM: Omit<Brand, 'id'> = {
     isActive: true,
 };
 
-const BrandManager: React.FC = () => {
+const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand }) => {
     const [brands, setBrands] = useState<Brand[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -296,7 +300,8 @@ const BrandManager: React.FC = () => {
                             {filtered.map(brand => (
                                 <tr
                                     key={brand.id}
-                                    className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                    className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                                    onClick={() => onSelectBrand?.(brand.id)}
                                 >
                                     <td className="py-3 px-4">
                                         <div>

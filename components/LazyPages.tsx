@@ -268,7 +268,10 @@ export const LazyPersonnelDetailPage: React.FC = () => {
 export const LazyCustomerListPage: React.FC = () => {
     const navigate = useNavigate();
     return withSuspense(
-        <CustomerList onSelectCustomer={(id) => navigate(ROUTES.CUSTOMER_DETAIL(id))} />
+        <CustomerList
+            onSelectCustomer={(id) => navigate(ROUTES.CUSTOMER_DETAIL(id))}
+            onSelectProduct={(id) => navigate(ROUTES.PRODUCT_DETAIL(id))}
+        />
     );
 };
 
@@ -304,7 +307,6 @@ export const LazyProductDetailPage: React.FC = () => {
         <ProductDetail
             productId={id}
             onBack={() => navigate(ROUTES.PRODUCTS)}
-            onEdit={() => { }}
             onViewContract={(contractId) => navigate(ROUTES.CONTRACT_DETAIL(contractId))}
         />,
         <DetailPageSkeleton />

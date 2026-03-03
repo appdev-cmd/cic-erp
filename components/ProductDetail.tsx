@@ -18,18 +18,20 @@ import { Product, Unit, Contract, Customer, Brand } from '../types';
 import { ProductService, UnitService, ContractService, CustomerService, BrandService } from '../services';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import ConfirmDialog, { useConfirmDialog } from './ui/ConfirmDialog';
+import ProductForm from './ProductForm';
 
 interface ProductDetailProps {
     productId: string;
     onBack: () => void;
-    onEdit: () => void;
     onViewContract?: (id: string) => void;
 }
 
-const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit, onViewContract }) => {
+const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onViewContract }) => {
     const { can } = usePermissionCheck();
     const allowDelete = can('products', 'delete');
+    const allowUpdate = can('products', 'update');
     const confirmDialog = useConfirmDialog();
+    const [isEditOpen, setIsEditOpen] = useState(false);
 
     const [product, setProduct] = useState<Product | null>(null);
     const [unit, setUnit] = useState<Unit | null>(null);
@@ -141,8 +143,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
                 </div>
                 <div className="flex gap-2">
                     <button
-                        onClick={onEdit}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                        onClick={() => setIsEditOpen(true)}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
                     >
                         <Edit3 size={16} />
                         Chỉnh sửa
@@ -368,6 +370,29 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onEdit
                 variant={confirmDialog.variant}
                 confirmText="Xóa"
                 cancelText="Hủy"
+            />
+
+            {/* Edit Form Modal */}
+            <ProductForm
+                isOpen={isEditOpen}
+                onClose={() => setIsEditOpen(false)}
+                product={product}
+                onSave={async (data) => {
+                    try {
+                        if ('id' in data) {
+                            await ProductService.update(data.id, data);
+                        } else {
+                            await ProductService.update(productId, data as any);
+                        }
+                        toast.success('Đã cập nhật sản phẩm');
+                        setIsEditOpen(false);
+                        // Reload product data
+                        const refreshed = await ProductService.getById(productId);
+                        if (refreshed) setProduct(refreshed);
+                    } catch (error: any) {
+                        toast.error('Lỗi cập nhật: ' + (error.message || error));
+                    }
+                }}
             />
         </div>
     );
