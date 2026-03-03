@@ -706,6 +706,7 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
         documentFee: 0,
     };
 
+
     const executionCosts: PAKDExecutionCost[] = [];
     const extractNum = (cell: any): number => {
         if (cell === null || cell === undefined) return 0;
@@ -723,42 +724,65 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
         return 0;
     };
 
-    // --- Known summary row labels to SKIP (not execution costs) ---
-    const SKIP_LABELS = [
-        'đầu vào', 'dau vao',
-        'tổng chi phí', 'tong chi phi',
-        'lợi nhuận', 'loi nhuan',
-        'hệ số', 'he so',
-        'tổng hợp', 'tong hop',
-        'tổng cộng', 'tong cong',
-        'chi phí khác', 'chi phi khac',
-        'thanh toán hợp đồng', 'thanh toan hop dong',
-        'tạm ứng', 'tam ung',
-        'thanh toán của', 'thanh toan cua',
-        'thanh toán cho', 'thanh toan cho',
-        'dự kiến', 'du kien',
+    // Vietnamese diacritics remover — ensures matching regardless of Unicode encoding
+    const removeDiacritics = (str: string): string => {
+        return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')  // Remove combining diacritical marks
+            .replace(/đ/g, 'd').replace(/Đ/g, 'D')  // Handle đ separately (not a combining char)
+            .toLowerCase()
+            .trim();
+    };
+
+    // --- Known summary row labels to SKIP (in ASCII, no diacritics) ---
+    const SKIP_LABELS_ASCII = [
+        'dau vao', 'dau ra',
+        'tong chi phi',
+        'loi nhuan',
+        'he so',
+        'tong hop',
+        'tong cong',
+        'chi phi khac',
+        'thanh toan hop dong',
+        'tam ung',
+        'thanh toan cua',
+        'thanh toan cho',
+        'du kien',
+        'san luong',
+        'doanh thu',
+        'gia tri',
+        'tong gia',
+        'tong dau vao',
+        'tong dau ra',
     ];
 
     let inSummarySection = false;
     let parsedSanLuong = 0;  // Sản lượng (= Đầu ra + VAT = Giá trị ký kết)
     let parsedDoanhThu = 0;  // Doanh thu (= Đầu ra trước VAT)
 
+    console.log(`[PAKD Parser] === SUMMARY SECTION SCAN ===`);
+    console.log(`[PAKD Parser] totalCostSum=${totalCostSum}, totalPriceSum=${totalPriceSum}`);
+
     for (let i = DATA_START_ROW; i < jsonData.length; i++) {
         const row = jsonData[i];
         if (!row || row.length === 0) continue;
 
         // Collect text from the first few columns to identify the row label
-        const labelText = row.slice(0, 5).map(c => String(c || '').trim()).join(' ').toLowerCase();
-        if (!labelText) continue;
+        const rawLabel = row.slice(0, 5).map(c => String(c || '').trim()).filter(c => c && isNaN(Number(c))).join(' ');
+        const labelText = rawLabel.toLowerCase();
+        const labelAscii = removeDiacritics(rawLabel);  // Normalized ASCII version
+        if (!labelText && !labelAscii) continue;
 
         // Detect when we enter summary section (after "Tổng hợp tài chính" or "Tổng cộng")
-        if (labelText.includes('tổng hợp') || labelText.includes('tổng cộng') || labelText.includes('tong hop') || labelText.includes('tong cong')) {
+        if (labelAscii.includes('tong hop') || labelAscii.includes('tong cong')) {
             inSummarySection = true;
+            console.log(`[PAKD Parser] >> Entered summary section at row ${i}: "${rawLabel}"`);
             continue;
         }
 
         // Stop if we hit payment schedule section
-        if (labelText.includes('thanh toán hợp đồng') || labelText.includes('thanh toan hop dong')) {
+        if (labelAscii.includes('thanh toan hop dong') || labelAscii.includes('thanh toan:')) {
+            console.log(`[PAKD Parser] >> Stopped at payment section at row ${i}: "${rawLabel}"`);
             break;
         }
 
@@ -767,26 +791,45 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
 
         const value = findNumericInRow(row);
 
-        // Capture Sản lượng and Doanh thu for VAT detection (even if value is 0 or skipped)
-        if (labelText.includes('sản lượng') || labelText.includes('san luong')) {
+        // LOG every row in summary section for debugging
+        console.log(`[PAKD Parser] Row ${i}: raw="${rawLabel}" | ascii="${labelAscii}" | value=${value}`);
+
+        // Capture Sản lượng and Doanh thu for VAT detection
+        if (labelAscii.includes('san luong')) {
             parsedSanLuong = value;
+            console.log(`[PAKD Parser]   → Captured Sản lượng = ${value}`);
             continue;
         }
-        if (labelText.includes('doanh thu')) {
+        if (labelAscii.includes('doanh thu')) {
             parsedDoanhThu = value;
+            console.log(`[PAKD Parser]   → Captured Doanh thu = ${value}`);
             continue;
+        }
+
+        // Skip known summary rows using normalized ASCII comparison
+        const isSkipRow = SKIP_LABELS_ASCII.some(skip => labelAscii.includes(skip));
+        if (isSkipRow) {
+            console.log(`[PAKD Parser]   → SKIPPED (label match)`);
+            continue;
+        }
+
+        // Value-based skip: if value matches totalCostSum or totalPriceSum (exact or within 1% tolerance), skip
+        if (value > 0) {
+            const matchesCost = value === totalCostSum || (totalCostSum > 0 && Math.abs(value - totalCostSum) / totalCostSum < 0.01);
+            const matchesPrice = value === totalPriceSum || (totalPriceSum > 0 && Math.abs(value - totalPriceSum) / totalPriceSum < 0.01);
+            if (matchesCost || matchesPrice) {
+                console.log(`[PAKD Parser]   → SKIPPED (value match: ${matchesCost ? 'totalCostSum' : 'totalPriceSum'})`);
+                continue;
+            }
         }
 
         if (value <= 0) continue;
 
-        // Skip known summary rows (total costs, profit, margin ratios)
-        const isSkipRow = SKIP_LABELS.some(skip => labelText.includes(skip));
-        if (isSkipRow) continue;
-
         // --- Categorize the cost ---
         // 1. Expert Fees (including support/hỗ trợ)
-        if (labelText.includes('chuyên gia')) {
-            const name = labelText.includes('hỗ trợ') ? 'Phí hỗ trợ chuyên gia' : 'Phí thuê chuyên gia (net)';
+        if (labelAscii.includes('chuyen gia')) {
+            const name = labelAscii.includes('ho tro') ? 'Phí hỗ trợ chuyên gia' : 'Phí thuê chuyên gia (net)';
+            console.log(`[PAKD Parser]   → ADDED expert fee: "${name}" = ${value}`);
             executionCosts.push({
                 id: `pakd-expert-${Date.now()}-${i}`,
                 name,
@@ -795,7 +838,8 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
             adminCosts.expertFee += value;
         }
         // 2. Document Fees
-        else if (labelText.includes('phí thanh toán') || labelText.includes('chứng từ') || labelText.includes('biên bản')) {
+        else if (labelAscii.includes('phi thanh toan') || labelAscii.includes('chung tu') || labelAscii.includes('bien ban')) {
+            console.log(`[PAKD Parser]   → ADDED document fee = ${value}`);
             executionCosts.push({
                 id: `pakd-document-${Date.now()}-${i}`,
                 name: 'Phí thanh toán chứng từ',
@@ -803,15 +847,14 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
             });
             adminCosts.documentFee += value;
         }
-        // Chiết khấu NCC → bỏ (không dùng nữa)
-        else if (labelText.includes('chiết khấu') || labelText.includes('chiet khau')) {
-            // Skip — supplierDiscount đã bị loại bỏ
+        // Chiết khấu NCC → bỏ
+        else if (labelAscii.includes('chiet khau')) {
+            console.log(`[PAKD Parser]   → SKIPPED (chiết khấu)`);
         }
-        // 4. Generic execution cost — capture ALL other cost items dynamically
-        //    (e.g., Thưởng hoàn thành dự án, Xúc tiến hợp đồng, Ban lãnh đạo hỗ trợ, logistics, etc.)
+        // Generic execution cost
         else {
-            // Find the best label from the row cells
-            const costName = String(row[1] || row[0] || 'Chi phí thực hiện').trim();
+            const costName = String(row[1] || row[0] || 'Chi phí khác').trim();
+            console.log(`[PAKD Parser]   → ADDED execution cost: "${costName}" = ${value} (ASCII: "${labelAscii}")`);
             executionCosts.push({
                 id: `pakd-exec-${Date.now()}-${i}`,
                 name: costName,

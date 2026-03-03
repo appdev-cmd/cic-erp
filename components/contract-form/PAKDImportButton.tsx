@@ -31,7 +31,7 @@ function convertAIToParsedPAKD(ai: PAKDExtraction): ParsedPAKD {
         transferFee: item.transferFee || 0,
         margin: item.margin || ((item.totalPrice || 0) - (item.totalCost || 0)),
         marginPercent: item.totalPrice ? Math.round(((item.margin || 0) / item.totalPrice) * 100 * 100) / 100 : 0,
-        vatRate: 10,
+        vatRate: 0,
     }));
 
     const totalCostSum = lineItems.reduce((sum, i) => sum + i.totalCost, 0);
@@ -82,7 +82,7 @@ function convertAIToParsedPAKD(ai: PAKDExtraction): ParsedPAKD {
         costs: ai.financials?.totalCosts || totalCostSum,
         profit: ai.financials?.profit || (totalPriceSum - totalCostSum),
         margin: ai.financials?.marginRevenue || (totalPriceSum > 0 ? Math.round(((totalPriceSum - totalCostSum) / totalPriceSum) * 100 * 100) / 100 : 0),
-        vatRate: 10,
+        vatRate: 0,
         signingValue: ai.financials?.production || totalPriceSum,
     };
 
@@ -363,10 +363,10 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
                                         }}
                                         disabled={!aiPerm.canUseSystemApi}
                                         className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${apiSource === 'system'
-                                                ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 shadow-sm'
-                                                : !aiPerm.canUseSystemApi
-                                                    ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
-                                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                            ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 shadow-sm'
+                                            : !aiPerm.canUseSystemApi
+                                                ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                                             }`}
                                     >
                                         <Server size={12} />
@@ -382,8 +382,8 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
                                             setApiSource('personal');
                                         }}
                                         className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${apiSource === 'personal'
-                                                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 shadow-sm'
-                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                            ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 shadow-sm'
+                                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                                             }`}
                                     >
                                         <Key size={12} />

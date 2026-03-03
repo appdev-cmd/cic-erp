@@ -85,7 +85,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                     const { toast } = await import('sonner');
                                     toast.loading('Đang xử lý import PAKD...');
                                     try {
-                                        const detectedVat = data.financials?.vatRate ?? 10;
+                                        const detectedVat = data.financials?.vatRate ?? 0;
                                         const processedItems: LineItem[] = [];
 
                                         for (let i = 0; i < data.lineItems.length; i++) {
