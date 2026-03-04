@@ -12,6 +12,7 @@
  */
 
 import { dataClient as supabase } from '../lib/dataClient';
+import { NotificationService } from './notificationService';
 
 // ============================================================================
 // TYPES
@@ -348,7 +349,26 @@ export const TelegramNotificationService = {
             if (chatIds.length === 0) return;
 
             const message = buildContractMessage(data);
-            await sendNotification({ chat_ids: chatIds, message, parse_mode: 'HTML' });
+
+            // Get current user ID to exclude from in-app notifications
+            const currentUserId = (await supabase.auth.getUser()).data.user?.id;
+
+            // Fire both channels in parallel (fire-and-forget)
+            const telegramPromise = sendNotification({ chat_ids: chatIds, message, parse_mode: 'HTML' });
+
+            // In-app notification
+            const notifType = `contract_${data.eventType}` as any;
+            const notifTitle = data.eventType === 'created' ? 'Hợp đồng mới'
+                : data.eventType === 'status_changed' ? 'Chuyển trạng thái HĐ'
+                    : data.eventType === 'deleted' ? 'Xóa hợp đồng'
+                        : 'Cập nhật hợp đồng';
+            const inAppPromise = NotificationService.notifyContractEvent(
+                data.contractId, notifType, notifTitle,
+                `${data.contractTitle}${data.changedBy ? ` — bởi ${data.changedBy}` : ''}`,
+                currentUserId
+            );
+
+            await Promise.allSettled([telegramPromise, inAppPromise]);
         } catch (err) {
             console.warn('[TelegramNotify] Contract notification failed:', err);
         }
@@ -364,9 +384,29 @@ export const TelegramNotificationService = {
             if (chatIds.length === 0) return;
 
             const message = buildPaymentMessage(data);
-            await sendNotification({ chat_ids: chatIds, message, parse_mode: 'HTML' });
+
+            // Get current user ID to exclude from in-app notifications
+            const currentUserId = (await supabase.auth.getUser()).data.user?.id;
+
+            // Fire both channels in parallel
+            const telegramPromise = sendNotification({ chat_ids: chatIds, message, parse_mode: 'HTML' });
+
+            const notifType = `payment_${data.eventType}` as any;
+            const typeLabel = data.paymentType === 'Expense' ? 'Chi' : 'Thu';
+            const notifTitle = data.eventType === 'created' ? `Thanh toán mới (${typeLabel})`
+                : data.eventType === 'deleted' ? 'Xóa thanh toán'
+                    : 'Cập nhật thanh toán';
+            const inAppPromise = NotificationService.notifyPaymentEvent(
+                data.contractId, notifType, notifTitle,
+                `${data.contractTitle} — ${formatMoney(data.amount)}${data.changedBy ? ` — bởi ${data.changedBy}` : ''}`,
+                undefined,
+                currentUserId
+            );
+
+            await Promise.allSettled([telegramPromise, inAppPromise]);
         } catch (err) {
             console.warn('[TelegramNotify] Payment notification failed:', err);
         }
     },
 };
+

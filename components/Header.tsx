@@ -3,7 +3,9 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, Bell, Menu, LogOut, ChevronDown, User as UserIcon, Building2, Calendar } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentUserVisibleUnits } from '../hooks';
-import { Unit } from '../types';
+import { Unit, NotificationItem as NotificationItemType } from '../types';
+import NotificationPanel from './notifications/NotificationPanel';
+import { useNotifications } from '../hooks/useNotifications';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -13,14 +15,18 @@ interface HeaderProps {
   yearFilter?: string;
   onYearChange?: (year: string) => void;
   allUnits?: Unit[];
+  onNavigateToContract?: (contractId: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, selectedUnit, onSelectUnit, yearFilter, onYearChange, allUnits = [] }) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, selectedUnit, onSelectUnit, yearFilter, onYearChange, allUnits = [], onNavigateToContract }) => {
   const marginClass = isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64';
   const { signOut, user, profile } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
   const { visibleUnits } = useCurrentUserVisibleUnits();
+  const { unreadCount } = useNotifications();
 
   // Filter units by visibility permissions
   const filteredUnits = useMemo(() => {
@@ -45,6 +51,14 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
   const handleSignOut = async () => {
     await signOut();
     setShowUserMenu(false);
+  };
+
+  // Handle notification click → navigate to relevant resource
+  const handleNotificationNavigate = (notification: NotificationItemType) => {
+    const contractId = notification.metadata?.contractId;
+    if (contractId && onNavigateToContract) {
+      onNavigateToContract(contractId);
+    }
   };
 
   // Use profile data (linked to employee) first, fallback to Google metadata
@@ -148,10 +162,29 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
 
         {/* Divider */}
         <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 hidden lg:block"></div>
-        <button className="relative p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
-          <Bell size={20} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-slate-900 animate-pulse"></span>
-        </button>
+
+        {/* Notification Bell */}
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Notification Panel */}
+          <NotificationPanel
+            isOpen={showNotifications}
+            onClose={() => setShowNotifications(false)}
+            onNavigate={handleNotificationNavigate}
+          />
+        </div>
+
         <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block"></div>
 
         {/* User Menu with Dropdown */}

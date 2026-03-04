@@ -3,3 +3,4 @@ export { useEmployees, useEmployee, useCreateEmployee, useUpdateEmployee, useDel
 export { useUnits } from './useUnits';
 export { useUserPermissions, useAllPermissions, useUpdatePermission, useInitializePermissions, useCheckPermission, usePermissionCheck } from './usePermissions';
 export { useEmployeeVisibility, useAllVisibility, useCurrentUserVisibleUnits, useToggleVisibility, useSetVisibility } from './useUnitVisibility';
+export { useNotifications } from './useNotifications';

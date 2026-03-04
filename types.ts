@@ -709,3 +709,25 @@ export interface ChatMessageWithSender extends ChatMessage {
     avatarUrl?: string;
   };
 }
+
+// ============================================
+// NOTIFICATIONS (In-App)
+// ============================================
+
+export type NotificationType =
+  | 'contract_created' | 'contract_updated' | 'contract_status_changed' | 'contract_deleted'
+  | 'payment_created' | 'payment_updated' | 'payment_deleted'
+  | 'workflow_submitted' | 'workflow_approved' | 'workflow_rejected'
+  | 'mention';
+
+export interface NotificationItem {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  metadata: Record<string, any>;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+}
