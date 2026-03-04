@@ -692,17 +692,23 @@ export const ContractService = {
         totalContracts: number,
         totalValue: number,
         totalRevenue: number,
-        totalProfit: number, // Legacy
+        totalProfit: number,
         totalSigningProfit: number,
         totalRevenueProfit: number,
         totalCash: number,
         activeCount: number,
-        pendingCount: number
+        pendingCount: number,
+        completedCount: number,
+        expiredCount: number,
+        processingCount: number,
+        acceptanceCount: number,
+        liquidatedCount: number,
+        suspendedCount: number
     }> => {
         console.log('[ContractService.getStatsFallback] Using direct query');
         // When filtering by unit, we need ALL contracts to check unit_allocations too
         // Include payment status+amount to calculate revenue from invoiced payments
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)');
+        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, vat_rate, has_vat, end_date, payments(amount, paid_amount, status, payment_type)');
 
         // Only apply year filter at query level (unit filter is done in JS for allocation support)
         if (year && year !== 'All' && year !== 'all') {
@@ -717,7 +723,8 @@ export const ContractService = {
             return {
                 totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0,
                 totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0,
-                activeCount: 0, pendingCount: 0
+                activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0,
+                processingCount: 0, acceptanceCount: 0, liquidatedCount: 0, suspendedCount: 0
             };
         }
 
@@ -753,10 +760,18 @@ export const ContractService = {
                 totalSigningProfit: acc.totalSigningProfit + (val - cost) * fraction,
                 totalRevenueProfit: acc.totalRevenueProfit + (rev > 0 ? Math.round((rev - actCost) * fraction) : 0),
                 totalCash: acc.totalCash + cash * fraction,
-                activeCount: acc.activeCount + (curr.status === 'Processing' ? 1 : 0),
-                pendingCount: acc.pendingCount + (curr.status === 'Suspended' ? 1 : 0)
+                activeCount: acc.activeCount + (['Processing', 'Acceptance'].includes(curr.status) ? 1 : 0),
+                pendingCount: acc.pendingCount + (curr.status === 'Pending' ? 1 : 0),
+                suspendedCount: acc.suspendedCount + (curr.status === 'Suspended' ? 1 : 0),
+                completedCount: acc.completedCount + (curr.status === 'Completed' ? 1 : 0),
+                liquidatedCount: acc.liquidatedCount + (curr.status === 'Liquidated' ? 1 : 0),
+                acceptanceCount: acc.acceptanceCount + (curr.status === 'Acceptance' ? 1 : 0),
+                processingCount: acc.processingCount + (curr.status === 'Processing' ? 1 : 0),
+                expiredCount: acc.expiredCount + (
+                    ['Processing', 'Acceptance'].includes(curr.status) && curr.end_date && new Date(curr.end_date) < new Date() ? 1 : 0
+                )
             };
-        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0 });
+        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, liquidatedCount: 0, suspendedCount: 0 });
     },
 
     getPaymentStatsRPC: async (contractId: string): Promise<{

@@ -108,7 +108,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   // Dashboard Metrics
   const [stats, setStats] = useState({
     actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
-    statusCounts: { active: 0, pending: 0, expired: 0, completed: 0 }
+    statusCounts: { processing: 0, suspended: 0, acceptance: 0, completed: 0, liquidated: 0 }
   });
 
   // Chart Data
@@ -175,10 +175,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
               cash: Number(statsData?.totalCash) || 0
             },
             statusCounts: {
-              active: Number(statsData?.activeCount) || 0,
-              pending: Number(statsData?.pendingCount) || 0,
-              expired: 0,
-              completed: 0
+              processing: Number((statsData as any)?.processingCount) || 0,
+              suspended: Number((statsData as any)?.suspendedCount) || 0,
+              acceptance: Number((statsData as any)?.acceptanceCount) || 0,
+              completed: Number((statsData as any)?.completedCount) || 0,
+              liquidated: Number((statsData as any)?.liquidatedCount) || 0
             }
           });
         }
@@ -246,7 +247,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         if (!isCancelled) {
           setStats({
             actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
-            statusCounts: { active: 0, pending: 0, expired: 0, completed: 0 }
+            statusCounts: { processing: 0, suspended: 0, acceptance: 0, completed: 0, liquidated: 0 }
           });
         }
       } finally {
@@ -500,12 +501,13 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={displayTarget} yoy={{ value: '0', isUp: true }} color="cyan" icon={<Wallet size={20} />} />
         </div>
 
-        {/* Status Highlights */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-          <StatusCard label="Đang thực hiện" count={stats.statusCounts.active} icon={<Clock size={24} className="text-indigo-600" />} color="indigo" />
-          {/* CRM: "Chờ phê duyệt" card hidden — will be re-enabled in CRM module */}
-          <StatusCard label="Đã hoàn thành" count={stats.statusCounts.completed} icon={<CheckCircle2 size={24} className="text-emerald-600" />} color="emerald" />
-          <StatusCard label="Hợp đồng quá hạn" count={stats.statusCounts.expired} icon={<AlertCircle size={24} className="text-rose-600" />} color="rose" />
+        {/* Status Highlights — All 5 contract statuses */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <StatusCard label="Đang thực hiện" count={stats.statusCounts.processing} icon={<Clock size={22} className="text-orange-600 dark:text-orange-400" />} color="orange" />
+          <StatusCard label="Tạm dừng" count={stats.statusCounts.suspended} icon={<AlertCircle size={22} className="text-rose-600 dark:text-rose-400" />} color="rose" />
+          <StatusCard label="Nghiệm thu" count={stats.statusCounts.acceptance} icon={<ClipboardList size={22} className="text-blue-600 dark:text-blue-400" />} color="blue" />
+          <StatusCard label="Đã thanh lý" count={stats.statusCounts.liquidated} icon={<ShieldCheck size={22} className="text-purple-600 dark:text-purple-400" />} color="purple" />
+          <StatusCard label="Hoàn thành" count={stats.statusCounts.completed} icon={<CheckCircle2 size={22} className="text-emerald-600 dark:text-emerald-400" />} color="emerald" />
         </div>
 
         {/* STICKY FILTER BAR - Metric Tabs */}
@@ -782,22 +784,21 @@ const KPIItem = ({ title, metric, stats, target, yoy, color, icon }: any) => {
 
 const StatusCard = ({ label, count, icon, color }: any) => {
   const bgColors: any = {
-    indigo: 'bg-indigo-50 dark:bg-indigo-900/25 border border-indigo-100 dark:border-indigo-800/40',
-    amber: 'bg-amber-50 dark:bg-amber-900/25 border border-amber-100 dark:border-amber-800/40',
-    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/40',
+    orange: 'bg-orange-50 dark:bg-orange-900/25 border border-orange-100 dark:border-orange-800/40',
     rose: 'bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800/40',
+    blue: 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40',
+    purple: 'bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/40',
+    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/40',
   };
 
   return (
-    <div className={`p-5 rounded-lg ${bgColors[color]} flex items-center justify-between shadow-sm hover:shadow-md transition-all`}>
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
-          {icon}
-        </div>
-        <div>
-          <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase leading-none mb-1.5">{label}</p>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100 leading-none">{count}</p>
-        </div>
+    <div className={`p-4 rounded-lg ${bgColors[color]} flex items-center gap-3 shadow-sm hover:shadow-md transition-all`}>
+      <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+        {icon}
+      </div>
+      <div>
+        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase leading-none mb-1">{label}</p>
+        <p className="text-xl font-black text-slate-900 dark:text-slate-100 leading-none">{count}</p>
       </div>
     </div>
   );
