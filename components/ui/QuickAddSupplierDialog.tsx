@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Building2, Phone, Mail, Loader2, CheckCircle, Hash, MapPin, ChevronDown } from 'lucide-react';
 import { CustomerService } from '../../services/customerService';
 import { Customer } from '../../types';
 import { INDUSTRIES } from '../../constants';
+import AICustomerFill from './AICustomerFill';
 
 interface QuickAddSupplierDialogProps {
     isOpen: boolean;
@@ -29,6 +30,18 @@ const QuickAddSupplierDialog: React.FC<QuickAddSupplierDialogProps> = ({
     const [error, setError] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // AI auto-fill handler
+    const handleAIExtracted = useCallback((data: Partial<Customer>) => {
+        if (data.name) setName(data.name);
+        if (data.shortName) setShortName(data.shortName);
+        if (data.industry && Array.isArray(data.industry) && data.industry.length > 0) setIndustry(data.industry);
+        if (data.contactPerson) setContactPerson(data.contactPerson);
+        if (data.phone) setPhone(data.phone);
+        if (data.email) setEmail(data.email);
+        if (data.taxCode) setTaxCode(data.taxCode);
+        if (data.address) setAddress(data.address);
+    }, []);
 
     const resetForm = () => {
         setName('');
@@ -118,6 +131,9 @@ const QuickAddSupplierDialog: React.FC<QuickAddSupplierDialogProps> = ({
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* AI Auto-fill */}
+                    <AICustomerFill onExtracted={handleAIExtracted} compact />
+
                     {error && (
                         <div className="p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg text-xs text-rose-600 dark:text-rose-400 font-medium">
                             {error}

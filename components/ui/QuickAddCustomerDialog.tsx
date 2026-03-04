@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, User, Building2, Phone, Mail, Loader2, CheckCircle, Hash, MapPin, ChevronDown } from 'lucide-react';
 import { CustomerService } from '../../services/customerService';
 import { Customer } from '../../types';
 import { INDUSTRIES } from '../../constants';
+import AICustomerFill from './AICustomerFill';
 
 interface QuickAddCustomerDialogProps {
     isOpen: boolean;
@@ -29,6 +30,18 @@ const QuickAddCustomerDialog: React.FC<QuickAddCustomerDialogProps> = ({
     const [error, setError] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // AI auto-fill handler
+    const handleAIExtracted = useCallback((data: Partial<Customer>) => {
+        if (data.name) setName(data.name);
+        if (data.shortName) setShortName(data.shortName);
+        if (data.industry && Array.isArray(data.industry) && data.industry.length > 0) setIndustry(data.industry);
+        if (data.contactPerson) setContactPerson(data.contactPerson);
+        if (data.phone) setPhone(data.phone);
+        if (data.email) setEmail(data.email);
+        if (data.taxCode) setTaxCode(data.taxCode);
+        if (data.address) setAddress(data.address);
+    }, []);
 
     const resetForm = () => {
         setName('');
@@ -126,6 +139,8 @@ const QuickAddCustomerDialog: React.FC<QuickAddCustomerDialogProps> = ({
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                    {/* AI Auto-fill */}
+                    <AICustomerFill onExtracted={handleAIExtracted} compact />
                     {/* Name - Required */}
                     <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-500 uppercase">

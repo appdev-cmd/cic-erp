@@ -659,13 +659,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   </td>
                   {/* Doanh thu */}
                   <td className="px-3 py-4 text-right">
-                    <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">
+                    <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100" title={formatCurrency(revenue)}>
                       {formatCurrency(revenue)}
                     </span>
                   </td>
                   {/* Lợi nhuận gộp */}
                   <td className="px-3 py-4 text-right">
-                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400" title={formatCurrency(profit)}>
                       {formatCurrency(profit)}
                     </span>
                   </td>

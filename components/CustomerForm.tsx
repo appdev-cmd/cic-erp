@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Save, Loader2, ChevronDown, X, Star } from 'lucide-react';
 import Modal from './ui/Modal';
 import { Customer } from '../types';
 import { INDUSTRIES } from '../constants';
+import AICustomerFill from './ui/AICustomerFill';
 
 interface CustomerFormProps {
     isOpen: boolean;
@@ -95,6 +96,22 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
         }));
     };
 
+    // AI auto-fill handler (only for new customer)
+    const handleAIExtracted = useCallback((data: Partial<Customer>) => {
+        setFormData(prev => ({
+            ...prev,
+            ...(data.name ? { name: data.name } : {}),
+            ...(data.shortName ? { shortName: data.shortName } : {}),
+            ...(data.industry && Array.isArray(data.industry) && data.industry.length > 0 ? { industry: data.industry } : {}),
+            ...(data.contactPerson ? { contactPerson: data.contactPerson } : {}),
+            ...(data.phone ? { phone: data.phone } : {}),
+            ...(data.email ? { email: data.email } : {}),
+            ...(data.address ? { address: data.address } : {}),
+            ...(data.taxCode ? { taxCode: data.taxCode } : {}),
+            ...(data.website ? { website: data.website } : {}),
+        }));
+    }, []);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -123,6 +140,11 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={getTitle()} size="lg">
             <form onSubmit={handleSubmit} className="space-y-5">
+                {/* AI Auto-fill — only visible when adding new */}
+                {!customer && (
+                    <AICustomerFill onExtracted={handleAIExtracted} />
+                )}
+
                 {/* Type Selection */}
                 <div className="flex gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-800">
                     <label className="flex items-center gap-2 cursor-pointer">
