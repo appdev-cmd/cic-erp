@@ -405,8 +405,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </div>
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng giá trị ký</p>
-            <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400" title={formatCurrency(metrics.totalValue)}>
-              {formatCompactNumber(metrics.totalValue)}
+            <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">
+              {formatCurrency(metrics.totalValue)}
             </p>
           </div>
         </div>
@@ -418,8 +418,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </div>
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Doanh thu thực tế</p>
-            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400" title={formatCurrency(metrics.totalRevenue)}>
-              {formatCompactNumber(metrics.totalRevenue)}
+            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+              {formatCurrency(metrics.totalRevenue)}
             </p>
           </div>
         </div>
@@ -431,8 +431,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </div>
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Lợi nhuận gộp</p>
-            <p className="text-2xl font-black text-amber-600 dark:text-amber-400" title={formatCurrency(metrics.totalProfit)}>
-              {formatCompactNumber(metrics.totalProfit)}
+            <p className="text-lg font-black text-amber-600 dark:text-amber-400">
+              {formatCurrency(metrics.totalProfit)}
             </p>
           </div>
         </div>
