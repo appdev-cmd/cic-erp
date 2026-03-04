@@ -39,8 +39,9 @@ export const PaymentService = {
         type?: string;
         status?: string;
         unitIds?: string[] | 'all';
+        year?: string;
     }): Promise<{ data: Payment[]; count: number }> => {
-        const { page, limit, search, type, status, unitIds } = params;
+        const { page, limit, search, type, status, unitIds, year } = params;
         const from = (page - 1) * limit;
         const to = from + limit - 1;
 
@@ -60,12 +61,19 @@ export const PaymentService = {
             query = query.eq('status', status);
         }
 
-        if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
-            const { data: contracts } = await supabase
-                .from('contracts')
-                .select('id')
-                .in('unit_id', unitIds);
-
+        // Year + Unit filter: filter contracts by year and unit, then get matching payments
+        const needContractFilter = (unitIds && unitIds !== 'all' && unitIds.length > 0) || (year && year !== 'All');
+        if (needContractFilter) {
+            let contractQuery = supabase.from('contracts').select('id');
+            if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
+                contractQuery = contractQuery.in('unit_id', unitIds);
+            }
+            if (year && year !== 'All') {
+                contractQuery = contractQuery
+                    .gte('signed_date', `${year}-01-01`)
+                    .lte('signed_date', `${year}-12-31`);
+            }
+            const { data: contracts } = await contractQuery;
             const contractIds = contracts?.map(c => c.id) || [];
             if (contractIds.length > 0) {
                 query = query.in('contract_id', contractIds);
@@ -109,20 +117,27 @@ export const PaymentService = {
      * invoicedAmount = sum of payments with status 'Đã xuất HĐ'
      * cashReceivedAmount = sum of payments with status 'Tiền về'
      */
-    getStats: async (params: { type?: string; unitIds?: string[] | 'all' }) => {
-        const { type, unitIds } = params;
+    getStats: async (params: { type?: string; unitIds?: string[] | 'all'; year?: string }) => {
+        const { type, unitIds, year } = params;
         let query = supabase.from('payments').select('*');
 
         if (type) {
             query = query.eq('payment_type', type);
         }
 
-        if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
-            const { data: contracts } = await supabase
-                .from('contracts')
-                .select('id')
-                .in('unit_id', unitIds);
-
+        // Year + Unit filter: filter contracts first, then get matching payments
+        const needContractFilter = (unitIds && unitIds !== 'all' && unitIds.length > 0) || (year && year !== 'All');
+        if (needContractFilter) {
+            let contractQuery = supabase.from('contracts').select('id');
+            if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
+                contractQuery = contractQuery.in('unit_id', unitIds);
+            }
+            if (year && year !== 'All') {
+                contractQuery = contractQuery
+                    .gte('signed_date', `${year}-01-01`)
+                    .lte('signed_date', `${year}-12-31`);
+            }
+            const { data: contracts } = await contractQuery;
             const contractIds = contracts?.map(c => c.id) || [];
             if (contractIds.length > 0) {
                 query = query.in('contract_id', contractIds);

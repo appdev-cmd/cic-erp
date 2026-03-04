@@ -38,7 +38,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const { can } = usePermissionCheck();
     const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
 
-    const { selectedUnit } = useLayoutContext();
+    const { selectedUnit, yearFilter } = useLayoutContext();
     const unitFilter = selectedUnit?.id || 'all';
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -74,11 +74,13 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 search: debouncedSearch,
                 type: typeFilter,
                 status: statusFilter,
-                unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter]
+                unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter],
+                year: yearFilter
             }),
             page === 1 ? PaymentService.getStats({
                 type: typeFilter,
-                unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter]
+                unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter],
+                year: yearFilter
             }) : Promise.resolve(null),
             page === 1 && customers.length === 0 ? CustomerService.getAll({ pageSize: 200 }) : Promise.resolve(null),
             page === 1 && units.length === 0 ? UnitService.getAll() : Promise.resolve(null)
@@ -98,7 +100,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             hasMore: listRes.data.length >= PAGE_SIZE,
             totalCount: listRes.count
         };
-    }, [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits, customers.length, units.length]);
+    }, [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits, yearFilter, customers.length, units.length]);
 
     const {
         items: payments,
@@ -112,7 +114,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     } = useInfiniteScroll<Payment>({
         fetchFn: fetchPaymentPage,
         pageSize: PAGE_SIZE,
-        resetDeps: [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits]
+        resetDeps: [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits, yearFilter]
     });
 
     // Legacy effect for stats calculation removed (now server-side or separately fetched)
