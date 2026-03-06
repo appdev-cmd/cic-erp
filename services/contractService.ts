@@ -436,10 +436,11 @@ export const ContractService = {
         status?: string;
         unitId?: string;
         year?: string;
+        salespersonId?: string;
         sortBy?: string;
         sortDir?: 'asc' | 'desc';
     }): Promise<{ data: Contract[]; count: number }> => {
-        const { page, limit, search, status, unitId, year, sortBy, sortDir } = params;
+        const { page, limit, search, status, unitId, year, salespersonId, sortBy, sortDir } = params;
 
         // Determine if we need allocation-aware filtering (single unit, not 'All' or comma-separated)
         const isSingleUnitFilter = !isAll(unitId) && !unitId!.includes(',');
@@ -461,6 +462,9 @@ export const ContractService = {
                 const startDate = `${year}-01-01`;
                 const endDate = `${year}-12-31`;
                 query = query.gte('signed_date', startDate).lte('signed_date', endDate);
+            }
+            if (salespersonId) {
+                query = query.eq('employee_id', salespersonId);
             }
 
             // Sort mapping
@@ -529,6 +533,9 @@ export const ContractService = {
                 const endDate = `${year}-12-31`;
                 query = query.gte('signed_date', startDate).lte('signed_date', endDate);
             }
+            if (salespersonId) {
+                query = query.eq('employee_id', salespersonId);
+            }
 
             const SORT_MAP: Record<string, string> = {
                 id: 'id', signedDate: 'signed_date', value: 'value',
@@ -586,6 +593,7 @@ export const ContractService = {
         status?: string;
         unitId?: string;
         year?: string;
+        salespersonId?: string;
     }): Promise<{
         totalContracts: number,
         totalValue: number,
@@ -593,9 +601,16 @@ export const ContractService = {
         totalProfit: number,
         totalSigningProfit: number,
         totalRevenueProfit: number,
-        totalCash: number
+        totalCash: number,
+        processingCount: number,
+        suspendedCount: number,
+        overdueAdvanceCount: number,
+        handoverCount: number,
+        acceptanceCount: number,
+        overduePaymentCount: number,
+        completedCount: number
     }> => {
-        const { search, status, unitId, year } = params;
+        const { search, status, unitId, year, salespersonId } = params;
         // Fetch ALL contracts with unit_allocations for allocation-aware filtering
         // Unit filter is done in JS to support contracts where the unit is a collaborative partner
         let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)');
@@ -612,9 +627,27 @@ export const ContractService = {
             const endDate = `${year}-12-31`;
             query = query.gte('signed_date', startDate).lte('signed_date', endDate);
         }
+        if (salespersonId) {
+            query = query.eq('employee_id', salespersonId);
+        }
 
         const { data, error } = await query;
         if (error) throw error;
+
+        // Also fetch status counts WITHOUT status filter for accurate status card display
+        let statusCountQuery = supabase.from('contracts').select('id, status, unit_id, unit_allocations, signed_date');
+        if (search) {
+            statusCountQuery = statusCountQuery.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,customer_contract_number.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);
+        }
+        if (year && year !== 'All') {
+            const startDate = `${year}-01-01`;
+            const endDate = `${year}-12-31`;
+            statusCountQuery = statusCountQuery.gte('signed_date', startDate).lte('signed_date', endDate);
+        }
+        if (salespersonId) {
+            statusCountQuery = statusCountQuery.eq('employee_id', salespersonId);
+        }
+        const { data: statusData } = await statusCountQuery;
 
         // Determine if filtering by specific unit(s)
         const isFilteringByUnit = !isAll(unitId);
@@ -622,8 +655,27 @@ export const ContractService = {
             ? unitId!.split(',').map(id => id.trim())
             : isFilteringByUnit ? [unitId!] : [];
 
+        // Count statuses from unfiltered data (but respecting unit filter)
+        const statusCounts = { processingCount: 0, suspendedCount: 0, overdueAdvanceCount: 0, handoverCount: 0, acceptanceCount: 0, overduePaymentCount: 0, completedCount: 0 };
+        (statusData || []).forEach((c: any) => {
+            if (isFilteringByUnit) {
+                let matchedPct = 0;
+                for (const targetUnitId of unitIds) {
+                    matchedPct = Math.max(matchedPct, getUnitSharePct(c, targetUnitId));
+                }
+                if (matchedPct === 0) return;
+            }
+            if (c.status === 'Processing') statusCounts.processingCount++;
+            else if (c.status === 'Suspended') statusCounts.suspendedCount++;
+            else if (c.status === 'Overdue_Advance') statusCounts.overdueAdvanceCount++;
+            else if (c.status === 'Handover') statusCounts.handoverCount++;
+            else if (c.status === 'Acceptance' || c.status === 'Liquidated') statusCounts.acceptanceCount++;
+            else if (c.status === 'Overdue_Payment') statusCounts.overduePaymentCount++;
+            else if (c.status === 'Completed') statusCounts.completedCount++;
+        });
+
         // Calculate aggregates in JS — with unit_allocations support (same as getStatsFallback)
-        return (data || []).reduce((acc, curr: any) => {
+        const financials = (data || []).reduce((acc, curr: any) => {
             const val = curr.value || 0;
             const cost = curr.estimated_cost || 0;
             const actCost = curr.actual_cost || 0;
@@ -657,6 +709,8 @@ export const ContractService = {
                 totalCash: acc.totalCash + cash * fraction
             };
         }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0 });
+
+        return { ...financials, ...statusCounts };
     },
 
     // OPTIMIZED RPC-BASED STATS with fallback
@@ -685,9 +739,6 @@ export const ContractService = {
     },
 
 
-    // FALLBACK for when RPC doesn't exist
-    // Supports unit_allocations: when filtering by a specific unit, includes contracts
-    // where the unit participates as a collaborative partner, applying % distribution.
     getStatsFallback: async (unitId: string = 'all', year: string = 'all'): Promise<{
         totalContracts: number,
         totalValue: number,
@@ -703,7 +754,10 @@ export const ContractService = {
         processingCount: number,
         acceptanceCount: number,
         liquidatedCount: number,
-        suspendedCount: number
+        suspendedCount: number,
+        overdueAdvanceCount: number,
+        handoverCount: number,
+        overduePaymentCount: number
     }> => {
         console.log('[ContractService.getStatsFallback] Using direct query');
         // When filtering by unit, we need ALL contracts to check unit_allocations too
@@ -724,7 +778,8 @@ export const ContractService = {
                 totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0,
                 totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0,
                 activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0,
-                processingCount: 0, acceptanceCount: 0, liquidatedCount: 0, suspendedCount: 0
+                processingCount: 0, acceptanceCount: 0, liquidatedCount: 0, suspendedCount: 0,
+                overdueAdvanceCount: 0, handoverCount: 0, overduePaymentCount: 0
             };
         }
 
@@ -760,20 +815,110 @@ export const ContractService = {
                 totalSigningProfit: acc.totalSigningProfit + (val - cost) * fraction,
                 totalRevenueProfit: acc.totalRevenueProfit + (rev > 0 ? Math.round((rev - actCost) * fraction) : 0),
                 totalCash: acc.totalCash + cash * fraction,
-                activeCount: acc.activeCount + (['Processing', 'Acceptance'].includes(curr.status) ? 1 : 0),
+                activeCount: acc.activeCount + (['Processing', 'Acceptance', 'Handover'].includes(curr.status) ? 1 : 0),
                 pendingCount: acc.pendingCount + (curr.status === 'Pending' ? 1 : 0),
                 suspendedCount: acc.suspendedCount + (curr.status === 'Suspended' ? 1 : 0),
                 completedCount: acc.completedCount + (curr.status === 'Completed' ? 1 : 0),
                 liquidatedCount: acc.liquidatedCount + (curr.status === 'Liquidated' ? 1 : 0),
-                acceptanceCount: acc.acceptanceCount + (curr.status === 'Acceptance' ? 1 : 0),
+                acceptanceCount: acc.acceptanceCount + (['Acceptance', 'Liquidated'].includes(curr.status) ? 1 : 0),
                 processingCount: acc.processingCount + (curr.status === 'Processing' ? 1 : 0),
+                overdueAdvanceCount: acc.overdueAdvanceCount + (curr.status === 'Overdue_Advance' ? 1 : 0),
+                handoverCount: acc.handoverCount + (curr.status === 'Handover' ? 1 : 0),
+                overduePaymentCount: acc.overduePaymentCount + (curr.status === 'Overdue_Payment' ? 1 : 0),
                 expiredCount: acc.expiredCount + (
                     ['Processing', 'Acceptance'].includes(curr.status) && curr.end_date && new Date(curr.end_date) < new Date() ? 1 : 0
                 )
             };
-        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, liquidatedCount: 0, suspendedCount: 0 });
+        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, liquidatedCount: 0, suspendedCount: 0, overdueAdvanceCount: 0, handoverCount: 0, overduePaymentCount: 0 });
     },
 
+    /**
+     * Auto-transition logic — runs on Dashboard load.
+     * Checks 3 rules:
+     * 1. Overdue_Advance: Kế hoạch tiền về có mục "Tạm ứng" đã quá hạn mà chưa nhận tiền
+     * 2. Overdue_Payment: Đã xuất HĐ VAT, quá hạn thanh toán (due_date), tiền về < doanh thu xuất HĐ
+     * 3. Completed: Tổng tiền về >= giá trị ký kết
+     */
+    checkAutoStatusTransitions: async (): Promise<{ updated: number; details: string[] }> => {
+        const logPrefix = '[AutoStatus]';
+        console.log(`${logPrefix} Checking auto status transitions...`);
+        const details: string[] = [];
+        let updated = 0;
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+        try {
+            // Fetch active contracts with payments and payment_schedules
+            const { data: contracts, error } = await supabase
+                .from('contracts')
+                .select('id, value, status, payment_schedules, payments(amount, paid_amount, status, payment_type, due_date)')
+                .in('status', ['Processing', 'Handover', 'Acceptance', 'Overdue_Advance', 'Overdue_Payment']);
+
+            if (error || !contracts) {
+                console.error(`${logPrefix} Query error:`, error);
+                return { updated: 0, details: ['Query error'] };
+            }
+
+            for (const contract of contracts) {
+                const contractValue = contract.value || 0;
+                const payments = contract.payments || [];
+                const totalCash = calculateCashReceived(payments);
+                const totalInvoiced = calculateInvoicedFromPayments(payments);
+                const paymentSchedules = (contract.payment_schedules as any)?.schedules || contract.payment_schedules || [];
+
+                let newStatus: string | null = null;
+
+                // Rule 1: Completed — tiền về >= giá trị ký kết
+                if (contractValue > 0 && totalCash >= contractValue && contract.status !== 'Completed') {
+                    newStatus = 'Completed';
+                    details.push(`${contract.id}: → Hoàn thành (tiền về ${totalCash} >= giá trị ${contractValue})`);
+                }
+
+                // Rule 2: Overdue_Payment — đã xuất HĐ, quá hạn, tiền chưa về đủ
+                if (!newStatus && totalInvoiced > 0 && totalCash < totalInvoiced) {
+                    const overdueInvoice = payments.find((p: any) =>
+                        ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status) &&
+                        p.payment_type === 'INVOICE' &&
+                        p.due_date && p.due_date < today
+                    );
+                    if (overdueInvoice && contract.status !== 'Overdue_Payment') {
+                        newStatus = 'Overdue_Payment';
+                        details.push(`${contract.id}: → QH thanh toán (HĐ quá hạn ${overdueInvoice.due_date})`);
+                    }
+                }
+
+                // Rule 3: Overdue_Advance — có kế hoạch tạm ứng quá hạn mà chưa nhận
+                if (!newStatus && Array.isArray(paymentSchedules)) {
+                    const advanceEntry = paymentSchedules.find((s: any) =>
+                        s.description && s.description.toLowerCase().includes('tạm ứng') &&
+                        s.date && s.date < today &&
+                        s.amount > 0
+                    );
+                    if (advanceEntry && totalCash === 0 && contract.status !== 'Overdue_Advance') {
+                        newStatus = 'Overdue_Advance';
+                        details.push(`${contract.id}: → QH tạm ứng (hạn ${advanceEntry.date}, chưa nhận tiền)`);
+                    }
+                }
+
+                // Apply status change
+                if (newStatus) {
+                    const { error: updateError } = await supabase
+                        .from('contracts')
+                        .update({ status: newStatus })
+                        .eq('id', contract.id);
+                    if (!updateError) {
+                        updated++;
+                        console.log(`${logPrefix} ${contract.id}: ${contract.status} → ${newStatus}`);
+                    }
+                }
+            }
+
+            console.log(`${logPrefix} Done. Updated ${updated} contracts.`);
+            return { updated, details };
+        } catch (err) {
+            console.error(`${logPrefix} Error:`, err);
+            return { updated: 0, details: ['Error occurred'] };
+        }
+    },
     getPaymentStatsRPC: async (contractId: string): Promise<{
         totalAmount: number,
         paidAmount: number,

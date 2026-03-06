@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Check } from 'lucide-react';
+import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Check, Clock, AlertCircle, FileText, CheckCircle, PackageCheck } from 'lucide-react';
 import { ContractService, EmployeeService, UnitService } from '../services';
 import { ContractStatus, Unit, Contract, Employee, UserRole } from '../types';
 import { CONTRACT_STATUS_LABELS } from '../constants';
@@ -41,6 +41,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [statusFilter, setStatusFilter] = useState<ContractStatus | 'All'>('All');
   const [unitFilter, setUnitFilter] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [salespersonFilter, setSalespersonFilter] = useState<string>('All');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Infinite scroll batch size
@@ -49,7 +50,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   // Data state
   const [salespeople, setSalespeople] = useState<Employee[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
-  const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0 });
+  const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalRevenueProfit: 0, totalCash: 0, processingCount: 0, suspendedCount: 0, overdueAdvanceCount: 0, handoverCount: 0, acceptanceCount: 0, overduePaymentCount: 0, completedCount: 0 });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Cross-unit visibility
@@ -67,9 +68,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
   const ACTIVE_STATUSES = [
     { value: 'Processing', label: 'Đang thực hiện', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800' },
-    { value: 'Suspended', label: 'Tạm dừng', color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' },
-    { value: 'Acceptance', label: 'Nghiệm thu', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
-    { value: 'Liquidated', label: 'Thanh lý', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800' },
+    { value: 'Suspended', label: 'Tạm dừng/Huỷ', color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' },
+    { value: 'Overdue_Advance', label: 'QH tạm ứng', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
+    { value: 'Handover', label: 'Bàn giao', color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800' },
+    { value: 'Acceptance', label: 'Nghiệm thu/TL', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
+    { value: 'Overdue_Payment', label: 'QH thanh toán', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800' },
     { value: 'Completed', label: 'Hoàn thành', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
   ];
 
@@ -185,6 +188,9 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onAdd, gKeyPressed]);
 
+  // Filtered salespeople list — only those who have contracts in current view
+  const [contractSalespersonIds, setContractSalespersonIds] = useState<Set<string>>(new Set());
+
   // Initial lookup data fetch (Run once)
   useEffect(() => {
     const fetchLookups = async () => {
@@ -237,6 +243,32 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     return canSeeAll ? 'All' : 'All';
   }, [profile, selectedUnit, unitFilter, canSeeAll, visibleUnits]);
 
+  // Fetch unique salesperson IDs from contracts (depends on unit & year)
+  useEffect(() => {
+    const fetchSalespersonIds = async () => {
+      try {
+        const { dataClient } = await import('../lib/dataClient');
+        let query = dataClient.from('contracts').select('employee_id');
+        if (effectiveUnitId && effectiveUnitId !== 'all' && effectiveUnitId !== 'All') {
+          if (effectiveUnitId.includes(',')) {
+            query = query.in('unit_id', effectiveUnitId.split(',').map(id => id.trim()));
+          } else {
+            query = query.eq('unit_id', effectiveUnitId);
+          }
+        }
+        if (yearFilter && yearFilter !== 'All') {
+          query = query.gte('signed_date', `${yearFilter}-01-01`).lte('signed_date', `${yearFilter}-12-31`);
+        }
+        const { data } = await query;
+        const ids = new Set((data || []).map((c: any) => c.employee_id).filter(Boolean));
+        setContractSalespersonIds(ids as Set<string>);
+      } catch (e) {
+        console.error("Fetch salesperson IDs failed", e);
+      }
+    };
+    fetchSalespersonIds();
+  }, [effectiveUnitId, yearFilter]);
+
   // Infinite scroll fetch function
   const fetchContractPage = useCallback(async (page: number) => {
     const params = {
@@ -246,6 +278,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       status: statusFilter,
       unitId: effectiveUnitId,
       year: yearFilter,
+      salespersonId: salespersonFilter !== 'All' ? salespersonFilter : undefined,
       sortBy: sortBy || undefined,
       sortDir: sortBy ? sortDir : undefined
     };
@@ -262,7 +295,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       hasMore: listRes.data.length >= PAGE_SIZE,
       totalCount: listRes.count
     };
-  }, [debouncedSearch, statusFilter, effectiveUnitId, yearFilter, sortBy, sortDir]);
+  }, [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, sortBy, sortDir]);
 
   const {
     items: contracts,
@@ -276,7 +309,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   } = useInfiniteScroll<Contract>({
     fetchFn: fetchContractPage,
     pageSize: PAGE_SIZE,
-    resetDeps: [debouncedSearch, statusFilter, effectiveUnitId, yearFilter, sortBy, sortDir]
+    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, sortBy, sortDir]
   });
 
   // Tự động sinh danh sách 5 năm gần nhất
@@ -291,7 +324,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-12">
+    <div className="space-y-3 animate-in slide-in-from-bottom-4 duration-500 pb-4">
       {/* Impersonation Warning Banner */}
       {isImpersonating && impersonatedUser && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4 flex items-center gap-3">
@@ -386,59 +419,103 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       </div>
 
       {/* SCORE CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {/* Total Contracts */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 dark-card-glow">
-          <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
-            <Briefcase size={24} />
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 dark-card-glow">
+          <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
+            <Briefcase size={20} />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng số hồ sơ</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{metrics.totalContracts}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng số hồ sơ</p>
+            <p className="text-xl font-black text-slate-900 dark:text-slate-100">{metrics.totalContracts}</p>
           </div>
         </div>
 
         {/* Total Value */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 dark-card-glow">
-          <div className="w-12 h-12 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-            <DollarSign size={24} />
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 dark-card-glow">
+          <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <DollarSign size={20} />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng giá trị ký</p>
-            <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng giá trị ký</p>
+            <p className="text-base font-black text-indigo-600 dark:text-indigo-400">
               {formatCurrency(metrics.totalValue)}
             </p>
           </div>
         </div>
 
         {/* Revenue */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 dark-card-glow">
-          <div className="w-12 h-12 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-            <TrendingUp size={24} />
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 dark-card-glow">
+          <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <TrendingUp size={20} />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Doanh thu thực tế</p>
-            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Doanh thu thực tế</p>
+            <p className="text-base font-black text-emerald-600 dark:text-emerald-400">
               {formatCurrency(metrics.totalRevenue)}
             </p>
           </div>
         </div>
 
-        {/* Profit */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 dark-card-glow">
-          <div className="w-12 h-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
-            <DollarSign size={24} />
+        {/* LNG Quản trị */}
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 dark-card-glow">
+          <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+            <DollarSign size={20} />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Lợi nhuận gộp</p>
-            <p className="text-lg font-black text-amber-600 dark:text-amber-400">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">LNG Quản trị</p>
+            <p className="text-base font-black text-amber-600 dark:text-amber-400">
               {formatCurrency(metrics.totalProfit)}
+            </p>
+          </div>
+        </div>
+
+        {/* LNG Doanh thu */}
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 dark-card-glow">
+          <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+            <DollarSign size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">LNG Doanh thu</p>
+            <p className="text-base font-black text-purple-600 dark:text-purple-400">
+              {formatCurrency(metrics.totalRevenueProfit)}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-md flex flex-wrap gap-4 items-center">
+      {/* STATUS FILTER CARDS */}
+      {(() => {
+        const statusCards: { status: ContractStatus; label: string; count: number; icon: React.ReactNode; color: string; bgColor: string }[] = [
+          { status: 'Processing', label: 'Đang thực hiện', count: metrics.processingCount, icon: <Clock size={16} />, color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-900/25 border border-orange-100 dark:border-orange-800/40' },
+          { status: 'Suspended', label: 'Tạm dừng/Huỷ', count: metrics.suspendedCount, icon: <AlertCircle size={16} />, color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/25 border border-red-100 dark:border-red-800/40' },
+          { status: 'Overdue_Advance', label: 'QH tạm ứng', count: metrics.overdueAdvanceCount, icon: <AlertCircle size={16} />, color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-900/25 border border-amber-100 dark:border-amber-800/40' },
+          { status: 'Handover', label: 'Bàn giao', count: metrics.handoverCount, icon: <PackageCheck size={16} />, color: 'text-cyan-600 dark:text-cyan-400', bgColor: 'bg-cyan-50 dark:bg-cyan-900/25 border border-cyan-100 dark:border-cyan-800/40' },
+          { status: 'Acceptance', label: 'Nghiệm thu/TL', count: metrics.acceptanceCount, icon: <FileText size={16} />, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/25 border border-blue-100 dark:border-blue-800/40' },
+          { status: 'Overdue_Payment', label: 'QH thanh toán', count: metrics.overduePaymentCount, icon: <AlertCircle size={16} />, color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/25 border border-red-100 dark:border-red-800/40' },
+          { status: 'Completed', label: 'Hoàn thành', count: metrics.completedCount, icon: <CheckCircle size={16} />, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-50 dark:bg-emerald-900/25 border border-emerald-100 dark:border-emerald-800/40' },
+        ];
+        return (
+          <div className="grid grid-cols-7 gap-2">
+            {statusCards.map(sc => (
+              <button
+                key={sc.status}
+                onClick={() => setStatusFilter(statusFilter === sc.status ? 'All' : sc.status)}
+                className={`${sc.bgColor} rounded-lg px-2 py-2 flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] ${statusFilter === sc.status ? 'ring-2 ring-indigo-500 shadow-lg' : ''
+                  }`}
+              >
+                <div className={sc.color}>{sc.icon}</div>
+                <div>
+                  <p className={`text-[9px] font-bold ${sc.color} uppercase`}>{sc.label}</p>
+                  <p className={`text-lg font-black ${sc.color}`}>{sc.count}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
+
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 shadow-md flex flex-wrap gap-3 items-center">
         {/* Search */}
         <div className="flex-1 min-w-[240px] relative">
           <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -463,16 +540,35 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           >
             <option value="All">Tất cả trạng thái</option>
             <option value="Processing">Đang thực hiện</option>
-            <option value="Suspended">Tạm dừng</option>
-            <option value="Acceptance">Nghiệm thu</option>
-            <option value="Liquidated">Thanh lý</option>
+            <option value="Suspended">Tạm dừng/Huỷ</option>
+            <option value="Overdue_Advance">QH tạm ứng</option>
+            <option value="Handover">Bàn giao</option>
+            <option value="Acceptance">Nghiệm thu/TL</option>
+            <option value="Overdue_Payment">QH thanh toán</option>
             <option value="Completed">Hoàn thành</option>
+          </select>
+        </div>
+
+        {/* Salesperson Filter */}
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
+          <User size={18} className="text-slate-500" />
+          <select
+            className="bg-transparent py-3 text-sm font-black text-slate-900 dark:text-slate-100 outline-none max-w-[180px]"
+            value={salespersonFilter}
+            onChange={(e) => setSalespersonFilter(e.target.value)}
+          >
+            <option value="All">Tất cả nhân sự</option>
+            {salespeople
+              .filter(sp => contractSalespersonIds.has(sp.id))
+              .map(sp => (
+                <option key={sp.id} value={sp.id}>{sp.name}</option>
+              ))}
           </select>
         </div>
       </div>
 
       {/* TABLE */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-360px)]">
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]">
         <table className="w-full text-left">
           <thead>
             <tr className="z-20">
@@ -580,10 +676,10 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${isCollaborative ? 'bg-blue-50/40 dark:bg-blue-900/10' : index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-transparent dark:bg-transparent'}`}
                   title={isCollaborative ? `HĐ phối hợp — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * (allocationPct || 100) / 100))}` : allocationRole === 'lead' && allocationPct !== undefined && allocationPct < 100 ? `HĐ chủ trì — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * allocationPct / 100))}` : undefined}
                 >
-                  <td className="px-3 py-4 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                  <td className="px-3 py-2 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
                     {stt.toString().padStart(2, '0')}
                   </td>
-                  <td className="px-3 py-4">
+                  <td className="px-3 py-2">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0 ${contract.contractType === 'HĐ' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'}`}>
                         {contract.contractType}
@@ -608,7 +704,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-4 text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                  <td className="px-3 py-2 text-[11px] font-bold text-slate-800 dark:text-slate-200">
                     <div className="flex items-center gap-2">
                       <p className="line-clamp-2" title={contract.title}>{contract.title}</p>
                       {isCollaborative && (
@@ -631,7 +727,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-4">
+                  <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-400">
                         {salesperson?.name ? salesperson.name[0] : '?'}
@@ -640,7 +736,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     </div>
                   </td>
                   {/* Ký kết — hiển thị giá trị phân bổ, hover xem giá trị ký kết gốc */}
-                  <td className="px-3 py-4 text-right">
+                  <td className="px-3 py-2 text-right">
                     {(() => {
                       const fullValue = contract.value || 0;
                       const allocatedValue = allocationPct !== undefined && allocationPct < 100
@@ -658,19 +754,19 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     })()}
                   </td>
                   {/* Doanh thu */}
-                  <td className="px-3 py-4 text-right">
+                  <td className="px-3 py-2 text-right">
                     <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100" title={formatCurrency(revenue)}>
                       {formatCurrency(revenue)}
                     </span>
                   </td>
                   {/* Lợi nhuận gộp */}
-                  <td className="px-3 py-4 text-right">
+                  <td className="px-3 py-2 text-right">
                     <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400" title={formatCurrency(profit)}>
                       {formatCurrency(profit)}
                     </span>
                   </td>
                   {/* Tiền về */}
-                  <td className="px-3 py-4 text-right">
+                  <td className="px-3 py-2 text-right">
                     {cashReceived > 0 ? (
                       advanceAmount > 0 && advanceAmount >= cashReceived ? (
                         // All cash is from advance payments
@@ -700,12 +796,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     )}
                   </td>
                   {/* Tỷ suất LN/DT */}
-                  <td className="px-3 py-4 text-center">
+                  <td className="px-3 py-2 text-center">
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${margin > 50 ? 'bg-emerald-100/50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
                       {margin.toFixed(0)}%
                     </span>
                   </td>
-                  <td className="px-3 py-4 text-center">
+                  <td className="px-3 py-2 text-center">
                     <div className="relative inline-block" ref={statusDropdownId === contract.id ? statusDropdownRef : undefined}>
                       <button
                         onClick={(e) => {
@@ -716,9 +812,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                         className={`group/status w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold shadow-sm transition-all focus:ring-2 focus:ring-orange-500 cursor-pointer ${contract.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/20' :
                           contract.status === 'Processing' ? 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 hover:bg-orange-500/20' :
                             contract.status === 'Suspended' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 hover:bg-rose-500/20' :
-                              contract.status === 'Liquidated' ? 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 hover:bg-purple-500/20' :
-                                contract.status === 'Acceptance' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 hover:bg-blue-500/20' :
-                                  'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                              contract.status === 'Overdue_Advance' ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 hover:bg-amber-500/20' :
+                                contract.status === 'Handover' ? 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 hover:bg-cyan-500/20' :
+                                  contract.status === 'Acceptance' || contract.status === 'Liquidated' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 hover:bg-blue-500/20' :
+                                    contract.status === 'Overdue_Payment' ? 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 hover:bg-red-500/20' :
+                                      'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                           }`}
                         title="Click để đổi trạng thái"
                       >
@@ -748,8 +846,10 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                             >
                               <span className={`w-2 h-2 rounded-full ${s.value === 'Processing' ? 'bg-orange-500' :
                                 s.value === 'Suspended' ? 'bg-rose-500' :
-                                  s.value === 'Acceptance' ? 'bg-blue-500' :
-                                    s.value === 'Liquidated' ? 'bg-purple-500' : 'bg-emerald-500'
+                                  s.value === 'Overdue_Advance' ? 'bg-amber-500' :
+                                    s.value === 'Handover' ? 'bg-cyan-500' :
+                                      s.value === 'Acceptance' ? 'bg-blue-500' :
+                                        s.value === 'Overdue_Payment' ? 'bg-red-500' : 'bg-emerald-500'
                                 }`} />
                               {s.label}
                               {contract.status === s.value && <Check size={14} className="ml-auto text-indigo-500" />}
@@ -759,7 +859,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-4 text-right">
+                  <td className="px-3 py-2 text-right">
                     {(onClone && (isGlobalScope || contract.unitId === profile?.unitId)) && (
                       <button
                         onClick={(e) => {

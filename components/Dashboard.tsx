@@ -35,6 +35,7 @@ import {
   ShieldCheck,
   Loader2,
   Building2,
+  PackageCheck,
 } from 'lucide-react';
 import { Skeleton } from './ui/Skeleton';
 import ErrorBoundary from './ErrorBoundary';
@@ -108,7 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   // Dashboard Metrics
   const [stats, setStats] = useState({
     actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
-    statusCounts: { processing: 0, suspended: 0, acceptance: 0, completed: 0, liquidated: 0 }
+    statusCounts: { processing: 0, suspended: 0, overdueAdvance: 0, handover: 0, acceptance: 0, overduePayment: 0, completed: 0 }
   });
 
   // Chart Data
@@ -161,6 +162,13 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
       });
 
       try {
+        // STEP 0: Auto-check status transitions
+        console.log('[Dashboard] Step 0: Auto-checking status transitions...');
+        const autoResult = await ContractService.checkAutoStatusTransitions();
+        if (autoResult.updated > 0) {
+          console.log(`[Dashboard] Auto-transitions: ${autoResult.updated} contracts updated`, autoResult.details);
+        }
+
         // STEP 1: Fetch Stats via ContractService (now uses dataClient)
         console.log('[Dashboard] Step 1: Fetching stats via ContractService...');
         const statsData = await ContractService.getStatsRPC(unitId, year);
@@ -178,9 +186,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
             statusCounts: {
               processing: Number((statsData as any)?.processingCount) || 0,
               suspended: Number((statsData as any)?.suspendedCount) || 0,
+              overdueAdvance: Number((statsData as any)?.overdueAdvanceCount) || 0,
+              handover: Number((statsData as any)?.handoverCount) || 0,
               acceptance: Number((statsData as any)?.acceptanceCount) || 0,
-              completed: Number((statsData as any)?.completedCount) || 0,
-              liquidated: Number((statsData as any)?.liquidatedCount) || 0
+              overduePayment: Number((statsData as any)?.overduePaymentCount) || 0,
+              completed: Number((statsData as any)?.completedCount) || 0
             }
           });
         }
@@ -275,7 +285,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         if (!isCancelled) {
           setStats({
             actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
-            statusCounts: { processing: 0, suspended: 0, acceptance: 0, completed: 0, liquidated: 0 }
+            statusCounts: { processing: 0, suspended: 0, overdueAdvance: 0, handover: 0, acceptance: 0, overduePayment: 0, completed: 0 }
           });
         }
       } finally {
@@ -534,13 +544,15 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={displayTarget} yoy={{ value: '0', isUp: true, lastYearTotal: 0 }} color="cyan" icon={<Wallet size={20} />} />
         </div>
 
-        {/* Status Highlights — All 5 contract statuses */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatusCard label="Đang thực hiện" count={stats.statusCounts.processing} icon={<Clock size={22} className="text-orange-600 dark:text-orange-400" />} color="orange" />
-          <StatusCard label="Tạm dừng" count={stats.statusCounts.suspended} icon={<AlertCircle size={22} className="text-rose-600 dark:text-rose-400" />} color="rose" />
-          <StatusCard label="Nghiệm thu" count={stats.statusCounts.acceptance} icon={<ClipboardList size={22} className="text-blue-600 dark:text-blue-400" />} color="blue" />
-          <StatusCard label="Đã thanh lý" count={stats.statusCounts.liquidated} icon={<ShieldCheck size={22} className="text-purple-600 dark:text-purple-400" />} color="purple" />
-          <StatusCard label="Hoàn thành" count={stats.statusCounts.completed} icon={<CheckCircle2 size={22} className="text-emerald-600 dark:text-emerald-400" />} color="emerald" />
+        {/* Status Highlights — All 7 contract statuses */}
+        <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
+          <StatusCard label="Đang thực hiện" count={stats.statusCounts.processing} icon={<Clock size={18} className="text-orange-600 dark:text-orange-400" />} color="orange" />
+          <StatusCard label="Tạm dừng/Huỷ" count={stats.statusCounts.suspended} icon={<AlertCircle size={18} className="text-rose-600 dark:text-rose-400" />} color="rose" />
+          <StatusCard label="QH tạm ứng" count={stats.statusCounts.overdueAdvance} icon={<AlertCircle size={18} className="text-amber-600 dark:text-amber-400" />} color="amber" />
+          <StatusCard label="Bàn giao" count={stats.statusCounts.handover} icon={<PackageCheck size={18} className="text-cyan-600 dark:text-cyan-400" />} color="cyan" />
+          <StatusCard label="Nghiệm thu/TL" count={stats.statusCounts.acceptance} icon={<ClipboardList size={18} className="text-blue-600 dark:text-blue-400" />} color="blue" />
+          <StatusCard label="QH thanh toán" count={stats.statusCounts.overduePayment} icon={<AlertCircle size={18} className="text-red-600 dark:text-red-400" />} color="red" />
+          <StatusCard label="Hoàn thành" count={stats.statusCounts.completed} icon={<CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400" />} color="emerald" />
         </div>
 
         {/* STICKY FILTER BAR - Metric Tabs */}
@@ -727,8 +739,8 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 text-right bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-transparent transition-colors text-sm font-bold text-slate-500">{formatCurrency(row.target)}</td>
-                      <td className="py-4 text-right bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-transparent transition-colors text-sm font-black text-slate-900 dark:text-slate-100">{formatCurrency(row.actual)}</td>
+                      <td className="py-4 text-right bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-transparent transition-colors text-sm font-bold text-slate-500">{Math.round(row.target).toLocaleString('vi-VN')}</td>
+                      <td className="py-4 text-right bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-transparent transition-colors text-sm font-black text-slate-900 dark:text-slate-100">{Math.round(row.actual).toLocaleString('vi-VN')}</td>
                       <td className="py-4 px-6 rounded-r-3xl bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-r border-transparent transition-colors">
                         <div className="flex items-center gap-4">
                           <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
@@ -826,7 +838,10 @@ const StatusCard = ({ label, count, icon, color }: any) => {
   const bgColors: any = {
     orange: 'bg-orange-50 dark:bg-orange-900/25 border border-orange-100 dark:border-orange-800/40',
     rose: 'bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800/40',
+    amber: 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/40',
+    cyan: 'bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-100 dark:border-cyan-800/40',
     blue: 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40',
+    red: 'bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/40',
     purple: 'bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/40',
     emerald: 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/40',
   };

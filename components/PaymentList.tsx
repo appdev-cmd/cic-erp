@@ -38,7 +38,7 @@ interface PaymentListProps {
 const VOUCHER_TABS: { type: VoucherType; label: string; icon: React.ReactNode; color: string; activeClass: string }[] = [
     {
         type: 'VAT_INVOICE',
-        label: 'Phiếu HĐ VAT',
+        label: 'Hoá đơn VAT',
         icon: <FileText size={15} />,
         color: 'text-blue-600 dark:text-blue-400',
         activeClass: 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
@@ -307,7 +307,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                     <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><AlertTriangle size={18} className="text-amber-600 dark:text-amber-400" /></div>
                                     <div>
                                         <p className="text-lg font-black text-amber-600 dark:text-amber-400">{formatCurrency((stats.invoicedAmount || 0) - (stats.cashReceivedAmount || 0))}</p>
-                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Công nợ</p>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Tiền về</p>
                                     </div>
                                 </div>
                             </div>

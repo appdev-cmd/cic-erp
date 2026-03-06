@@ -5,10 +5,13 @@ export type ContractStatus =
   | 'Both_Approved'   // Cả hai bên đã duyệt
   | 'Pending_Sign'    // Chờ lãnh đạo ký
   | 'Processing'      // Đang thực hiện (sau khi ký)
-  | 'Suspended'       // Tạm dừng
-  | 'Acceptance'      // Nghiệm thu
-  | 'Liquidated'      // Thanh lý
-  | 'Completed';      // Hoàn thành
+  | 'Suspended'       // Tạm dừng/Huỷ
+  | 'Overdue_Advance' // Quá hạn tạm ứng (tự động)
+  | 'Handover'        // Bàn giao
+  | 'Acceptance'      // Nghiệm thu/Thanh lý
+  | 'Overdue_Payment' // Quá hạn thanh toán (tự động)
+  | 'Liquidated'      // Legacy: gộp vào Acceptance
+  | 'Completed';      // Hoàn thành (tự động khi tiền về = giá trị ký)
 export type ImplementationStage = 'Signed' | 'Advanced' | 'Guaranteed' | 'InputOrdered' | 'Implementation' | 'Completed' | 'Invoiced';
 export type ContractType = 'HĐ' | 'VV';
 
