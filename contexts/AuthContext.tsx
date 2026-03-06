@@ -304,16 +304,97 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.log('[AuthContext.fetchProfile] Profile set successfully');
             } else {
                 // ===============================================
-                // SECURITY: Profile must exist in the system
+                // AUTO-CREATE PROFILE: If no profile exists, check
+                // if an employee record with matching email exists.
+                // If so, auto-create the profile so the user can log in.
                 // ===============================================
-                console.warn('[AuthContext.fetchProfile] REJECTED: No profile found for user:', userId, email);
-                alert('Tài khoản của bạn chưa được đăng ký trong hệ thống. Vui lòng liên hệ quản trị viên.');
-                await supabase.auth.signOut();
-                setSession(null);
-                setUser(null);
-                setProfile(null);
-                setIsLoading(false);
-                return;
+                const userEmail = email || '';
+                console.log('[AuthContext.fetchProfile] No profile found. Checking employees for email:', userEmail);
+
+                if (userEmail) {
+                    const { data: empData, error: empError } = await dataClient
+                        .from('employees')
+                        .select('id, name, email, unit_id, role_code')
+                        .ilike('email', userEmail)
+                        .limit(1)
+                        .single();
+
+                    if (!empError && empData) {
+                        // Employee found — auto-create profile
+                        console.log('[AuthContext.fetchProfile] Employee found! Auto-creating profile for:', empData.name);
+
+                        const newProfile = {
+                            id: userId,
+                            email: empData.email || userEmail,
+                            full_name: empData.name,
+                            role: empData.role_code || 'NVKD',
+                            employee_id: empData.id,
+                            unit_id: empData.unit_id,
+                        };
+
+                        const { error: insertError } = await dataClient
+                            .from('profiles')
+                            .insert(newProfile);
+
+                        if (insertError) {
+                            console.error('[AuthContext.fetchProfile] Failed to auto-create profile:', insertError);
+                            clearTimeout(timeoutId);
+                            alert('Lỗi khi tạo hồ sơ người dùng. Vui lòng liên hệ quản trị viên.');
+                            await supabase.auth.signOut();
+                            setSession(null);
+                            setUser(null);
+                            setProfile(null);
+                            setIsLoading(false);
+                            return;
+                        }
+
+                        console.log('[AuthContext.fetchProfile] Profile auto-created successfully!');
+
+                        // Look up unit code
+                        let unitCode: string | undefined;
+                        if (empData.unit_id) {
+                            const { data: unitData } = await dataClient
+                                .from('units')
+                                .select('code')
+                                .eq('id', empData.unit_id)
+                                .single();
+                            unitCode = unitData?.code;
+                        }
+
+                        setProfile({
+                            id: userId,
+                            email: empData.email || userEmail,
+                            fullName: empData.name,
+                            role: (empData.role_code || 'NVKD') as UserRole,
+                            unitId: empData.unit_id,
+                            unitCode: unitCode,
+                            avatarUrl: undefined,
+                            employeeId: empData.id,
+                        });
+                        console.log('[AuthContext.fetchProfile] Profile set successfully (auto-created)');
+                    } else {
+                        // No employee found either — reject
+                        console.warn('[AuthContext.fetchProfile] REJECTED: No profile and no employee for:', userEmail);
+                        clearTimeout(timeoutId);
+                        alert('Tài khoản của bạn chưa được đăng ký trong hệ thống nhân sự. Vui lòng liên hệ quản trị viên.');
+                        await supabase.auth.signOut();
+                        setSession(null);
+                        setUser(null);
+                        setProfile(null);
+                        setIsLoading(false);
+                        return;
+                    }
+                } else {
+                    console.warn('[AuthContext.fetchProfile] REJECTED: No profile and no email for user:', userId);
+                    clearTimeout(timeoutId);
+                    alert('Tài khoản của bạn chưa được đăng ký trong hệ thống. Vui lòng liên hệ quản trị viên.');
+                    await supabase.auth.signOut();
+                    setSession(null);
+                    setUser(null);
+                    setProfile(null);
+                    setIsLoading(false);
+                    return;
+                }
             }
         } catch (e) {
             console.error('[AuthContext.fetchProfile] Exception:', e);
