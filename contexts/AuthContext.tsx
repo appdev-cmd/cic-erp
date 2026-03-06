@@ -291,6 +291,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     unitCode = unitData?.code;
                 }
 
+                // ─── Sync Google avatar if profile has none ───
+                let avatarUrl = data.avatar_url;
+                if (!avatarUrl) {
+                    // Try to get Google avatar from auth session metadata
+                    const { data: { session: currentSession } } = await supabase.auth.getSession();
+                    const googleAvatar = currentSession?.user?.user_metadata?.avatar_url
+                        || currentSession?.user?.user_metadata?.picture;
+                    if (googleAvatar) {
+                        avatarUrl = googleAvatar;
+                        // Save to profiles table for future use
+                        await dataClient
+                            .from('profiles')
+                            .update({ avatar_url: googleAvatar })
+                            .eq('id', userId);
+                        console.log('[AuthContext.fetchProfile] Synced Google avatar to profile');
+                    }
+                }
+
                 setProfile({
                     id: data.id,
                     email: userEmail,
@@ -298,7 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     role: userRole,
                     unitId: unitId,
                     unitCode: unitCode,
-                    avatarUrl: data.avatar_url,
+                    avatarUrl: avatarUrl,
                     employeeId: employeeId
                 });
                 console.log('[AuthContext.fetchProfile] Profile set successfully');

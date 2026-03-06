@@ -1,6 +1,7 @@
 import React from 'react';
 import { Mail, Phone, Send } from 'lucide-react';
 import { FormSectionProps } from './types';
+import DateInput from '../ui/DateInput';
 
 const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, units }) => {
     return (
@@ -56,10 +57,9 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
 
             <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Ngày vào làm</label>
-                <input
-                    type="date"
+                <DateInput
                     value={formData.dateJoined}
-                    onChange={e => setFormData({ ...formData, dateJoined: e.target.value })}
+                    onChange={(val) => setFormData({ ...formData, dateJoined: val })}
                     className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800"
                 />
             </div>

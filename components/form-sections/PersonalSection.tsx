@@ -1,6 +1,7 @@
 import React from 'react';
 import { Calendar, MapPin, CreditCard, Users } from 'lucide-react';
 import { FormSectionProps } from './types';
+import DateInput from '../ui/DateInput';
 
 const PersonalSection: React.FC<FormSectionProps> = ({ formData, setFormData }) => {
     return (
@@ -12,10 +13,9 @@ const PersonalSection: React.FC<FormSectionProps> = ({ formData, setFormData }) 
             <div className="grid grid-cols-4 gap-4">
                 <div>
                     <label className="block text-xs text-slate-500 mb-1">Ngày sinh</label>
-                    <input
-                        type="date"
+                    <DateInput
                         value={formData.dateOfBirth}
-                        onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                        onChange={(val) => setFormData({ ...formData, dateOfBirth: val })}
                         className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800"
                     />
                 </div>
