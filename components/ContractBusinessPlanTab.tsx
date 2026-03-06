@@ -410,20 +410,20 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                         </div>
                     </div>
                     <div className="mb-8 overflow-visible rounded-lg border border-slate-200 dark:border-slate-800">
-                        <table className="w-full text-left text-xs min-w-[1200px]">
+                        <table className="w-full text-left text-xs">
                             <thead className="bg-slate-50 dark:bg-slate-800">
                                 <tr>
-                                    <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs w-[320px]">Sản phẩm/Dịch vụ</th>
-                                    <th className="px-2 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-center w-10">SL</th>
-                                    <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs w-[180px]">Nhà cung cấp</th>
-                                    <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">Giá Đầu vào</th>
-                                    <th className="px-3 py-3 font-bold text-cyan-500 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">TT Đầu vào</th>
-                                    <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">Giá Đầu ra</th>
-                                    <th className="px-2 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-center w-[80px]">VAT</th>
-                                    <th className="px-3 py-3 font-bold text-indigo-400 uppercase tracking-tighter text-xs text-right w-[120px] whitespace-nowrap">TT Đầu ra</th>
-                                    <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[110px] whitespace-nowrap">CP Trực tiếp</th>
-                                    <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-xs text-right w-[110px] whitespace-nowrap">Chênh lệch</th>
-                                    {isEditing && <th className="px-2 py-3 w-10"></th>}
+                                    <th className="px-3 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-[10px]">Sản phẩm/Dịch vụ</th>
+                                    <th className="px-1 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-[10px] text-center w-8">SL</th>
+                                    <th className="px-2 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-[10px] w-[100px]">NCC</th>
+                                    <th className="px-2 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">Giá vào</th>
+                                    <th className="px-2 py-3 font-bold text-cyan-500 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">TT vào</th>
+                                    <th className="px-2 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">Giá ra</th>
+                                    <th className="px-1 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-[10px] text-center w-12">VAT</th>
+                                    <th className="px-2 py-3 font-bold text-indigo-400 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">TT ra</th>
+                                    <th className="px-2 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">CP TT</th>
+                                    <th className="px-2 py-3 font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">Chênh lệch</th>
+                                    {isEditing && <th className="px-1 py-3 w-8"></th>}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
@@ -436,7 +436,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
 
                                     return (
                                         <tr key={item.id || idx} className="group hover:bg-slate-50 dark:hover:bg-slate-700">
-                                            <td className="px-4 py-3">
+                                            <td className="px-3 py-2.5">
                                                 {isEditing ? (
                                                     <SearchableSelect
                                                         value={products.find(p => p.name === item.name)?.id || null}
@@ -466,7 +466,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                                     <span className="font-bold text-slate-700 dark:text-slate-200">{item.name}</span>
                                                 )}
                                             </td>
-                                            <td className="px-2 py-3 text-center">
+                                            <td className="px-1 py-2.5 text-center">
                                                 {isEditing ? (
                                                     <input type="number" value={item.quantity}
                                                         onChange={(e) => updateLineItem(idx, 'quantity', Number(e.target.value) || 1)}
@@ -474,7 +474,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                                     />
                                                 ) : item.quantity}
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-2 py-2.5">
                                                 {isEditing ? (
                                                     <select value={item.supplier || ''}
                                                         onChange={(e) => updateLineItem(idx, 'supplier', e.target.value)}
@@ -489,7 +489,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                                     <span className="text-slate-500 dark:text-slate-400">{item.supplier || '-'}</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-2 py-2.5 text-right">
                                                 <div className="relative group/currency">
                                                     {isEditing ? (
                                                         <input type="text" value={fmtVND(item.inputPrice)}
@@ -523,10 +523,10 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-3 py-3 text-right">
+                                            <td className="px-2 py-2.5 text-right">
                                                 <span className="font-bold text-cyan-600 dark:text-cyan-400">{fmtVND(inputTotal)}</span>
                                             </td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-2 py-2.5 text-right">
                                                 {isEditing ? (
                                                     <input type="text" value={fmtVND(item.outputPrice)}
                                                         onChange={(e) => {
@@ -540,7 +540,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                                     <span className="font-bold text-orange-600 dark:text-orange-400">{fmtVND(item.outputPrice)}</span>
                                                 )}
                                             </td>
-                                            <td className="px-2 py-3 text-center">
+                                            <td className="px-1 py-2.5 text-center">
                                                 {isEditing ? (
                                                     <select value={item.vatRate ?? 0}
                                                         onChange={(e) => updateLineItem(idx, 'vatRate', Number(e.target.value))}
@@ -555,10 +555,10 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                                     <span className="text-slate-500 dark:text-slate-400">{item.vatRate ?? 0}%</span>
                                                 )}
                                             </td>
-                                            <td className="px-3 py-3 text-right">
+                                            <td className="px-2 py-2.5 text-right">
                                                 <span className="font-bold text-indigo-600 dark:text-indigo-400">{fmtVND(outputWithVat)}</span>
                                             </td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-2 py-2.5 text-right">
                                                 {isEditing ? (
                                                     <div className="relative group/costs">
                                                         <input type="text" readOnly
@@ -588,7 +588,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-2 py-2.5 text-right">
                                                 <div className="flex flex-col items-end">
                                                     <span className={`font-bold ${lineMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{fmtVND(lineMargin)}</span>
                                                     <span className="text-[9px] font-bold text-slate-400">{lineMarginRate.toFixed(1)}%</span>
@@ -608,24 +608,24 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                 })}
                                 {/* Totals Row */}
                                 <tr className="bg-slate-50 dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 border-t-2 border-slate-200 dark:border-slate-600">
-                                    <td className="px-4 py-3" colSpan={3}>TỔNG CỘNG</td>
-                                    <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400">
+                                    <td className="px-3 py-2.5" colSpan={3}>TỔNG CỘNG</td>
+                                    <td className="px-2 py-2.5 text-right text-slate-500 dark:text-slate-400">
                                         {fmtVND(lineItems.reduce((acc, item) => acc + item.inputPrice, 0))}
                                     </td>
-                                    <td className="px-3 py-3 text-right text-cyan-600 dark:text-cyan-400 font-black">
+                                    <td className="px-2 py-2.5 text-right text-cyan-600 dark:text-cyan-400 font-black">
                                         {fmtVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.inputPrice), 0))}
                                     </td>
-                                    <td className="px-4 py-3 text-right text-orange-600 dark:text-orange-400">
+                                    <td className="px-2 py-2.5 text-right text-orange-600 dark:text-orange-400">
                                         {fmtVND(lineItems.reduce((acc, item) => acc + item.outputPrice, 0))}
                                     </td>
                                     <td></td>
-                                    <td className="px-3 py-3 text-right text-indigo-600 dark:text-indigo-400 font-black">
+                                    <td className="px-2 py-2.5 text-right text-indigo-600 dark:text-indigo-400 font-black">
                                         {fmtVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 0) / 100)), 0))}
                                     </td>
-                                    <td className="px-4 py-3 text-right text-rose-500 dark:text-rose-400">
+                                    <td className="px-2 py-2.5 text-right text-rose-500 dark:text-rose-400">
                                         {fmtVND(lineItems.reduce((acc, item) => acc + (item.directCosts || 0), 0))}
                                     </td>
-                                    <td className={`px-4 py-3 text-right ${financials.grossProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                    <td className={`px-2 py-2.5 text-right ${financials.grossProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                         {fmtVND(lineItems.reduce((acc, item) => {
                                             const out = item.quantity * item.outputPrice;
                                             const inp = item.quantity * item.inputPrice;

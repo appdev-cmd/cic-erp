@@ -439,26 +439,36 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
   const getYoY = (metric: keyof KPIPlan) => {
     const curr = stats.actual[metric] || 0;
-    if (yearFilter === 'All') return { value: '0.0', isUp: true };
-    const currentYear = parseInt(yearFilter);
-    const lastYear = currentYear - 1;
-    const lastYearData = historicalData.find(h => h.year === lastYear);
+    if (yearFilter === 'All') return { value: '0.0', isUp: true, lastYearTotal: 0 };
 
-    if (!lastYearData) return { value: '0.0', isUp: true };
+    const currentMonth = new Date().getMonth() + 1; // 1-12
+
+    // Use monthlyHistLast (already loaded monthly data for previous year)
+    // Sum only months 1 through currentMonth for same-period comparison
+    const samePeriodData = monthlyHistLast.filter(
+      h => h.month != null && h.month >= 1 && h.month <= currentMonth
+    );
 
     let lastYearVal = 0;
-    if (metric === 'signing') lastYearVal = lastYearData.signing;
-    else if (metric === 'revenue') lastYearVal = lastYearData.revenue;
-    else if (metric === 'adminProfit') lastYearVal = lastYearData.adminProfit;
-    else if (metric === 'revProfit') lastYearVal = lastYearData.revProfit;
+    if (samePeriodData.length > 0) {
+      lastYearVal = samePeriodData.reduce((sum, h) => sum + (h[metric] || 0), 0);
+    } else {
+      // Fallback: use annual aggregate from historicalData
+      const currentYear = parseInt(yearFilter);
+      const lastYear = currentYear - 1;
+      const lastYearAnnual = historicalData.find(h => h.year === lastYear);
+      if (lastYearAnnual) {
+        lastYearVal = lastYearAnnual[metric] || 0;
+      }
+    }
 
-    if (lastYearVal === 0) return { value: '0.0', isUp: true };
+    if (lastYearVal === 0) return { value: '0.0', isUp: true, lastYearTotal: 0 };
 
     // Convert millions to actual VND for calculation
     const trueLastYearVal = lastYearVal * 1_000_000;
     const growth = ((curr - trueLastYearVal) / trueLastYearVal) * 100;
 
-    return { value: Math.abs(growth).toFixed(1), isUp: growth >= 0 };
+    return { value: Math.abs(growth).toFixed(1), isUp: growth >= 0, lastYearTotal: trueLastYearVal };
   };
 
   // Safe Unit for Display
@@ -521,7 +531,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           <KPIItem title="Doanh thu" metric="revenue" stats={stats.actual} target={displayTarget} yoy={getYoY('revenue')} color="emerald" icon={<CreditCard size={20} />} />
           <KPIItem title="LNG Quản trị" metric="adminProfit" stats={stats.actual} target={displayTarget} yoy={getYoY('adminProfit')} color="purple" icon={<TrendingUp size={20} />} />
           <KPIItem title="LNG Doanh thu" metric="revProfit" stats={stats.actual} target={displayTarget} yoy={getYoY('revProfit')} color="amber" icon={<Target size={20} />} />
-          <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={displayTarget} yoy={{ value: '0', isUp: true }} color="cyan" icon={<Wallet size={20} />} />
+          <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={displayTarget} yoy={{ value: '0', isUp: true, lastYearTotal: 0 }} color="cyan" icon={<Wallet size={20} />} />
         </div>
 
         {/* Status Highlights — All 5 contract statuses */}
@@ -782,9 +792,16 @@ const KPIItem = ({ title, metric, stats, target, yoy, color, icon }: any) => {
         <div className={`p-3 rounded-lg ${colors[color]} transition-transform group-hover:rotate-6`}>
           {icon}
         </div>
-        <div className={`flex items-center gap-1 text-sm font-black ${yoy.isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
-          {yoy.isUp ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
-          {yoy.value}% <span className="text-[10px] text-slate-400 font-bold">YoY</span>
+        <div className="text-right">
+          <div className={`flex items-center justify-end gap-1 text-xs font-black ${yoy.isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
+            {yoy.isUp ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+            {yoy.value}%
+          </div>
+          {yoy.lastYearTotal > 0 && (
+            <div className="text-[10px] text-slate-400 font-bold mt-0.5">
+              {formatValue(yoy.lastYearTotal)}
+            </div>
+          )}
         </div>
       </div>
       <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">{title}</p>

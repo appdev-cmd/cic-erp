@@ -62,14 +62,16 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
     const [voucherType, setVoucherType] = useState<VoucherType>(payment?.voucherType || initialVoucherType);
 
     // Common fields
+    const today = new Date().toISOString().split('T')[0];
+    const plus30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const [contractId, setContractId] = useState(payment?.contractId || initialContractId || '');
     const [customerId, setCustomerId] = useState(payment?.customerId || initialCustomerId || '');
-    const [dueDate, setDueDate] = useState(payment?.dueDate || '');
-    const [paymentDate, setPaymentDate] = useState(payment?.paymentDate || '');
+    const [dueDate, setDueDate] = useState(payment?.dueDate || (!payment ? plus30 : ''));
+    const [paymentDate, setPaymentDate] = useState(payment?.paymentDate || (!payment ? today : ''));
     const [amount, setAmount] = useState(payment?.amount || 0);
     const [method, setMethod] = useState<PaymentMethod>(payment?.method || 'Chuyển khoản');
     const [invoiceNumber, setInvoiceNumber] = useState(payment?.invoiceNumber || '');
-    const [invoiceDate, setInvoiceDate] = useState(payment?.invoiceDate || '');
+    const [invoiceDate, setInvoiceDate] = useState(payment?.invoiceDate || (!payment ? today : ''));
     const [reference, setReference] = useState(payment?.reference || '');
     const [notes, setNotes] = useState(payment?.notes || '');
 
@@ -82,7 +84,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
     });
 
     // Expense-specific
-    const [expenseCategory, setExpenseCategory] = useState<ExpenseCategory>(payment?.expenseCategory || 'Khác');
+    const [expenseCategory, setExpenseCategory] = useState<string>(payment?.expenseCategory || '');
+
+    // Dynamic PAKD cost categories from contract
+    const [pakdCostCategories, setPakdCostCategories] = useState<{ name: string; budgetAmount: number; source: string }[]>([]);
 
     // VAT Invoice line items
     const [vatInvoiceItems, setVatInvoiceItems] = useState<VATInvoiceLineItem[]>(payment?.vatInvoiceItems || []);
@@ -101,6 +106,60 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
             else setStatus('Tiền về');
         }
     }, [voucherType, payment]);
+
+    // Helper: extract cost categories from contract data
+    const extractPakdCategories = (contract: any) => {
+        const categories: { name: string; budgetAmount: number; source: string }[] = [];
+
+        // 1. Direct costs from line items
+        if (contract.lineItems) {
+            contract.lineItems.forEach((li: any) => {
+                if (li.directCostDetails && li.directCostDetails.length > 0) {
+                    li.directCostDetails.forEach((detail: any) => {
+                        const existing = categories.find(c => c.name === detail.name);
+                        if (existing) {
+                            existing.budgetAmount += (detail.amount || 0);
+                        } else {
+                            categories.push({
+                                name: detail.name,
+                                budgetAmount: detail.amount || 0,
+                                source: `CP trực tiếp - ${li.name}`
+                            });
+                        }
+                    });
+                }
+                // Also add total input cost as "Đặt hàng NCC" if there's an input price
+                if (li.inputPrice > 0 && li.quantity > 0) {
+                    const inputTotal = li.inputPrice * li.quantity;
+                    const existing = categories.find(c => c.name === 'Đặt hàng NCC');
+                    if (existing) {
+                        existing.budgetAmount += inputTotal;
+                    } else {
+                        categories.push({
+                            name: 'Đặt hàng NCC',
+                            budgetAmount: inputTotal,
+                            source: 'Giá vốn hàng hóa'
+                        });
+                    }
+                }
+            });
+        }
+
+        // 2. Execution costs (management fees, etc.)
+        if (contract.executionCosts) {
+            contract.executionCosts.forEach((ec: any) => {
+                if (ec.name && ec.amount > 0) {
+                    categories.push({
+                        name: ec.name,
+                        budgetAmount: ec.amount,
+                        source: 'CP quản lý & thực hiện'
+                    });
+                }
+            });
+        }
+
+        return categories;
+    };
 
     // Fetch display names on mount for edit mode OR initial contract (from contract detail page)
     useEffect(() => {
@@ -145,6 +204,15 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                         // Auto-set total amount
                         const totalAfterVAT = items.reduce((sum, i) => sum + i.amountAfterVAT, 0);
                         setAmount(totalAfterVAT);
+                    }
+
+                    // Extract PAKD cost categories for Expense vouchers
+                    const categories = extractPakdCategories(c);
+                    if (categories.length > 0) {
+                        setPakdCostCategories(categories);
+                        if (!payment?.expenseCategory) {
+                            setExpenseCategory(categories[0].name);
+                        }
                     }
                 }
             });
@@ -192,6 +260,17 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                     }
                 } else {
                     setContractLineItems([]);
+                }
+
+                // Extract PAKD cost categories
+                const categories = extractPakdCategories(contract);
+                if (categories.length > 0) {
+                    setPakdCostCategories(categories);
+                    if (!expenseCategory || expenseCategory === 'Khác') {
+                        setExpenseCategory(categories[0].name);
+                    }
+                } else {
+                    setPakdCostCategories([]);
                 }
             }
         } else {
@@ -308,9 +387,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
 
                 {/* Form */}
                 <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(92vh-180px)]">
-                    {/* Voucher Type Selector (only for new) */}
+                    {/* Voucher Type Selector (only for new) — compact pills */}
                     {!payment && (
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
                             {(['VAT_INVOICE', 'RECEIPT', 'EXPENSE'] as VoucherType[]).map(vt => {
                                 const cfg = VOUCHER_CONFIG[vt];
                                 const isActive = voucherType === vt;
@@ -319,14 +398,13 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                                         key={vt}
                                         type="button"
                                         onClick={() => setVoucherType(vt)}
-                                        className={`p-4 rounded-xl border-2 transition-all text-left ${isActive
-                                            ? `${cfg.bgColor} border-current ring-2 ring-offset-2 dark:ring-offset-slate-900 ${vt === 'VAT_INVOICE' ? 'ring-blue-500' : vt === 'RECEIPT' ? 'ring-emerald-500' : 'ring-rose-500'}`
-                                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                                        className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold transition-all ${isActive
+                                            ? `bg-white dark:bg-slate-900 shadow-sm ${cfg.color} ring-1 ${vt === 'VAT_INVOICE' ? 'ring-blue-200 dark:ring-blue-800' : vt === 'RECEIPT' ? 'ring-emerald-200 dark:ring-emerald-800' : 'ring-rose-200 dark:ring-rose-800'}`
+                                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                                             }`}
                                     >
-                                        <div className={`mb-2 ${isActive ? cfg.color : 'text-slate-400'}`}>{cfg.icon}</div>
-                                        <p className={`text-xs font-bold ${isActive ? cfg.color : 'text-slate-600 dark:text-slate-400'}`}>{cfg.label}</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">{cfg.description}</p>
+                                        <span className="flex-shrink-0">{cfg.icon}</span>
+                                        <span className="truncate">{cfg.label}</span>
                                     </button>
                                 );
                             })}
@@ -568,46 +646,111 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                     {/* === EXPENSE: Category + Amount + Date === */}
                     {voucherType === 'EXPENSE' && (
                         <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hạng mục chi *</label>
-                                    <select
-                                        value={expenseCategory}
-                                        onChange={(e) => setExpenseCategory(e.target.value as ExpenseCategory)}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                                    >
-                                        {EXPENSE_CATEGORIES.map(cat => (
-                                            <option key={cat} value={cat}>{cat}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
+                            {/* PAKD Cost Categories or fallback */}
+                            {pakdCostCategories.length > 0 ? (
+                                <div className="space-y-3">
                                     <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
-                                        <DollarSign size={12} /> Số tiền *
+                                        <Package size={12} /> Hạng mục chi theo PAKD
                                     </label>
-                                    <NumberInput
-                                        value={amount}
-                                        onChange={(value) => setAmount(value)}
-                                        placeholder="0"
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                                    />
-                                    {amount > 0 && <p className="text-xs text-slate-400">{formatCurrency(amount)} VND</p>}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {pakdCostCategories.map((cat, idx) => {
+                                            const isActive = expenseCategory === cat.name;
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setExpenseCategory(cat.name);
+                                                        if (!amount) setAmount(cat.budgetAmount);
+                                                    }}
+                                                    className={`flex items-center justify-between px-3 py-2.5 rounded-lg border text-left text-xs transition-all ${isActive
+                                                        ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 ring-1 ring-rose-400'
+                                                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                                        }`}
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className={`font-bold truncate block ${isActive ? 'text-rose-700 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                            {cat.name}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 truncate block">{cat.source}</span>
+                                                    </div>
+                                                    <span className={`ml-2 font-black text-xs whitespace-nowrap ${isActive ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                                                        {formatCurrency(cat.budgetAmount)}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                        {/* Always show "Khác" option */}
+                                        <button
+                                            type="button"
+                                            onClick={() => setExpenseCategory('Khác')}
+                                            className={`flex items-center justify-center px-3 py-2.5 rounded-lg border text-xs font-bold transition-all ${expenseCategory === 'Khác'
+                                                ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 ring-1 ring-rose-400 text-rose-700 dark:text-rose-400'
+                                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
+                                                }`}
+                                        >
+                                            + Khác
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
-                                        <Calendar size={12} /> Ngày chi *
-                                    </label>
-                                    <DateInput
-                                        value={paymentDate}
-                                        onChange={(val) => {
-                                            setPaymentDate(val);
-                                            if (!dueDate) setDueDate(val);
-                                        }}
-                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                                    />
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hạng mục chi *</label>
+                                        <select
+                                            value={expenseCategory}
+                                            onChange={(e) => setExpenseCategory(e.target.value as ExpenseCategory)}
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                        >
+                                            {EXPENSE_CATEGORIES.map(cat => (
+                                                <option key={cat} value={cat}>{cat}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                            <DollarSign size={12} /> Số tiền *
+                                        </label>
+                                        <NumberInput
+                                            value={amount}
+                                            onChange={(value) => setAmount(value)}
+                                            placeholder="0"
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                        />
+                                        {amount > 0 && <p className="text-xs text-slate-400">{formatCurrency(amount)} VND</p>}
+                                    </div>
                                 </div>
+                            )}
+
+                            {/* Amount + Date row (only when PAKD categories are shown, since amount is separate) */}
+                            {pakdCostCategories.length > 0 && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                            <DollarSign size={12} /> Số tiền *
+                                        </label>
+                                        <NumberInput
+                                            value={amount}
+                                            onChange={(value) => setAmount(value)}
+                                            placeholder="0"
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                        />
+                                        {amount > 0 && <p className="text-xs text-slate-400">{formatCurrency(amount)} VND</p>}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                            <Calendar size={12} /> Ngày chi *
+                                        </label>
+                                        <DateInput
+                                            value={paymentDate}
+                                            onChange={(val) => setPaymentDate(val)}
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            {/* Notes field (always, but Date only for non-PAKD) */}
+                            {pakdCostCategories.length > 0 ? (
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Nội dung chi / Ghi chú</label>
                                     <input
@@ -618,7 +761,33 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                                         className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
                                     />
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                            <Calendar size={12} /> Ngày chi *
+                                        </label>
+                                        <DateInput
+                                            value={paymentDate}
+                                            onChange={(val) => {
+                                                setPaymentDate(val);
+                                                if (!dueDate) setDueDate(val);
+                                            }}
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Nội dung chi / Ghi chú</label>
+                                        <input
+                                            type="text"
+                                            value={notes}
+                                            onChange={(e) => setNotes(e.target.value)}
+                                            placeholder="Nội dung chi tiết..."
+                                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
 
@@ -644,30 +813,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                         </div>
                     )}
 
-                    {/* Status */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Trạng thái *</label>
-                        <div className="flex gap-2 flex-wrap">
-                            {statusOptions.map(s => (
-                                <button
-                                    key={s}
-                                    type="button"
-                                    onClick={() => {
-                                        setStatus(s);
-                                        if ((s === 'Tiền về' || s === 'Tạm ứng' || s === 'Đã chi') && !paymentDate) {
-                                            setPaymentDate(new Date().toISOString().split('T')[0]);
-                                        }
-                                    }}
-                                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${status === s
-                                        ? statusColors[s] || 'bg-slate-600 text-white'
-                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                                        }`}
-                                >
-                                    {s}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    {/* Status is auto-set per voucher type — no manual selection needed */}
                 </div>
 
                 {/* Footer */}
