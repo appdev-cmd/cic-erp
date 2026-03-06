@@ -192,26 +192,11 @@ export function usePermissionCheck() {
 
     /**
      * Check payment-specific permission.
-     * - Business roles (NVKD/AdminUnit/UnitLeader): can only create PLANNED entries
-     * - Accounting roles: can create/edit ACTUAL entries
+     * Since v2: fully RBAC-based. Business roles no longer have default create permission.
+     * Permission can be granted via Settings → Phân quyền.
      */
-    const canOnPayment = (action: PermissionAction, isPlanned: boolean = true): boolean => {
-        if (!can('payments', action)) return false;
-
-        // View is always allowed if DB says so
-        if (action === 'view') return true;
-
-        // Create/update distinction
-        if (action === 'create' || action === 'update') {
-            const isBusinessRole = role === 'NVKD' || role === 'AdminUnit' || role === 'UnitLeader';
-            const isAccountingRole = role === 'Accountant' || role === 'ChiefAccountant';
-
-            if (isBusinessRole && !isPlanned) return false;    // Business can't create actual
-            if (isAccountingRole && isPlanned) return false;   // Accounting can't create planned
-            return true; // Admin can do both
-        }
-
-        return true;
+    const canOnPayment = (action: PermissionAction): boolean => {
+        return can('payments', action);
     };
 
     /**

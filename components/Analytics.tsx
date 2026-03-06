@@ -333,11 +333,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
             });
 
             const inFlow = relevantPayments
-                .filter(p => (p.paymentType === 'Revenue' || !p.paymentType) && p.status === 'Tiền về')
+                .filter(p => (p.paymentType === 'Revenue' || !p.paymentType) && (p.status === 'Tiền về' || p.status === 'Tạm ứng'))
                 .reduce((sum, p) => sum + p.paidAmount, 0);
 
             const outFlow = relevantPayments
-                .filter(p => p.paymentType === 'Expense' && p.status === 'Tiền về')
+                .filter(p => p.paymentType === 'Expense' && p.status === 'Đã chi')
                 .reduce((sum, p) => sum + p.paidAmount, 0);
 
             return { name: m, Thu: inFlow, Chi: outFlow, Rong: inFlow - outFlow };

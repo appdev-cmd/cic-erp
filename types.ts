@@ -24,6 +24,7 @@ export interface HistoricalProduction {
   id?: string;
   unitId: string;
   year: number;
+  month?: number | null; // null = yearly aggregate, 1-12 = monthly
   signing: number;     // Ký kết (triệu đồng)
   revenue: number;     // Doanh thu thực hiện (triệu đồng)
   adminProfit: number; // LNG Quản trị (triệu đồng)
@@ -394,11 +395,42 @@ export interface Product {
 }
 
 /**
- * Payment status type — simplified 2-status workflow
- * Đã xuất HĐ = Invoice issued (revenue recognized)
- * Tiền về = Cash received in bank account
+ * Loại phiếu tài chính (Voucher Type)
  */
-export type PaymentStatus = 'Tạm ứng' | 'Đã xuất HĐ' | 'Tiền về';
+export type VoucherType = 'VAT_INVOICE' | 'RECEIPT' | 'EXPENSE';
+
+/**
+ * Hạng mục chi phí
+ */
+export type ExpenseCategory =
+  | 'Đặt hàng NCC'
+  | 'Công tác phí'
+  | 'Lắp đặt'
+  | 'Cài đặt'
+  | 'Đào tạo'
+  | 'Chuyển giao'
+  | 'Khác';
+
+/**
+ * Chi tiết sản phẩm/dịch vụ trong phiếu xuất HĐ VAT
+ */
+export interface VATInvoiceLineItem {
+  lineItemId: string;       // ref to contract lineItem.id
+  name: string;             // Tên SP/DV
+  signingValue: number;     // Giá trị ký kết (outputPrice × quantity)
+  revenuePercent: number;   // Tỷ lệ xuất doanh thu (default 100)
+  amountBeforeVAT: number;  // = signingValue × revenuePercent / 100
+  vatRate: number;           // % VAT (default 8)
+  amountAfterVAT: number;   // = amountBeforeVAT × (1 + vatRate / 100)
+}
+
+/**
+ * Payment status type
+ * - Đã xuất HĐ, Đã giao KH: for VAT_INVOICE
+ * - Tạm ứng, Tiền về: for RECEIPT
+ * - Đề nghị chi, Đã chi: for EXPENSE
+ */
+export type PaymentStatus = 'Tạm ứng' | 'Đã xuất HĐ' | 'Tiền về' | 'Đề nghị chi' | 'Đã chi' | 'Đã giao KH';
 
 /**
  * Payment method type
@@ -426,7 +458,12 @@ export interface Payment {
   externalInvoiceId?: string; // ID from accounting software
   source?: 'manual' | 'accounting_sync'; // Origin of the payment record
   notes?: string;
-  paymentType: 'Revenue' | 'Expense'; // Thu hoặc Chi
+  paymentType: 'Revenue' | 'Expense'; // Thu hoặc Chi (auto-set theo voucherType)
+  voucherType: VoucherType;             // Loại phiếu: HĐ VAT, Thu, Chi
+  expenseCategory?: ExpenseCategory;    // Hạng mục chi (chỉ cho EXPENSE)
+  vatAmount?: number;                   // Tổng thuế VAT (cho VAT_INVOICE)
+  vatInvoiceItems?: VATInvoiceLineItem[]; // Chi tiết SP/DV phiếu VAT
+  createdBy?: string;                   // ID người tạo phiếu
   createdAt?: string;
   updatedAt?: string;
 }
@@ -541,26 +578,26 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     products: ['view', 'create', 'update', 'delete'],
     payments: ['view'],                                  // §6.4: chỉ xem, không nhập/sửa/xóa
   },
-  // Lãnh đạo đơn vị — HĐ/KH/SP: VCU, payments: V+C (dự kiến), KHÔNG employees/units
+  // Lãnh đạo đơn vị — HĐ/KH/SP: VCU, payments: chỉ xem (tạo phiếu cần cấp quyền qua Settings)
   UnitLeader: {
     contracts: ['view', 'create', 'update'],
     customers: ['view', 'create', 'update'],
     products: ['view', 'create', 'update'],
-    payments: ['view', 'create'],                        // §6.4: chỉ nhập dự kiến
+    payments: ['view'],                                  // Chỉ xem, tạo phiếu do Kế toán
   },
-  // Admin đơn vị — HĐ/KH/SP: VCU, payments: V+C (dự kiến), KHÔNG employees/units
+  // Admin đơn vị — HĐ/KH/SP: VCU, payments: chỉ xem
   AdminUnit: {
     contracts: ['view', 'create', 'update'],
     customers: ['view', 'create', 'update'],
     products: ['view', 'create', 'update'],
-    payments: ['view', 'create'],                        // §6.4: chỉ nhập dự kiến
+    payments: ['view'],                                  // Chỉ xem, tạo phiếu do Kế toán
   },
-  // Nhân viên kinh doanh — HĐ/KH/SP: VCU, payments: V+C (dự kiến), KHÔNG employees/units
+  // Nhân viên kinh doanh — HĐ/KH/SP: VCU, payments: chỉ xem
   NVKD: {
     contracts: ['view', 'create', 'update'],             // §6.2: chỉ sửa HĐ mình tạo/phân công
     customers: ['view', 'create', 'update'],
     products: ['view', 'create', 'update'],
-    payments: ['view', 'create'],                        // §6.4: chỉ nhập dự kiến
+    payments: ['view'],                                  // Chỉ xem, tạo phiếu do Kế toán
   },
   // Kế toán trưởng — Tài chính toàn quyền, xem NV, không units
   ChiefAccountant: {

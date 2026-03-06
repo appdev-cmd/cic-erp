@@ -1,5 +1,5 @@
 import { dataClient as supabase } from '../lib/dataClient';
-import { Payment } from '../types';
+import { Payment, VoucherType } from '../types';
 import { TelegramNotificationService } from './telegramNotificationService';
 
 // Helper to map DB Payment to Frontend Payment
@@ -22,8 +22,18 @@ const mapPayment = (p: any): Payment & { unitId?: string } => ({
     source: p.source || 'manual',
     notes: p.notes,
     paymentType: p.payment_type || 'Revenue',
+    voucherType: p.voucher_type || 'RECEIPT',
+    expenseCategory: p.expense_category || undefined,
+    vatAmount: p.vat_amount || 0,
+    vatInvoiceItems: p.vat_invoice_items || [],
+    createdBy: p.created_by || undefined,
     unitId: p.contracts?.unit_id || undefined
 });
+
+// Auto-derive payment_type from voucher_type
+const derivePaymentType = (voucherType: VoucherType): 'Revenue' | 'Expense' => {
+    return voucherType === 'EXPENSE' ? 'Expense' : 'Revenue';
+};
 
 export const PaymentService = {
     getAll: async (): Promise<Payment[]> => {
@@ -32,16 +42,27 @@ export const PaymentService = {
         return data.map(mapPayment);
     },
 
+    getByContractId: async (contractId: string): Promise<Payment[]> => {
+        const { data, error } = await supabase
+            .from('payments')
+            .select('*, contracts!inner(unit_id)')
+            .eq('contract_id', contractId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return (data || []).map(mapPayment);
+    },
+
     list: async (params: {
         page: number;
         limit: number;
         search?: string;
-        type?: string;
+        voucherType?: VoucherType;
+        type?: string; // backward compat
         status?: string;
         unitIds?: string[] | 'all';
         year?: string;
     }): Promise<{ data: Payment[]; count: number }> => {
-        const { page, limit, search, type, status, unitIds, year } = params;
+        const { page, limit, search, voucherType, type, status, unitIds, year } = params;
         const from = (page - 1) * limit;
         const to = from + limit - 1;
 
@@ -53,10 +74,14 @@ export const PaymentService = {
         if (search) {
             query = query.ilike('invoice_number', `%${search}%`);
         }
-        if (type) {
+        // New: filter by voucher_type
+        if (voucherType) {
+            query = query.eq('voucher_type', voucherType);
+        } else if (type) {
+            // Backward compat: filter by payment_type
             query = query.eq('payment_type', type);
         }
-        // Simplified 2-status filter
+        // Status filter
         if (status && status !== 'all') {
             query = query.eq('status', status);
         }
@@ -100,11 +125,6 @@ export const PaymentService = {
         return mapPayment(data);
     },
 
-    getByContractId: async (contractId: string): Promise<Payment[]> => {
-        const { data, error } = await supabase.from('payments').select('*').eq('contract_id', contractId);
-        if (error) throw error;
-        return data.map(mapPayment);
-    },
 
     getByCustomerId: async (customerId: string): Promise<Payment[]> => {
         const { data, error } = await supabase.from('payments').select('*').eq('customer_id', customerId);
@@ -113,15 +133,15 @@ export const PaymentService = {
     },
 
     /**
-     * Get financial stats — simplified 2-status model
-     * invoicedAmount = sum of payments with status 'Đã xuất HĐ'
-     * cashReceivedAmount = sum of payments with status 'Tiền về'
+     * Get financial stats — by voucher type or overall
      */
-    getStats: async (params: { type?: string; unitIds?: string[] | 'all'; year?: string }) => {
-        const { type, unitIds, year } = params;
+    getStats: async (params: { voucherType?: VoucherType; type?: string; unitIds?: string[] | 'all'; year?: string }) => {
+        const { voucherType, type, unitIds, year } = params;
         let query = supabase.from('payments').select('*');
 
-        if (type) {
+        if (voucherType) {
+            query = query.eq('voucher_type', voucherType);
+        } else if (type) {
             query = query.eq('payment_type', type);
         }
 
@@ -142,47 +162,58 @@ export const PaymentService = {
             if (contractIds.length > 0) {
                 query = query.in('contract_id', contractIds);
             } else {
-                return { totalAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0 };
+                return { totalAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0, expenseAmount: 0, expenseCount: 0, pendingExpenseAmount: 0, advanceAmount: 0, advanceCount: 0 };
             }
         }
 
         const { data, error } = await query;
-        if (error || !data) return { totalAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0 };
+        if (error || !data) return { totalAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0, expenseAmount: 0, expenseCount: 0, pendingExpenseAmount: 0, advanceAmount: 0, advanceCount: 0 };
 
         const total = data.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-        // Đã xuất HĐ (only Revenue payments)
-        const invoicedData = data.filter(p =>
-            p.status === 'Đã xuất HĐ' &&
-            (!p.payment_type || p.payment_type === 'Revenue')
-        );
-        const invoiced = invoicedData.reduce((sum, p) => sum + (p.amount || 0), 0);
+        // VAT Invoice stats
+        const vatData = data.filter(p => p.voucher_type === 'VAT_INVOICE');
+        const invoiced = vatData.reduce((sum, p) => sum + (p.amount || 0), 0);
 
-        // Tiền về (only Revenue payments — cash actually received, including advances)
-        const cashData = data.filter(p =>
-            (p.status === 'Tạm ứng' || p.status === 'Tiền về' || p.status === 'Paid') &&
-            (!p.payment_type || p.payment_type === 'Revenue')
-        );
+        // Receipt stats (Tiền về + Tạm ứng)
+        const receiptData = data.filter(p => p.voucher_type === 'RECEIPT');
+        const cashData = receiptData.filter(p => p.status === 'Tiền về' || p.status === 'Paid');
         const cash = cashData.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const advanceData = receiptData.filter(p => p.status === 'Tạm ứng');
+        const advance = advanceData.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+        // Expense stats
+        const expenseData = data.filter(p => p.voucher_type === 'EXPENSE');
+        const paidExpense = expenseData.filter(p => p.status === 'Đã chi');
+        const expense = paidExpense.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const pendingExpense = expenseData.filter(p => p.status === 'Đề nghị chi').reduce((sum, p) => sum + (p.amount || 0), 0);
 
         return {
             totalAmount: total,
             invoicedAmount: invoiced,
+            invoicedCount: vatData.length,
             cashReceivedAmount: cash,
-            invoicedCount: invoicedData.length,
             cashReceivedCount: cashData.length,
+            advanceAmount: advance,
+            advanceCount: advanceData.length,
+            expenseAmount: expense,
+            expenseCount: paidExpense.length,
+            pendingExpenseAmount: pendingExpense,
         };
     },
 
     create: async (data: Omit<Payment, 'id'>): Promise<Payment> => {
+        const voucherType = data.voucherType || 'RECEIPT';
+        const paymentType = derivePaymentType(voucherType);
+
         const payload = {
             id: crypto.randomUUID(),
             contract_id: data.contractId || null,
             customer_id: data.customerId || null,
             phase_id: data.phaseId || null,
             amount: data.amount,
-            paid_amount: (data.status === 'Tiền về' || data.status === 'Tạm ứng') ? data.amount : 0,
-            status: data.status || 'Đã xuất HĐ',
+            paid_amount: (data.status === 'Tiền về' || data.status === 'Tạm ứng' || data.status === 'Đã chi') ? data.amount : 0,
+            status: data.status || (voucherType === 'VAT_INVOICE' ? 'Đã xuất HĐ' : voucherType === 'EXPENSE' ? 'Đề nghị chi' : 'Tiền về'),
             method: data.method || null,
             due_date: data.dueDate || null,
             payment_date: data.paymentDate || null,
@@ -193,7 +224,12 @@ export const PaymentService = {
             external_invoice_id: data.externalInvoiceId || null,
             source: data.source || 'manual',
             notes: data.notes || null,
-            payment_type: data.paymentType || 'Revenue'
+            payment_type: paymentType,
+            voucher_type: voucherType,
+            expense_category: data.expenseCategory || null,
+            vat_amount: data.vatAmount || 0,
+            vat_invoice_items: data.vatInvoiceItems || [],
+            created_by: data.createdBy || null,
         };
         const { data: res, error } = await supabase.from('payments').insert(payload).select().single();
         if (error) throw error;
@@ -207,7 +243,7 @@ export const PaymentService = {
                     contractId: data.contractId!,
                     amount: data.amount,
                     status: data.status,
-                    paymentType: data.paymentType,
+                    paymentType: paymentType,
                 }).catch(() => { });
             });
         }
@@ -223,19 +259,17 @@ export const PaymentService = {
         if (data.amount !== undefined) payload.amount = data.amount;
         if (data.status) {
             payload.status = data.status;
-            // When status changes to Tiền về or Tạm ứng, set paid_amount = amount
-            if (data.status === 'Tiền về' || data.status === 'Tạm ứng') {
+            // When status is cash-received or paid, set paid_amount = amount
+            if (data.status === 'Tiền về' || data.status === 'Tạm ứng' || data.status === 'Đã chi') {
                 if (data.amount !== undefined) {
                     payload.paid_amount = data.amount;
                 } else {
-                    // Fetch current amount from DB if not provided
                     const { data: current } = await supabase.from('payments').select('amount').eq('id', id).single();
                     payload.paid_amount = current?.amount || 0;
                 }
             }
         }
         if (data.method !== undefined) payload.method = data.method;
-        // Sanitize empty date strings to null (Postgres rejects empty strings for date columns)
         if (data.dueDate !== undefined) payload.due_date = data.dueDate || null;
         if (data.paymentDate !== undefined) payload.payment_date = data.paymentDate || null;
         if (data.bankAccount !== undefined) payload.bank_account = data.bankAccount;
@@ -244,7 +278,14 @@ export const PaymentService = {
         if (data.invoiceDate !== undefined) payload.invoice_date = data.invoiceDate || null;
         if (data.externalInvoiceId !== undefined) payload.external_invoice_id = data.externalInvoiceId;
         if (data.notes !== undefined) payload.notes = data.notes;
+        if (data.voucherType !== undefined) {
+            payload.voucher_type = data.voucherType;
+            payload.payment_type = derivePaymentType(data.voucherType);
+        }
         if (data.paymentType !== undefined) payload.payment_type = data.paymentType;
+        if (data.expenseCategory !== undefined) payload.expense_category = data.expenseCategory;
+        if (data.vatAmount !== undefined) payload.vat_amount = data.vatAmount;
+        if (data.vatInvoiceItems !== undefined) payload.vat_invoice_items = data.vatInvoiceItems;
         if (data.source !== undefined) payload.source = data.source;
 
         const { data: res, error } = await supabase.from('payments').update(payload).eq('id', id).select().single();

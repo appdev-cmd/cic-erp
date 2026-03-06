@@ -779,23 +779,21 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </tbody>
         </table>
 
-
-      </div>
-
-      {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
-      <div className="p-4 flex flex-col items-center justify-center">
-        <div ref={sentinelRef} className="h-4 w-full" />
-        {isLoadingMore && (
-          <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
-            <Loader2 size={20} className="animate-spin" />
-            <span className="text-sm font-medium">Đang tải thêm...</span>
-          </div>
-        )}
-        {!hasMore && contracts.length > 0 && !loading && (
-          <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
-            Đã hiển thị tất cả {totalCount} kết quả
-          </div>
-        )}
+        {/* INFINITE SCROLL SENTINEL — must be INSIDE scroll container */}
+        <div className="p-4 flex flex-col items-center justify-center">
+          <div ref={sentinelRef} className="h-4 w-full" />
+          {isLoadingMore && (
+            <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
+              <Loader2 size={20} className="animate-spin" />
+              <span className="text-sm font-medium">Đang tải thêm...</span>
+            </div>
+          )}
+          {!hasMore && contracts.length > 0 && !loading && (
+            <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+              Đã hiển thị tất cả {totalCount} kết quả
+            </div>
+          )}
+        </div>
       </div>
 
       {/* STATUS BAR */}

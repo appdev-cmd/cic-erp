@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     X,
     Save,
@@ -7,69 +7,196 @@ import {
     DollarSign,
     FileText,
     Building2,
-    Hash
+    Hash,
+    Receipt,
+    ArrowDownCircle,
+    ArrowUpCircle,
+    Percent,
+    Package
 } from 'lucide-react';
-import { Payment, PaymentStatus, PaymentMethod } from '../types';
+import { Payment, PaymentStatus, PaymentMethod, VoucherType, ExpenseCategory, VATInvoiceLineItem, Contract } from '../types';
 import { ContractService, CustomerService } from '../services';
 import NumberInput from './ui/NumberInput';
 import SearchableSelect from './ui/SearchableSelect';
 import QuickAddCustomerDialog from './ui/QuickAddCustomerDialog';
+import DateInput from './ui/DateInput';
 import { formatNumber } from '../lib/utils';
 
 interface PaymentFormProps {
     payment?: Payment;
-    initialPaymentType?: 'Revenue' | 'Expense'; // Default for new payments
+    initialVoucherType?: VoucherType;
+    initialContractId?: string;
+    initialCustomerId?: string;
     onSave: (payment: Omit<Payment, 'id'> | Payment) => void;
     onCancel: () => void;
 }
 
-const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType = 'Revenue', onSave, onCancel }) => {
-    const [contractId, setContractId] = useState(payment?.contractId || '');
-    const [customerId, setCustomerId] = useState(payment?.customerId || '');
+const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Đặt hàng NCC', 'Công tác phí', 'Lắp đặt', 'Cài đặt', 'Đào tạo', 'Chuyển giao', 'Khác'];
+
+const VOUCHER_CONFIG: Record<VoucherType, { label: string; icon: React.ReactNode; color: string; bgColor: string; description: string }> = {
+    VAT_INVOICE: {
+        label: 'Phiếu xuất HĐ VAT',
+        icon: <FileText size={20} />,
+        color: 'text-blue-600 dark:text-blue-400',
+        bgColor: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800',
+        description: 'Xuất hoá đơn GTGT theo danh mục SP/DV'
+    },
+    RECEIPT: {
+        label: 'Phiếu thu',
+        icon: <ArrowDownCircle size={20} />,
+        color: 'text-emerald-600 dark:text-emerald-400',
+        bgColor: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800',
+        description: 'Ghi nhận tiền về tài khoản'
+    },
+    EXPENSE: {
+        label: 'Phiếu chi',
+        icon: <ArrowUpCircle size={20} />,
+        color: 'text-rose-600 dark:text-rose-400',
+        bgColor: 'bg-rose-50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800',
+        description: 'Chi phí thực hiện hợp đồng'
+    },
+};
+
+const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType = 'RECEIPT', initialContractId, initialCustomerId, onSave, onCancel }) => {
+    // Voucher type
+    const [voucherType, setVoucherType] = useState<VoucherType>(payment?.voucherType || initialVoucherType);
+
+    // Common fields
+    const [contractId, setContractId] = useState(payment?.contractId || initialContractId || '');
+    const [customerId, setCustomerId] = useState(payment?.customerId || initialCustomerId || '');
     const [dueDate, setDueDate] = useState(payment?.dueDate || '');
     const [paymentDate, setPaymentDate] = useState(payment?.paymentDate || '');
     const [amount, setAmount] = useState(payment?.amount || 0);
-    const [paidAmount, setPaidAmount] = useState(payment?.paidAmount || 0);
-    const [status, setStatus] = useState<PaymentStatus>(payment?.status || 'Đã xuất HĐ');
     const [method, setMethod] = useState<PaymentMethod>(payment?.method || 'Chuyển khoản');
-    const [paymentType, setPaymentType] = useState<'Revenue' | 'Expense'>(payment?.paymentType || initialPaymentType);
     const [invoiceNumber, setInvoiceNumber] = useState(payment?.invoiceNumber || '');
     const [invoiceDate, setInvoiceDate] = useState(payment?.invoiceDate || '');
     const [reference, setReference] = useState(payment?.reference || '');
     const [notes, setNotes] = useState(payment?.notes || '');
 
-    // Display names for SearchableSelect
+    // Status
+    const [status, setStatus] = useState<PaymentStatus>(() => {
+        if (payment?.status) return payment.status;
+        if (voucherType === 'VAT_INVOICE') return 'Đã xuất HĐ';
+        if (voucherType === 'EXPENSE') return 'Đề nghị chi';
+        return 'Tiền về';
+    });
+
+    // Expense-specific
+    const [expenseCategory, setExpenseCategory] = useState<ExpenseCategory>(payment?.expenseCategory || 'Khác');
+
+    // VAT Invoice line items
+    const [vatInvoiceItems, setVatInvoiceItems] = useState<VATInvoiceLineItem[]>(payment?.vatInvoiceItems || []);
+    const [contractLineItems, setContractLineItems] = useState<any[]>([]);
+
+    // Display names
     const [contractDisplayName, setContractDisplayName] = useState<string>('');
     const [customerDisplayName, setCustomerDisplayName] = useState<string>('');
     const [showAddCustomerDialog, setShowAddCustomerDialog] = useState(false);
 
-    // Fetch display names on mount for edit mode
+    // When voucher type changes, update default status
     useEffect(() => {
-        if (payment?.contractId) {
-            ContractService.getById(payment.contractId).then(c => {
-                if (c) setContractDisplayName(`${c.id} - ${c.title}`);
+        if (!payment) {
+            if (voucherType === 'VAT_INVOICE') setStatus('Đã xuất HĐ');
+            else if (voucherType === 'EXPENSE') setStatus('Đề nghị chi');
+            else setStatus('Tiền về');
+        }
+    }, [voucherType, payment]);
+
+    // Fetch display names on mount for edit mode OR initial contract (from contract detail page)
+    useEffect(() => {
+        const targetContractId = payment?.contractId || initialContractId;
+        const targetCustomerId = payment?.customerId || initialCustomerId;
+
+        if (targetContractId) {
+            ContractService.getById(targetContractId).then(c => {
+                if (c) {
+                    setContractDisplayName(`${c.id} - ${c.title}`);
+                    if (c.lineItems) setContractLineItems(c.lineItems);
+
+                    // Auto-fill customer from contract if not set
+                    if (!targetCustomerId && c.customerId) {
+                        setCustomerId(c.customerId);
+                        CustomerService.getById(c.customerId).then(cust => {
+                            if (cust) setCustomerDisplayName(cust.name);
+                        });
+                    }
+
+                    // For VAT_INVOICE: auto-generate line items from contract if none saved
+                    const isVATType = payment?.voucherType === 'VAT_INVOICE' || (!payment && voucherType === 'VAT_INVOICE');
+                    const hasNoItems = payment ? (!payment.vatInvoiceItems || payment.vatInvoiceItems.length === 0) : true;
+                    if (isVATType && hasNoItems && c.lineItems && c.lineItems.length > 0) {
+                        const items: VATInvoiceLineItem[] = c.lineItems.map(li => {
+                            const signingValue = (li.outputPrice || 0) * (li.quantity || 1);
+                            const revenuePercent = 100;
+                            const vatRate = 8;
+                            const amountAfterVAT = signingValue * revenuePercent / 100;
+                            const amountBeforeVAT = amountAfterVAT / (1 + vatRate / 100);
+                            return {
+                                lineItemId: li.id,
+                                name: li.name,
+                                signingValue,
+                                revenuePercent,
+                                amountBeforeVAT,
+                                vatRate,
+                                amountAfterVAT,
+                            };
+                        });
+                        setVatInvoiceItems(items);
+                        // Auto-set total amount
+                        const totalAfterVAT = items.reduce((sum, i) => sum + i.amountAfterVAT, 0);
+                        setAmount(totalAfterVAT);
+                    }
+                }
             });
         }
-        if (payment?.customerId) {
-            CustomerService.getById(payment.customerId).then(c => {
+        if (targetCustomerId) {
+            CustomerService.getById(targetCustomerId).then(c => {
                 if (c) setCustomerDisplayName(c.name);
             });
         }
     }, []);
 
-    // When a contract is selected, auto-fill customerId from that contract
+    // When a contract is selected, auto-fill customerId and load line items
     const handleContractChange = async (cId: string | null) => {
         setContractId(cId || '');
         if (cId) {
             const contract = await ContractService.getById(cId);
             if (contract) {
                 setContractDisplayName(`${contract.id} - ${contract.title}`);
-                if (contract.customerId) {
-                    setCustomerId(contract.customerId);
+                if (contract.customerId) setCustomerId(contract.customerId);
+                if (contract.lineItems && contract.lineItems.length > 0) {
+                    setContractLineItems(contract.lineItems);
+                    // Auto-generate VAT invoice items from contract line items
+                    if (voucherType === 'VAT_INVOICE' && (!vatInvoiceItems || vatInvoiceItems.length === 0)) {
+                        const items: VATInvoiceLineItem[] = contract.lineItems.map(li => {
+                            const signingValue = (li.outputPrice || 0) * (li.quantity || 1);
+                            const revenuePercent = 100;
+                            const vatRate = 8;
+                            // signingValue đã bao gồm VAT → tính ngược
+                            const amountAfterVAT = signingValue * revenuePercent / 100;
+                            const amountBeforeVAT = amountAfterVAT / (1 + vatRate / 100);
+                            return {
+                                lineItemId: li.id,
+                                name: li.name,
+                                signingValue,
+                                revenuePercent,
+                                amountBeforeVAT,
+                                vatRate,
+                                amountAfterVAT,
+                            };
+                        });
+                        setVatInvoiceItems(items);
+                        // Auto-calculate total amount
+                        const totalAfterVAT = items.reduce((sum, i) => sum + i.amountAfterVAT, 0);
+                        setAmount(totalAfterVAT);
+                    }
+                } else {
+                    setContractLineItems([]);
                 }
             }
         } else {
             setContractDisplayName('');
+            setContractLineItems([]);
         }
     };
 
@@ -84,45 +211,94 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
         }
     }, [customerId]);
 
+    // Update VAT line item
+    // signingValue đã bao gồm VAT → amountAfterVAT = signingValue * %DT, amountBeforeVAT = tính ngược
+    const updateVatItem = (index: number, field: 'revenuePercent' | 'vatRate', value: number) => {
+        setVatInvoiceItems(prev => {
+            const updated = [...prev];
+            const item = { ...updated[index] };
+            item[field] = value;
+            item.amountAfterVAT = item.signingValue * item.revenuePercent / 100;
+            item.amountBeforeVAT = item.amountAfterVAT / (1 + item.vatRate / 100);
+            updated[index] = item;
+            // Recalculate total
+            const total = updated.reduce((sum, i) => sum + i.amountAfterVAT, 0);
+            setAmount(total);
+            return updated;
+        });
+    };
+
+    // Computed totals for VAT table
+    const vatTotals = useMemo(() => {
+        const totalSigning = vatInvoiceItems.reduce((sum, i) => sum + i.signingValue, 0);
+        const totalBeforeVAT = vatInvoiceItems.reduce((sum, i) => sum + i.amountBeforeVAT, 0);
+        const totalAfterVAT = vatInvoiceItems.reduce((sum, i) => sum + i.amountAfterVAT, 0);
+        const totalVAT = totalAfterVAT - totalBeforeVAT;
+        return { totalSigning, totalBeforeVAT, totalAfterVAT, totalVAT };
+    }, [vatInvoiceItems]);
+
     const handleSubmit = () => {
         const paymentData = {
             ...(payment?.id && { id: payment.id }),
             contractId,
             customerId,
-            dueDate,
-            paymentDate: (status === 'Tiền về' || status === 'Tạm ứng') && !paymentDate ? new Date().toISOString().split('T')[0] : paymentDate,
+            dueDate: dueDate || paymentDate || new Date().toISOString().split('T')[0],
+            paymentDate: paymentDate || (voucherType !== 'VAT_INVOICE' ? new Date().toISOString().split('T')[0] : ''),
             amount,
-            paidAmount: (status === 'Tiền về' || status === 'Tạm ứng') ? amount : 0,
+            paidAmount: (status === 'Tiền về' || status === 'Tạm ứng' || status === 'Đã chi') ? amount : 0,
             status,
             method,
             invoiceNumber,
             invoiceDate,
             reference,
             notes,
-            paymentType,
+            paymentType: voucherType === 'EXPENSE' ? 'Expense' as const : 'Revenue' as const,
+            voucherType,
+            expenseCategory: voucherType === 'EXPENSE' ? expenseCategory : undefined,
+            vatAmount: voucherType === 'VAT_INVOICE' ? vatTotals.totalVAT : 0,
+            vatInvoiceItems: voucherType === 'VAT_INVOICE' ? vatInvoiceItems : undefined,
         };
         onSave(paymentData as any);
     };
 
     const formatCurrency = (val: number) => formatNumber(val);
-
-    const statuses: PaymentStatus[] = ['Tạm ứng', 'Đã xuất HĐ', 'Tiền về'];
     const methods: PaymentMethod[] = ['Chuyển khoản', 'Tiền mặt', 'LC', 'Khác'];
+
+    // Status options per voucher type
+    const statusOptions: PaymentStatus[] = useMemo(() => {
+        switch (voucherType) {
+            case 'VAT_INVOICE': return ['Đã xuất HĐ', 'Đã giao KH'];
+            case 'RECEIPT': return ['Tạm ứng', 'Tiền về'];
+            case 'EXPENSE': return ['Đề nghị chi', 'Đã chi'];
+            default: return ['Tạm ứng', 'Đã xuất HĐ', 'Tiền về'];
+        }
+    }, [voucherType]);
+
+    const statusColors: Record<string, string> = {
+        'Đã xuất HĐ': 'bg-blue-600 text-white',
+        'Đã giao KH': 'bg-indigo-600 text-white',
+        'Tiền về': 'bg-emerald-600 text-white',
+        'Tạm ứng': 'bg-amber-600 text-white',
+        'Đề nghị chi': 'bg-orange-600 text-white',
+        'Đã chi': 'bg-rose-600 text-white',
+    };
+
+    const config = VOUCHER_CONFIG[voucherType];
 
     return (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-300">
                 {/* Header */}
                 <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg">
-                            <CreditCard size={24} />
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${voucherType === 'VAT_INVOICE' ? 'bg-blue-600 text-white' : voucherType === 'RECEIPT' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'}`}>
+                            {config.icon}
                         </div>
                         <div>
                             <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">
-                                {payment ? 'Sửa phiếu tài chính' : 'Thêm phiếu tài chính'}
+                                {payment ? 'Sửa phiếu' : 'Thêm phiếu tài chính'}
                             </h2>
-                            <p className="text-xs text-slate-500">Quản lý phiếu tài chính hợp đồng</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{config.description}</p>
                         </div>
                     </div>
                     <button onClick={onCancel} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
@@ -131,11 +307,36 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
                 </div>
 
                 {/* Form */}
-                <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+                <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(92vh-180px)]">
+                    {/* Voucher Type Selector (only for new) */}
+                    {!payment && (
+                        <div className="grid grid-cols-3 gap-3">
+                            {(['VAT_INVOICE', 'RECEIPT', 'EXPENSE'] as VoucherType[]).map(vt => {
+                                const cfg = VOUCHER_CONFIG[vt];
+                                const isActive = voucherType === vt;
+                                return (
+                                    <button
+                                        key={vt}
+                                        type="button"
+                                        onClick={() => setVoucherType(vt)}
+                                        className={`p-4 rounded-xl border-2 transition-all text-left ${isActive
+                                            ? `${cfg.bgColor} border-current ring-2 ring-offset-2 dark:ring-offset-slate-900 ${vt === 'VAT_INVOICE' ? 'ring-blue-500' : vt === 'RECEIPT' ? 'ring-emerald-500' : 'ring-rose-500'}`
+                                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                                            }`}
+                                    >
+                                        <div className={`mb-2 ${isActive ? cfg.color : 'text-slate-400'}`}>{cfg.icon}</div>
+                                        <p className={`text-xs font-bold ${isActive ? cfg.color : 'text-slate-600 dark:text-slate-400'}`}>{cfg.label}</p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">{cfg.description}</p>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
                     {/* Contract & Customer */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                                 <FileText size={12} /> Hợp đồng *
                             </label>
                             <SearchableSelect
@@ -154,22 +355,20 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                                 <Building2 size={12} /> Khách hàng
                             </label>
                             <SearchableSelect
                                 value={customerId || null}
                                 placeholder="Gõ để tìm khách hàng..."
                                 getDisplayValue={(id) => id === customerId ? customerDisplayName : undefined}
-                                onChange={(cId) => {
-                                    setCustomerId(cId || '');
-                                }}
+                                onChange={(cId) => setCustomerId(cId || '')}
                                 onSearch={async (query) => {
                                     const results = await CustomerService.search(query, 20);
                                     return results.map(c => ({
                                         id: c.id,
                                         name: c.name,
-                                        subText: c.industry || c.type
+                                        subText: Array.isArray(c.industry) ? c.industry.join(', ') : (c.type || '')
                                     }));
                                 }}
                                 onAddNew={() => setShowAddCustomerDialog(true)}
@@ -178,189 +377,334 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialPaymentType =
                         </div>
                     </div>
 
-                    {/* Payment Type */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase">Loại thanh toán</label>
-                        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg w-fit">
-                            <button
-                                type="button"
-                                onClick={() => setPaymentType('Revenue')}
-                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${paymentType === 'Revenue' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                Khoản Thu
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setPaymentType('Expense')}
-                                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${paymentType === 'Expense' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                Khoản Chi
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Invoice & Dates */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
-                                <Hash size={12} /> Số hóa đơn
+                    {/* === VAT INVOICE: Line Items Table === */}
+                    {voucherType === 'VAT_INVOICE' && vatInvoiceItems.length > 0 && (
+                        <div className="space-y-3">
+                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                <Package size={12} /> Danh mục sản phẩm / dịch vụ
                             </label>
-                            <input
-                                type="text"
-                                value={invoiceNumber}
-                                onChange={(e) => setInvoiceNumber(e.target.value)}
-                                placeholder="VD: HĐ001-1"
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
+                            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr className="bg-slate-50 dark:bg-slate-800">
+                                                <th className="text-left py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px]">SP / Dịch vụ</th>
+                                                <th className="text-right py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] whitespace-nowrap">Giá trị ký kết</th>
+                                                <th className="text-center py-2.5 px-2 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] w-20">% Xuất DT</th>
+                                                <th className="text-right py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] whitespace-nowrap">Trước VAT</th>
+                                                <th className="text-center py-2.5 px-2 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] w-16">% VAT</th>
+                                                <th className="text-right py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] whitespace-nowrap">Sau VAT</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {vatInvoiceItems.map((item, idx) => (
+                                                <tr key={item.lineItemId} className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                                                    <td className="py-2.5 px-3">
+                                                        <span className="font-medium text-slate-700 dark:text-slate-300 text-xs">{item.name}</span>
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-right font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                                        {formatCurrency(item.signingValue)}
+                                                    </td>
+                                                    <td className="py-2.5 px-2">
+                                                        <input
+                                                            type="number"
+                                                            value={item.revenuePercent}
+                                                            onChange={(e) => updateVatItem(idx, 'revenuePercent', Number(e.target.value) || 0)}
+                                                            className="w-full px-2 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-center text-xs font-bold text-blue-700 dark:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            min={0} max={100}
+                                                        />
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-right font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                                                        {formatCurrency(item.amountBeforeVAT)}
+                                                    </td>
+                                                    <td className="py-2.5 px-2">
+                                                        <select
+                                                            value={item.vatRate}
+                                                            onChange={(e) => updateVatItem(idx, 'vatRate', Number(e.target.value))}
+                                                            className="w-full px-1.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-center text-xs font-bold text-amber-700 dark:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                                        >
+                                                            <option value={0}>0%</option>
+                                                            <option value={5}>5%</option>
+                                                            <option value={8}>8%</option>
+                                                            <option value={10}>10%</option>
+                                                        </select>
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-right font-black text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                                                        {formatCurrency(item.amountAfterVAT)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                                                <td className="py-3 px-3 font-black text-slate-700 dark:text-slate-300 text-xs uppercase" colSpan={3}>Tổng cộng</td>
+                                                <td className="py-3 px-3 text-right font-black text-slate-800 dark:text-slate-200 whitespace-nowrap">{formatCurrency(vatTotals.totalBeforeVAT)}</td>
+                                                <td className="py-3 px-2 text-center font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">{formatCurrency(vatTotals.totalVAT)}</td>
+                                                <td className="py-3 px-3 text-right font-black text-blue-600 dark:text-blue-400 text-sm whitespace-nowrap">{formatCurrency(vatTotals.totalAfterVAT)}</td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
-                                <Calendar size={12} /> Hạn thanh toán *
-                            </label>
-                            <input
-                                type="date"
-                                value={dueDate}
-                                onChange={(e) => setDueDate(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
-                                <Calendar size={12} /> Ngày thanh toán
-                            </label>
-                            <input
-                                type="date"
-                                value={paymentDate}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setPaymentDate(val);
-                                    if (val && !dueDate) {
-                                        setDueDate(val); // Auto-fill Due Date if empty
-                                    }
-                                }}
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                        </div>
-                    </div>
+                    )}
 
-                    {/* Amount */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
-                            <DollarSign size={12} /> Số tiền *
-                        </label>
-                        <NumberInput
-                            value={amount}
-                            onChange={(value) => setAmount(value)}
-                            placeholder="0"
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                        {amount > 0 && (
-                            <p className="text-xs text-slate-400">{formatCurrency(amount)} VND</p>
-                        )}
-                    </div>
+                    {/* === VAT INVOICE: Invoice Number & Date === */}
+                    {voucherType === 'VAT_INVOICE' && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                    <Hash size={12} /> Số hóa đơn *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={invoiceNumber}
+                                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                                    placeholder="VD: 0001234"
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                    <Calendar size={12} /> Ngày xuất HĐ *
+                                </label>
+                                <DateInput
+                                    value={invoiceDate}
+                                    onChange={(val) => {
+                                        setInvoiceDate(val);
+                                        if (!dueDate) setDueDate(val);
+                                    }}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                    <Calendar size={12} /> Hạn thanh toán
+                                </label>
+                                <DateInput
+                                    value={dueDate}
+                                    onChange={(val) => setDueDate(val)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        </div>
+                    )}
 
-                    {/* Status & Method */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase">Trạng thái *</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {statuses.map(s => (
-                                    <button
-                                        key={s}
-                                        type="button"
-                                        onClick={() => {
-                                            setStatus(s);
-                                            if ((s === 'Tiền về' || s === 'Tạm ứng') && !paymentDate) {
-                                                setPaymentDate(new Date().toISOString().split('T')[0]);
-                                            }
+                    {/* === RECEIPT: Amount + Date + Method === */}
+                    {voucherType === 'RECEIPT' && (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                        <DollarSign size={12} /> Số tiền *
+                                    </label>
+                                    <NumberInput
+                                        value={amount}
+                                        onChange={(value) => setAmount(value)}
+                                        placeholder="0"
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                    {amount > 0 && <p className="text-xs text-slate-400">{formatCurrency(amount)} VND</p>}
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                        <Calendar size={12} /> Ngày thu *
+                                    </label>
+                                    <DateInput
+                                        value={paymentDate}
+                                        onChange={(val) => {
+                                            setPaymentDate(val);
+                                            if (!dueDate) setDueDate(val);
                                         }}
-                                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${status === s
-                                            ? s === 'Tiền về' ? 'bg-emerald-600 text-white'
-                                                : s === 'Tạm ứng' ? 'bg-amber-600 text-white'
-                                                    : 'bg-blue-600 text-white'
-                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                                            }`}
-                                    >
-                                        {s}
-                                    </button>
-                                ))}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                        Phương thức *
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {methods.map(m => (
+                                            <button
+                                                key={m}
+                                                type="button"
+                                                onClick={() => setMethod(m)}
+                                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${method === m
+                                                    ? 'bg-emerald-600 text-white'
+                                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                    }`}
+                                            >
+                                                {m}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase">Phương thức</label>
-                            <div className="grid grid-cols-2 gap-2">
-                                {methods.map(m => (
-                                    <button
-                                        key={m}
-                                        type="button"
-                                        onClick={() => setMethod(m)}
-                                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${method === m
-                                            ? 'bg-indigo-600 text-white'
-                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                                            }`}
-                                    >
-                                        {m}
-                                    </button>
-                                ))}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Số UNC / Chứng từ</label>
+                                    <input
+                                        type="text"
+                                        value={reference}
+                                        onChange={(e) => setReference(e.target.value)}
+                                        placeholder="Số UNC..."
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Ghi chú</label>
+                                    <input
+                                        type="text"
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        placeholder="Ghi chú..."
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    />
+                                </div>
                             </div>
-                        </div>
-                    </div>
+                        </>
+                    )}
 
-                    {/* Reference & Notes */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase">Số UNC/Chứng từ</label>
-                            <input
-                                type="text"
-                                value={reference}
-                                onChange={(e) => setReference(e.target.value)}
-                                placeholder="Số UNC..."
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
+                    {/* === EXPENSE: Category + Amount + Date === */}
+                    {voucherType === 'EXPENSE' && (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Hạng mục chi *</label>
+                                    <select
+                                        value={expenseCategory}
+                                        onChange={(e) => setExpenseCategory(e.target.value as ExpenseCategory)}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                    >
+                                        {EXPENSE_CATEGORIES.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                        <DollarSign size={12} /> Số tiền *
+                                    </label>
+                                    <NumberInput
+                                        value={amount}
+                                        onChange={(value) => setAmount(value)}
+                                        placeholder="0"
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                    />
+                                    {amount > 0 && <p className="text-xs text-slate-400">{formatCurrency(amount)} VND</p>}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                                        <Calendar size={12} /> Ngày chi *
+                                    </label>
+                                    <DateInput
+                                        value={paymentDate}
+                                        onChange={(val) => {
+                                            setPaymentDate(val);
+                                            if (!dueDate) setDueDate(val);
+                                        }}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Nội dung chi / Ghi chú</label>
+                                    <input
+                                        type="text"
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        placeholder="Nội dung chi tiết..."
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* === VAT INVOICE: Total (read-only computed) === */}
+                    {voucherType === 'VAT_INVOICE' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Ghi chú</label>
+                                <input
+                                    type="text"
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    placeholder="Ghi chú..."
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Tổng giá trị HĐ (sau VAT)</label>
+                                <div className="px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-lg font-black text-blue-600 dark:text-blue-400">
+                                    {formatCurrency(amount)} <span className="text-xs font-medium text-slate-400">VND</span>
+                                </div>
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase">Ghi chú</label>
-                            <input
-                                type="text"
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Ghi chú..."
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
+                    )}
+
+                    {/* Status */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Trạng thái *</label>
+                        <div className="flex gap-2 flex-wrap">
+                            {statusOptions.map(s => (
+                                <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => {
+                                        setStatus(s);
+                                        if ((s === 'Tiền về' || s === 'Tạm ứng' || s === 'Đã chi') && !paymentDate) {
+                                            setPaymentDate(new Date().toISOString().split('T')[0]);
+                                        }
+                                    }}
+                                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${status === s
+                                        ? statusColors[s] || 'bg-slate-600 text-white'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                        }`}
+                                >
+                                    {s}
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
-                    <button
-                        onClick={onCancel}
-                        className="px-6 py-2.5 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                    >
-                        Hủy
-                    </button>
-                    <button
-                        // disabled={!contractId || !dueDate || !amount} // Disabled condition removed for better UX
-                        className={`px-8 py-2.5 font-bold text-sm rounded-lg transition-colors flex items-center gap-2 ${(!contractId || !dueDate || !amount)
-                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600'
-                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                            }`}
-                        onClick={(e) => {
-                            if (!contractId || !dueDate || !amount) {
-                                e.preventDefault();
-                                import('sonner').then(({ toast }) => {
-                                    if (!contractId) toast.error("Vui lòng chọn Hợp đồng");
-                                    else if (!amount) toast.error("Vui lòng nhập Số tiền");
-                                    else if (!dueDate) toast.error("Vui lòng chọn Hạn thanh toán");
-                                });
-                                return;
-                            }
-                            handleSubmit();
-                        }}
-                    >
-                        <Save size={16} />
-                        {payment ? 'Cập nhật' : 'Thêm mới'}
-                    </button>
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                    <div className="text-xs text-slate-400">
+                        {config.label}
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onCancel}
+                            className="px-6 py-2.5 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            className={`px-8 py-2.5 font-bold text-sm rounded-lg transition-colors flex items-center gap-2 ${(!contractId || !amount)
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600'
+                                : voucherType === 'VAT_INVOICE' ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                    : voucherType === 'RECEIPT' ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                        : 'bg-rose-600 text-white hover:bg-rose-700'
+                                }`}
+                            onClick={(e) => {
+                                if (!contractId || !amount) {
+                                    e.preventDefault();
+                                    import('sonner').then(({ toast }) => {
+                                        if (!contractId) toast.error("Vui lòng chọn Hợp đồng");
+                                        else if (!amount) toast.error("Vui lòng nhập Số tiền");
+                                    });
+                                    return;
+                                }
+                                handleSubmit();
+                            }}
+                        >
+                            <Save size={16} />
+                            {payment ? 'Cập nhật' : 'Thêm mới'}
+                        </button>
+                    </div>
                 </div>
             </div>
 

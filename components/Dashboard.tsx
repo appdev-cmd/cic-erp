@@ -114,8 +114,9 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   // Chart Data
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [chartDataCurrent, setChartDataCurrent] = useState<any[]>([]);
-  const [chartDataLast, setChartDataLast] = useState<any[]>([]);
   const [historicalData, setHistoricalData] = useState<HistoricalProduction[]>([]);
+  const [monthlyHistLast, setMonthlyHistLast] = useState<HistoricalProduction[]>([]);
+  const [monthlyHistPrev, setMonthlyHistPrev] = useState<HistoricalProduction[]>([]);
 
   // Distribution Data
   const [distributionData, setDistributionData] = useState<any[]>([]);
@@ -190,14 +191,8 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         console.log('[Dashboard] Chart current received:', chartCurrent?.length);
         if (!isCancelled) setChartDataCurrent(chartCurrent || []);
 
-        // STEP 3: Fetch Chart Data (Previous Year) - Keep for compatibility if needed elsewhere
-        if (prevYear !== 'All') {
-          const chartLast = await ContractService.getChartDataRPC(unitId, prevYear);
-          if (!isCancelled) setChartDataLast(chartLast || []);
-        }
-
-        // STEP 3.5: Fetch Historical Data
-        console.log('[Dashboard] Step 3.5: Fetching historical data...');
+        // STEP 3: Fetch Historical Data (yearly + monthly)
+        console.log('[Dashboard] Step 3: Fetching historical data...');
         let hist: HistoricalProduction[] = [];
         if (unitId === 'all') {
           const allHist = await HistoricalProductionService.getAll();
@@ -216,6 +211,39 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           hist = await HistoricalProductionService.getByUnit(unitId);
         }
         if (!isCancelled) setHistoricalData(hist);
+
+        // STEP 3.5: Fetch Monthly Historical Data for chart zig-zag lines
+        const currentYearNum = year === 'All' ? new Date().getFullYear() : parseInt(year);
+        const lastYearNum = currentYearNum - 1;
+        const prevPrevYearNum = currentYearNum - 2;
+
+        const fetchMonthlyFor = async (yr: number): Promise<HistoricalProduction[]> => {
+          if (unitId === 'all') {
+            const all = await HistoricalProductionService.getMonthlyByYear(yr);
+            // Aggregate monthly data across all units
+            const monthMap: Record<number, HistoricalProduction> = {};
+            all.forEach(h => {
+              const m = h.month!;
+              if (!monthMap[m]) {
+                monthMap[m] = { unitId: 'all', year: yr, month: m, signing: 0, revenue: 0, adminProfit: 0, revProfit: 0 };
+              }
+              monthMap[m].signing += h.signing;
+              monthMap[m].revenue += h.revenue;
+              monthMap[m].adminProfit += h.adminProfit;
+              monthMap[m].revProfit += h.revProfit;
+            });
+            return Object.values(monthMap);
+          } else {
+            return HistoricalProductionService.getMonthlyByYearAndUnit(yr, unitId);
+          }
+        };
+
+        const mLast = await fetchMonthlyFor(lastYearNum);
+        const mPrev = await fetchMonthlyFor(prevPrevYearNum);
+        if (!isCancelled) {
+          setMonthlyHistLast(mLast);
+          setMonthlyHistPrev(mPrev);
+        }
 
         // STEP 4: Fetch Distribution Data
         console.log('[Dashboard] Step 4: Fetching distribution...');
@@ -292,7 +320,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
             activeMetric === 'adminProfit' ? (u.target?.adminProfit || 0) :
               activeMetric === 'revProfit' ? (u.target?.revProfit || 0) :
                 (u.target?.cash || 0)) ?
-          Math.min(100, (
+          Math.round(
             (activeMetric === 'signing' ? (u.stats?.totalSigning || 0) :
               activeMetric === 'revenue' ? (u.stats?.totalRevenue || 0) :
                 activeMetric === 'adminProfit' ? (u.stats?.totalProfit || 0) :
@@ -303,7 +331,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                 activeMetric === 'adminProfit' ? (u.target?.adminProfit || 0) :
                   activeMetric === 'revProfit' ? (u.target?.revProfit || 0) :
                     (u.target?.cash || 0))
-          ) * 100) : 0,
+            * 100) : 0,
         // Pie Chart Value: Dynamic based on activeMetric
         value: activeMetric === 'signing' ? (u.stats?.totalSigning || 0)
           : activeMetric === 'revenue' ? (u.stats?.totalRevenue || 0)
@@ -350,48 +378,43 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
   }, [rawDistData, activeMetric, selectedUnit]);
 
-  // Memoize Monthly Chart Logic
+  // Memoize Monthly Chart Logic — uses monthly historical_production data for zig-zag lines
   useEffect(() => {
     const months = ['Th.1', 'Th.2', 'Th.3', 'Th.4', 'Th.5', 'Th.6', 'Th.7', 'Th.8', 'Th.9', 'Th.10', 'Th.11', 'Th.12'];
 
-    const currentYear = yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter);
-    const lastYear = currentYear - 1;
-    const prevYear = currentYear - 2;
+    const getContractVal = (d: any) => {
+      if (!d) return 0;
+      if (activeMetric === 'signing') return d.signing;
+      if (activeMetric === 'revenue') return d.revenue;
+      return d.profit;
+    };
+
+    const getHistVal = (rec: HistoricalProduction | undefined) => {
+      if (!rec) return null;
+      let v = 0;
+      if (activeMetric === 'signing') v = rec.signing;
+      else if (activeMetric === 'revenue') v = rec.revenue;
+      else if (activeMetric === 'adminProfit') v = rec.adminProfit;
+      else if (activeMetric === 'revProfit') v = rec.revProfit;
+      return v * 1_000_000; // convert triệu → VNĐ
+    };
 
     const mapped = months.map((m, idx) => {
       const monthNum = idx + 1;
-      const curr = chartDataCurrent.find(c => c.month === monthNum);
-
-      const lastYearData = historicalData.find(h => h.year === lastYear);
-      const prevYearData = historicalData.find(h => h.year === prevYear);
-
-      const getHistVal = (d: HistoricalProduction | undefined) => {
-        if (!d) return null;
-        let v = 0;
-        if (activeMetric === 'signing') v = d.signing;
-        else if (activeMetric === 'revenue') v = d.revenue;
-        else if (activeMetric === 'adminProfit') v = d.adminProfit;
-        else if (activeMetric === 'revProfit') v = d.revProfit;
-        return (v * 1_000_000) / 12; // monthly average in VND
-      };
-
-      const getValue = (d: any) => {
-        if (!d) return 0;
-        if (activeMetric === 'signing') return d.signing;
-        if (activeMetric === 'revenue') return d.revenue;
-        return d.profit;
-      };
+      const curr = chartDataCurrent.find((c: any) => c.month === monthNum);
+      const lastRec = monthlyHistLast.find(h => h.month === monthNum);
+      const prevRec = monthlyHistPrev.find(h => h.month === monthNum);
 
       return {
         name: m,
-        current: getValue(curr),
-        lastYearLine: getHistVal(lastYearData),
-        prevYearLine: getHistVal(prevYearData)
+        current: getContractVal(curr),
+        lastYearLine: getHistVal(lastRec),
+        prevYearLine: getHistVal(prevRec)
       };
     });
 
     setMonthlyData(mapped);
-  }, [chartDataCurrent, historicalData, activeMetric, yearFilter]);
+  }, [chartDataCurrent, monthlyHistLast, monthlyHistPrev, activeMetric]);
 
 
   const fetchAI = async (contracts: Contract[]) => {
@@ -541,12 +564,12 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
               <div className="flex gap-6 text-xs font-bold uppercase text-slate-400">
                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-indigo-600 rounded-full shadow-lg shadow-indigo-200"></div> {yearFilter === 'All' ? new Date().getFullYear() : yearFilter}</div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-slate-400 border-t-[3px] border-dashed border-slate-400"></div>
-                  TB năm trước
+                  <div className="w-4 h-0.5 bg-cyan-400 border-t-[3px] border-dashed border-cyan-400"></div>
+                  {(yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter)) - 1}
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-slate-300 border-t-[3px] border-dotted border-slate-300"></div>
-                  TB năm liền trước
+                  <div className="w-4 h-0.5 bg-pink-400 border-t-[3px] border-dotted border-pink-400"></div>
+                  {(yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter)) - 2}
                 </div>
               </div>
             </div>
@@ -564,8 +587,8 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                     formatter={(value: any, name: any) => [formatCurrency(value as number), name]}
                   />
                   <Bar dataKey="current" name={yearFilter === 'All' ? 'Năm nay' : `Năm ${yearFilter}`} fill={getAccentColor()} radius={[6, 6, 0, 0]} barSize={32} />
-                  <Line type="monotone" dataKey="lastYearLine" name="TB năm trước" stroke={getMutedBarFill()} strokeWidth={3} dot={false} strokeDasharray="6 4" />
-                  <Line type="monotone" dataKey="prevYearLine" name="TB năm liền trước" stroke="#cbd5e1" strokeWidth={3} dot={false} strokeDasharray="3 3" />
+                  <Line type="monotone" dataKey="lastYearLine" name={`Năm ${(yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter)) - 1}`} stroke="#22d3ee" strokeWidth={2.5} dot={{ r: 3, fill: '#22d3ee' }} strokeDasharray="6 4" connectNulls />
+                  <Line type="monotone" dataKey="prevYearLine" name={`Năm ${(yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter)) - 2}`} stroke="#f472b6" strokeWidth={2} dot={{ r: 3, fill: '#f472b6' }} strokeDasharray="3 3" connectNulls />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -699,7 +722,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                       <td className="py-4 px-6 rounded-r-3xl bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-r border-transparent transition-colors">
                         <div className="flex items-center gap-4">
                           <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                            <div className={`h-full rounded-full transition-all duration-1000 ${row.progress >= 90 ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : row.progress >= 70 ? 'bg-indigo-600' : 'bg-amber-500'}`} style={{ width: `${row.progress}%` }}></div>
+                            <div className={`h-full rounded-full transition-all duration-1000 ${row.progress >= 90 ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : row.progress >= 70 ? 'bg-indigo-600' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, row.progress)}%` }}></div>
                           </div>
                           <span className={`text-xs font-bold w-10 text-right ${row.progress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>{row.progress.toFixed(0)}%</span>
                         </div>
@@ -734,7 +757,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 const KPIItem = ({ title, metric, stats, target, yoy, color, icon }: any) => {
   const actual = stats[metric] || 0;
   const plan = target[metric] || 0;
-  const progress = plan > 0 ? Math.min(100, (actual / plan) * 100) : 0;
+  const progress = plan > 0 ? Math.round((actual / plan) * 100) : 0;
 
   const colors: any = {
     indigo: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/30',
@@ -759,23 +782,23 @@ const KPIItem = ({ title, metric, stats, target, yoy, color, icon }: any) => {
         <div className={`p-3 rounded-lg ${colors[color]} transition-transform group-hover:rotate-6`}>
           {icon}
         </div>
-        <div className={`flex items-center gap-1 text-[11px] font-black ${yoy.isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
-          {yoy.isUp ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-          {yoy.value}% <span className="text-[8px] text-slate-400 font-bold">YoY</span>
+        <div className={`flex items-center gap-1 text-sm font-black ${yoy.isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
+          {yoy.isUp ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
+          {yoy.value}% <span className="text-[10px] text-slate-400 font-bold">YoY</span>
         </div>
       </div>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{title}</p>
+      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">{title}</p>
       <div className="flex items-baseline gap-2 mb-4">
         <h4 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{formatValue(actual)}</h4>
-        <span className="text-[10px] font-bold text-slate-400">/ {formatValue(plan)}</span>
+        <span className="text-xs font-bold text-slate-400">/ {formatValue(plan)}</span>
       </div>
       <div className="space-y-2">
-        <div className="flex justify-between text-[10px] font-black uppercase tracking-tighter">
-          <span className="text-slate-400">Hoàn thành kế hoạch</span>
-          <span className={yoy.isUp ? 'text-indigo-600' : 'text-amber-600'}>{progress.toFixed(1)}%</span>
+        <div className="flex justify-between text-xs font-black uppercase tracking-tighter">
+          <span className="text-slate-400">Hoàn thành KH</span>
+          <span className={yoy.isUp ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}>{progress.toFixed(1)}%</span>
         </div>
         <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-          <div className={`h-full rounded-full transition-all duration-1000 ${color === 'emerald' ? 'bg-emerald-500' : color === 'amber' ? 'bg-amber-500' : 'bg-indigo-600'}`} style={{ width: `${progress}%` }}></div>
+          <div className={`h-full rounded-full transition-all duration-1000 ${color === 'emerald' ? 'bg-emerald-500' : color === 'amber' ? 'bg-amber-500' : 'bg-indigo-600'}`} style={{ width: `${Math.min(100, progress)}%` }}></div>
         </div>
       </div>
     </div>

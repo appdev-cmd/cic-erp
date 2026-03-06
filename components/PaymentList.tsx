@@ -1,11 +1,10 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
     Loader2,
     Search,
     CreditCard,
     DollarSign,
-    AlertCircle,
     CheckCircle2,
     Clock,
     FileCheck,
@@ -14,9 +13,13 @@ import {
     Building2,
     Calendar,
     Plus,
-    Trash2
+    Trash2,
+    ArrowDownCircle,
+    ArrowUpCircle,
+    Receipt,
+    AlertTriangle
 } from 'lucide-react';
-import { Payment, PaymentStatus, Customer, Unit } from '../types';
+import { Payment, PaymentStatus, Customer, Unit, VoucherType } from '../types';
 import { PaymentService, ContractService, CustomerService, UnitService } from '../services';
 import { useLayoutContext } from './layout/MainLayout';
 import PaymentForm from './PaymentForm';
@@ -26,10 +29,35 @@ import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useImpersonation } from '../contexts/ImpersonationContext';
+import { formatNumber } from '../lib/utils';
 
 interface PaymentListProps {
     onSelectContract?: (id: string) => void;
 }
+
+const VOUCHER_TABS: { type: VoucherType; label: string; icon: React.ReactNode; color: string; activeClass: string }[] = [
+    {
+        type: 'VAT_INVOICE',
+        label: 'Phiếu HĐ VAT',
+        icon: <FileText size={15} />,
+        color: 'text-blue-600 dark:text-blue-400',
+        activeClass: 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
+    },
+    {
+        type: 'RECEIPT',
+        label: 'Phiếu thu',
+        icon: <ArrowDownCircle size={15} />,
+        color: 'text-emerald-600 dark:text-emerald-400',
+        activeClass: 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/25'
+    },
+    {
+        type: 'EXPENSE',
+        label: 'Phiếu chi',
+        icon: <ArrowUpCircle size={15} />,
+        color: 'text-rose-600 dark:text-rose-400',
+        activeClass: 'bg-rose-600 text-white shadow-lg shadow-rose-500/25'
+    },
+];
 
 const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const { profile: realProfile } = useAuth();
@@ -43,42 +71,39 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [typeFilter, setTypeFilter] = useState<'Revenue' | 'Expense'>('Revenue');
+    const [voucherTab, setVoucherTab] = useState<VoucherType>('VAT_INVOICE');
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [stats, setStats] = useState<any>(null);
 
-    // Infinite scroll batch size
     const PAGE_SIZE = 20;
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
-    // CRUD state
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingPayment, setEditingPayment] = useState<Payment | undefined>(undefined);
 
-
-    // Debounce search
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearch(searchQuery);
-        }, 500);
+        const timer = setTimeout(() => { setDebouncedSearch(searchQuery); }, 500);
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Infinite scroll fetch function
+    // Reset status filter when tab changes
+    useEffect(() => {
+        setStatusFilter('all');
+    }, [voucherTab]);
+
     const fetchPaymentPage = useCallback(async (page: number) => {
         const [listRes, statsRes, customersData, unitsData] = await Promise.all([
             PaymentService.list({
                 page,
                 limit: PAGE_SIZE,
                 search: debouncedSearch,
-                type: typeFilter,
+                voucherType: voucherTab,
                 status: statusFilter,
                 unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter],
                 year: yearFilter
             }),
             page === 1 ? PaymentService.getStats({
-                type: typeFilter,
                 unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter],
                 year: yearFilter
             }) : Promise.resolve(null),
@@ -91,16 +116,14 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             const incoming = (customersData as any).data || customersData;
             setCustomers(incoming as Customer[]);
         }
-        if (unitsData) {
-            setUnits(unitsData as Unit[]);
-        }
+        if (unitsData) setUnits(unitsData as Unit[]);
 
         return {
             data: listRes.data,
             hasMore: listRes.data.length >= PAGE_SIZE,
             totalCount: listRes.count
         };
-    }, [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits, yearFilter, customers.length, units.length]);
+    }, [debouncedSearch, voucherTab, statusFilter, unitFilter, visibleUnits, yearFilter, customers.length, units.length]);
 
     const {
         items: payments,
@@ -114,51 +137,44 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     } = useInfiniteScroll<Payment>({
         fetchFn: fetchPaymentPage,
         pageSize: PAGE_SIZE,
-        resetDeps: [debouncedSearch, typeFilter, statusFilter, unitFilter, visibleUnits, yearFilter]
+        resetDeps: [debouncedSearch, voucherTab, statusFilter, unitFilter, visibleUnits, yearFilter]
     });
 
-    // Legacy effect for stats calculation removed (now server-side or separately fetched)
-
-    // Memoized is removed as we depend on API result now
-
-    const formatCurrency = (val: number) => {
-        return (val || 0).toLocaleString('vi-VN') + ' ₫';
-    };
+    const formatCurrency = (val: number) => formatNumber(val) + ' ₫';
 
     const getStatusConfig = (status: PaymentStatus) => {
         switch (status) {
-            case 'Tạm ứng':
-                return { color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: DollarSign, label: 'Tạm ứng' };
-            case 'Tiền về':
-                return { color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', icon: CheckCircle2, label: typeFilter === 'Revenue' ? 'Tiền về' : 'Đã chi' };
-            case 'Đã xuất HĐ':
-                return { color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: FileCheck, label: 'Đã xuất HĐ' };
-            default:
-                return { color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400', icon: Clock, label: status };
+            case 'Tạm ứng': return { color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: DollarSign, label: 'Tạm ứng' };
+            case 'Tiền về': return { color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', icon: CheckCircle2, label: 'Tiền về' };
+            case 'Đã xuất HĐ': return { color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: FileCheck, label: 'Đã xuất HĐ' };
+            case 'Đã giao KH': return { color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400', icon: CheckCircle2, label: 'Đã giao KH' };
+            case 'Đề nghị chi': return { color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', icon: Clock, label: 'Đề nghị chi' };
+            case 'Đã chi': return { color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400', icon: CheckCircle2, label: 'Đã chi' };
+            default: return { color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400', icon: Clock, label: status };
         }
     };
 
     const getCustomerName = (customerId: string | null) => {
         if (!customerId) return '—';
-        const customer = customers.find(c => c.id === customerId);
-        return customer ? customer.name : '—';
+        return customers.find(c => c.id === customerId)?.name || '—';
     };
 
     const getUnitName = (unitId?: string) => {
         if (!unitId) return '—';
-        const unit = units.find(u => u.id === unitId);
-        return unit ? unit.name : '—';
+        return units.find(u => u.id === unitId)?.name || '—';
     };
 
-    // CRUD handlers
-    const handleAdd = () => {
-        setEditingPayment(undefined);
-        setIsFormOpen(true);
-    };
-
+    // CRUD
+    const handleAdd = () => { setEditingPayment(undefined); setIsFormOpen(true); };
     const handleEdit = (payment: Payment) => {
-        setEditingPayment(payment);
-        setIsFormOpen(true);
+        if (can('payments', 'update')) {
+            setEditingPayment(payment);
+            setIsFormOpen(true);
+        } else {
+            // View-only: still open form but would need read-only mode
+            setEditingPayment(payment);
+            setIsFormOpen(true);
+        }
     };
 
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -180,32 +196,56 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const handleSave = async (paymentData: any) => {
         try {
             if (paymentData.id) {
-                // Update
                 const updated = await PaymentService.update(paymentData.id, paymentData);
-                if (updated) {
-                    setPayments(payments.map(p => p.id === paymentData.id ? updated : p));
-                }
+                if (updated) setPayments(payments.map(p => p.id === paymentData.id ? updated : p));
             } else {
-                // Create
-                const newPaymentData = {
-                    ...paymentData,
-                    paymentType: typeFilter // Default to current filter
-                };
-                const created = await PaymentService.create(newPaymentData);
+                const created = await PaymentService.create(paymentData);
                 setPayments([created, ...payments]);
             }
             setIsFormOpen(false);
             setEditingPayment(undefined);
-            resetInfiniteScroll(); // Refresh to ensure data consistency
-            toast.success(paymentData.id ? "Cập nhật thành công" : "Tạo phiếu tài chính thành công");
+            resetInfiniteScroll();
+            toast.success(paymentData.id ? "Cập nhật thành công" : "Tạo phiếu thành công");
         } catch (error) {
             console.error("Failed to save payment:", error);
             toast.error("Lưu thất bại");
         }
     };
 
+    // Status filter options per tab
+    const getStatusOptions = (): { value: string; label: string }[] => {
+        const opts: { value: string; label: string }[] = [{ value: 'all', label: 'Tất cả' }];
+        switch (voucherTab) {
+            case 'VAT_INVOICE': opts.push({ value: 'Đã xuất HĐ', label: 'Đã xuất HĐ' }, { value: 'Đã giao KH', label: 'Đã giao KH' }); break;
+            case 'RECEIPT': opts.push({ value: 'Tạm ứng', label: 'Tạm ứng' }, { value: 'Tiền về', label: 'Tiền về' }); break;
+            case 'EXPENSE': opts.push({ value: 'Đề nghị chi', label: 'Đề nghị chi' }, { value: 'Đã chi', label: 'Đã chi' }); break;
+        }
+        return opts;
+    };
+
+    // Permission check: only show Add button if user has create permission
+    const canCreate = can('payments', 'create');
+    const canDelete = can('payments', 'delete');
+
+    // Tab-specific extra column header
+    const getExtraColumnHeader = () => {
+        switch (voucherTab) {
+            case 'VAT_INVOICE': return 'Số HĐ';
+            case 'RECEIPT': return 'Phương thức';
+            case 'EXPENSE': return 'Hạng mục';
+        }
+    };
+
+    const getExtraColumnValue = (p: Payment) => {
+        switch (voucherTab) {
+            case 'VAT_INVOICE': return p.invoiceNumber || '—';
+            case 'RECEIPT': return p.method || '—';
+            case 'EXPENSE': return p.expenseCategory || '—';
+        }
+    };
+
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-5 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -213,85 +253,112 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         Quản lý Tài chính
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                        Theo dõi dòng tiền Thu & Chi
+                        Phiếu xuất HĐ VAT, Phiếu thu, Phiếu chi theo hợp đồng
                     </p>
                 </div>
-                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                    <button
-                        onClick={() => { setTypeFilter('Revenue'); }}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${typeFilter === 'Revenue' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                        Khoản Thu
-                    </button>
-                    <button
-                        onClick={() => { setTypeFilter('Expense'); }}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${typeFilter === 'Expense' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                        Khoản Chi
-                    </button>
-                </div>
-            </div>
 
-            {(() => {
-                // Spec §6.4: Kế toán, KTT, Admin được thêm phiếu tài chính thực tế
-                // Fallback theo role nếu DB chưa có permission record (vd: impersonate)
-                const canAdd = can('payments', 'create') ||
-                    (['Accountant', 'ChiefAccountant', 'Admin'].includes(profile?.role || ''));
-
-                if (!canAdd) return null;
-
-                return (
+                {canCreate && (
                     <button
                         onClick={handleAdd}
-                        className={`px-5 py-2.5 text-white rounded-lg font-bold text-sm flex items-center gap-2 transition-colors shadow-lg ${typeFilter === 'Revenue' ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'}`}
+                        className={`px-5 py-2.5 text-white rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-lg ${voucherTab === 'VAT_INVOICE' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-blue-900/30'
+                            : voucherTab === 'RECEIPT' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-emerald-900/30'
+                                : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200 dark:shadow-rose-900/30'
+                            }`}
                     >
                         <Plus size={18} />
-                        Thêm {typeFilter === 'Revenue' ? 'phiếu thu' : 'phiếu chi'}
+                        Thêm phiếu
                     </button>
-                );
-            })()}
+                )}
+            </div>
 
+            {/* === 3 TABS === */}
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl gap-1">
+                {VOUCHER_TABS.map(tab => (
+                    <button
+                        key={tab.type}
+                        onClick={() => setVoucherTab(tab.type)}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${voucherTab === tab.type
+                            ? tab.activeClass
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                            }`}
+                    >
+                        {tab.icon}
+                        <span className="hidden sm:inline">{tab.label}</span>
+                    </button>
+                ))}
+            </div>
 
             {/* Stats Cards */}
-            {
-                stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                                    <FileCheck size={20} className="text-blue-600 dark:text-blue-400" />
-                                </div>
-                                <div>
-                                    <p className="text-2xl font-black text-blue-600">{formatCurrency(stats.invoicedAmount || 0)}</p>
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Đã xuất HĐ ({stats.invoicedCount || 0})</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                                    <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
-                                </div>
-                                <div>
-                                    <p className="text-2xl font-black text-emerald-600">{formatCurrency(stats.cashReceivedAmount || 0)}</p>
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{typeFilter === 'Revenue' ? 'Tiền về' : 'Đã chi'} ({stats.cashReceivedCount || 0})</p>
+            {stats && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {voucherTab === 'VAT_INVOICE' && (
+                        <>
+                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-xl"><FileCheck size={18} className="text-blue-600 dark:text-blue-400" /></div>
+                                    <div>
+                                        <p className="text-lg font-black text-blue-600 dark:text-blue-400">{formatCurrency(stats.invoicedAmount || 0)}</p>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Đã xuất HĐ ({stats.invoicedCount || 0} phiếu)</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                                    <DollarSign size={20} className="text-amber-600 dark:text-amber-400" />
-                                </div>
-                                <div>
-                                    <p className="text-2xl font-black text-amber-600">{formatCurrency((stats.invoicedAmount || 0))}</p>
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{typeFilter === 'Revenue' ? 'Công nợ' : 'Chờ chi'}</p>
+                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><AlertTriangle size={18} className="text-amber-600 dark:text-amber-400" /></div>
+                                    <div>
+                                        <p className="text-lg font-black text-amber-600 dark:text-amber-400">{formatCurrency((stats.invoicedAmount || 0) - (stats.cashReceivedAmount || 0))}</p>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Công nợ</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                )
-            }
+                        </>
+                    )}
+                    {voucherTab === 'RECEIPT' && (
+                        <>
+                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl"><CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400" /></div>
+                                    <div>
+                                        <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(stats.cashReceivedAmount || 0)}</p>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Tiền về ({stats.cashReceivedCount || 0} phiếu)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><DollarSign size={18} className="text-amber-600 dark:text-amber-400" /></div>
+                                    <div>
+                                        <p className="text-lg font-black text-amber-600 dark:text-amber-400">{formatCurrency(stats.advanceAmount || 0)}</p>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Tạm ứng ({stats.advanceCount || 0} phiếu)</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    {voucherTab === 'EXPENSE' && (
+                        <>
+                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-rose-100 dark:bg-rose-900/30 rounded-xl"><ArrowUpCircle size={18} className="text-rose-600 dark:text-rose-400" /></div>
+                                    <div>
+                                        <p className="text-lg font-black text-rose-600 dark:text-rose-400">{formatCurrency(stats.expenseAmount || 0)}</p>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Đã chi ({stats.expenseCount || 0} phiếu)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-orange-100 dark:bg-orange-900/30 rounded-xl"><Clock size={18} className="text-orange-600 dark:text-orange-400" /></div>
+                                    <div>
+                                        <p className="text-lg font-black text-orange-600 dark:text-orange-400">{formatCurrency(stats.pendingExpenseAmount || 0)}</p>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Chờ duyệt chi</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">
@@ -302,41 +369,37 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         placeholder="Tìm kiếm theo mã, hợp đồng, hóa đơn..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                        className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                     />
                 </div>
-
-                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
                     <Filter size={16} className="text-slate-400" />
                     <select
                         value={statusFilter}
-                        onChange={(e) => { setStatusFilter(e.target.value); }}
+                        onChange={(e) => setStatusFilter(e.target.value)}
                         className="bg-transparent text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none"
                     >
-                        <option value="all">Tất cả trạng thái</option>
-                        <option value="Tạm ứng">Tạm ứng</option>
-                        <option value="Đã xuất HĐ">Đã xuất HĐ</option>
-                        <option value="Tiền về">Tiền về</option>
+                        {getStatusOptions().map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
                     </select>
                 </div>
             </div>
 
             {/* Table */}
-            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
-                <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-360px)]">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-420px)]">
                     <table className="w-full">
                         <thead>
-                            <tr className="z-20">
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-3 px-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-10">STT</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mã / Hóa đơn</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Khách hàng</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Hợp đồng</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Đơn vị</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Hạn</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-right py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Số tiền</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng thái</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-3 px-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-10"></th>
-
+                            <tr>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-3 px-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase w-10">STT</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase">{getExtraColumnHeader()}</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase hidden lg:table-cell">Khách hàng</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase hidden md:table-cell">Hợp đồng</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase hidden sm:table-cell">Ngày</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-right py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase">Số tiền</th>
+                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase">Trạng thái</th>
+                                {canDelete && <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 w-10"></th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -349,28 +412,21 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                             ) : payments.map((payment, index) => {
                                 const statusConfig = getStatusConfig(payment.status);
                                 const StatusIcon = statusConfig.icon;
+                                const dateStr = payment.paymentDate || payment.dueDate;
 
                                 return (
                                     <tr
                                         key={payment.id}
                                         onClick={() => handleEdit(payment)}
-                                        className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-indigo-50/50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
+                                        className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer"
                                     >
                                         <td className="py-3 px-2 text-center">
-                                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                                {index + 1}
-                                            </span>
+                                            <span className="text-xs font-medium text-slate-400">{index + 1}</span>
                                         </td>
                                         <td className="py-3 px-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                                                    <CreditCard size={14} className="text-slate-500" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-slate-900 dark:text-slate-100 text-xs">{payment.id}</p>
-                                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">{payment.invoiceNumber}</p>
-                                                </div>
-                                            </div>
+                                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                {getExtraColumnValue(payment)}
+                                            </span>
                                         </td>
                                         <td className="py-3 px-3 hidden lg:table-cell">
                                             <div className="flex items-center gap-1.5">
@@ -383,30 +439,22 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                         <td className="py-3 px-3 hidden md:table-cell">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onSelectContract?.(payment.contractId); }}
-                                                className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700"
+                                                className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
                                             >
                                                 <FileText size={12} />
-                                                <span className="text-xs font-medium">{payment.contractId}</span>
+                                                <span className="text-xs font-medium truncate max-w-[120px]">{payment.contractId}</span>
                                             </button>
-                                        </td>
-                                        <td className="py-3 px-3 hidden lg:table-cell">
-                                            <span className="text-xs font-medium text-slate-600 dark:text-slate-400 truncate max-w-[120px] block">
-                                                {getUnitName((payment as any).unitId)}
-                                            </span>
                                         </td>
                                         <td className="py-3 px-3 hidden sm:table-cell">
                                             <div className="flex items-center gap-1.5">
                                                 <Calendar size={12} className="text-slate-400" />
                                                 <span className="text-xs text-slate-600 dark:text-slate-400">
-                                                    {new Date(payment.dueDate).toLocaleDateString('vi-VN')}
+                                                    {dateStr ? new Date(dateStr).toLocaleDateString('vi-VN') : '—'}
                                                 </span>
                                             </div>
                                         </td>
                                         <td className="py-3 px-3 text-right">
                                             <p className="font-black text-slate-900 dark:text-slate-100 text-xs">{formatCurrency(payment.amount)}</p>
-                                            {payment.paidAmount > 0 && payment.paidAmount < payment.amount && (
-                                                <p className="text-[9px] text-emerald-600">Đã thu: {formatCurrency(payment.paidAmount)}</p>
-                                            )}
                                         </td>
                                         <td className="py-3 px-3 text-center">
                                             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${statusConfig.color}`}>
@@ -414,26 +462,24 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                                 {statusConfig.label}
                                             </span>
                                         </td>
-                                        <td className="py-3 px-2 text-center">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setDeleteConfirmId(payment.id);
-                                                }}
-                                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
-                                                title="Xóa phiếu tài chính"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </td>
-
+                                        {canDelete && (
+                                            <td className="py-3 px-2 text-center">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(payment.id); }}
+                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all opacity-0 group-hover:opacity-100"
+                                                    title="Xóa phiếu"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 );
                             })}
                         </tbody>
                     </table>
 
-                    {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
+                    {/* Infinite scroll sentinel */}
                     <div className="p-4 flex flex-col items-center justify-center">
                         <div ref={sentinelRef} className="h-4 w-full" />
                         {isLoadingMore && (
@@ -443,17 +489,17 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                             </div>
                         )}
                         {!hasMore && payments.length > 0 && !isLoading && (
-                            <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+                            <div className="text-center py-4 text-sm text-slate-400">
                                 Đã hiển thị tất cả {totalCount} kết quả
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* STATUS BAR */}
-                <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                {/* Status bar */}
+                <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
                     <div className="flex items-center justify-between">
-                        <div className="text-sm font-bold text-slate-500">
+                        <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
                             Hiển thị {payments.length} / {totalCount} kết quả
                         </div>
                     </div>
@@ -464,8 +510,8 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
                             <CreditCard size={24} className="text-slate-400" />
                         </div>
-                        <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">Không tìm thấy</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Thử thay đổi bộ lọc</p>
+                        <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">Không tìm thấy phiếu nào</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Thử thay đổi bộ lọc hoặc thêm phiếu mới</p>
                     </div>
                 )}
             </div>
@@ -474,13 +520,13 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             {isFormOpen && (
                 <PaymentForm
                     payment={editingPayment}
-                    initialPaymentType={typeFilter}
+                    initialVoucherType={voucherTab}
                     onSave={handleSave}
                     onCancel={() => { setIsFormOpen(false); setEditingPayment(undefined); }}
                 />
             )}
 
-            {/* Delete Confirmation Modal */}
+            {/* Delete Confirmation */}
             {deleteConfirmId && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteConfirmId(null)}>
                     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-slate-200 dark:border-slate-800" onClick={e => e.stopPropagation()}>
@@ -494,19 +540,13 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                             </div>
                         </div>
                         <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-                            Bạn có chắc chắn muốn xóa phiếu tài chính này? Thao tác này <span className="font-bold text-red-600 dark:text-red-400">không thể hoàn tác</span>.
+                            Bạn có chắc chắn muốn xóa? <span className="font-bold text-red-600 dark:text-red-400">Không thể hoàn tác</span>.
                         </p>
                         <div className="flex gap-3">
-                            <button
-                                onClick={() => setDeleteConfirmId(null)}
-                                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                            >
+                            <button onClick={() => setDeleteConfirmId(null)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
                                 Hủy
                             </button>
-                            <button
-                                onClick={handleDeleteConfirm}
-                                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors"
-                            >
+                            <button onClick={handleDeleteConfirm} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition-colors">
                                 Xóa
                             </button>
                         </div>

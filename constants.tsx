@@ -36,7 +36,7 @@ export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
   'Rejected': 'Từ chối'
 };
 
-export const NON_BUSINESS_UNIT_CODES = ['HCNS', 'TCKT'];
+export const NON_BUSINESS_UNIT_CODES = ['HCNS'];
 
 export const INDUSTRIES = [
   'Xây dựng', 'Bất động sản', 'Năng lượng', 'Công nghệ', 'Sản xuất',
