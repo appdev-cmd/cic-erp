@@ -4,6 +4,25 @@ import { Save, Loader2, X, AlertCircle } from 'lucide-react';
 import { EmployeeService, UnitService } from '../services';
 import { Employee, Unit } from '../types';
 import { supabase } from '../lib/supabase';
+import { dataClient } from '../lib/dataClient';
+
+/**
+ * Normalize date string to YYYY-MM-DD for native date input.
+ * Handles: YYYY-MM-DD, DD/MM/YYYY, MM/DD/YYYY, ISO timestamps
+ */
+const normalizeDate = (d?: string | null): string => {
+    if (!d) return '';
+    // Already YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    // ISO timestamp
+    if (d.includes('T')) return d.split('T')[0];
+    // DD/MM/YYYY or MM/DD/YYYY — parse via Date
+    const parsed = new Date(d);
+    if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+    }
+    return d;
+};
 import {
     AvatarSection,
     BasicInfoSection,
@@ -82,8 +101,8 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
                 email: initialData.email || '',
                 phone: initialData.phone || '',
                 telegram: initialData.telegram || '',
-                dateJoined: initialData.dateJoined || '',
-                dateOfBirth: initialData.dateOfBirth || '',
+                dateJoined: normalizeDate(initialData.dateJoined),
+                dateOfBirth: normalizeDate(initialData.dateOfBirth),
                 gender: (initialData.gender as any) || '',
                 address: initialData.address || '',
                 education: initialData.education || '',
@@ -96,10 +115,30 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
                 emergencyContact: initialData.emergencyContact || '',
                 emergencyPhone: initialData.emergencyPhone || '',
                 contractType: initialData.contractType || '',
-                contractEndDate: initialData.contractEndDate || '',
+                contractEndDate: normalizeDate(initialData.contractEndDate),
                 target: initialData.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
             });
-            setPreviewUrl(initialData.avatar || '');
+
+            // If employee has no avatar, try fetching Google avatar from profiles table
+            if (!initialData.avatar && initialData.email) {
+                (async () => {
+                    try {
+                        const { data } = await dataClient
+                            .from('profiles')
+                            .select('avatar_url')
+                            .ilike('email', initialData.email!)
+                            .limit(1)
+                            .single();
+                        if (data?.avatar_url) {
+                            setPreviewUrl(data.avatar_url);
+                            setFormData(prev => ({ ...prev, avatar_url: data.avatar_url }));
+                        }
+                    } catch { /* no profile — keep placeholder */ }
+                })();
+                setPreviewUrl('');
+            } else {
+                setPreviewUrl(initialData.avatar || '');
+            }
             setAvatarFile(null);
         } else {
             setFormData({
