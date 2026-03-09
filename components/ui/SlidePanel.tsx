@@ -4,7 +4,8 @@ import { useSlidePanel, PanelEntry } from '../../contexts/SlidePanelContext';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STACKING_OFFSET = 20;   // px gap between panel left edges (for depth)
+const BASE_GAP = 20;           // px base gap between sidebar and first panel
+const STACKING_OFFSET = 20;   // px additional gap per stacked panel
 const TAB_HEIGHT = 38;         // approximate tab height in px
 const TAB_VERTICAL_GAP = 6;   // px gap between cascading tabs vertically
 
@@ -19,8 +20,8 @@ interface SlidePanelItemProps {
 
 const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, onClose }) => {
     const isTopPanel = index === total - 1;
-    // Small stacking offset — panel body stays close to sidebar
-    const stackOffset = index * STACKING_OFFSET;
+    // Base gap + stacking: every panel has at least BASE_GAP from sidebar
+    const stackOffset = BASE_GAP + index * STACKING_OFFSET;
     const [isExiting, setIsExiting] = useState(false);
 
     const handleClose = useCallback(() => {
@@ -111,7 +112,7 @@ const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, sidebarWidt
 
                 // Panel left border in SCREEN coordinates:
                 // sidebarWidth + (index * STACKING_OFFSET)
-                const panelLeftEdgeScreen = sidebarWidth + index * STACKING_OFFSET;
+                const panelLeftEdgeScreen = sidebarWidth + BASE_GAP + index * STACKING_OFFSET;
 
                 // Tab RIGHT edge = panel left border + TAB_HEIGHT (overlaps into panel)
                 // Using CSS `right`: distance from screen right

@@ -185,11 +185,12 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                     const hasNoItems = payment ? (!payment.vatInvoiceItems || payment.vatInvoiceItems.length === 0) : true;
                     if (isVATType && hasNoItems && c.lineItems && c.lineItems.length > 0) {
                         const items: VATInvoiceLineItem[] = c.lineItems.map(li => {
-                            const signingValue = (li.outputPrice || 0) * (li.quantity || 1);
+                            const vatRate = li.vatRate ?? 8;
+                            // signingValue = giá trị ký kết (bao gồm VAT)
+                            const signingValue = (li.outputPrice || 0) * (li.quantity || 1) * (1 + Math.max(0, vatRate) / 100);
                             const revenuePercent = 100;
-                            const vatRate = 8;
                             const amountAfterVAT = signingValue * revenuePercent / 100;
-                            const amountBeforeVAT = amountAfterVAT / (1 + vatRate / 100);
+                            const amountBeforeVAT = amountAfterVAT / (1 + Math.max(0, vatRate) / 100);
                             return {
                                 lineItemId: li.id,
                                 name: li.name,
@@ -237,12 +238,12 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                     // Auto-generate VAT invoice items from contract line items
                     if (voucherType === 'VAT_INVOICE' && (!vatInvoiceItems || vatInvoiceItems.length === 0)) {
                         const items: VATInvoiceLineItem[] = contract.lineItems.map(li => {
-                            const signingValue = (li.outputPrice || 0) * (li.quantity || 1);
+                            const vatRate = li.vatRate ?? 8;
+                            // signingValue = giá trị ký kết (bao gồm VAT, vatRate=-1 tính bằng 0)
+                            const signingValue = (li.outputPrice || 0) * (li.quantity || 1) * (1 + Math.max(0, vatRate) / 100);
                             const revenuePercent = 100;
-                            const vatRate = 8;
-                            // signingValue đã bao gồm VAT → tính ngược
                             const amountAfterVAT = signingValue * revenuePercent / 100;
-                            const amountBeforeVAT = amountAfterVAT / (1 + vatRate / 100);
+                            const amountBeforeVAT = amountAfterVAT / (1 + Math.max(0, vatRate) / 100);
                             return {
                                 lineItemId: li.id,
                                 name: li.name,
@@ -310,7 +311,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                 if (value >= 0) {
                     // Auto-calculate from signing value
                     item.amountAfterVAT = item.signingValue * value / 100;
-                    item.amountBeforeVAT = item.amountAfterVAT / (1 + item.vatRate / 100);
+                    item.amountBeforeVAT = item.amountAfterVAT / (1 + Math.max(0, item.vatRate) / 100);
                 }
                 // if -1 (switching to custom), keep current values for manual editing
             } else {
@@ -318,7 +319,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                 item.vatRate = value;
                 if (item.revenuePercent >= 0) {
                     item.amountAfterVAT = item.signingValue * item.revenuePercent / 100;
-                    item.amountBeforeVAT = item.amountAfterVAT / (1 + item.vatRate / 100);
+                    item.amountBeforeVAT = item.amountAfterVAT / (1 + Math.max(0, item.vatRate) / 100);
                 }
                 // In custom mode: don't recalculate — user controls both values
             }
@@ -389,7 +390,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
 
     return (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-300">
                 {/* Header */}
                 <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                     <div className="flex items-center gap-4">
@@ -489,7 +490,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                                     <table className="w-full text-xs">
                                         <thead>
                                             <tr className="bg-slate-50 dark:bg-slate-800">
-                                                <th className="text-left py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px]">SP / Dịch vụ</th>
+                                                <th className="text-left py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] min-w-[200px]">SP / Dịch vụ</th>
                                                 <th className="text-right py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] whitespace-nowrap">Giá trị ký kết</th>
                                                 <th className="text-center py-2.5 px-2 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] w-24">% Xuất DT</th>
                                                 <th className="text-right py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] whitespace-nowrap">Trước VAT</th>
@@ -550,6 +551,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                                                             <option value={5}>5%</option>
                                                             <option value={8}>8%</option>
                                                             <option value={10}>10%</option>
+                                                            <option value={-1}>Không chịu thuế</option>
                                                         </select>
                                                     </td>
                                                     <td className="py-2.5 px-3">
