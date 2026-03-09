@@ -483,6 +483,169 @@ export interface CustomerBank {
 
 
 // ============================================
+// TASK MANAGEMENT
+// ============================================
+
+export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low' | 'none';
+export type TaskSourceType = 'manual' | 'crm' | 'contract' | 'marketing' | 'ai' | 'chat';
+export type TaskStatusGroup = 'not_started' | 'in_progress' | 'completed';
+export type DependencyType = 'blocked_by' | 'blocking' | 'waiting_on' | 'related';
+export type TaskCommentType = 'comment' | 'approval' | 'system';
+
+export interface TaskStatus {
+  id: string;
+  name: string;
+  group: TaskStatusGroup;
+  color: string;
+  order: number;
+}
+
+export interface Space {
+  id: string;
+  name: string;
+  description?: string;
+  unit_id?: string;
+  color?: string;
+  icon?: string;
+  is_private?: boolean;
+  settings?: Record<string, any>;
+  sort_order?: number;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  // Joined
+  folders?: Folder[];
+  lists?: TaskList[];
+  folder_count?: number;
+  list_count?: number;
+  task_count?: number;
+}
+
+export interface Folder {
+  id: string;
+  space_id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  sort_order?: number;
+  is_archived?: boolean;
+  contract_id?: string;
+  project_id?: string;
+  created_by?: string;
+  created_at?: string;
+  // Joined
+  lists?: TaskList[];
+}
+
+export interface TaskList {
+  id: string;
+  folder_id?: string;
+  space_id: string;
+  name: string;
+  description?: string;
+  statuses?: TaskStatus[];
+  default_assignee_id?: string;
+  sort_order?: number;
+  is_archived?: boolean;
+  wip_limits?: Record<string, number>;
+  created_by?: string;
+  created_at?: string;
+  // Joined
+  task_count?: number;
+}
+
+export interface Task {
+  id: string;
+  list_id: string;
+  parent_id?: string;
+  title: string;
+  description?: string;
+  status_id: string;
+  priority: TaskPriority;
+  assignees: string[];
+  start_date?: string;
+  due_date?: string;
+  time_estimate?: number;
+  time_spent?: number;
+  tags: string[];
+  custom_fields?: Record<string, any>;
+  sort_order?: number;
+  is_private?: boolean;
+  is_recurring?: boolean;
+  recurrence_config?: Record<string, any>;
+  source_type?: TaskSourceType;
+  source_id?: string;
+  template_id?: string;
+  completed_at?: string;
+  completed_by?: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  // Joined / computed
+  subtasks?: Task[];
+  subtask_count?: number;
+  completed_subtask_count?: number;
+  checklist_progress?: { total: number; checked: number };
+  list?: TaskList;
+  assignee_profiles?: { id: string; fullName: string; avatarUrl?: string }[];
+}
+
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  author_id?: string;
+  content: string;
+  mentions?: string[];
+  comment_type?: TaskCommentType;
+  attachments?: any[];
+  is_resolved?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  // Joined
+  author?: { fullName: string; avatarUrl?: string };
+}
+
+export interface TaskAttachment {
+  id: string;
+  task_id: string;
+  name: string;
+  file_path?: string;
+  url?: string;
+  type?: string;
+  size?: number;
+  uploaded_by?: string;
+  uploaded_at?: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  checked: boolean;
+  assignee_id?: string;
+}
+
+export interface Checklist {
+  id: string;
+  task_id: string;
+  title: string;
+  items: ChecklistItem[];
+  sort_order?: number;
+}
+
+export interface TaskActivity {
+  id: string;
+  task_id: string;
+  user_id?: string;
+  action: string;
+  field?: string;
+  old_value?: any;
+  new_value?: any;
+  created_at?: string;
+  // Joined
+  user?: { fullName: string; avatarUrl?: string };
+}
+
+// ============================================
 // WORKFLOW & PERMISSIONS
 // ============================================
 
@@ -548,7 +711,8 @@ export type PermissionResource =
   | 'products'
   | 'payments'
   | 'settings'
-  | 'permissions';
+  | 'permissions'
+  | 'tasks';
 
 export interface UserPermission {
   id?: string;
@@ -571,6 +735,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     payments: ['view', 'create', 'update', 'delete'],
     settings: ['view', 'create', 'update', 'delete'],
     permissions: ['view', 'create', 'update', 'delete'],
+    tasks: ['view', 'create', 'update', 'delete'],
   },
   // Ban lãnh đạo — Toàn quyền dữ liệu, KHÔNG settings/permissions, payments chỉ xem
   Leadership: {
@@ -580,6 +745,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     customers: ['view', 'create', 'update', 'delete'],
     products: ['view', 'create', 'update', 'delete'],
     payments: ['view'],                                  // §6.4: chỉ xem, không nhập/sửa/xóa
+    tasks: ['view', 'create', 'update', 'delete'],
   },
   // Lãnh đạo đơn vị — HĐ/KH/SP: VCU, payments: chỉ xem (tạo phiếu cần cấp quyền qua Settings)
   UnitLeader: {
@@ -587,6 +753,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     customers: ['view', 'create', 'update'],
     products: ['view', 'create', 'update'],
     payments: ['view'],                                  // Chỉ xem, tạo phiếu do Kế toán
+    units: ['view', 'update'],                           // Xem đơn vị mình + phân bổ chỉ tiêu NV
+    tasks: ['view', 'create', 'update', 'delete'],
   },
   // Admin đơn vị — HĐ/KH/SP: VCU, payments: chỉ xem
   AdminUnit: {
@@ -594,6 +762,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     customers: ['view', 'create', 'update'],
     products: ['view', 'create', 'update'],
     payments: ['view'],                                  // Chỉ xem, tạo phiếu do Kế toán
+    units: ['view', 'update'],                           // Xem đơn vị mình + phân bổ chỉ tiêu NV
+    tasks: ['view', 'create', 'update'],
   },
   // Nhân viên kinh doanh — HĐ/KH/SP: VCU, payments: chỉ xem
   NVKD: {
@@ -601,6 +771,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     customers: ['view', 'create', 'update'],
     products: ['view', 'create', 'update'],
     payments: ['view'],                                  // Chỉ xem, tạo phiếu do Kế toán
+    tasks: ['view', 'create', 'update'],
   },
   // Kế toán trưởng — Tài chính toàn quyền, xem NV, không units
   ChiefAccountant: {
@@ -609,6 +780,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     products: ['view', 'create', 'update'],
     payments: ['view', 'create', 'update', 'delete'],   // §6.4: toàn quyền thanh toán
     employees: ['view'],                                 // Confirmed: ChiefAccountant xem NV
+    tasks: ['view', 'create', 'update'],
   },
   // Kế toán — Ghi nhận tài chính, xem toàn công ty, KHÔNG employees
   Accountant: {
@@ -616,6 +788,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     customers: ['view', 'create', 'update'],
     products: ['view', 'create', 'update'],
     payments: ['view', 'create', 'update'],              // §6.4: thêm/sửa thực tế, không xóa
+    tasks: ['view', 'create', 'update'],
   },
   // Nhân viên kỹ thuật — Triển khai KT, hỗ trợ thực hiện HĐ, quản lý SP
   NVKT: {
@@ -623,6 +796,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     customers: ['view'],                                 // Chỉ xem KH
     products: ['view', 'create', 'update'],              // Quản lý kỹ thuật SP/DV
     payments: ['view'],                                  // Chỉ xem thanh toán
+    tasks: ['view', 'create', 'update'],
   },
   // Pháp chế — Rà soát, KHÔNG employees/units
   Legal: {
@@ -630,6 +804,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     customers: ['view', 'create', 'update'],
     products: ['view', 'create', 'update'],
     payments: ['view'],
+    tasks: ['view', 'create', 'update'],
   },
 };
 

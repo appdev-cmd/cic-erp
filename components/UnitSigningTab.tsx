@@ -17,11 +17,14 @@ import {
     Wallet,
     Users,
     UserPlus,
-    Trash2
+    Trash2,
+    Lock
 } from 'lucide-react';
 import { Employee, KPIPlan, Unit } from '../types';
 import { UnitService } from '../services';
 import { EmployeeTargetService, EmployeeTarget } from '../services/employeeTargetService';
+import { UnitTargetService, UnitTarget } from '../services/unitTargetService';
+import { usePermissionCheck } from '../hooks/usePermissions';
 import NumberInput from './ui/NumberInput';
 
 interface UnitSigningTabProps {
@@ -42,6 +45,16 @@ interface EmployeeWithStats extends Employee {
 }
 
 const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter, onRefresh, onViewPersonnel }) => {
+    const { can, role, unitId: userUnitId } = usePermissionCheck();
+
+    // === Permission checks ===
+    // Unit target: only Admin/Leadership can set
+    const canEditUnitTarget = role === 'Admin' || role === 'Leadership';
+    // Employee targets: Admin/Leadership OR UnitLeader/AdminUnit of same unit
+    const canEditEmployeeTargets = canEditUnitTarget ||
+        ((role === 'UnitLeader' || role === 'AdminUnit') && userUnitId === unit.id);
+
+    // === State ===
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTarget, setEditTarget] = useState<KPIPlan>({ signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 });
     const [isSaving, setIsSaving] = useState(false);
@@ -49,14 +62,27 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
     const [yearTargets, setYearTargets] = useState<EmployeeTarget[]>([]);
     const addDropdownRef = useRef<HTMLDivElement>(null);
 
+    // === Unit target state (per-year) ===
+    const [unitTarget, setUnitTarget] = useState<UnitTarget | null>(null);
+    const [isEditingUnitTarget, setIsEditingUnitTarget] = useState(false);
+    const [editUnitTarget, setEditUnitTarget] = useState<KPIPlan>({ signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 });
+    const [isSavingUnitTarget, setIsSavingUnitTarget] = useState(false);
+
     const year = parseInt(yearFilter) || new Date().getFullYear();
 
-    // Fetch year-specific targets
+    // Fetch year-specific unit target
+    useEffect(() => {
+        UnitTargetService.getByUnitAndYear(unit.id, year)
+            .then(setUnitTarget)
+            .catch(e => console.error('Failed to fetch unit target:', e));
+    }, [unit.id, year]);
+
+    // Fetch year-specific employee targets
     useEffect(() => {
         EmployeeTargetService.getByUnitAndYear(unit.id, year)
             .then(setYearTargets)
             .catch(e => console.error('Failed to fetch targets:', e));
-    }, [unit.id, year, staff]); // re-fetch when staff refreshes
+    }, [unit.id, year, staff]);
 
     // Target lookup map: employeeId -> EmployeeTarget
     const targetMap = useMemo(() => {
@@ -93,6 +119,12 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
         return { signing: t.signing, revenue: t.revenue, adminProfit: t.adminProfit, revProfit: t.revProfit, cash: t.cash };
     };
 
+    // Current unit KPI plan (from per-year data, fallback to legacy unit.target)
+    const currentUnitKPI = useMemo((): KPIPlan => {
+        if (unitTarget) return UnitTargetService.toKPIPlan(unitTarget);
+        return unit.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+    }, [unitTarget, unit.target]);
+
     // Summary totals
     const totals = useMemo(() => {
         let targetSigning = 0, targetRevenue = 0, targetProfit = 0;
@@ -117,15 +149,42 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
 
     // Unit target vs employee target allocation comparison
     const allocationRate = useMemo(() => {
-        const unitTarget = unit.target?.signing || 0;
-        if (unitTarget === 0) return 0;
-        return (totals.target.signing / unitTarget) * 100;
-    }, [unit.target, totals.target.signing]);
+        const uTarget = currentUnitKPI.signing || 0;
+        if (uTarget === 0) return 0;
+        return (totals.target.signing / uTarget) * 100;
+    }, [currentUnitKPI, totals.target.signing]);
 
     const formatCurrency = (val: number) => {
         return (val || 0).toLocaleString('vi-VN') + ' ₫';
     };
 
+    // === Unit target handlers ===
+    const handleStartEditUnitTarget = () => {
+        setIsEditingUnitTarget(true);
+        setEditUnitTarget({ ...currentUnitKPI });
+    };
+
+    const handleCancelEditUnitTarget = () => {
+        setIsEditingUnitTarget(false);
+    };
+
+    const handleSaveUnitTarget = async () => {
+        setIsSavingUnitTarget(true);
+        try {
+            const saved = await UnitTargetService.upsert(unit.id, year, editUnitTarget);
+            setUnitTarget(saved);
+            setIsEditingUnitTarget(false);
+            toast.success(`Cập nhật chỉ tiêu đơn vị năm ${year} thành công`);
+            onRefresh();
+        } catch (error) {
+            console.error('Error updating unit target:', error);
+            toast.error('Có lỗi khi cập nhật chỉ tiêu đơn vị');
+        } finally {
+            setIsSavingUnitTarget(false);
+        }
+    };
+
+    // === Employee target handlers ===
     const handleStartEdit = (emp: EmployeeWithStats) => {
         setEditingId(emp.id);
         setEditTarget({ ...getTarget(emp.id) });
@@ -141,7 +200,6 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
             await EmployeeTargetService.upsert(empId, unit.id, year, editTarget);
             toast.success(`Cập nhật chỉ tiêu ${year} thành công`);
             setEditingId(null);
-            // Re-fetch year targets
             const updated = await EmployeeTargetService.getByUnitAndYear(unit.id, year);
             setYearTargets(updated);
         } catch (error) {
@@ -191,21 +249,196 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
 
     return (
         <div className="space-y-6">
-            {/* Summary Cards: Unit target vs Employee targets allocated */}
+            {/* ═══════════════════════════════════════════════ */}
+            {/* SECTION 1: Unit-level KPI Targets (per-year) */}
+            {/* ═══════════════════════════════════════════════ */}
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <Target size={16} className="text-indigo-500" />
+                        Chỉ tiêu Đơn vị
+                        <span className="ml-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[11px] font-black rounded-md">
+                            {year}
+                        </span>
+                    </h3>
+                    {canEditUnitTarget ? (
+                        isEditingUnitTarget ? (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleSaveUnitTarget}
+                                    disabled={isSavingUnitTarget}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 text-xs font-bold rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors cursor-pointer"
+                                >
+                                    {isSavingUnitTarget ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                    Lưu
+                                </button>
+                                <button
+                                    onClick={handleCancelEditUnitTarget}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                                >
+                                    <X size={14} />
+                                    Hủy
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleStartEditUnitTarget}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors cursor-pointer"
+                            >
+                                <Pencil size={14} />
+                                Giao chỉ tiêu
+                            </button>
+                        )
+                    ) : (
+                        <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <Lock size={12} />
+                            Chỉ BGĐ được giao chỉ tiêu
+                        </span>
+                    )}
+                </div>
+
+                <div className="p-5">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Ký kết */}
+                        <div className="relative p-4 bg-slate-50 dark:bg-slate-800 rounded-lg overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-bl-full"></div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                                    <FileText size={14} className="text-indigo-600 dark:text-indigo-400" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CT Ký kết</span>
+                            </div>
+                            {isEditingUnitTarget ? (
+                                <NumberInput
+                                    value={editUnitTarget.signing}
+                                    onChange={(v) => setEditUnitTarget(prev => ({ ...prev, signing: v }))}
+                                    className="w-full px-3 py-2 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold"
+                                />
+                            ) : (
+                                <>
+                                    <p className="text-lg font-black text-slate-900 dark:text-slate-100">
+                                        {currentUnitKPI.signing > 0 ? formatCurrency(currentUnitKPI.signing) : '—'}
+                                    </p>
+                                    {currentUnitKPI.signing > 0 && (
+                                        <div className="mt-2">
+                                            <div className="flex items-center justify-between text-[10px] mb-1">
+                                                <span className="text-slate-500 dark:text-slate-400">Thực tế: {formatCurrency(totals.actual.signing)}</span>
+                                                <span className={`font-black ${getProgressColor(currentUnitKPI.signing > 0 ? (totals.actual.signing / currentUnitKPI.signing) * 100 : 0)}`}>
+                                                    {((totals.actual.signing / currentUnitKPI.signing) * 100).toFixed(0)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all duration-700 ${getProgressBarColor((totals.actual.signing / currentUnitKPI.signing) * 100)}`}
+                                                    style={{ width: `${Math.min((totals.actual.signing / currentUnitKPI.signing) * 100, 100)}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        {/* Doanh thu */}
+                        <div className="relative p-4 bg-slate-50 dark:bg-slate-800 rounded-lg overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-bl-full"></div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                                    <TrendingUp size={14} className="text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CT Doanh thu</span>
+                            </div>
+                            {isEditingUnitTarget ? (
+                                <NumberInput
+                                    value={editUnitTarget.revenue}
+                                    onChange={(v) => setEditUnitTarget(prev => ({ ...prev, revenue: v }))}
+                                    className="w-full px-3 py-2 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-bold"
+                                />
+                            ) : (
+                                <>
+                                    <p className="text-lg font-black text-slate-900 dark:text-slate-100">
+                                        {currentUnitKPI.revenue > 0 ? formatCurrency(currentUnitKPI.revenue) : '—'}
+                                    </p>
+                                    {currentUnitKPI.revenue > 0 && (
+                                        <div className="mt-2">
+                                            <div className="flex items-center justify-between text-[10px] mb-1">
+                                                <span className="text-slate-500 dark:text-slate-400">Thực tế: {formatCurrency(totals.actual.revenue)}</span>
+                                                <span className={`font-black ${getProgressColor(currentUnitKPI.revenue > 0 ? (totals.actual.revenue / currentUnitKPI.revenue) * 100 : 0)}`}>
+                                                    {((totals.actual.revenue / currentUnitKPI.revenue) * 100).toFixed(0)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all duration-700 ${getProgressBarColor((totals.actual.revenue / currentUnitKPI.revenue) * 100)}`}
+                                                    style={{ width: `${Math.min((totals.actual.revenue / currentUnitKPI.revenue) * 100, 100)}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        {/* LNG gộp theo DT */}
+                        <div className="relative p-4 bg-slate-50 dark:bg-slate-800 rounded-lg overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-purple-500/10 to-transparent rounded-bl-full"></div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                                    <Target size={14} className="text-purple-600 dark:text-purple-400" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CT LNG gộp DT</span>
+                            </div>
+                            {isEditingUnitTarget ? (
+                                <NumberInput
+                                    value={editUnitTarget.adminProfit}
+                                    onChange={(v) => setEditUnitTarget(prev => ({ ...prev, adminProfit: v }))}
+                                    className="w-full px-3 py-2 rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-purple-500 outline-none text-sm font-bold"
+                                />
+                            ) : (
+                                <>
+                                    <p className="text-lg font-black text-slate-900 dark:text-slate-100">
+                                        {currentUnitKPI.adminProfit > 0 ? formatCurrency(currentUnitKPI.adminProfit) : '—'}
+                                    </p>
+                                    {currentUnitKPI.adminProfit > 0 && (
+                                        <div className="mt-2">
+                                            <div className="flex items-center justify-between text-[10px] mb-1">
+                                                <span className="text-slate-500 dark:text-slate-400">Thực tế: {formatCurrency(totals.actual.profit)}</span>
+                                                <span className={`font-black ${getProgressColor(currentUnitKPI.adminProfit > 0 ? (totals.actual.profit / currentUnitKPI.adminProfit) * 100 : 0)}`}>
+                                                    {((totals.actual.profit / currentUnitKPI.adminProfit) * 100).toFixed(0)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full transition-all duration-700 ${getProgressBarColor((totals.actual.profit / currentUnitKPI.adminProfit) * 100)}`}
+                                                    style={{ width: `${Math.min((totals.actual.profit / currentUnitKPI.adminProfit) * 100, 100)}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ═══════════════════════════════════════════════ */}
+            {/* SECTION 2: Summary Cards */}
+            {/* ═══════════════════════════════════════════════ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Signing Summary */}
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-bl-full"></div>
                     <div className="flex items-center gap-2 mb-3">
                         <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                            <FileText size={16} className="text-indigo-600" />
+                            <FileText size={16} className="text-indigo-600 dark:text-indigo-400" />
                         </div>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Chỉ tiêu Ký kết</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng CT NV Ký kết</span>
                     </div>
                     <p className="text-xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(totals.target.signing)}</p>
                     <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-slate-500">ĐV: {formatCurrency(unit.target?.signing || 0)}</span>
-                        <span className={`text-xs font-bold ${allocationRate > 100 ? 'text-amber-600' : allocationRate >= 80 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">ĐV: {formatCurrency(currentUnitKPI.signing)}</span>
+                        <span className={`text-xs font-bold ${allocationRate > 100 ? 'text-amber-600 dark:text-amber-400' : allocationRate >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
                             {allocationRate.toFixed(0)}% phân bổ
                         </span>
                     </div>
@@ -216,13 +449,13 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                     <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-bl-full"></div>
                     <div className="flex items-center gap-2 mb-3">
                         <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                            <TrendingUp size={16} className="text-emerald-600" />
+                            <TrendingUp size={16} className="text-emerald-600 dark:text-emerald-400" />
                         </div>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Chỉ tiêu Doanh thu</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng CT NV Doanh thu</span>
                     </div>
                     <p className="text-xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(totals.target.revenue)}</p>
                     <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-slate-500">Thực tế: {formatCurrency(totals.actual.revenue)}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">Thực tế: {formatCurrency(totals.actual.revenue)}</span>
                         <span className={`text-xs font-bold ${totals.target.revenue > 0 ? getProgressColor((totals.actual.revenue / totals.target.revenue) * 100) : 'text-slate-400'}`}>
                             {totals.target.revenue > 0 ? `${((totals.actual.revenue / totals.target.revenue) * 100).toFixed(0)}%` : '—'}
                         </span>
@@ -234,13 +467,13 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                     <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/10 to-transparent rounded-bl-full"></div>
                     <div className="flex items-center gap-2 mb-3">
                         <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                            <Target size={16} className="text-purple-600" />
+                            <Target size={16} className="text-purple-600 dark:text-purple-400" />
                         </div>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Chỉ tiêu LNG QT</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng CT NV LNG</span>
                     </div>
                     <p className="text-xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(totals.target.profit)}</p>
                     <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-slate-500">Thực tế: {formatCurrency(totals.actual.profit)}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">Thực tế: {formatCurrency(totals.actual.profit)}</span>
                         <span className={`text-xs font-bold ${totals.target.profit > 0 ? getProgressColor((totals.actual.profit / totals.target.profit) * 100) : 'text-slate-400'}`}>
                             {totals.target.profit > 0 ? `${((totals.actual.profit / totals.target.profit) * 100).toFixed(0)}%` : '—'}
                         </span>
@@ -252,80 +485,96 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                     <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-500/10 to-transparent rounded-bl-full"></div>
                     <div className="flex items-center gap-2 mb-3">
                         <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                            <Users size={16} className="text-amber-600" />
+                            <Users size={16} className="text-amber-600 dark:text-amber-400" />
                         </div>
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nhân viên</span>
                     </div>
                     <p className="text-xl font-black text-slate-900 dark:text-slate-100">{employees.length}</p>
-                    <p className="text-[10px] text-slate-500 mt-2">
-                        {employees.filter(e => (e.target?.signing || 0) > 0).length} NV có chỉ tiêu
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2">
+                        {employees.filter(e => {
+                            const t = getTarget(e.id);
+                            return (t.signing || 0) > 0;
+                        }).length} NV có chỉ tiêu
                     </p>
                 </div>
             </div>
 
-            {/* Employee KPI Table */}
+            {/* ═══════════════════════════════════════════════ */}
+            {/* SECTION 3: Employee KPI Table */}
+            {/* ═══════════════════════════════════════════════ */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <FileText size={16} className="text-indigo-500" />
                         Chỉ tiêu ký kết NVKD
-                        <span className="ml-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 text-[11px] font-black rounded-md">
+                        <span className="ml-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[11px] font-black rounded-md">
                             {year}
                         </span>
                     </h3>
                     <div className="flex items-center gap-3">
-                        <span className="text-xs text-slate-400">
-                            Click <Pencil size={12} className="inline" /> để chỉnh sửa
-                        </span>
-                        <div className="relative" ref={addDropdownRef}>
-                            <button
-                                onClick={() => setShowAddDropdown(!showAddDropdown)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors cursor-pointer"
-                            >
-                                <UserPlus size={14} />
-                                Thêm NV
-                            </button>
-                            {showAddDropdown && (
-                                <div className="absolute right-0 top-full mt-1 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto">
-                                    {availableToAdd.length === 0 ? (
-                                        <div className="p-4 text-center text-sm text-slate-400">Tất cả nhân viên đã được thêm</div>
-                                    ) : availableToAdd.map(emp => (
-                                        <button
-                                            key={emp.id}
-                                            onClick={() => handleAddEmployee(emp)}
-                                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left cursor-pointer"
-                                        >
-                                            <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0 overflow-hidden">
-                                                {emp.avatar ? <img src={emp.avatar} alt="" className="w-full h-full rounded-full object-cover" /> : emp.name.charAt(0)}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{emp.name}</p>
-                                                <p className="text-[11px] text-slate-500 truncate">{emp.position || 'Nhân viên'}</p>
-                                            </div>
-                                        </button>
-                                    ))}
+                        {canEditEmployeeTargets ? (
+                            <>
+                                <span className="text-xs text-slate-400">
+                                    Click <Pencil size={12} className="inline" /> để chỉnh sửa
+                                </span>
+                                <div className="relative" ref={addDropdownRef}>
+                                    <button
+                                        onClick={() => setShowAddDropdown(!showAddDropdown)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 text-xs font-bold rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors cursor-pointer"
+                                    >
+                                        <UserPlus size={14} />
+                                        Thêm NV
+                                    </button>
+                                    {showAddDropdown && (
+                                        <div className="absolute right-0 top-full mt-1 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 max-h-64 overflow-y-auto">
+                                            {availableToAdd.length === 0 ? (
+                                                <div className="p-4 text-center text-sm text-slate-400">Tất cả nhân viên đã được thêm</div>
+                                            ) : availableToAdd.map(emp => (
+                                                <button
+                                                    key={emp.id}
+                                                    onClick={() => handleAddEmployee(emp)}
+                                                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left cursor-pointer"
+                                                >
+                                                    <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0 overflow-hidden">
+                                                        {emp.avatar ? <img src={emp.avatar} alt="" className="w-full h-full rounded-full object-cover" /> : emp.name.charAt(0)}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{emp.name}</p>
+                                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{emp.position || 'Nhân viên'}</p>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
+                            </>
+                        ) : (
+                            <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                                <Lock size={12} />
+                                Chỉ lãnh đạo đơn vị được phân bổ
+                            </span>
+                        )}
                     </div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead className="bg-slate-50 dark:bg-slate-800">
                             <tr>
-                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[200px]">Nhân viên</th>
-                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">CT Ký kết</th>
-                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Thực tế</th>
-                                <th className="text-center px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[80px]">%</th>
-                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">CT Doanh thu</th>
-                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">CT LNG QT</th>
-                                <th className="text-center px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[100px]"></th>
+                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[200px]">Nhân viên</th>
+                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CT Ký kết</th>
+                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Thực tế</th>
+                                <th className="text-center px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[80px]">%</th>
+                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CT Doanh thu</th>
+                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CT LNG QT</th>
+                                {canEditEmployeeTargets && (
+                                    <th className="text-center px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[100px]"></th>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {employees.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="text-center py-12 text-slate-400">
+                                    <td colSpan={canEditEmployeeTargets ? 7 : 6} className="text-center py-12 text-slate-400">
                                         <Users size={40} className="mx-auto mb-3 opacity-50" />
                                         <p>Chưa có nhân viên trong đơn vị</p>
                                     </td>
@@ -349,8 +598,8 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                                     {emp.avatar ? <img src={emp.avatar} alt="" className="w-full h-full rounded-full object-cover" /> : emp.name.charAt(0)}
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate group-hover/name:text-indigo-600 transition-colors">{emp.name}</p>
-                                                    <p className="text-[11px] text-slate-500 truncate">{emp.position || 'Nhân viên'}</p>
+                                                    <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate group-hover/name:text-indigo-600 dark:group-hover/name:text-indigo-400 transition-colors">{emp.name}</p>
+                                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{emp.position || 'Nhân viên'}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -425,46 +674,48 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                         </td>
 
                                         {/* Actions */}
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center justify-center gap-1">
-                                                {isEditing ? (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleSaveTarget(emp.id)}
-                                                            disabled={isSaving}
-                                                            className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer"
-                                                            title="Lưu"
-                                                        >
-                                                            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                                                        </button>
-                                                        <button
-                                                            onClick={handleCancelEdit}
-                                                            className="p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                                                            title="Hủy"
-                                                        >
-                                                            <X size={14} />
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleStartEdit(emp)}
-                                                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors cursor-pointer"
-                                                            title="Chỉnh sửa chỉ tiêu"
-                                                        >
-                                                            <Pencil size={14} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleRemoveEmployee(emp)}
-                                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors cursor-pointer"
-                                                            title="Xóa khỏi danh sách"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </td>
+                                        {canEditEmployeeTargets && (
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleSaveTarget(emp.id)}
+                                                                disabled={isSaving}
+                                                                className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer"
+                                                                title="Lưu"
+                                                            >
+                                                                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                                                            </button>
+                                                            <button
+                                                                onClick={handleCancelEdit}
+                                                                className="p-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                                                                title="Hủy"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleStartEdit(emp)}
+                                                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors cursor-pointer"
+                                                                title="Chỉnh sửa chỉ tiêu"
+                                                            >
+                                                                <Pencil size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleRemoveEmployee(emp)}
+                                                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors cursor-pointer"
+                                                                title="Xóa khỏi danh sách"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        )}
                                     </tr>
                                 );
                             })}
@@ -492,7 +743,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                     <td className="px-4 py-3 text-right text-sm text-purple-600 dark:text-purple-400 font-black">
                                         {formatCurrency(totals.target.profit)}
                                     </td>
-                                    <td className="px-4 py-3"></td>
+                                    {canEditEmployeeTargets && <td className="px-4 py-3"></td>}
                                 </tr>
                             )}
                         </tbody>
@@ -500,8 +751,10 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                 </div>
             </div>
 
-            {/* Allocation Comparison Card */}
-            {unit.target?.signing > 0 && (
+            {/* ═══════════════════════════════════════════════ */}
+            {/* SECTION 4: Allocation Comparison */}
+            {/* ═══════════════════════════════════════════════ */}
+            {currentUnitKPI.signing > 0 && (
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
                     <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
                         <Target size={16} className="text-indigo-500" />
@@ -509,17 +762,17 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-center">
-                            <p className="text-xs text-slate-500 mb-1">Chỉ tiêu Đơn vị</p>
-                            <p className="text-lg font-black text-slate-900 dark:text-slate-100">{formatCurrency(unit.target.signing)}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Chỉ tiêu Đơn vị</p>
+                            <p className="text-lg font-black text-slate-900 dark:text-slate-100">{formatCurrency(currentUnitKPI.signing)}</p>
                         </div>
                         <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-center">
-                            <p className="text-xs text-slate-500 mb-1">Tổng CT nhân viên</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Tổng CT nhân viên</p>
                             <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(totals.target.signing)}</p>
                         </div>
                         <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-center">
-                            <p className="text-xs text-slate-500 mb-1">Chênh lệch</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Chênh lệch</p>
                             {(() => {
-                                const diff = totals.target.signing - (unit.target?.signing || 0);
+                                const diff = totals.target.signing - (currentUnitKPI.signing || 0);
                                 return (
                                     <p className={`text-lg font-black flex items-center justify-center gap-1 ${diff > 0 ? 'text-amber-600 dark:text-amber-400' : diff < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                         {diff > 0 && <ArrowUpRight size={16} />}

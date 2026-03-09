@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CONTRACT_STATUS_LABELS } from '../constants';
 import { toast } from 'sonner';
 import {
@@ -68,6 +69,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
   const { can, canOnContract } = usePermissionCheck();
+  const navigate = useNavigate();
 
   // Effective role (impersonation-aware) — for backward compat
   const effectiveRole = isImpersonating && impersonatedUser ? impersonatedUser.role : profile?.role;
@@ -79,6 +81,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [unitName, setUnitName] = useState('...');
   const [salesName, setSalesName] = useState('...');
   const [customerName, setCustomerName] = useState('...');
+  const [customerShortName, setCustomerShortName] = useState('');
   // Allocation display names
   const [allocationNames, setAllocationNames] = useState<{ unitName: string; employeeName: string; percent: number; role: string }[]>([]);
 
@@ -138,8 +141,10 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
         if (contract.customerId) {
           const c = await CustomerService.getById(contract.customerId);
           setCustomerName(c?.name || 'Unknown');
+          setCustomerShortName(c?.shortName || '');
         } else if (contract.partyA) {
           setCustomerName(contract.partyA);
+          setCustomerShortName('');
         }
 
         // Unit Allocations — resolve names for display
@@ -373,7 +378,17 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                 </div>
                 <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs font-medium">
                   <Users size={14} />
-                  <span>Khách hàng: <b className="text-slate-700 dark:text-slate-200">{customerName}</b></span>
+                  <span>Khách hàng: {contract.customerId ? (
+                    <button
+                      onClick={() => navigate(`/customers/${contract.customerId}`)}
+                      className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                      title="Click để xem chi tiết khách hàng"
+                    >
+                      {customerShortName || customerName}
+                    </button>
+                  ) : (
+                    <b className="text-slate-700 dark:text-slate-200">{customerName}</b>
+                  )}</span>
                 </div>
                 {contract.customerContractNumber && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">

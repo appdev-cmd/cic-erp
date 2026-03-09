@@ -57,10 +57,11 @@ export function canViewEmployees(role: UserRole, userUnitCode?: string): boolean
 
 /**
  * Can VIEW the Units section?
- * Only Admin and Leadership
+ * Admin, Leadership: see all units
+ * UnitLeader, AdminUnit: see their own unit (needed for KPI target allocation)
  */
 export function canViewUnits(role: UserRole): boolean {
-    return role === 'Admin' || role === 'Leadership';
+    return role === 'Admin' || role === 'Leadership' || role === 'UnitLeader' || role === 'AdminUnit';
 }
 
 /**
@@ -89,6 +90,15 @@ export function getHiddenNavItems(role: UserRole, userUnitCode?: string, userEma
     const TOOLS_ALLOWED_EMAILS = ['anhnq@cic.com.vn'];
     if (!userEmail || !TOOLS_ALLOWED_EMAILS.includes(userEmail.toLowerCase())) {
         hidden.add('tools');
+    }
+
+    // Task Management: dev only (localhost + DEV_BYPASS_AUTH)
+    const isLocalDev = typeof window !== 'undefined'
+        && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        && import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+    if (!isLocalDev) {
+        hidden.add('tasks');
+        hidden.add('my-tasks');
     }
 
     return hidden;

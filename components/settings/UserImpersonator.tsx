@@ -6,7 +6,7 @@ import { UserProfile, UserRole, DEFAULT_ROLE_PERMISSIONS, PermissionResource } f
 import { useImpersonation } from '../../contexts/ImpersonationContext';
 import { ROLE_LABELS } from '../../constants';
 
-const RESOURCES: PermissionResource[] = ['contracts', 'employees', 'units', 'customers', 'products', 'payments', 'settings', 'permissions'];
+const RESOURCES: PermissionResource[] = ['contracts', 'employees', 'units', 'customers', 'products', 'payments', 'settings', 'permissions', 'tasks'];
 const RESOURCE_LABELS: Record<PermissionResource, string> = {
     contracts: 'Hợp đồng',
     employees: 'Nhân sự',
@@ -16,6 +16,7 @@ const RESOURCE_LABELS: Record<PermissionResource, string> = {
     payments: 'Tài chính',
     settings: 'Cài đặt',
     permissions: 'Phân quyền',
+    tasks: 'Công việc',
 };
 
 // Map position/title to UserRole for permission lookup

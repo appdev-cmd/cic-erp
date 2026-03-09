@@ -29,6 +29,8 @@ import {
     LazyDocumentManagerPage as DocumentManagerPage,
     LazyToolsPage as ToolsPage,
     LazyChatPage as ChatPage,
+    LazyTaskListPage as TaskListPage,
+    LazyMyTasksPage as MyTasksPage,
 } from '../components/LazyPages';
 
 // Route Configuration
@@ -86,6 +88,17 @@ export const router = createBrowserRouter([
 
             // User Guide
             { path: 'user-guide', element: <UserGuidePage /> },
+
+            // Tasks (dev only — redirect to home in production)
+            ...((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.VITE_DEV_BYPASS_AUTH === 'true' ? [
+                { path: 'tasks', element: <TaskListPage /> },
+                { path: 'tasks/:id', element: <TaskListPage /> },
+                { path: 'my-tasks', element: <MyTasksPage /> },
+            ] : [
+                { path: 'tasks', element: <Navigate to="/" replace /> },
+                { path: 'tasks/*', element: <Navigate to="/" replace /> },
+                { path: 'my-tasks', element: <Navigate to="/" replace /> },
+            ]),
 
             // 404 Fallback
             { path: '*', element: <Navigate to="/" replace /> },

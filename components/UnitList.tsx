@@ -10,6 +10,7 @@ import { NON_BUSINESS_UNIT_CODES } from '../constants';
 import { useUnitsWithStats } from '../hooks/useUnits';
 import { queryKeys } from '../lib/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePermissionCheck } from '../hooks/usePermissions';
 
 interface UnitListProps {
     onSelectUnit?: (id: string) => void;
@@ -17,6 +18,8 @@ interface UnitListProps {
 
 const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
     const queryClient = useQueryClient();
+    const { role, unitId: userUnitId } = usePermissionCheck();
+    const isAdmin = role === 'Admin' || role === 'Leadership';
     const { data: rawUnits = [], isLoading } = useUnitsWithStats();
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'orgchart'>('grid');
@@ -25,10 +28,15 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingUnit, setEditingUnit] = useState<Unit | undefined>(undefined);
 
-    // Filter out non-business units
-    const units = useMemo(() =>
-        rawUnits.filter(u => u.id !== 'all' && !NON_BUSINESS_UNIT_CODES.includes(u.code)),
-        [rawUnits]);
+    // Filter out non-business units + scope to user's own unit for unit-scoped roles
+    const units = useMemo(() => {
+        let filtered = rawUnits.filter(u => u.id !== 'all' && !NON_BUSINESS_UNIT_CODES.includes(u.code));
+        // UnitLeader/AdminUnit: only see their own unit
+        if (!isAdmin && userUnitId) {
+            filtered = filtered.filter(u => u.id === userUnitId);
+        }
+        return filtered;
+    }, [rawUnits, isAdmin, userUnitId]);
 
     const refetchData = () => queryClient.invalidateQueries({ queryKey: queryKeys.units.all });
 
@@ -120,7 +128,7 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Quản lý Đơn vị ({units.length})</h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-bold mt-1">
-                        Danh sách các Trung tâm và Chi nhánh trực thuộc
+                        {isAdmin ? 'Danh sách các Trung tâm và Chi nhánh trực thuộc' : 'Đơn vị của bạn'}
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -147,12 +155,14 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                             Sơ đồ
                         </button>
                     </div>
-                    <button
-                        onClick={handleAdd}
-                        className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200/50 dark:shadow-none"
-                    >
-                        <Plus size={18} /> Thêm Đơn vị
-                    </button>
+                    {isAdmin && (
+                        <button
+                            onClick={handleAdd}
+                            className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200/50 dark:shadow-none"
+                        >
+                            <Plus size={18} /> Thêm Đơn vị
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -287,20 +297,24 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                                                 {/* Actions */}
                                                 <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => handleEdit(unit)}
-                                                            className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
-                                                            title="Chỉnh sửa"
-                                                        >
-                                                            <Pencil size={15} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(unit.id)}
-                                                            className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
-                                                            title="Xóa"
-                                                        >
-                                                            <Trash2 size={15} />
-                                                        </button>
+                                                        {isAdmin && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleEdit(unit)}
+                                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                                                                    title="Chỉnh sửa"
+                                                                >
+                                                                    <Pencil size={15} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(unit.id)}
+                                                                    className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                                                                    title="Xóa"
+                                                                >
+                                                                    <Trash2 size={15} />
+                                                                </button>
+                                                            </>
+                                                        )}
                                                         <ChevronRight size={16} className="text-slate-300 dark:text-slate-600 ml-1" />
                                                     </div>
                                                 </td>
