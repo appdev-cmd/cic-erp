@@ -427,8 +427,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                                                                 {customer.shortName ? customer.shortName.substring(0, 3) : 'KH'}
                                                             </div>
                                                             <div>
-                                                                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center">
+                                                                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm flex items-center gap-1">
                                                                     {customer.name}
+                                                                    {customer.shortName && (
+                                                                        <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">({customer.shortName})</span>
+                                                                    )}
                                                                     {getRatingBadge(customer.rating)}
                                                                 </h3>
                                                                 <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">

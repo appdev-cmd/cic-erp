@@ -1,10 +1,11 @@
 // Page wrapper components that bridge react-router-dom to existing components
 // These wrappers get context from MainLayout and pass as props to existing components
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLayoutContext } from './layout/MainLayout';
 import { ROUTES } from '../routes/routes';
+import { useSlidePanel } from '../contexts/SlidePanelContext';
 
 // Dashboard
 import DashboardComponent from './Dashboard';
@@ -25,35 +26,155 @@ import ContractListComponent from './ContractList';
 export const ContractListPage: React.FC = () => {
     const navigate = useNavigate();
     const { selectedUnit } = useLayoutContext();
+    const { openPanel, closePanel } = useSlidePanel();
+
+    // Open contract detail in a slide panel
+    const handleSelectContract = useCallback((id: string) => {
+        const encodedId = encodeURIComponent(id);
+        openPanel({
+            title: `Hợp đồng ${id}`,
+            component: (
+                <ContractDetailInPanel
+                    contractId={id}
+                />
+            ),
+        });
+    }, [openPanel]);
+
+    // Open contract form in a slide panel
+    const handleAddContract = useCallback(() => {
+        openPanel({
+            title: 'Tạo hợp đồng mới',
+            component: (
+                <ContractFormInPanel />
+            ),
+        });
+    }, [openPanel]);
+
+    // Clone contract in a slide panel
+    const handleCloneContract = useCallback((contract: any) => {
+        openPanel({
+            title: 'Nhân bản hợp đồng',
+            component: (
+                <ContractFormInPanel cloneFrom={contract} />
+            ),
+        });
+    }, [openPanel]);
+
     return (
         <ContractListComponent
             selectedUnit={selectedUnit}
-            onSelectContract={(id) => {
-                const encodedId = encodeURIComponent(id);
-                navigate(ROUTES.CONTRACT_DETAIL(encodedId));
-            }}
-            onAdd={() => navigate(ROUTES.CONTRACT_NEW)}
-            onClone={(contract) => navigate(ROUTES.CONTRACT_NEW, { state: { cloneFrom: contract } })}
+            onSelectContract={handleSelectContract}
+            onAdd={handleAddContract}
+            onClone={handleCloneContract}
         />
     );
 };
 
-
-// Contract Detail
+// ── ContractDetail rendered inside a slide panel ─────────────────────────────
 import ContractDetailComponent from './ContractDetail';
+const ContractDetailInPanel: React.FC<{ contractId: string }> = ({ contractId }) => {
+    const navigate = useNavigate();
+    const { openPanel, closePanel } = useSlidePanel();
+
+    const handleEdit = useCallback((contract: any) => {
+        openPanel({
+            title: `Chỉnh sửa ${contract.id}`,
+            component: (
+                <ContractFormInPanel contractId={contract.id} />
+            ),
+        });
+    }, [openPanel]);
+
+    return (
+        <div className="p-4 md:p-6 lg:p-8">
+            <ContractDetailComponent
+                contractId={contractId}
+                onBack={() => closePanel()}
+                onEdit={handleEdit}
+                onDelete={async () => {
+                    const { ContractService } = await import('../services');
+                    await ContractService.delete(contractId);
+                    closePanel();
+                    toast.success('Đã xóa hợp đồng');
+                }}
+            />
+        </div>
+    );
+};
+
+// ── ContractForm rendered inside a slide panel ───────────────────────────────
+import ContractFormComponent from './ContractForm';
+import { useLocation } from 'react-router-dom';
+import { ContractService } from '../services';
+import { toast } from 'sonner';
+
+const ContractFormInPanel: React.FC<{ contractId?: string; cloneFrom?: any }> = ({ contractId, cloneFrom }) => {
+    const { closePanel } = useSlidePanel();
+    const [contract, setContract] = React.useState<any>(cloneFrom || null);
+    const [loading, setLoading] = React.useState(!!contractId && !cloneFrom);
+
+    React.useEffect(() => {
+        if (contractId && !cloneFrom) {
+            setLoading(true);
+            ContractService.getById(contractId)
+                .then(data => { if (data) setContract(data); })
+                .catch(err => toast.error('Lỗi tải hợp đồng: ' + err))
+                .finally(() => setLoading(false));
+        }
+    }, [contractId, cloneFrom]);
+
+    if (loading) {
+        return <div className="p-8 text-center text-slate-500 dark:text-slate-400">Đang tải...</div>;
+    }
+
+    return (
+        <div className="p-4 md:p-6 lg:p-8">
+            <ContractFormComponent
+                contract={contract}
+                isCloning={!!cloneFrom}
+                onSave={async (data) => {
+                    try {
+                        if (contractId && !cloneFrom) {
+                            await ContractService.update(contractId, data);
+                            toast.success('Cập nhật hợp đồng thành công!');
+                        } else {
+                            await ContractService.create(data);
+                            toast.success(cloneFrom ? 'Nhân bản hợp đồng thành công!' : 'Tạo hợp đồng thành công!');
+                        }
+                        closePanel();
+                    } catch (e: any) {
+                        toast.error('Lỗi: ' + (e.message || e));
+                    }
+                }}
+                onCancel={() => closePanel()}
+            />
+        </div>
+    );
+};
+
+// ── ContractDetailPage — for direct URL access (/contracts/:id) ──────────────
 export const ContractDetailPage: React.FC = () => {
     const navigate = useNavigate();
     const { id: rawId } = useParams<{ id: string }>();
-    // Decode URL-encoded ID (handles special chars like / in contract IDs)
     const id = rawId ? decodeURIComponent(rawId) : undefined;
+    const { openPanel, closePanel } = useSlidePanel();
     if (!id) return <div>Contract not found</div>;
     return (
         <ContractDetailComponent
             contractId={id}
             onBack={() => navigate(ROUTES.CONTRACTS)}
-            onEdit={() => navigate(ROUTES.CONTRACT_EDIT(encodeURIComponent(id)))}
+            onEdit={(contract) => {
+                openPanel({
+                    title: `Chỉnh sửa ${contract.id}`,
+                    component: (
+                        <div className="p-4 md:p-6 lg:p-8">
+                            <ContractFormInPanel contractId={contract.id} />
+                        </div>
+                    ),
+                });
+            }}
             onDelete={async () => {
-                // Handle delete then navigate
                 navigate(ROUTES.CONTRACTS);
             }}
         />
@@ -61,11 +182,7 @@ export const ContractDetailPage: React.FC = () => {
 };
 
 
-// Contract Form
-import ContractFormComponent from './ContractForm';
-import { useLocation } from 'react-router-dom';
-import { ContractService } from '../services';
-import { toast } from 'sonner';
+// Contract Form Page — for direct URL access (/contracts/new, /contracts/:id/edit)
 export const ContractFormPage: React.FC = () => {
     const navigate = useNavigate();
     const { id: rawId } = useParams<{ id: string }>();
@@ -73,8 +190,6 @@ export const ContractFormPage: React.FC = () => {
     const location = useLocation();
     const cloneFrom = location.state?.cloneFrom;
 
-    // For edit mode, we'd need to fetch the contract
-    // For now, handle create and clone
     return (
         <div className="fixed inset-0 z-[100] bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
             <ContractFormComponent

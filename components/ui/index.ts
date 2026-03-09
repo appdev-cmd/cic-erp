@@ -44,3 +44,4 @@ export { default as QuickAddProductDialog } from './QuickAddProductDialog';
 export { default as QuickAddSupplierDialog } from './QuickAddSupplierDialog';
 export { default as NumberInput } from './NumberInput';
 export { Avatar, AvatarImage, AvatarFallback } from './Avatar';
+export { SlidePanelContainer } from './SlidePanel';

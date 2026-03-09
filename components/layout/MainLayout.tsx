@@ -7,7 +7,9 @@ import Header from '../Header';
 import { RoleSwitcher } from '../RoleSwitcher';
 import DebugPanel from '../DebugPanel';
 import CommandPalette from '../ui/CommandPalette';
+import { SlidePanelContainer } from '../ui/SlidePanel';
 import { useAuth } from '../../contexts/AuthContext';
+import { SlidePanelProvider } from '../../contexts/SlidePanelContext';
 import Auth from '../Auth';
 import ErrorBoundary from '../ErrorBoundary';
 import { Unit, UserRole } from '../../types';
@@ -138,79 +140,84 @@ const MainLayout: React.FC = () => {
 
     return (
         <ErrorBoundary>
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 antialiased">
-                <Toaster position="top-center" richColors closeButton />
+            <SlidePanelProvider>
+                <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 antialiased">
+                    <Toaster position="top-center" richColors closeButton />
 
-                {/* Sidebar */}
-                <Sidebar
-                    activeTab={getActiveTab()}
-                    setActiveTab={(tab) => navigate(`/${tab === 'dashboard' ? '' : tab}`)}
-                    isOpen={isSidebarOpen}
-                    isCollapsed={isSidebarCollapsed}
-                    setIsCollapsed={setIsSidebarCollapsed}
-                    onClose={() => setIsSidebarOpen(false)}
-                />
-
-                {/* Main Content */}
-                <div className={`transition-all duration-300 ${mainMarginClass}`}>
-                    {/* Header */}
-                    <Header
-                        onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        isSidebarCollapsed={isSidebarCollapsed}
-                        selectedUnit={selectedUnit}
-                        onSelectUnit={setSelectedUnit}
-                        yearFilter={yearFilter}
-                        onYearChange={setYearFilter}
-                        allUnits={allUnits}
+                    {/* Sidebar */}
+                    <Sidebar
+                        activeTab={getActiveTab()}
+                        setActiveTab={(tab) => navigate(`/${tab === 'dashboard' ? '' : tab}`)}
+                        isOpen={isSidebarOpen}
+                        isCollapsed={isSidebarCollapsed}
+                        setIsCollapsed={setIsSidebarCollapsed}
+                        onClose={() => setIsSidebarOpen(false)}
                     />
 
-                    {/* Page Content */}
-                    <main className={`mt-16 p-4 md:p-6 lg:p-8 ${isImpersonating ? 'pb-20' : ''}`}>
-                        <div className={`${contentMaxWidthClass} mx-auto`}>
-                            {/* Pass context to child routes via Outlet */}
-                            <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, theme, setTheme, accent, setAccent }} />
-                        </div>
-                    </main>
-                </div>
+                    {/* Main Content */}
+                    <div className={`transition-all duration-300 ${mainMarginClass}`}>
+                        {/* Header */}
+                        <Header
+                            onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            isSidebarCollapsed={isSidebarCollapsed}
+                            selectedUnit={selectedUnit}
+                            onSelectUnit={setSelectedUnit}
+                            yearFilter={yearFilter}
+                            onYearChange={setYearFilter}
+                            allUnits={allUnits}
+                        />
 
-                {/* Development Tools */}
-                {profile?.role === 'Admin' && !isImpersonating && <RoleSwitcher />}
-                {/* <DebugPanel /> */}
+                        {/* Page Content */}
+                        <main className={`mt-16 p-4 md:p-6 lg:p-8 ${isImpersonating ? 'pb-20' : ''}`}>
+                            <div className={`${contentMaxWidthClass} mx-auto`}>
+                                {/* Pass context to child routes via Outlet */}
+                                <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, theme, setTheme, accent, setAccent }} />
+                            </div>
+                        </main>
+                    </div>
 
-                {/* Global Search (Cmd+K) */}
-                <CommandPalette />
+                    {/* ═══ Slide Panel System (Bitrix24-style) ═══ */}
+                    <SlidePanelContainer isSidebarCollapsed={isSidebarCollapsed} />
 
-                {/* ═══ Floating Impersonation Banner ═══ */}
-                {isImpersonating && impersonatedUser && (
-                    <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom-4 duration-300">
-                        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-2xl shadow-orange-500/30">
-                            <div className="max-w-screen-xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <ShieldAlert size={18} className="text-white/80 flex-shrink-0" />
-                                    <div className="text-sm">
-                                        <span className="font-medium opacity-90">Đang đóng vai: </span>
-                                        <span className="font-black">{impersonatedUser.fullName}</span>
-                                        <span className="ml-2 px-2 py-0.5 bg-white/20 rounded text-[11px] font-bold backdrop-blur-sm">
-                                            {impersonatedUser.role}
-                                        </span>
+                    {/* Development Tools */}
+                    {profile?.role === 'Admin' && !isImpersonating && <RoleSwitcher />}
+                    {/* <DebugPanel /> */}
+
+                    {/* Global Search (Cmd+K) */}
+                    <CommandPalette />
+
+                    {/* ═══ Floating Impersonation Banner ═══ */}
+                    {isImpersonating && impersonatedUser && (
+                        <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom-4 duration-300">
+                            <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-2xl shadow-orange-500/30">
+                                <div className="max-w-screen-xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <ShieldAlert size={18} className="text-white/80 flex-shrink-0" />
+                                        <div className="text-sm">
+                                            <span className="font-medium opacity-90">Đang đóng vai: </span>
+                                            <span className="font-black">{impersonatedUser.fullName}</span>
+                                            <span className="ml-2 px-2 py-0.5 bg-white/20 rounded text-[11px] font-bold backdrop-blur-sm">
+                                                {impersonatedUser.role}
+                                            </span>
+                                        </div>
                                     </div>
+                                    <button
+                                        onClick={() => {
+                                            stopImpersonation();
+                                            // Navigate to dashboard in case current page is restricted
+                                            navigate('/');
+                                        }}
+                                        className="flex items-center gap-2 px-4 py-1.5 bg-white text-orange-700 rounded-lg text-sm font-black hover:bg-orange-50 transition-all shadow-lg flex-shrink-0"
+                                    >
+                                        <UserX size={16} />
+                                        Thoát đóng vai
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        stopImpersonation();
-                                        // Navigate to dashboard in case current page is restricted
-                                        navigate('/');
-                                    }}
-                                    className="flex items-center gap-2 px-4 py-1.5 bg-white text-orange-700 rounded-lg text-sm font-black hover:bg-orange-50 transition-all shadow-lg flex-shrink-0"
-                                >
-                                    <UserX size={16} />
-                                    Thoát đóng vai
-                                </button>
                             </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )}
+                </div>
+            </SlidePanelProvider>
         </ErrorBoundary>
     );
 };

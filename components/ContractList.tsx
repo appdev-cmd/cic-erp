@@ -52,6 +52,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [units, setUnits] = useState<Unit[]>([]);
   const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalRevenueProfit: 0, totalCash: 0, processingCount: 0, suspendedCount: 0, overdueAdvanceCount: 0, handoverCount: 0, acceptanceCount: 0, overduePaymentCount: 0, completedCount: 0 });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [customerShortNames, setCustomerShortNames] = useState<Map<string, string>>(new Map());
 
   // Cross-unit visibility
   const { visibleUnits } = useCurrentUserVisibleUnits();
@@ -201,6 +202,18 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         ]);
         setSalespeople(personnelData);
         setUnits(unitsData);
+
+        // Fetch customer shortNames for display in contract list
+        const { dataClient } = await import('../lib/dataClient');
+        const { data: customers } = await dataClient
+          .from('customers')
+          .select('id, short_name')
+          .not('short_name', 'is', null);
+        if (customers) {
+          const map = new Map<string, string>();
+          customers.forEach((c: any) => { if (c.short_name) map.set(c.id, c.short_name); });
+          setCustomerShortNames(map);
+        }
       } catch (e) {
         console.error("Fetch lookups failed", e);
         toast.error("Không thể tải dữ liệu danh mục");
@@ -719,7 +732,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       )}
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1" title={contract.endUserName ? `End User: ${contract.endUserName}` : undefined}>{contract.partyA}</p>
+                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1" title={contract.endUserName ? `End User: ${contract.endUserName}` : undefined}>
+                        {contract.partyA}
+                        {contract.customerId && customerShortNames.get(contract.customerId) && (
+                          <span className="text-indigo-500 dark:text-indigo-400 font-semibold"> ({customerShortNames.get(contract.customerId)})</span>
+                        )}
+                      </p>
                       {contract.endUserName && (
                         <p className="text-[9px] font-bold text-teal-600 dark:text-teal-400 mt-0.5 truncate max-w-[180px]" title={`End User: ${contract.endUserName}`}>
                           👤 {contract.endUserName}

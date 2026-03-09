@@ -50,6 +50,8 @@ import { AddDocumentLinkDialog } from './workflow/AddDocumentLinkDialog';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useFinancialCalculations } from '../hooks/useFinancialCalculations';
 import { formatVND, getStatusColor } from '../utils/contractHelpers';
+import { useSlidePanel } from '../contexts/SlidePanelContext';
+import CustomerDetail from './CustomerDetail';
 
 interface ContractDetailProps {
   contract?: Contract;
@@ -70,6 +72,10 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const { impersonatedUser, isImpersonating } = useImpersonation();
   const { can, canOnContract } = usePermissionCheck();
   const navigate = useNavigate();
+
+  // Slide panel for nested navigation (always available within MainLayout)
+  const { openPanel: openPanelFn, closePanel: closePanelFn } = useSlidePanel();
+  const slidePanelAvailable = true;
 
   // Effective role (impersonation-aware) — for backward compat
   const effectiveRole = isImpersonating && impersonatedUser ? impersonatedUser.role : profile?.role;
@@ -380,7 +386,40 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                   <Users size={14} />
                   <span>Khách hàng: {contract.customerId ? (
                     <button
-                      onClick={() => navigate(`/customers/${contract.customerId}`)}
+                      onClick={() => {
+                        if (slidePanelAvailable && openPanelFn && closePanelFn) {
+                          const closeP = closePanelFn;
+                          const openP = openPanelFn;
+                          openP({
+                            title: `Khách hàng: ${customerName}`,
+                            component: (
+                              <div className="p-4 md:p-6 lg:p-8">
+                                <CustomerDetail
+                                  customerId={contract.customerId!}
+                                  onBack={() => closeP()}
+                                  onViewContract={(contractId) => {
+                                    openP({
+                                      title: `Hợp đồng ${contractId}`,
+                                      component: (
+                                        <div className="p-4 md:p-6 lg:p-8">
+                                          <ContractDetail
+                                            contractId={contractId}
+                                            onBack={() => closeP()}
+                                            onEdit={() => { }}
+                                            onDelete={async () => { closeP(); }}
+                                          />
+                                        </div>
+                                      ),
+                                    });
+                                  }}
+                                />
+                              </div>
+                            ),
+                          });
+                        } else {
+                          navigate(`/customers/${contract.customerId}`);
+                        }
+                      }}
                       className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors cursor-pointer"
                       title="Click để xem chi tiết khách hàng"
                     >
