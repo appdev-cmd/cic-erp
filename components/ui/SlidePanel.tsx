@@ -1,6 +1,10 @@
-import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useEffect, useCallback, useState } from 'react';
+import { X, FileText } from 'lucide-react';
 import { useSlidePanel, PanelEntry } from '../../contexts/SlidePanelContext';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const STACKING_OFFSET = 40; // px gap between panel left edges
 
 // ─── Single Panel ────────────────────────────────────────────────────────────
 
@@ -11,26 +15,25 @@ interface SlidePanelItemProps {
     onClose: () => void;
 }
 
-const STACKING_OFFSET = 24; // px per level
-
 const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, onClose }) => {
     const isTopPanel = index === total - 1;
-    const stackOffset = (total - 1 - index) * STACKING_OFFSET;
+    // REVERSED: bottom panel is widest, top panel is narrowest (indented from left)
+    const stackOffset = index * STACKING_OFFSET;
     const [isExiting, setIsExiting] = useState(false);
 
     const handleClose = useCallback(() => {
         setIsExiting(true);
         setTimeout(() => {
             onClose();
-        }, 220); // match exit animation duration
+        }, 220);
     }, [onClose]);
 
     return (
         <div
-            className={`absolute inset-0 flex justify-end`}
+            className="absolute inset-0 flex justify-end"
             style={{ zIndex: 60 + index }}
         >
-            {/* Backdrop — only the top panel's backdrop is clickable */}
+            {/* Backdrop */}
             <div
                 className={`absolute inset-0 transition-colors duration-200 ${isTopPanel
                     ? 'bg-slate-900/40 dark:bg-slate-950/60 cursor-pointer'
@@ -46,10 +49,8 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
           flex flex-col overflow-hidden slide-panel-stacked
           ${isExiting ? 'slide-panel-exit' : 'slide-panel-enter'}`}
                 style={{
-                    // Full width minus sidebar, with stacking offset
                     width: `calc(100% - ${stackOffset}px)`,
                     maxWidth: `calc(100% - ${stackOffset}px)`,
-                    // Slightly scale + dim non-top panels for depth
                     ...(isTopPanel ? {} : {
                         filter: 'brightness(0.97)',
                     }),
@@ -58,7 +59,7 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
                 aria-modal={isTopPanel}
                 aria-label={panel.title || 'Panel'}
             >
-                {/* Close Button — floating top-right */}
+                {/* Close Button at top-right — only top panel */}
                 {isTopPanel && (
                     <button
                         onClick={handleClose}
@@ -81,20 +82,107 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
     );
 };
 
-// ─── Panel Container (renders all stacked panels) ────────────────────────────
+// ─── Bitrix24-style Tab Ears (Overlay) ───────────────────────────────────────
+// Rendered above ALL panels. Each tab is positioned at each panel's left edge
+// with `right: calc(100% - panelLeftEdge)` so the tab's RIGHT side = panel's
+// LEFT border. Tab content extends to the LEFT (outside the panel).
+
+interface PanelTabsOverlayProps {
+    panels: PanelEntry[];
+    onFocus: (id: string) => void;
+    onClose: (id: string) => void;
+}
+
+const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, onFocus, onClose }) => {
+    if (panels.length === 0) return null;
+
+    return (
+        <div
+            className="absolute top-0 left-0 w-full h-full pointer-events-none"
+            style={{ zIndex: 60 + panels.length + 1 }}
+        >
+            {panels.map((panel, index) => {
+                const isTopPanel = index === panels.length - 1;
+                const title = panel.title || `Panel ${index + 1}`;
+                const displayTitle = title.length > 14 ? title.slice(0, 14) + '…' : title;
+
+                // Panel left edge = index * STACKING_OFFSET from viewport left
+                // Tab RIGHT edge = panel left edge (tab extends to the left)
+                const panelLeftEdge = index * STACKING_OFFSET;
+
+                return (
+                    <div
+                        key={panel.id}
+                        className="slide-panel-tab pointer-events-auto absolute"
+                        style={{
+                            // Use 'right' to position the tab's right edge at the panel's left edge
+                            right: `calc(100% - ${panelLeftEdge}px)`,
+                            top: '12px',
+                            zIndex: index + 1,
+                        }}
+                    >
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isTopPanel) {
+                                    onFocus(panel.id);
+                                }
+                            }}
+                            className={`group flex items-center gap-1.5 pl-3 pr-2.5 py-2.5
+                                rounded-l-xl border border-r-0
+                                transition-all duration-200
+                                whitespace-nowrap
+                                ${isTopPanel
+                                    ? 'bg-indigo-600 dark:bg-indigo-500 border-indigo-700 dark:border-indigo-600 text-white shadow-xl shadow-indigo-500/30 dark:shadow-indigo-700/50'
+                                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-600 shadow-lg shadow-slate-900/15 dark:shadow-slate-950/50 cursor-pointer'
+                                }`}
+                            title={panel.title || 'Panel'}
+                        >
+                            {/* Icon */}
+                            <span className={`flex-shrink-0 w-4 h-4 flex items-center justify-center ${isTopPanel
+                                ? 'text-indigo-200'
+                                : 'text-slate-400 dark:text-slate-500'
+                                }`}>
+                                {panel.icon || <FileText size={14} />}
+                            </span>
+
+                            {/* Title */}
+                            <span className="text-xs font-semibold">
+                                {displayTitle}
+                            </span>
+
+                            {/* × Close — ONLY on topmost panel */}
+                            {isTopPanel && (
+                                <span
+                                    onClick={(e) => { e.stopPropagation(); onClose(panel.id); }}
+                                    className="flex-shrink-0 w-5 h-5 flex items-center justify-center
+                                        rounded-full ml-1
+                                        text-indigo-200 hover:text-white hover:bg-indigo-700 dark:hover:bg-indigo-600
+                                        transition-all duration-150 cursor-pointer"
+                                    title="Đóng"
+                                >
+                                    <X size={12} strokeWidth={2.5} />
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
+// ─── Panel Container ─────────────────────────────────────────────────────────
 
 interface SlidePanelContainerProps {
-    /** Sidebar collapsed state to calculate left offset */
     isSidebarCollapsed: boolean;
 }
 
 export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSidebarCollapsed }) => {
-    const { panels, closePanel, hasOpenPanels } = useSlidePanel();
+    const { panels, closePanel, focusPanel, hasOpenPanels } = useSlidePanel();
 
-    // Escape key closes top panel
     useEffect(() => {
         if (!hasOpenPanels) return;
-
         const handleEscapeKey = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 e.preventDefault();
@@ -102,12 +190,10 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
                 closePanel();
             }
         };
-
         window.addEventListener('keydown', handleEscapeKey, { capture: true });
         return () => window.removeEventListener('keydown', handleEscapeKey, { capture: true });
     }, [hasOpenPanels, closePanel]);
 
-    // Toggle body overflow
     useEffect(() => {
         if (hasOpenPanels) {
             document.body.classList.add('slide-panel-open');
@@ -119,15 +205,11 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
 
     if (!hasOpenPanels) return null;
 
-    // Sidebar widths: collapsed = 80px (w-20), expanded = 256px (w-64)
-    // On mobile (<768px), sidebar is hidden so panel is full width
     const sidebarWidth = isSidebarCollapsed ? 80 : 256;
 
     return (
-        <div
-            className="fixed inset-0 z-[60]"
-        >
-            {/* Full-screen backdrop — blocks sidebar and all content below */}
+        <div className="fixed inset-0 z-[60]">
+            {/* Full-screen backdrop */}
             <div
                 className="absolute inset-0 bg-slate-900/20 dark:bg-slate-950/40 slide-panel-backdrop-enter"
                 onClick={() => closePanel()}
@@ -141,7 +223,7 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
         }
       `}</style>
             <div
-                className="slide-panel-viewport absolute inset-0"
+                className="slide-panel-viewport absolute inset-0 overflow-hidden"
                 style={{ left: 0 }}
             >
                 {panels.map((panel, index) => (
@@ -153,6 +235,13 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
                         onClose={() => closePanel(panel.id)}
                     />
                 ))}
+
+                {/* Bitrix24-style Tab Ears */}
+                <PanelTabsOverlay
+                    panels={panels}
+                    onFocus={(id) => focusPanel(id)}
+                    onClose={(id) => closePanel(id)}
+                />
             </div>
         </div>
     );

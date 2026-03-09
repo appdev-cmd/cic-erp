@@ -8,6 +8,7 @@
     transform: translateX(100%);
     opacity: 0.5;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -19,6 +20,7 @@
     transform: translateX(0);
     opacity: 1;
   }
+
   to {
     transform: translateX(100%);
     opacity: 0.5;
@@ -27,13 +29,34 @@
 
 /* ─── Backdrop fade animation ───────────────────────────────────────── */
 @keyframes slidePanelBackdropIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slidePanelBackdropOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+/* ─── Tab ear fade-in (opacity only, does NOT touch transform) ──────── */
+@keyframes slideTabFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* ─── Panel enter ───────────────────────────────────────────────────── */
@@ -64,6 +87,11 @@
   box-shadow:
     -8px 0 32px -4px rgba(0, 0, 0, 0.4),
     -2px 0 8px -2px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Tab Ear — attached to panel left edge, protrudes outside ──────── */
+.slide-panel-tab {
+  animation: slideTabFadeIn 250ms ease-out 200ms both;
 }
 
 /* ─── Prevent body scroll when panel is open ────────────────────────── */

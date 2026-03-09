@@ -291,16 +291,37 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
     }, [customerId]);
 
     // Update VAT line item
-    // signingValue đã bao gồm VAT → amountAfterVAT = signingValue * %DT, amountBeforeVAT = tính ngược
-    const updateVatItem = (index: number, field: 'revenuePercent' | 'vatRate', value: number) => {
+    // revenuePercent = -1 means "Khác" (custom amountBeforeVAT mode)
+    const updateVatItem = (index: number, field: 'revenuePercent' | 'vatRate' | 'amountBeforeVAT', value: number) => {
         setVatInvoiceItems(prev => {
             const updated = [...prev];
             const item = { ...updated[index] };
-            item[field] = value;
-            item.amountAfterVAT = item.signingValue * item.revenuePercent / 100;
-            item.amountBeforeVAT = item.amountAfterVAT / (1 + item.vatRate / 100);
+
+            if (field === 'amountBeforeVAT') {
+                // Manual entry: update amountBeforeVAT → calculate amountAfterVAT
+                item.amountBeforeVAT = value;
+                item.amountAfterVAT = Math.round(value * (1 + item.vatRate / 100));
+                item.revenuePercent = -1; // keep in custom mode
+            } else if (field === 'revenuePercent') {
+                item.revenuePercent = value;
+                if (value >= 0) {
+                    // Auto-calculate from signing value
+                    item.amountAfterVAT = item.signingValue * value / 100;
+                    item.amountBeforeVAT = item.amountAfterVAT / (1 + item.vatRate / 100);
+                }
+                // if -1, keep current amountBeforeVAT for manual editing
+            } else {
+                item.vatRate = value;
+                if (item.revenuePercent >= 0) {
+                    item.amountAfterVAT = item.signingValue * item.revenuePercent / 100;
+                    item.amountBeforeVAT = item.amountAfterVAT / (1 + item.vatRate / 100);
+                } else {
+                    // Custom mode: recalc amountAfterVAT from amountBeforeVAT
+                    item.amountAfterVAT = Math.round(item.amountBeforeVAT * (1 + item.vatRate / 100));
+                }
+            }
+
             updated[index] = item;
-            // Recalculate total
             const total = updated.reduce((sum, i) => sum + i.amountAfterVAT, 0);
             setAmount(total);
             return updated;
@@ -468,7 +489,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                                             <tr className="bg-slate-50 dark:bg-slate-800">
                                                 <th className="text-left py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px]">SP / Dịch vụ</th>
                                                 <th className="text-right py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] whitespace-nowrap">Giá trị ký kết</th>
-                                                <th className="text-center py-2.5 px-2 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] w-20">% Xuất DT</th>
+                                                <th className="text-center py-2.5 px-2 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] w-24">% Xuất DT</th>
                                                 <th className="text-right py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] whitespace-nowrap">Trước VAT</th>
                                                 <th className="text-center py-2.5 px-2 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] w-16">% VAT</th>
                                                 <th className="text-right py-2.5 px-3 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] whitespace-nowrap">Sau VAT</th>
@@ -484,16 +505,38 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                                                         {formatCurrency(item.signingValue)}
                                                     </td>
                                                     <td className="py-2.5 px-2">
-                                                        <input
-                                                            type="number"
-                                                            value={item.revenuePercent}
-                                                            onChange={(e) => updateVatItem(idx, 'revenuePercent', Number(e.target.value) || 0)}
-                                                            className="w-full px-2 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-center text-xs font-bold text-blue-700 dark:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                            min={0} max={100}
-                                                        />
+                                                        <div className="flex items-center gap-1">
+                                                            {item.revenuePercent >= 0 ? (
+                                                                <input
+                                                                    type="number"
+                                                                    value={item.revenuePercent}
+                                                                    onChange={(e) => updateVatItem(idx, 'revenuePercent', Number(e.target.value) || 0)}
+                                                                    className="w-14 px-1.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-center text-xs font-bold text-blue-700 dark:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                    min={0}
+                                                                />
+                                                            ) : (
+                                                                <span className="w-14 px-1.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-center text-[10px] font-bold text-amber-700 dark:text-amber-300 block">Khác</span>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => updateVatItem(idx, 'revenuePercent', item.revenuePercent >= 0 ? -1 : 100)}
+                                                                title={item.revenuePercent >= 0 ? 'Chuyển sang nhập tự do' : 'Quay về nhập %'}
+                                                                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold transition-colors hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500"
+                                                            >
+                                                                {item.revenuePercent >= 0 ? '⇄' : '%'}
+                                                            </button>
+                                                        </div>
                                                     </td>
-                                                    <td className="py-2.5 px-3 text-right font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                                                        {formatCurrency(item.amountBeforeVAT)}
+                                                    <td className="py-2.5 px-3">
+                                                        {item.revenuePercent < 0 ? (
+                                                            <NumberInput
+                                                                value={item.amountBeforeVAT}
+                                                                onChange={(val) => updateVatItem(idx, 'amountBeforeVAT', val)}
+                                                                className="w-full px-2 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-right text-xs font-bold text-amber-700 dark:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-right font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap block">{formatCurrency(item.amountBeforeVAT)}</span>
+                                                        )}
                                                     </td>
                                                     <td className="py-2.5 px-2">
                                                         <select

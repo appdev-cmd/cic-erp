@@ -6,6 +6,7 @@ export interface PanelEntry {
     id: string;
     component: React.ReactNode;
     title?: string;
+    icon?: React.ReactNode;
 }
 
 interface SlidePanelContextType {
@@ -17,6 +18,8 @@ interface SlidePanelContextType {
     closePanel: (id?: string) => void;
     /** Close ALL panels at once */
     closeAllPanels: () => void;
+    /** Focus a panel by closing all panels above it in the stack */
+    focusPanel: (id: string) => void;
     /** Whether any panel is currently open */
     hasOpenPanels: boolean;
 }
@@ -53,6 +56,15 @@ export const SlidePanelProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setPanels([]);
     }, []);
 
+    const focusPanel = useCallback((id: string) => {
+        setPanels(prev => {
+            const idx = prev.findIndex(p => p.id === id);
+            if (idx === -1) return prev;
+            // Remove all panels above the target
+            return prev.slice(0, idx + 1);
+        });
+    }, []);
+
     const hasOpenPanels = panels.length > 0;
 
     const value = useMemo(() => ({
@@ -60,8 +72,9 @@ export const SlidePanelProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         openPanel,
         closePanel,
         closeAllPanels,
+        focusPanel,
         hasOpenPanels,
-    }), [panels, openPanel, closePanel, closeAllPanels, hasOpenPanels]);
+    }), [panels, openPanel, closePanel, closeAllPanels, focusPanel, hasOpenPanels]);
 
     return (
         <SlidePanelContext.Provider value={value}>

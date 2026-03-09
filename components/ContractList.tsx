@@ -204,17 +204,25 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         setSalespeople(personnelData);
         setUnits(unitsData);
 
-        // Fetch customer shortNames for display in contract list
+        // Fetch ALL customer shortNames (paginated — Supabase hard limit is 1000/request)
         const { dataClient } = await import('../lib/dataClient');
-        const { data: customers } = await dataClient
-          .from('customers')
-          .select('id, short_name')
-          .not('short_name', 'is', null);
-        if (customers) {
-          const map = new Map<string, string>();
+        const map = new Map<string, string>();
+        let from = 0;
+        const batchSize = 1000;
+        while (true) {
+          const { data: customers } = await dataClient
+            .from('customers')
+            .select('id, short_name')
+            .not('short_name', 'is', null)
+            .neq('short_name', '')
+            .range(from, from + batchSize - 1);
+          if (!customers || customers.length === 0) break;
           customers.forEach((c: any) => { if (c.short_name) map.set(c.id, c.short_name); });
-          setCustomerShortNames(map);
+          if (customers.length < batchSize) break;
+          from += batchSize;
         }
+        setCustomerShortNames(map);
+        console.log('[CustomerShortNames] Loaded', map.size, 'entries in', Math.ceil(from / batchSize) + 1, 'batches');
 
         // Fetch VAT invoice numbers for display in Doanh thu column
         const { data: invoices } = await dataClient
@@ -754,7 +762,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1" title={contract.endUserName ? `End User: ${contract.endUserName}` : undefined}>
                         {contract.partyA}
                         {contract.customerId && customerShortNames.get(contract.customerId) && (
-                          <span className="text-indigo-500 dark:text-indigo-400 font-semibold"> ({customerShortNames.get(contract.customerId)})</span>
+                          <span className="text-cyan-600 dark:text-cyan-400 font-bold"> ({customerShortNames.get(contract.customerId)})</span>
                         )}
                       </p>
                       {contract.endUserName && (
