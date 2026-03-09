@@ -22,9 +22,10 @@ const calculateRevenue = (contract: any): number => {
     const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
 
     const payments: any[] = contract.payments || [];
+    // Only count VAT_INVOICE vouchers as revenue (not RECEIPT which is cash received)
     const revenuePayments = payments.filter(
-        (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
-            ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status)
+        (p: any) => p.voucher_type === 'VAT_INVOICE' &&
+            ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status)
     );
 
     if (revenuePayments.length > 0) {
@@ -49,7 +50,7 @@ export const getBusinessContext = async (): Promise<string> => {
             EmployeeService.getAll(),
             PaymentService.getStats({}),
             supabase.from('contracts').select(
-                'id, unit_id, employee_id, value, actual_revenue, status, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)'
+                'id, unit_id, employee_id, value, actual_revenue, status, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type)'
             )
         ]);
 

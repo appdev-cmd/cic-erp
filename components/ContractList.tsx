@@ -53,6 +53,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalRevenueProfit: 0, totalCash: 0, processingCount: 0, suspendedCount: 0, overdueAdvanceCount: 0, handoverCount: 0, acceptanceCount: 0, overduePaymentCount: 0, completedCount: 0 });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [customerShortNames, setCustomerShortNames] = useState<Map<string, string>>(new Map());
+  const [invoiceMap, setInvoiceMap] = useState<Map<string, string[]>>(new Map());
 
   // Cross-unit visibility
   const { visibleUnits } = useCurrentUserVisibleUnits();
@@ -213,6 +214,24 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           const map = new Map<string, string>();
           customers.forEach((c: any) => { if (c.short_name) map.set(c.id, c.short_name); });
           setCustomerShortNames(map);
+        }
+
+        // Fetch VAT invoice numbers for display in Doanh thu column
+        const { data: invoices } = await dataClient
+          .from('payments')
+          .select('contract_id, invoice_number')
+          .eq('voucher_type', 'VAT_INVOICE')
+          .not('invoice_number', 'is', null);
+        if (invoices) {
+          const iMap = new Map<string, string[]>();
+          invoices.forEach((inv: any) => {
+            if (inv.invoice_number) {
+              const existing = iMap.get(inv.contract_id) || [];
+              existing.push(inv.invoice_number);
+              iMap.set(inv.contract_id, existing);
+            }
+          });
+          setInvoiceMap(iMap);
         }
       } catch (e) {
         console.error("Fetch lookups failed", e);
@@ -776,6 +795,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100" title={formatCurrency(revenue)}>
                       {formatCurrency(revenue)}
                     </span>
+                    {invoiceMap.get(contract.id) && invoiceMap.get(contract.id)!.length > 0 && (
+                      <p className="text-[8px] font-bold text-blue-500 dark:text-blue-400 mt-0.5 truncate max-w-[120px]" title={`Số HĐ: ${invoiceMap.get(contract.id)!.join(', ')}`}>
+                        HĐ: {invoiceMap.get(contract.id)!.join(', ')}
+                      </p>
+                    )}
                   </td>
                   {/* Tiền về */}
                   <td className="px-3 py-2 text-right">

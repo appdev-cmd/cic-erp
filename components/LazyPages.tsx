@@ -1,10 +1,11 @@
 // Lazy-loaded page components for code splitting
 // This reduces initial bundle size by loading components on demand
 
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useLayoutContext } from './layout/MainLayout';
 import { ROUTES } from '../routes/routes';
+import { useSlidePanel } from '../contexts/SlidePanelContext';
 import {
     DashboardSkeleton,
     ListPageSkeleton,
@@ -96,33 +97,105 @@ export const LazyDashboardPage: React.FC = () => {
     );
 };
 
-// Contract List
+// ═══════════════════════════════════════════════════════════════════════
+// CONTRACT MODULE — Slide Panel Integration (Bitrix24-style)
+// ═══════════════════════════════════════════════════════════════════════
+
+// Contract List — opens detail/form in slide panels
 export const LazyContractListPage: React.FC = () => {
     const navigate = useNavigate();
     const { selectedUnit } = useLayoutContext();
+    const { openPanel, closePanel } = useSlidePanel();
+
+    const handleSelectContract = useCallback((id: string) => {
+        openPanel({
+            title: `Hợp đồng ${id}`,
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <ContractDetail
+                            contractId={id}
+                            onBack={() => closePanel()}
+                            onEdit={(contract) => {
+                                openPanel({
+                                    title: `Chỉnh sửa ${contract.id}`,
+                                    component: (
+                                        <Suspense fallback={<FormPageSkeleton />}>
+                                            <ContractFormInSlidePanel contractId={contract.id} />
+                                        </Suspense>
+                                    ),
+                                });
+                            }}
+                            onDelete={async () => {
+                                try {
+                                    await ContractService.delete(id);
+                                    toast.success('Đã xóa hợp đồng thành công!');
+                                    closePanel();
+                                } catch (e: any) {
+                                    toast.error('Lỗi xóa hợp đồng: ' + (e.message || e));
+                                }
+                            }}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel]);
+
+    const handleAddContract = useCallback(() => {
+        openPanel({
+            title: 'Tạo hợp đồng mới',
+            component: (
+                <Suspense fallback={<FormPageSkeleton />}>
+                    <ContractFormInSlidePanel />
+                </Suspense>
+            ),
+        });
+    }, [openPanel]);
+
+    const handleCloneContract = useCallback((contract: any) => {
+        openPanel({
+            title: 'Nhân bản hợp đồng',
+            component: (
+                <Suspense fallback={<FormPageSkeleton />}>
+                    <ContractFormInSlidePanel cloneFrom={contract} />
+                </Suspense>
+            ),
+        });
+    }, [openPanel]);
+
     return withSuspense(
         <ContractList
             selectedUnit={selectedUnit}
-            onSelectContract={(id) => navigate(ROUTES.CONTRACT_DETAIL(encodeURIComponent(id)))}
-            onAdd={() => navigate(ROUTES.CONTRACT_NEW)}
-            onClone={(contract) => navigate(ROUTES.CONTRACT_NEW, { state: { cloneFrom: contract } })}
-            onEdit={(id) => navigate(ROUTES.CONTRACT_EDIT(encodeURIComponent(id)))}  // Quick edit
+            onSelectContract={handleSelectContract}
+            onAdd={handleAddContract}
+            onClone={handleCloneContract}
         />,
         <ListPageSkeleton />
     );
 };
 
-// Contract Detail
+// Contract Detail — for direct URL access (/contracts/:id)
 export const LazyContractDetailPage: React.FC = () => {
     const navigate = useNavigate();
     const { id: rawId } = useParams<{ id: string }>();
     const id = rawId ? decodeURIComponent(rawId) : undefined;
+    const { openPanel, closePanel } = useSlidePanel();
     if (!id) return <div>Contract not found</div>;
     return withSuspense(
         <ContractDetail
             contractId={id}
             onBack={() => navigate(ROUTES.CONTRACTS)}
-            onEdit={() => navigate(ROUTES.CONTRACT_EDIT(encodeURIComponent(id)))}
+            onEdit={(contract) => {
+                openPanel({
+                    title: `Chỉnh sửa ${contract.id}`,
+                    component: (
+                        <Suspense fallback={<FormPageSkeleton />}>
+                            <ContractFormInSlidePanel contractId={contract.id} />
+                        </Suspense>
+                    ),
+                });
+            }}
             onDelete={async () => {
                 try {
                     await ContractService.delete(id);
@@ -134,6 +207,56 @@ export const LazyContractDetailPage: React.FC = () => {
             }}
         />,
         <DetailPageSkeleton />
+    );
+};
+
+// ── Contract Form rendered inside a slide panel ──────────────────────────────
+const ContractFormInSlidePanel: React.FC<{ contractId?: string; cloneFrom?: any }> = ({ contractId, cloneFrom }) => {
+    const { closePanel } = useSlidePanel();
+    const [contract, setContract] = React.useState<Contract | null>(cloneFrom || null);
+    const [loading, setLoading] = React.useState(!!contractId && !cloneFrom);
+
+    React.useEffect(() => {
+        if (contractId && !cloneFrom) {
+            setLoading(true);
+            ContractService.getById(contractId)
+                .then(data => { if (data) setContract(data); })
+                .catch(err => toast.error('Lỗi tải hợp đồng: ' + err))
+                .finally(() => setLoading(false));
+        }
+    }, [contractId, cloneFrom]);
+
+    if (loading) {
+        return (
+            <div className="p-8 flex flex-col items-center justify-center gap-4">
+                <div className="w-10 h-10 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-slate-500 dark:text-slate-400 font-medium">Đang tải dữ liệu...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-4 md:p-6 lg:p-8">
+            <ContractForm
+                contract={contract || undefined}
+                isCloning={!!cloneFrom}
+                onSave={async (data) => {
+                    try {
+                        if (contractId && !cloneFrom) {
+                            await ContractService.update(contractId, data);
+                            toast.success('Cập nhật hợp đồng thành công!');
+                        } else {
+                            await ContractService.create(data);
+                            toast.success(cloneFrom ? 'Nhân bản hợp đồng thành công!' : 'Tạo hợp đồng thành công!');
+                        }
+                        closePanel();
+                    } catch (e: any) {
+                        toast.error('Lỗi: ' + (e.message || e));
+                    }
+                }}
+                onCancel={() => closePanel()}
+            />
+        </div>
     );
 };
 

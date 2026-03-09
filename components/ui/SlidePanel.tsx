@@ -125,7 +125,7 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
 
     return (
         <div
-            className="fixed inset-0 z-[55]"
+            className="fixed inset-0 z-[60]"
         >
             {/* Full-screen backdrop — blocks sidebar and all content below */}
             <div

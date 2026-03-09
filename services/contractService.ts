@@ -237,7 +237,8 @@ export const getUnitSharePct = (
 
 /**
  * Calculate revenue from payments, excluding VAT.
- * Only counts payments with status 'Đã xuất HĐ', 'Tiền về', 'Paid'.
+ * Only counts VAT_INVOICE vouchers with status 'Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'.
+ * RECEIPT payments are cash received (tiền về), NOT revenue.
  * Falls back to DB actual_revenue ONLY when no payments exist at all.
  */
 export const calculateRevenueFromPayments = (
@@ -250,9 +251,10 @@ export const calculateRevenueFromPayments = (
     if (!payments || payments.length === 0) return fallbackRevenue;
 
     const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+    // Only count VAT_INVOICE vouchers as revenue (not RECEIPT which is cash received)
     const revenuePayments = payments.filter(
-        (p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
-            ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status)
+        (p: any) => p.voucher_type === 'VAT_INVOICE' &&
+            ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status)
     );
     const invoicedGross = revenuePayments.reduce(
         (sum: number, p: any) => sum + (Number(p.amount) || 0), 0
@@ -613,7 +615,7 @@ export const ContractService = {
         const { search, status, unitId, year, salespersonId } = params;
         // Fetch ALL contracts with unit_allocations for allocation-aware filtering
         // Unit filter is done in JS to support contracts where the unit is a collaborative partner
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)');
+        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type)');
 
         if (search) {
             query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,customer_contract_number.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);
@@ -762,7 +764,7 @@ export const ContractService = {
         console.log('[ContractService.getStatsFallback] Using direct query');
         // When filtering by unit, we need ALL contracts to check unit_allocations too
         // Include payment status+amount to calculate revenue from invoiced payments
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, vat_rate, has_vat, end_date, payments(amount, paid_amount, status, payment_type)');
+        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, vat_rate, has_vat, end_date, payments(amount, paid_amount, status, payment_type, voucher_type)');
 
         // Only apply year filter at query level (unit filter is done in JS for allocation support)
         if (year && year !== 'All' && year !== 'all') {
@@ -958,7 +960,7 @@ export const ContractService = {
     getChartDataFallback: async (unitId: string = 'all', year: string = 'all'): Promise<Array<{ month: number, revenue: number, profit: number, signing: number }>> => {
         console.log('[ContractService.getChartDataFallback] Using direct query');
         // Fetch all contracts with unit_allocations for allocation-aware filtering
-        let query = supabase.from('contracts').select('signed_date, value, actual_revenue, estimated_cost, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type)');
+        let query = supabase.from('contracts').select('signed_date, value, actual_revenue, estimated_cost, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type)');
 
         // Only apply year filter at query level (unit filter is done in JS)
         if (year && year !== 'All' && year !== 'all') {
