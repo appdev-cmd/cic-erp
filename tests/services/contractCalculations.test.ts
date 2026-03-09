@@ -15,7 +15,7 @@ describe('calculateRevenueFromPayments', () => {
 
     it('calculates revenue from eligible payments with VAT exclusion', () => {
         const payments = [
-            { amount: 110_000_000, status: 'Đã xuất HĐ', payment_type: 'Revenue' },
+            { amount: 110_000_000, status: 'Đã xuất HĐ', voucher_type: 'VAT_INVOICE' },
         ];
         // Revenue = 110M / 1.10 = 100M
         expect(calculateRevenueFromPayments(payments, 10, true, 0)).toBe(100_000_000);
@@ -23,24 +23,24 @@ describe('calculateRevenueFromPayments', () => {
 
     it('returns full amount when hasVat is false', () => {
         const payments = [
-            { amount: 100_000_000, status: 'Tiền về', payment_type: 'Revenue' },
+            { amount: 100_000_000, status: 'Tiền về', voucher_type: 'VAT_INVOICE' },
         ];
         expect(calculateRevenueFromPayments(payments, 10, false, 0)).toBe(100_000_000);
     });
 
-    it('ignores Expense payment_type', () => {
+    it('ignores EXPENSE voucher_type', () => {
         const payments = [
-            { amount: 50_000_000, status: 'Đã xuất HĐ', payment_type: 'Revenue' },
-            { amount: 30_000_000, status: 'Đã xuất HĐ', payment_type: 'Expense' },
+            { amount: 50_000_000, status: 'Đã xuất HĐ', voucher_type: 'VAT_INVOICE' },
+            { amount: 30_000_000, status: 'Đã xuất HĐ', voucher_type: 'EXPENSE' },
         ];
-        // Only the Revenue payment: 50M / 1.10 ≈ 45_454_545.45
+        // Only the VAT_INVOICE payment: 50M / 1.10 ≈ 45_454_545.45
         const result = calculateRevenueFromPayments(payments, 10, true, 0);
         expect(result).toBeCloseTo(45_454_545.45, 0);
     });
 
     it('includes payments with status Tiền về', () => {
         const payments = [
-            { amount: 55_000_000, status: 'Tiền về', payment_type: 'Revenue' },
+            { amount: 55_000_000, status: 'Tiền về', voucher_type: 'VAT_INVOICE' },
         ];
         // 55M / 1.10 = 50M
         expect(calculateRevenueFromPayments(payments, 10, true, 0)).toBe(50_000_000);
@@ -51,11 +51,11 @@ describe('calculateRevenueFromPayments', () => {
         expect(result).toBe(999_000);
     });
 
-    it('includes payments with no payment_type (defaults to Revenue)', () => {
+    it('ignores payments with no voucher_type', () => {
         const payments = [
             { amount: 110_000_000, status: 'Đã xuất HĐ' },
         ];
-        expect(calculateRevenueFromPayments(payments, 10, true, 0)).toBe(100_000_000);
+        expect(calculateRevenueFromPayments(payments, 10, true, 0)).toBe(0);
     });
 });
 
@@ -69,38 +69,38 @@ describe('calculateCashReceived', () => {
 
     it('sums amount of Tiền về payments', () => {
         const payments = [
-            { amount: 50_000_000, status: 'Tiền về', payment_type: 'Revenue' },
-            { amount: 30_000_000, status: 'Tiền về', payment_type: 'Revenue' },
+            { amount: 50_000_000, status: 'Tiền về', voucher_type: 'RECEIPT' },
+            { amount: 30_000_000, status: 'Tiền về', voucher_type: 'RECEIPT' },
         ];
         expect(calculateCashReceived(payments)).toBe(80_000_000);
     });
 
     it('includes Paid status', () => {
         const payments = [
-            { amount: 40_000_000, status: 'Paid', payment_type: 'Revenue' },
+            { amount: 40_000_000, status: 'Paid', voucher_type: 'RECEIPT' },
         ];
         expect(calculateCashReceived(payments)).toBe(40_000_000);
     });
 
     it('excludes Đã xuất HĐ payments (not cash yet)', () => {
         const payments = [
-            { amount: 50_000_000, status: 'Đã xuất HĐ', payment_type: 'Revenue' },
-            { amount: 30_000_000, status: 'Tiền về', payment_type: 'Revenue' },
+            { amount: 50_000_000, status: 'Đã xuất HĐ', voucher_type: 'VAT_INVOICE' },
+            { amount: 30_000_000, status: 'Tiền về', voucher_type: 'RECEIPT' },
         ];
         expect(calculateCashReceived(payments)).toBe(30_000_000);
     });
 
-    it('excludes Expense payment_type from cash calculation', () => {
+    it('excludes EXPENSE voucher_type from cash calculation', () => {
         const payments = [
-            { amount: 100_000_000, status: 'Tiền về', payment_type: 'Revenue' },
-            { amount: 50_000_000, status: 'Tiền về', payment_type: 'Expense' },
+            { amount: 100_000_000, status: 'Tiền về', voucher_type: 'RECEIPT' },
+            { amount: 50_000_000, status: 'Tiền về', voucher_type: 'EXPENSE' },
         ];
         expect(calculateCashReceived(payments)).toBe(100_000_000);
     });
 
     it('uses amount field (not paid_amount)', () => {
         const payments = [
-            { amount: 100_000_000, paid_amount: 0, status: 'Tiền về', payment_type: 'Revenue' },
+            { amount: 100_000_000, paid_amount: 0, status: 'Tiền về', voucher_type: 'RECEIPT' },
         ];
         // Should use amount, not paid_amount
         expect(calculateCashReceived(payments)).toBe(100_000_000);
@@ -108,8 +108,8 @@ describe('calculateCashReceived', () => {
 
     it('includes Tạm ứng (advance) payments in cash', () => {
         const payments = [
-            { amount: 60_000_000, status: 'Tạm ứng', payment_type: 'Revenue' },
-            { amount: 40_000_000, status: 'Tiền về', payment_type: 'Revenue' },
+            { amount: 60_000_000, status: 'Tạm ứng', voucher_type: 'RECEIPT' },
+            { amount: 40_000_000, status: 'Tiền về', voucher_type: 'RECEIPT' },
         ];
         expect(calculateCashReceived(payments)).toBe(100_000_000);
     });
