@@ -4,7 +4,9 @@ import { useSlidePanel, PanelEntry } from '../../contexts/SlidePanelContext';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STACKING_OFFSET = 40; // px gap between panel left edges
+const STACKING_OFFSET = 20;   // px gap between panel left edges (for depth)
+const TAB_HEIGHT = 38;         // approximate tab height in px
+const TAB_VERTICAL_GAP = 6;   // px gap between cascading tabs vertically
 
 // ─── Single Panel ────────────────────────────────────────────────────────────
 
@@ -17,7 +19,7 @@ interface SlidePanelItemProps {
 
 const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, onClose }) => {
     const isTopPanel = index === total - 1;
-    // REVERSED: bottom panel is widest, top panel is narrowest (indented from left)
+    // Small stacking offset — panel body stays close to sidebar
     const stackOffset = index * STACKING_OFFSET;
     const [isExiting, setIsExiting] = useState(false);
 
@@ -43,7 +45,7 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
                 aria-hidden="true"
             />
 
-            {/* Panel Body */}
+            {/* Panel Body — close to sidebar edge */}
             <div
                 className={`relative h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 
           flex flex-col overflow-hidden slide-panel-stacked
@@ -59,7 +61,7 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
                 aria-modal={isTopPanel}
                 aria-label={panel.title || 'Panel'}
             >
-                {/* Close Button at top-right — only top panel */}
+                {/* Close Button */}
                 {isTopPanel && (
                     <button
                         onClick={handleClose}
@@ -82,43 +84,51 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
     );
 };
 
-// ─── Bitrix24-style Tab Ears (Overlay) ───────────────────────────────────────
-// Rendered above ALL panels. Each tab is positioned at each panel's left edge
-// with `right: calc(100% - panelLeftEdge)` so the tab's RIGHT side = panel's
-// LEFT border. Tab content extends to the LEFT (outside the panel).
+// ─── Tab Ears — overlaps sidebar AND panel body ──────────────────────────────
+// Each tab straddles the panel's left border:
+//   - LEFT portion: overlaps the sidebar
+//   - RIGHT portion: overlaps the panel body (overlap width = TAB_HEIGHT)
+// Tabs cascade VERTICALLY — each lower panel's tab is pushed down.
+// Rendered in the outer fixed container (not the viewport) so they can 
+// extend over the sidebar.
 
 interface PanelTabsOverlayProps {
     panels: PanelEntry[];
+    sidebarWidth: number;
     onFocus: (id: string) => void;
     onClose: (id: string) => void;
 }
 
-const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, onFocus, onClose }) => {
+const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, sidebarWidth, onFocus, onClose }) => {
     if (panels.length === 0) return null;
 
     return (
-        <div
-            className="absolute top-0 left-0 w-full h-full pointer-events-none"
-            style={{ zIndex: 60 + panels.length + 1 }}
-        >
+        <>
             {panels.map((panel, index) => {
                 const isTopPanel = index === panels.length - 1;
                 const title = panel.title || `Panel ${index + 1}`;
-                const displayTitle = title.length > 14 ? title.slice(0, 14) + '…' : title;
+                const displayTitle = title.length > 12 ? title.slice(0, 12) + '…' : title;
 
-                // Panel left edge = index * STACKING_OFFSET from viewport left
-                // Tab RIGHT edge = panel left edge (tab extends to the left)
-                const panelLeftEdge = index * STACKING_OFFSET;
+                // Panel left border in SCREEN coordinates:
+                // sidebarWidth + (index * STACKING_OFFSET)
+                const panelLeftEdgeScreen = sidebarWidth + index * STACKING_OFFSET;
+
+                // Tab RIGHT edge = panel left border + TAB_HEIGHT (overlaps into panel)
+                // Using CSS `right`: distance from screen right
+                // right = 100% - (panelLeftEdgeScreen + TAB_HEIGHT)
+                const tabRightEdge = panelLeftEdgeScreen + TAB_HEIGHT;
+
+                // Vertical cascade: each tab is lower
+                const tabTop = 12 + index * (TAB_HEIGHT + TAB_VERTICAL_GAP);
 
                 return (
                     <div
                         key={panel.id}
                         className="slide-panel-tab pointer-events-auto absolute"
                         style={{
-                            // Use 'right' to position the tab's right edge at the panel's left edge
-                            right: `calc(100% - ${panelLeftEdge}px)`,
-                            top: '12px',
-                            zIndex: index + 1,
+                            right: `calc(100% - ${tabRightEdge}px)`,
+                            top: `${tabTop}px`,
+                            zIndex: 60 + panels.length + index + 1,
                         }}
                     >
                         <button
@@ -128,7 +138,7 @@ const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, onFocus, on
                                     onFocus(panel.id);
                                 }
                             }}
-                            className={`group flex items-center gap-1.5 pl-3 pr-2.5 py-2.5
+                            className={`group flex items-center gap-1.5 pl-3 pr-2.5 py-2
                                 rounded-l-xl border border-r-0
                                 transition-all duration-200
                                 whitespace-nowrap
@@ -168,7 +178,7 @@ const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, onFocus, on
                     </div>
                 );
             })}
-        </div>
+        </>
     );
 };
 
@@ -209,12 +219,14 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
 
     return (
         <div className="fixed inset-0 z-[60]">
-            {/* Full-screen backdrop */}
+            {/* Full-screen backdrop — frosted glass dims the sidebar */}
             <div
-                className="absolute inset-0 bg-slate-900/20 dark:bg-slate-950/40 slide-panel-backdrop-enter"
+                className="absolute inset-0 bg-slate-900/25 dark:bg-slate-950/50 backdrop-blur-[2px] slide-panel-backdrop-enter"
                 onClick={() => closePanel()}
                 aria-hidden="true"
             />
+
+            {/* Panel viewport — after sidebar */}
             <style>{`
         @media (min-width: 768px) {
           .slide-panel-viewport {
@@ -235,14 +247,16 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
                         onClose={() => closePanel(panel.id)}
                     />
                 ))}
-
-                {/* Bitrix24-style Tab Ears */}
-                <PanelTabsOverlay
-                    panels={panels}
-                    onFocus={(id) => focusPanel(id)}
-                    onClose={(id) => closePanel(id)}
-                />
             </div>
+
+            {/* Tab Ears — OUTSIDE viewport, in the fixed container -->
+                 This allows tabs to overlap the sidebar */}
+            <PanelTabsOverlay
+                panels={panels}
+                sidebarWidth={sidebarWidth}
+                onFocus={(id) => focusPanel(id)}
+                onClose={(id) => closePanel(id)}
+            />
         </div>
     );
 };

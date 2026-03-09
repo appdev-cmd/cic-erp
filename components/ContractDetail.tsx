@@ -442,6 +442,27 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                   </div>
                 )}
               </div>
+              {/* Contract dates row */}
+              <div className="flex flex-wrap gap-4 mt-2">
+                {contract.signedDate && (
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <Calendar size={14} className="text-emerald-500" />
+                    <span className="text-slate-500 dark:text-slate-400">Ngày ký: <b className="text-emerald-600 dark:text-emerald-400">{new Date(contract.signedDate).toLocaleDateString('vi-VN')}</b></span>
+                  </div>
+                )}
+                {contract.startDate && (
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <Calendar size={14} className="text-blue-500" />
+                    <span className="text-slate-500 dark:text-slate-400">Bắt đầu: <b className="text-blue-600 dark:text-blue-400">{new Date(contract.startDate).toLocaleDateString('vi-VN')}</b></span>
+                  </div>
+                )}
+                {contract.endDate && (
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <Calendar size={14} className="text-rose-500" />
+                    <span className="text-slate-500 dark:text-slate-400">Kết thúc: <b className="text-rose-600 dark:text-rose-400">{new Date(contract.endDate).toLocaleDateString('vi-VN')}</b></span>
+                  </div>
+                )}
+              </div>
               {/* Unit Allocations Display */}
               {allocationNames.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">

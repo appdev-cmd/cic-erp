@@ -291,17 +291,20 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
     }, [customerId]);
 
     // Update VAT line item
-    // revenuePercent = -1 means "Khác" (custom amountBeforeVAT mode)
-    const updateVatItem = (index: number, field: 'revenuePercent' | 'vatRate' | 'amountBeforeVAT', value: number) => {
+    // revenuePercent = -1 means "Khác" (custom mode: both amountBeforeVAT and amountAfterVAT are editable independently)
+    const updateVatItem = (index: number, field: 'revenuePercent' | 'vatRate' | 'amountBeforeVAT' | 'amountAfterVAT', value: number) => {
         setVatInvoiceItems(prev => {
             const updated = [...prev];
             const item = { ...updated[index] };
 
             if (field === 'amountBeforeVAT') {
-                // Manual entry: update amountBeforeVAT → calculate amountAfterVAT
+                // Custom mode: only update amountBeforeVAT, DON'T auto-calculate amountAfterVAT
                 item.amountBeforeVAT = value;
-                item.amountAfterVAT = Math.round(value * (1 + item.vatRate / 100));
-                item.revenuePercent = -1; // keep in custom mode
+                item.revenuePercent = -1;
+            } else if (field === 'amountAfterVAT') {
+                // Custom mode: only update amountAfterVAT, DON'T auto-calculate amountBeforeVAT
+                item.amountAfterVAT = value;
+                item.revenuePercent = -1;
             } else if (field === 'revenuePercent') {
                 item.revenuePercent = value;
                 if (value >= 0) {
@@ -309,16 +312,15 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                     item.amountAfterVAT = item.signingValue * value / 100;
                     item.amountBeforeVAT = item.amountAfterVAT / (1 + item.vatRate / 100);
                 }
-                // if -1, keep current amountBeforeVAT for manual editing
+                // if -1 (switching to custom), keep current values for manual editing
             } else {
+                // vatRate change
                 item.vatRate = value;
                 if (item.revenuePercent >= 0) {
                     item.amountAfterVAT = item.signingValue * item.revenuePercent / 100;
                     item.amountBeforeVAT = item.amountAfterVAT / (1 + item.vatRate / 100);
-                } else {
-                    // Custom mode: recalc amountAfterVAT from amountBeforeVAT
-                    item.amountAfterVAT = Math.round(item.amountBeforeVAT * (1 + item.vatRate / 100));
                 }
+                // In custom mode: don't recalculate — user controls both values
             }
 
             updated[index] = item;
@@ -550,8 +552,16 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                                                             <option value={10}>10%</option>
                                                         </select>
                                                     </td>
-                                                    <td className="py-2.5 px-3 text-right font-black text-blue-600 dark:text-blue-400 whitespace-nowrap">
-                                                        {formatCurrency(item.amountAfterVAT)}
+                                                    <td className="py-2.5 px-3">
+                                                        {item.revenuePercent < 0 ? (
+                                                            <NumberInput
+                                                                value={item.amountAfterVAT}
+                                                                onChange={(val) => updateVatItem(idx, 'amountAfterVAT', val)}
+                                                                className="w-full px-2 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-right text-xs font-bold text-blue-700 dark:text-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-right font-black text-blue-600 dark:text-blue-400 whitespace-nowrap block">{formatCurrency(item.amountAfterVAT)}</span>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))}
