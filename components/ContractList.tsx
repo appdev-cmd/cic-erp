@@ -592,8 +592,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 { label: 'Phụ trách KD', align: 'left' },
                 { label: 'Ký kết', align: 'right', sortKey: 'value' },
                 { label: 'Doanh thu TT', align: 'right', sortKey: 'actualRevenue' },
-                { label: 'Lợi nhuận gộp', align: 'right', color: 'text-emerald-700 dark:text-emerald-400', sortKey: 'estimatedCost' },
                 { label: 'Tiền về', align: 'right' },
+                { label: 'Lợi nhuận gộp', align: 'right', color: 'text-emerald-700 dark:text-emerald-400', sortKey: 'estimatedCost' },
                 { label: 'Tỷ suất LN/DT', align: 'center' },
                 { label: 'Trạng thái', align: 'center', sortKey: 'status' },
               ].map((col, idx) => (
@@ -777,12 +777,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       {formatCurrency(revenue)}
                     </span>
                   </td>
-                  {/* Lợi nhuận gộp */}
-                  <td className="px-3 py-2 text-right">
-                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400" title={formatCurrency(profit)}>
-                      {formatCurrency(profit)}
-                    </span>
-                  </td>
                   {/* Tiền về */}
                   <td className="px-3 py-2 text-right">
                     {cashReceived > 0 ? (
@@ -812,6 +806,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                         {formatCurrency(0)}
                       </span>
                     )}
+                  </td>
+                  {/* Lợi nhuận gộp */}
+                  <td className="px-3 py-2 text-right">
+                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400" title={formatCurrency(profit)}>
+                      {formatCurrency(profit)}
+                    </span>
                   </td>
                   {/* Tỷ suất LN/DT */}
                   <td className="px-3 py-2 text-center">
