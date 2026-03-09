@@ -309,6 +309,19 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     fetchSalespersonIds();
   }, [effectiveUnitId, yearFilter]);
 
+  // Compute matching customer IDs when search matches customer short names (tên viết tắt)
+  const matchingCustomerIds = useMemo(() => {
+    if (!debouncedSearch || debouncedSearch.trim().length === 0) return undefined;
+    const term = debouncedSearch.toLowerCase().trim();
+    const ids: string[] = [];
+    customerShortNames.forEach((shortName, customerId) => {
+      if (shortName.toLowerCase().includes(term)) {
+        ids.push(customerId);
+      }
+    });
+    return ids.length > 0 ? ids : undefined;
+  }, [debouncedSearch, customerShortNames]);
+
   // Infinite scroll fetch function
   const fetchContractPage = useCallback(async (page: number) => {
     const params = {
@@ -320,7 +333,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       year: yearFilter,
       salespersonId: salespersonFilter !== 'All' ? salespersonFilter : undefined,
       sortBy: sortBy || undefined,
-      sortDir: sortBy ? sortDir : undefined
+      sortDir: sortBy ? sortDir : undefined,
+      matchingCustomerIds
     };
 
     const [listRes, statsRes] = await Promise.all([
@@ -335,7 +349,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       hasMore: listRes.data.length >= PAGE_SIZE,
       totalCount: listRes.count
     };
-  }, [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, sortBy, sortDir]);
+  }, [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, sortBy, sortDir, matchingCustomerIds]);
 
   const {
     items: contracts,
@@ -349,7 +363,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   } = useInfiniteScroll<Contract>({
     fetchFn: fetchContractPage,
     pageSize: PAGE_SIZE,
-    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, sortBy, sortDir]
+    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, sortBy, sortDir, matchingCustomerIds]
   });
 
   // Tự động sinh danh sách 5 năm gần nhất
@@ -561,7 +575,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
-            placeholder="Tìm mã HĐ, tên khách hàng, nội dung, end user, số HĐ KH..."
+            placeholder="Tìm mã HĐ, tên khách hàng, tên viết tắt KH, nội dung, end user, số HĐ KH..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold text-slate-900 dark:text-slate-100"

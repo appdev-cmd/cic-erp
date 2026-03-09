@@ -110,6 +110,7 @@ export const LazyContractListPage: React.FC = () => {
     const handleSelectContract = useCallback((id: string) => {
         openPanel({
             title: `Hợp đồng ${id}`,
+            url: ROUTES.CONTRACT_DETAIL(id),
             component: (
                 <Suspense fallback={<DetailPageSkeleton />}>
                     <div className="p-4 md:p-6 lg:p-8">
@@ -119,6 +120,7 @@ export const LazyContractListPage: React.FC = () => {
                             onEdit={(contract) => {
                                 openPanel({
                                     title: `Chỉnh sửa ${contract.id}`,
+                                    url: `${ROUTES.CONTRACT_DETAIL(contract.id)}?edit=true`,
                                     component: (
                                         <Suspense fallback={<FormPageSkeleton />}>
                                             <ContractFormInSlidePanel contractId={contract.id} />
@@ -145,6 +147,7 @@ export const LazyContractListPage: React.FC = () => {
     const handleAddContract = useCallback(() => {
         openPanel({
             title: 'Tạo hợp đồng mới',
+            url: `${ROUTES.CONTRACTS}/new`,
             component: (
                 <Suspense fallback={<FormPageSkeleton />}>
                     <ContractFormInSlidePanel />
@@ -156,6 +159,7 @@ export const LazyContractListPage: React.FC = () => {
     const handleCloneContract = useCallback((contract: any) => {
         openPanel({
             title: 'Nhân bản hợp đồng',
+            url: `${ROUTES.CONTRACTS}/new?clone=${contract.id}`,
             component: (
                 <Suspense fallback={<FormPageSkeleton />}>
                     <ContractFormInSlidePanel cloneFrom={contract} />
@@ -189,6 +193,7 @@ export const LazyContractDetailPage: React.FC = () => {
             onEdit={(contract) => {
                 openPanel({
                     title: `Chỉnh sửa ${contract.id}`,
+                    url: `${ROUTES.CONTRACT_DETAIL(contract.id)}?edit=true`,
                     component: (
                         <Suspense fallback={<FormPageSkeleton />}>
                             <ContractFormInSlidePanel contractId={contract.id} />

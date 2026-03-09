@@ -169,18 +169,31 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
 
                                 {/* Row 2: Actual Cashflow — computed from voucher records */}
                                 {(() => {
-                                    // Doanh thu = tổng phiếu VAT_INVOICE đã xuất
+                                    // Đã xuất HĐ = tổng giá trị sau VAT của phiếu VAT_INVOICE
                                     const totalInvoiced = vouchers
                                         .filter(v => v.voucherType === 'VAT_INVOICE')
                                         .reduce((sum, v) => sum + (v.amount || 0), 0);
+                                    // Doanh thu = tổng giá trị trước VAT từ line items (mỗi SP có VAT khác nhau)
+                                    const totalRevenuePreVAT = vouchers
+                                        .filter(v => v.voucherType === 'VAT_INVOICE')
+                                        .reduce((sum, v) => {
+                                            const items = v.vatInvoiceItems || [];
+                                            if (items.length > 0) {
+                                                return sum + items.reduce((s, item) => s + (item.amountBeforeVAT || 0), 0);
+                                            }
+                                            // Fallback: nếu chưa có line items, chia theo vatRate hợp đồng
+                                            const rate = contract.vatRate ?? 10;
+                                            const divisor = contract.hasVat !== false && rate > 0 ? (1 + rate / 100) : 1;
+                                            return sum + Math.round((v.amount || 0) / divisor);
+                                        }, 0);
                                     // Tiền về = tổng phiếu RECEIPT có status 'Tiền về'
                                     const totalCashReceived = vouchers
                                         .filter(v => v.voucherType === 'RECEIPT' && v.status === 'Tiền về')
                                         .reduce((sum, v) => sum + (v.amount || 0), 0);
-                                    // Công nợ = Doanh thu VAT đã xuất - Tiền về
+                                    // Công nợ = Đã xuất HĐ (sau VAT) - Tiền về
                                     const totalReceivable = totalInvoiced - totalCashReceived;
                                     return (
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                                             {(contract.advanceAmount || 0) > 0 && (
                                                 <div className="space-y-1">
                                                     <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
@@ -204,10 +217,21 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                                 </p>
                                             </div>
                                             <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1">
+                                                    <TrendingUp size={12} /> Doanh thu (−VAT)
+                                                </p>
+                                                <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">
+                                                    {formatVND(totalRevenuePreVAT)}
+                                                </p>
+                                                <p className="text-[10px] text-slate-400">
+                                                    {totalRevenuePreVAT > 0 ? 'Tổng trước thuế' : 'Chưa có'}
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1">
                                                     <DollarSign size={12} /> Tiền về (Đã thu)
                                                 </p>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex flex-wrap items-center gap-2">
                                                     <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
                                                         {formatVND(totalCashReceived)}
                                                     </p>

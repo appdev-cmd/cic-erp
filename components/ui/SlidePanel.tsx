@@ -16,20 +16,13 @@ interface SlidePanelItemProps {
     index: number;
     total: number;
     onClose: () => void;
+    isExiting?: boolean;
 }
 
-const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, onClose }) => {
+const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, onClose, isExiting }) => {
     const isTopPanel = index === total - 1;
     // Base gap + stacking: every panel has at least BASE_GAP from sidebar
     const stackOffset = BASE_GAP + index * STACKING_OFFSET;
-    const [isExiting, setIsExiting] = useState(false);
-
-    const handleClose = useCallback(() => {
-        setIsExiting(true);
-        setTimeout(() => {
-            onClose();
-        }, 220);
-    }, [onClose]);
 
     return (
         <div
@@ -42,7 +35,7 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
                     ? 'bg-slate-900/40 dark:bg-slate-950/60 cursor-pointer'
                     : 'bg-transparent pointer-events-none'
                     } ${isExiting ? 'slide-panel-backdrop-exit' : 'slide-panel-backdrop-enter'}`}
-                onClick={isTopPanel ? handleClose : undefined}
+                onClick={isTopPanel ? onClose : undefined}
                 aria-hidden="true"
             />
 
@@ -65,7 +58,7 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
                 {/* Close Button */}
                 {isTopPanel && (
                     <button
-                        onClick={handleClose}
+                        onClick={onClose}
                         className="absolute top-3 right-3 z-10 p-2 rounded-lg
               text-slate-400 hover:text-slate-600 dark:hover:text-slate-300
               hover:bg-slate-100 dark:hover:bg-slate-800
@@ -190,7 +183,7 @@ interface SlidePanelContainerProps {
 }
 
 export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSidebarCollapsed }) => {
-    const { panels, closePanel, focusPanel, hasOpenPanels } = useSlidePanel();
+    const { panels, closePanel, focusPanel, hasOpenPanels, closingPanels } = useSlidePanel();
 
     useEffect(() => {
         if (!hasOpenPanels) return;
@@ -218,11 +211,13 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
 
     const sidebarWidth = isSidebarCollapsed ? 80 : 256;
 
+    const isAllExiting = panels.length > 0 && closingPanels.size === panels.length;
+
     return (
         <div className="fixed inset-0 z-[60]">
             {/* Full-screen backdrop — frosted glass dims the sidebar */}
             <div
-                className="absolute inset-0 bg-slate-900/25 dark:bg-slate-950/50 backdrop-blur-[2px] slide-panel-backdrop-enter"
+                className={`absolute inset-0 bg-slate-900/25 dark:bg-slate-950/50 backdrop-blur-[2px] transition-colors duration-200 ${isAllExiting ? 'slide-panel-backdrop-exit' : 'slide-panel-backdrop-enter'}`}
                 onClick={() => closePanel()}
                 aria-hidden="true"
             />
@@ -246,6 +241,7 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
                         index={index}
                         total={panels.length}
                         onClose={() => closePanel(panel.id)}
+                        isExiting={closingPanels.has(panel.id)}
                     />
                 ))}
             </div>

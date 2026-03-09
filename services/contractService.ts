@@ -250,16 +250,31 @@ export const calculateRevenueFromPayments = (
     // Only use fallback when there are truly no payment records
     if (!payments || payments.length === 0) return fallbackRevenue;
 
-    const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
     // Only count VAT_INVOICE vouchers as revenue (not RECEIPT which is cash received)
     const revenuePayments = payments.filter(
         (p: any) => p.voucher_type === 'VAT_INVOICE' &&
             ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status)
     );
-    const invoicedGross = revenuePayments.reduce(
-        (sum: number, p: any) => sum + (Number(p.amount) || 0), 0
-    );
-    return Math.round(invoicedGross / vatDivisor);
+
+    let totalPreVat = 0;
+    let fallbackGross = 0;
+
+    for (const p of revenuePayments) {
+        // Use precise amountBeforeVAT from line items if available
+        if (p.vat_invoice_items && p.vat_invoice_items.length > 0) {
+            totalPreVat += p.vat_invoice_items.reduce((s: number, item: any) => s + (Number(item.amountBeforeVAT) || 0), 0);
+        } else {
+            // Otherwise tally up gross amount for fallback division
+            fallbackGross += (Number(p.amount) || 0);
+        }
+    }
+
+    if (fallbackGross > 0) {
+        const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+        totalPreVat += Math.round(fallbackGross / vatDivisor);
+    }
+
+    return totalPreVat;
 };
 
 /**
@@ -400,7 +415,7 @@ export const ContractService = {
 
         const { data: contractData, error: contractError } = await supabase
             .from('contracts')
-            .select('*, payments(amount, paid_amount, status, payment_type, voucher_type, phase_id)')
+            .select('*, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items, phase_id)')
             .eq('id', id)
             .single();
 
@@ -444,8 +459,18 @@ export const ContractService = {
         salespersonId?: string;
         sortBy?: string;
         sortDir?: 'asc' | 'desc';
+        matchingCustomerIds?: string[];
     }): Promise<{ data: Contract[]; count: number }> => {
-        const { page, limit, search, status, unitId, year, salespersonId, sortBy, sortDir } = params;
+        const { page, limit, search, status, unitId, year, salespersonId, sortBy, sortDir, matchingCustomerIds } = params;
+
+        // Build search OR filter including customer short name matches
+        const buildSearchFilter = (searchTerm: string, customerIds?: string[]): string => {
+            let filter = `title.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%,party_a.ilike.%${searchTerm}%,customer_contract_number.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,end_user_name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`;
+            if (customerIds && customerIds.length > 0) {
+                filter += `,customer_id.in.(${customerIds.join(',')})`;
+            }
+            return filter;
+        };
 
         // Determine if we need allocation-aware filtering (single unit, not 'All' or comma-separated)
         const isSingleUnitFilter = !isAll(unitId) && !unitId!.includes(',');
@@ -455,10 +480,10 @@ export const ContractService = {
             // Fetch ALL contracts (no unit_id filter) to find collaborative contracts
             let query = supabase
                 .from('contracts')
-                .select('*, payments(amount, paid_amount, status, payment_type, voucher_type)');
+                .select('*, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)');
 
             if (search) {
-                query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,customer_contract_number.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);
+                query = query.or(buildSearchFilter(search, matchingCustomerIds));
             }
             if (status && status !== 'All') {
                 query = query.eq('status', status);
@@ -518,10 +543,10 @@ export const ContractService = {
 
             let query = supabase
                 .from('contracts')
-                .select('*, payments(amount, paid_amount, status, payment_type, voucher_type)', { count: 'exact' });
+                .select('*, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)', { count: 'exact' });
 
             if (search) {
-                query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,customer_contract_number.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);
+                query = query.or(buildSearchFilter(search, matchingCustomerIds));
             }
             if (status && status !== 'All') {
                 query = query.eq('status', status);
@@ -599,6 +624,7 @@ export const ContractService = {
         unitId?: string;
         year?: string;
         salespersonId?: string;
+        matchingCustomerIds?: string[];
     }): Promise<{
         totalContracts: number,
         totalValue: number,
@@ -615,13 +641,22 @@ export const ContractService = {
         overduePaymentCount: number,
         completedCount: number
     }> => {
-        const { search, status, unitId, year, salespersonId } = params;
+        const { search, status, unitId, year, salespersonId, matchingCustomerIds } = params;
+
+        // Build search OR filter including customer short name matches
+        const buildSearchFilter = (searchTerm: string, customerIds?: string[]): string => {
+            let filter = `title.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%,party_a.ilike.%${searchTerm}%,customer_contract_number.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,end_user_name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`;
+            if (customerIds && customerIds.length > 0) {
+                filter += `,customer_id.in.(${customerIds.join(',')})`;
+            }
+            return filter;
+        };
         // Fetch ALL contracts with unit_allocations for allocation-aware filtering
         // Unit filter is done in JS to support contracts where the unit is a collaborative partner
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type)');
+        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)');
 
         if (search) {
-            query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,customer_contract_number.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);
+            query = query.or(buildSearchFilter(search, matchingCustomerIds));
         }
         if (status && status !== 'All') {
             query = query.eq('status', status);
@@ -642,7 +677,7 @@ export const ContractService = {
         // Also fetch status counts WITHOUT status filter for accurate status card display
         let statusCountQuery = supabase.from('contracts').select('id, status, unit_id, unit_allocations, signed_date');
         if (search) {
-            statusCountQuery = statusCountQuery.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,customer_contract_number.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);
+            statusCountQuery = statusCountQuery.or(buildSearchFilter(search, matchingCustomerIds));
         }
         if (year && year !== 'All') {
             const startDate = `${year}-01-01`;
@@ -767,7 +802,7 @@ export const ContractService = {
         console.log('[ContractService.getStatsFallback] Using direct query');
         // When filtering by unit, we need ALL contracts to check unit_allocations too
         // Include payment status+amount to calculate revenue from invoiced payments
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, vat_rate, has_vat, end_date, payments(amount, paid_amount, status, payment_type, voucher_type)');
+        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, vat_rate, has_vat, end_date, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)');
 
         // Only apply year filter at query level (unit filter is done in JS for allocation support)
         if (year && year !== 'All' && year !== 'all') {

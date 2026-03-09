@@ -347,7 +347,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
     <ErrorBoundary>
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-500 pb-12">
         {/* HEADER SECTION */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pr-10 md:pr-12">
           <div className="flex items-center gap-4">
             <button
               onClick={onBack}
@@ -392,6 +392,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                           const openP = openPanelFn;
                           openP({
                             title: `Khách hàng: ${customerName}`,
+                            url: `/customers/${contract.customerId}`,
                             component: (
                               <div className="p-4 md:p-6 lg:p-8">
                                 <CustomerDetail
@@ -400,6 +401,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                                   onViewContract={(contractId) => {
                                     openP({
                                       title: `Hợp đồng ${contractId}`,
+                                      url: `/contracts/${contractId}`,
                                       component: (
                                         <div className="p-4 md:p-6 lg:p-8">
                                           <ContractDetail
@@ -487,7 +489,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-4 md:mt-0">
             {can('contracts', 'delete') && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
