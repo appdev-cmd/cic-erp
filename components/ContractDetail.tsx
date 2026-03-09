@@ -315,7 +315,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
       const contractText = `
         LOẠI HỢP ĐỒNG: ${contract.contractType}
         TIÊU ĐỀ: ${contract.title}
-        MÃ: ${contract.id}
+        MÃ: ${contract.contractCode}
         KHÁCH HÀNG: ${customerName} (ID: ${contract.customerId})
         GIÁ TRỊ: ${formatVND(financials.totalOutput)}
         LỢI NHUẬN GỘP: ${formatVND(financials.grossProfit)} (${financials.margin.toFixed(1)}%)
@@ -359,13 +359,13 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
               <div className="flex items-center gap-2 mb-1">
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(contract?.id || '');
+                    navigator.clipboard.writeText(contract?.contractCode || '');
                     toast.success('Đã copy mã hợp đồng!');
                   }}
                   title="Click để copy mã hợp đồng"
                   className="text-xs font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 rounded uppercase tracking-wider hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors cursor-pointer"
                 >
-                  {contract?.id}
+                  {contract?.contractCode}
                 </button>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusColor(contract?.status || '')} uppercase`}>
                   {CONTRACT_STATUS_LABELS[contract?.status || ''] || contract?.status}
@@ -612,7 +612,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
               </div>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">
-              Bạn có chắc chắn muốn xóa hợp đồng <strong className="text-slate-900 dark:text-slate-100">{contract?.id}</strong> không? Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn.
+              Bạn có chắc chắn muốn xóa hợp đồng <strong className="text-slate-900 dark:text-slate-100">{contract?.contractCode}</strong> không? Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn.
             </p>
             <div className="flex gap-3 justify-end">
               <button

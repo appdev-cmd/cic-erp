@@ -244,7 +244,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
                                             <div className="flex justify-between items-start">
                                                 <div className="min-w-0 pr-4">
                                                     <div className="flex items-center gap-2 mb-1">
-                                                        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{contract.id.slice(0, 8)}...</span>
+                                                        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{contract.contractCode.slice(0, 8)}...</span>
                                                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${contract.status === 'Processing'
                                                             ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                                             : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'

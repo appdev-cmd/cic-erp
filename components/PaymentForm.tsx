@@ -231,7 +231,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
         if (cId) {
             const contract = await ContractService.getById(cId);
             if (contract) {
-                setContractDisplayName(`${contract.id} - ${contract.title}`);
+                setContractDisplayName(`${contract.contractCode} - ${contract.title}`);
                 if (contract.customerId) setCustomerId(contract.customerId);
                 if (contract.lineItems && contract.lineItems.length > 0) {
                     setContractLineItems(contract.lineItems);

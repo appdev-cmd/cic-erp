@@ -116,13 +116,13 @@ const CommandPalette: React.FC = () => {
 
             // Search contracts
             contracts
-                .filter(c => c.id?.toLowerCase().includes(q) || c.title?.toLowerCase().includes(q) || c.partyA?.toLowerCase().includes(q))
+                .filter(c => c.contractCode?.toLowerCase().includes(q) || c.title?.toLowerCase().includes(q) || c.partyA?.toLowerCase().includes(q))
                 .slice(0, 5)
                 .forEach(c => {
                     dynamicResults.push({
                         id: c.id,
                         type: 'contract',
-                        title: c.id,
+                        title: c.contractCode,
                         subtitle: c.title || c.partyA || '',
                         icon: <FileText size={16} className="text-orange-500" />,
                         route: ROUTES.CONTRACT_DETAIL(encodeURIComponent(c.id)),

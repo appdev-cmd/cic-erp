@@ -221,6 +221,7 @@ export interface EmployeeAllocation {
 
 export interface Contract {
   id: string;
+  contractCode: string; // Mã hợp đồng (editable, hiển thị trên UI)
   title: string;
   contractType: ContractType;
   customerId: string; // FK to Customer

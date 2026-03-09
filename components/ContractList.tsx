@@ -436,7 +436,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 // Map to export format
                 const exportData = data.map((c, idx) => ({
                   'STT': idx + 1,
-                  'Mã HĐ': c.id,
+                  'Mã HĐ': c.contractCode,
                   'Tên HĐ': c.title,
                   'Khách hàng': c.partyA,
                   'Giá trị': c.value,
@@ -743,10 +743,10 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                           className="text-xs font-black text-slate-900 dark:text-slate-100 leading-none hover:text-indigo-600 cursor-pointer transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigator.clipboard.writeText(contract.id);
-                            toast.success(`Đã copy: ${contract.id}`);
+                            navigator.clipboard.writeText(contract.contractCode);
+                            toast.success(`Đã copy: ${contract.contractCode}`);
                           }}
-                        >{contract.id}</p>
+                        >{contract.contractCode}</p>
                         <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-tighter">
                           {contract.signedDate ? new Date(contract.signedDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Chưa ký'}
                         </p>

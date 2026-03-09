@@ -119,7 +119,7 @@ export const LazyContractListPage: React.FC = () => {
                             onBack={() => closePanel()}
                             onEdit={(contract) => {
                                 openPanel({
-                                    title: `Chỉnh sửa ${contract.id}`,
+                                    title: `Chỉnh sửa ${contract.contractCode}`,
                                     url: `${ROUTES.CONTRACT_DETAIL(contract.id)}?edit=true`,
                                     component: (
                                         <Suspense fallback={<FormPageSkeleton />}>
@@ -192,7 +192,7 @@ export const LazyContractDetailPage: React.FC = () => {
             onBack={() => navigate(ROUTES.CONTRACTS)}
             onEdit={(contract) => {
                 openPanel({
-                    title: `Chỉnh sửa ${contract.id}`,
+                    title: `Chỉnh sửa ${contract.contractCode}`,
                     url: `${ROUTES.CONTRACT_DETAIL(contract.id)}?edit=true`,
                     component: (
                         <Suspense fallback={<FormPageSkeleton />}>

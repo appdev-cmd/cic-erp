@@ -256,8 +256,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   }, [salespeople, unitId, salespersonId]);
 
   // ==================== CONTRACT ID ====================
-  const [formContractId, setFormContractId] = useState(isCloning ? '' : (contract?.id || ''));
-  const [isIdTouched, setIsIdTouched] = useState(isCloning ? false : !!contract?.id);
+  const [formContractId, setFormContractId] = useState(isCloning ? '' : (contract?.contractCode || contract?.id || ''));
+  const [isIdTouched, setIsIdTouched] = useState(isCloning ? false : !!(contract?.contractCode || contract?.id));
   const [hasCustomerContractNumber, setHasCustomerContractNumber] = useState(!!(contract as any)?.customerContractNumber);
   const [customerContractNumber, setCustomerContractNumber] = useState((contract as any)?.customerContractNumber || '');
 
@@ -380,7 +380,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       return;
     }
     const payload = {
-      id: formContractId,
+      id: isEditing ? contract?.id : undefined, // PK: preserved on edit, auto-set from contractCode on create
+      contractCode: formContractId,
       title: title || 'Hợp đồng chưa đặt tên',
       contractType,
       partyA: clientName,

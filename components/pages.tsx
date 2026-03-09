@@ -79,7 +79,7 @@ const ContractDetailInPanel: React.FC<{ contractId: string }> = ({ contractId })
 
     const handleEdit = useCallback((contract: any) => {
         openPanel({
-            title: `Chỉnh sửa ${contract.id}`,
+            title: `Chỉnh sửa ${contract.contractCode}`,
             component: (
                 <ContractFormInPanel contractId={contract.id} />
             ),
@@ -166,7 +166,7 @@ export const ContractDetailPage: React.FC = () => {
             onBack={() => navigate(ROUTES.CONTRACTS)}
             onEdit={(contract) => {
                 openPanel({
-                    title: `Chỉnh sửa ${contract.id}`,
+                    title: `Chỉnh sửa ${contract.contractCode}`,
                     component: (
                         <div className="p-4 md:p-6 lg:p-8">
                             <ContractFormInPanel contractId={contract.id} />

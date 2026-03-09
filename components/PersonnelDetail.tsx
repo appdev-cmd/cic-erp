@@ -397,7 +397,7 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
                                         onClick={() => onViewContract(contract.id)}
                                     >
                                         <td className="py-3.5 px-5">
-                                            <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{contract.id}</p>
+                                            <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{contract.contractCode}</p>
                                             <p className="text-[11px] text-slate-500 dark:text-slate-400 md:hidden mt-0.5">{contract.clientInitials}</p>
                                         </td>
                                         <td className="py-3.5 px-5 hidden md:table-cell">

@@ -63,7 +63,7 @@ const CustomerContractsTab: React.FC<CustomerContractsTabProps> = React.memo(({
                                 onClick={() => onViewContract(contract.id)}
                             >
                                 <td className="py-3.5 px-5">
-                                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{contract.id}</p>
+                                    <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{contract.contractCode}</p>
                                 </td>
                                 <td className="py-3.5 px-5 hidden md:table-cell">
                                     <p className="text-sm text-slate-600 dark:text-slate-400">{contract.unitId.toUpperCase()}</p>

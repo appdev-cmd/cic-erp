@@ -63,7 +63,7 @@ const validateContract = (data: Partial<Contract>, isCreate = false): string[] =
     const errors: string[] = [];
 
     if (isCreate) {
-        if (!data.id?.trim()) errors.push('Mã hợp đồng là bắt buộc');
+        if (!data.contractCode?.trim()) errors.push('Mã hợp đồng là bắt buộc');
         if (!data.title?.trim()) errors.push('Tiêu đề hợp đồng là bắt buộc');
         if (!data.unitId) errors.push('Đơn vị là bắt buộc');
     }
@@ -90,7 +90,7 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
 
     // Direct mappings
     const fieldMap: Record<string, string> = {
-        id: 'id',
+        contractCode: 'contract_code',
         title: 'title',
         contractType: 'contract_type',
         partyA: 'party_a',
@@ -327,6 +327,7 @@ const mapContract = (c: any): Contract => {
 
     return {
         id: c.id || 'unknown',
+        contractCode: c.contract_code || c.id || 'unknown',
         title: c.title || 'Untitled',
         contractType: c.contract_type || 'HĐ',
         partyA: c.party_a || '',
@@ -465,7 +466,7 @@ export const ContractService = {
 
         // Build search OR filter including customer short name matches
         const buildSearchFilter = (searchTerm: string, customerIds?: string[]): string => {
-            let filter = `title.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%,party_a.ilike.%${searchTerm}%,customer_contract_number.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,end_user_name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`;
+            let filter = `title.ilike.%${searchTerm}%,contract_code.ilike.%${searchTerm}%,party_a.ilike.%${searchTerm}%,customer_contract_number.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,end_user_name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`;
             if (customerIds && customerIds.length > 0) {
                 filter += `,customer_id.in.(${customerIds.join(',')})`;
             }
@@ -598,7 +599,7 @@ export const ContractService = {
         const { data, error } = await supabase
             .from('contracts')
             .select('*')
-            .or(`title.ilike.%${safeTerm}%,id.ilike.%${safeTerm}%,party_a.ilike.%${safeTerm}%,customer_contract_number.ilike.%${safeTerm}%,content.ilike.%${safeTerm}%,end_user_name.ilike.%${safeTerm}%,category.ilike.%${safeTerm}%`)
+            .or(`title.ilike.%${safeTerm}%,contract_code.ilike.%${safeTerm}%,party_a.ilike.%${safeTerm}%,customer_contract_number.ilike.%${safeTerm}%,content.ilike.%${safeTerm}%,end_user_name.ilike.%${safeTerm}%,category.ilike.%${safeTerm}%`)
             .order('signed_date', { ascending: false })
             .limit(limit);
 
@@ -645,7 +646,7 @@ export const ContractService = {
 
         // Build search OR filter including customer short name matches
         const buildSearchFilter = (searchTerm: string, customerIds?: string[]): string => {
-            let filter = `title.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%,party_a.ilike.%${searchTerm}%,customer_contract_number.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,end_user_name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`;
+            let filter = `title.ilike.%${searchTerm}%,contract_code.ilike.%${searchTerm}%,party_a.ilike.%${searchTerm}%,customer_contract_number.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,end_user_name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`;
             if (customerIds && customerIds.length > 0) {
                 filter += `,customer_id.in.(${customerIds.join(',')})`;
             }
@@ -1103,6 +1104,8 @@ export const ContractService = {
 
         // 2. Build type-safe payload
         const payload = buildPayload(data);
+        // Set id = contractCode for new contracts (backward compat with existing FKs)
+        payload.id = data.contractCode || data.id;
 
         // 3. Execute with retry logic
         const result = await withRetry(async () => {
@@ -1157,7 +1160,7 @@ export const ContractService = {
         // 6. Telegram notification (fire-and-forget)
         TelegramNotificationService.notifyContractChange({
             eventType: 'created',
-            contractTitle: data.title || data.id,
+            contractTitle: data.title || data.contractCode || data.id,
             contractId: result.id,
             value: data.value,
             changedBy: (await supabase.auth.getUser()).data.user?.email || undefined,
@@ -1178,9 +1181,9 @@ export const ContractService = {
             throw new Error(`${ERROR_MESSAGES.VALIDATION_ERROR}\n${errors.join('\n')}`);
         }
 
-        // 2. Build payload (excluding id)
+        // 2. Build payload (id is never updated — it's the PK used by all FK relationships)
         const payload = buildPayload(data);
-        delete payload.id; // Don't update the primary key
+        delete payload.id; // Never change the primary key
 
         if (Object.keys(payload).length === 0) {
             console.warn('[ContractService.update] No fields to update');
@@ -1306,13 +1309,13 @@ export const ContractService = {
     },
 
     /**
-     * CHECK EXISTS - Verify if a contract ID already exists
+     * CHECK EXISTS - Verify if a contract code already exists
      */
-    exists: async (id: string): Promise<boolean> => {
+    exists: async (contractCode: string): Promise<boolean> => {
         const { count, error } = await supabase
             .from('contracts')
             .select('*', { count: 'exact', head: true })
-            .eq('id', id);
+            .eq('contract_code', contractCode);
 
         if (error) {
             console.error('ContractService.exists:', error.message);
@@ -1360,22 +1363,23 @@ export const ContractService = {
     /**
      * DUPLICATE - Clone an existing contract with new ID
      */
-    duplicate: async (sourceId: string, newId: string): Promise<Contract> => {
+    duplicate: async (sourceId: string, newContractCode: string): Promise<Contract> => {
         // 1. Fetch source contract
         const source = await ContractService.getById(sourceId);
         if (!source) {
             throw new Error(ERROR_MESSAGES.NOT_FOUND);
         }
 
-        // 2. Check if new ID exists
-        if (await ContractService.exists(newId)) {
+        // 2. Check if new contract code exists
+        if (await ContractService.exists(newContractCode)) {
             throw new Error(ERROR_MESSAGES.DUPLICATE_ID);
         }
 
-        // 3. Create clone with new ID and reset status
+        // 3. Create clone with new contract code and reset status
         const clone: Contract = {
             ...source,
-            id: newId,
+            id: '', // Will be set by create method
+            contractCode: newContractCode,
             status: 'Processing',
             stage: 'Signed',
             actualRevenue: 0,
