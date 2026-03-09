@@ -263,33 +263,36 @@ export const calculateRevenueFromPayments = (
 };
 
 /**
- * Calculate invoiced amount from payments (payments with HĐ issued).
- * Only counts payments with status 'Đã xuất HĐ', 'Tiền về', 'Paid'.
+ * Calculate invoiced amount from payments (VAT invoices issued).
+ * Only counts VAT_INVOICE vouchers with status 'Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'.
+ * RECEIPT payments are NOT invoiced revenue.
  */
 export const calculateInvoicedFromPayments = (payments: any[]): number => {
     if (!payments || payments.length === 0) return 0;
     return payments
-        .filter((p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
-            ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status))
+        .filter((p: any) => p.voucher_type === 'VAT_INVOICE' &&
+            ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status))
         .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
 };
 
 /**
- * Calculate cash received from payments (only money actually in bank).
+ * Calculate cash received from RECEIPT vouchers (only money actually in bank).
+ * Only counts RECEIPT vouchers with status 'Tiền về' or 'Tạm ứng'.
  */
 export const calculateCashReceived = (payments: any[]): number => {
     return payments
-        .filter((p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
+        .filter((p: any) => p.voucher_type === 'RECEIPT' &&
             ['Tạm ứng', 'Tiền về', 'Paid'].includes(p.status))
         .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
 };
 
 /**
- * Calculate advance (Tạm ứng) amount — cash received without invoice.
+ * Calculate advance (Tạm ứng) amount — cash received via RECEIPT without VAT invoice.
+ * Only counts RECEIPT vouchers with status 'Tạm ứng'.
  */
 export const calculateAdvanceAmount = (payments: any[]): number => {
     return payments
-        .filter((p: any) => (!p.payment_type || p.payment_type === 'Revenue') &&
+        .filter((p: any) => p.voucher_type === 'RECEIPT' &&
             p.status === 'Tạm ứng')
         .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
 };
@@ -397,7 +400,7 @@ export const ContractService = {
 
         const { data: contractData, error: contractError } = await supabase
             .from('contracts')
-            .select('*, payments(amount, paid_amount, status, payment_type, phase_id)')
+            .select('*, payments(amount, paid_amount, status, payment_type, voucher_type, phase_id)')
             .eq('id', id)
             .single();
 
@@ -452,7 +455,7 @@ export const ContractService = {
             // Fetch ALL contracts (no unit_id filter) to find collaborative contracts
             let query = supabase
                 .from('contracts')
-                .select('*, payments(amount, paid_amount, status, payment_type)');
+                .select('*, payments(amount, paid_amount, status, payment_type, voucher_type)');
 
             if (search) {
                 query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,customer_contract_number.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);
@@ -515,7 +518,7 @@ export const ContractService = {
 
             let query = supabase
                 .from('contracts')
-                .select('*, payments(amount, paid_amount, status, payment_type)', { count: 'exact' });
+                .select('*, payments(amount, paid_amount, status, payment_type, voucher_type)', { count: 'exact' });
 
             if (search) {
                 query = query.or(`title.ilike.%${search}%,id.ilike.%${search}%,party_a.ilike.%${search}%,customer_contract_number.ilike.%${search}%,content.ilike.%${search}%,end_user_name.ilike.%${search}%,category.ilike.%${search}%`);

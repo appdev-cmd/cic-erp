@@ -167,55 +167,71 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                     </div>
                                 </div>
 
-                                {/* Row 2: Actual Cashflow */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                    {(contract.advanceAmount || 0) > 0 && (
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
-                                                <Wallet size={12} /> Tạm ứng
-                                            </p>
-                                            <p className="text-xl font-black text-amber-600 dark:text-amber-400">
-                                                {formatVND(contract.advanceAmount || 0)}
-                                            </p>
-                                            <p className="text-[10px] text-slate-400">Chưa xuất HĐ</p>
-                                        </div>
-                                    )}
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1">
-                                            <FileText size={12} /> Đã xuất Hóa đơn
-                                        </p>
-                                        <p className="text-xl font-black text-blue-600 dark:text-blue-400">
-                                            {formatVND(contract.invoicedAmount || 0)}
-                                        </p>
-                                        <p className="text-[10px] text-slate-400">
-                                            {((contract.invoicedAmount || 0) / (contract.value || 1) * 100).toFixed(1)}% giá trị HĐ
-                                        </p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1">
-                                            <DollarSign size={12} /> Tiền về (Đã thu)
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-                                                {formatVND(contract.actualRevenue || 0)}
-                                            </p>
-                                            {contract.actualRevenue > 0 && (
-                                                <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">
-                                                    {((contract.actualRevenue || 0) / (contract.value || 1) * 100).toFixed(1)}%
-                                                </span>
+                                {/* Row 2: Actual Cashflow — computed from voucher records */}
+                                {(() => {
+                                    // Doanh thu = tổng phiếu VAT_INVOICE đã xuất
+                                    const totalInvoiced = vouchers
+                                        .filter(v => v.voucherType === 'VAT_INVOICE')
+                                        .reduce((sum, v) => sum + (v.amount || 0), 0);
+                                    // Tiền về = tổng phiếu RECEIPT có status 'Tiền về'
+                                    const totalCashReceived = vouchers
+                                        .filter(v => v.voucherType === 'RECEIPT' && v.status === 'Tiền về')
+                                        .reduce((sum, v) => sum + (v.amount || 0), 0);
+                                    // Công nợ = Doanh thu VAT đã xuất - Tiền về
+                                    const totalReceivable = totalInvoiced - totalCashReceived;
+                                    return (
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                            {(contract.advanceAmount || 0) > 0 && (
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                                                        <Wallet size={12} /> Tạm ứng
+                                                    </p>
+                                                    <p className="text-xl font-black text-amber-600 dark:text-amber-400">
+                                                        {formatVND(contract.advanceAmount || 0)}
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-400">Chưa xuất HĐ</p>
+                                                </div>
                                             )}
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1">
+                                                    <FileText size={12} /> Đã xuất Hóa đơn
+                                                </p>
+                                                <p className="text-xl font-black text-blue-600 dark:text-blue-400">
+                                                    {formatVND(totalInvoiced)}
+                                                </p>
+                                                <p className="text-[10px] text-slate-400">
+                                                    {totalInvoiced > 0 ? `${(totalInvoiced / (contract.value || 1) * 100).toFixed(1)}% giá trị HĐ` : 'Chưa xuất'}
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1">
+                                                    <DollarSign size={12} /> Tiền về (Đã thu)
+                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                                                        {formatVND(totalCashReceived)}
+                                                    </p>
+                                                    {totalCashReceived > 0 && (
+                                                        <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">
+                                                            {(totalCashReceived / (contract.value || 1) * 100).toFixed(1)}%
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-1">
+                                                    <AlertCircle size={12} /> Công nợ phải thu
+                                                </p>
+                                                <p className="text-xl font-black text-rose-600 dark:text-rose-400">
+                                                    {formatVND(totalReceivable > 0 ? totalReceivable : 0)}
+                                                </p>
+                                                <p className="text-[10px] text-slate-400">
+                                                    {totalInvoiced > 0 ? 'HĐ VAT - Tiền về' : 'Chưa xuất HĐ'}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-1">
-                                            <AlertCircle size={12} /> Công nợ phải thu
-                                        </p>
-                                        <p className="text-xl font-black text-rose-600 dark:text-rose-400">
-                                            {formatVND((contract.invoicedAmount || 0) - (contract.actualRevenue || 0))}
-                                        </p>
-                                        <p className="text-[10px] text-slate-400">Chưa thu / Đã xuất</p>
-                                    </div>
-                                </div>
+                                    );
+                                })()}
                             </div>
                         </div>
 
