@@ -8,6 +8,7 @@ import { TaskService } from '../../services';
 import { Task } from '../../types';
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '../../constants';
 import { toast } from 'sonner';
+import { formatDateShort } from '../../utils/formatters';
 
 // ============================================================================
 // MY TASKS — "Công việc của tôi" page
@@ -160,15 +161,15 @@ const TaskGroup: React.FC<{
                         <button
                             onClick={() => onStatusToggle(task)}
                             className={`w-4 h-4 rounded-full border-2 flex-shrink-0 transition-colors ${task.status_id === 'status_done'
-                                    ? 'bg-emerald-500 border-emerald-500'
-                                    : 'border-slate-300 dark:border-slate-600 hover:border-indigo-400'
+                                ? 'bg-emerald-500 border-emerald-500'
+                                : 'border-slate-300 dark:border-slate-600 hover:border-indigo-400'
                                 }`}
                         />
 
                         {/* Title */}
                         <span className={`flex-1 text-sm ${task.status_id === 'status_done'
-                                ? 'text-slate-400 dark:text-slate-500 line-through'
-                                : 'text-slate-800 dark:text-slate-200'
+                            ? 'text-slate-400 dark:text-slate-500 line-through'
+                            : 'text-slate-800 dark:text-slate-200'
                             }`}>
                             {task.title}
                         </span>
@@ -189,10 +190,10 @@ const TaskGroup: React.FC<{
                         {/* Due date */}
                         {task.due_date && (
                             <span className={`text-xs ${task.due_date < new Date().toISOString().slice(0, 10)
-                                    ? 'text-red-500 dark:text-red-400 font-medium'
-                                    : 'text-slate-500 dark:text-slate-400'
+                                ? 'text-red-500 dark:text-red-400 font-medium'
+                                : 'text-slate-500 dark:text-slate-400'
                                 }`}>
-                                {new Date(task.due_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                {formatDateShort(task.due_date)}
                             </span>
                         )}
                     </div>

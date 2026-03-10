@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Edit3, Check, X } from 'lucide-react';
 import { Task, TaskStatus } from '../../types';
 import { TASK_PRIORITY_LABELS } from '../../constants';
+import { formatDate, formatDateCompact } from '../../utils/formatters';
 
 interface Props {
     tasks: Task[];
@@ -300,7 +301,7 @@ const TaskTable: React.FC<Props> = ({ tasks, statuses, onSelectTask, onUpdateTas
                                                 }`}
                                         >
                                             {task.due_date
-                                                ? new Date(task.due_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                                ? formatDate(task.due_date)
                                                 : '—'
                                             }
                                         </button>
@@ -330,7 +331,7 @@ const TaskTable: React.FC<Props> = ({ tasks, statuses, onSelectTask, onUpdateTas
                                 <td className="px-3 py-2 w-[120px]">
                                     <span className="text-xs text-slate-500 dark:text-slate-400">
                                         {task.created_at
-                                            ? new Date(task.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                                            ? formatDateCompact(task.created_at)
                                             : '—'
                                         }
                                     </span>

@@ -5,6 +5,7 @@ import {
     CreditCard, Calendar, CheckCircle, FileText, Banknote
 } from 'lucide-react';
 import { Customer, Contract } from '../../types';
+import { formatDate } from '../../utils/formatters';
 
 interface CustomerProfileCardProps {
     customer: Customer;
@@ -175,7 +176,7 @@ const CustomerProfileCard: React.FC<CustomerProfileCardProps> = React.memo(({
                                     <div>
                                         <p className="text-[10px] text-slate-400 uppercase tracking-wide">Ngày hoạt động</p>
                                         <p className="font-medium text-slate-700 dark:text-slate-300">
-                                            {new Date(customer.foundedDate).toLocaleDateString('vi-VN')}
+                                            {formatDate(customer.foundedDate)}
                                         </p>
                                     </div>
                                 </div>

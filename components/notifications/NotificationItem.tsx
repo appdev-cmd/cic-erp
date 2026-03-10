@@ -8,6 +8,7 @@ import {
     FileText, CreditCard, CheckCircle, XCircle, Send,
     AtSign, Trash2, Edit, AlertCircle
 } from 'lucide-react';
+import { formatDate } from '../../utils/formatters';
 
 interface Props {
     notification: NotificationItemType;
@@ -63,7 +64,7 @@ function timeAgo(dateStr: string): string {
     if (diffMin < 60) return `${diffMin} phút trước`;
     if (diffHour < 24) return `${diffHour} giờ trước`;
     if (diffDay < 7) return `${diffDay} ngày trước`;
-    return new Date(dateStr).toLocaleDateString('vi-VN');
+    return formatDate(dateStr);
 }
 
 const NotifItem: React.FC<Props> = ({ notification, onRead, onDelete, onClick }) => {

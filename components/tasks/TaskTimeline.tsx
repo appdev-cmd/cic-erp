@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { Task } from '../../types';
 import { TASK_STATUS_LABELS } from '../../constants';
+import { formatDateShort, formatDate } from '../../utils/formatters';
 
 // ============================================================================
 // TASK TIMELINE — Resource-based timeline (who is doing what, when)
@@ -90,7 +91,7 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ tasks, onTaskClick }) => {
     const weekLabel = useMemo(() => {
         const s = days[0];
         const e = days[13];
-        return `${s.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} — ${e.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+        return `${formatDateShort(s.toISOString())} — ${formatDate(e.toISOString())}`;
     }, [days]);
 
     return (
@@ -130,10 +131,10 @@ const TaskTimeline: React.FC<TaskTimelineProps> = ({ tasks, onTaskClick }) => {
                         <div
                             key={i}
                             className={`flex-1 text-center py-1.5 text-[10px] font-medium border-r border-slate-100 dark:border-slate-800 ${isToday(d)
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-bold'
-                                    : isWeekend(d)
-                                        ? 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500'
-                                        : 'text-slate-600 dark:text-slate-400'
+                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-bold'
+                                : isWeekend(d)
+                                    ? 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500'
+                                    : 'text-slate-600 dark:text-slate-400'
                                 }`}
                         >
                             <div>{['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d.getDay()]}</div>

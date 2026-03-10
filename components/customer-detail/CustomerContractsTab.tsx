@@ -2,6 +2,7 @@
 import React from 'react';
 import { FileText, ChevronRight } from 'lucide-react';
 import { Contract } from '../../types';
+import { formatDate } from '../../utils/formatters';
 
 interface CustomerContractsTabProps {
     contracts: Contract[];
@@ -70,7 +71,7 @@ const CustomerContractsTab: React.FC<CustomerContractsTabProps> = React.memo(({
                                 </td>
                                 <td className="py-3.5 px-5 hidden lg:table-cell">
                                     <p className="text-sm text-slate-600 dark:text-slate-400">
-                                        {new Date(contract.signedDate).toLocaleDateString('vi-VN')}
+                                        {formatDate(contract.signedDate)}
                                     </p>
                                 </td>
                                 <td className="py-3.5 px-5 text-right">

@@ -84,7 +84,7 @@ const ContractDetailInPanel: React.FC<{ contractId: string }> = ({ contractId })
             component: (
                 <ContractFormInPanel
                     contractId={contract.id}
-                    onSuccess={() => setRefreshKey(prev => prev + 1)}
+                    onSuccess={() => setTimeout(() => setRefreshKey(prev => prev + 1), 0)}
                 />
             ),
         });
@@ -150,6 +150,7 @@ const ContractFormInPanel: React.FC<{ contractId?: string; cloneFrom?: any; onSu
                         if (onSuccess && savedContract) {
                             onSuccess(savedContract);
                         }
+                        // Event dispatch now handled inside ContractService.update
                         closePanel();
                     } catch (e: any) {
                         toast.error('Lỗi: ' + (e.message || e));
@@ -168,11 +169,13 @@ export const ContractDetailPage: React.FC = () => {
     const id = rawId ? decodeURIComponent(rawId) : undefined;
     const { openPanel, closePanel } = useSlidePanel();
     const [refreshKey, setRefreshKey] = React.useState(0);
+    const [latestContract, setLatestContract] = React.useState<any>(null);
     if (!id) return <div>Contract not found</div>;
     return (
         <ContractDetailComponent
             key={refreshKey}
             contractId={id}
+            contract={latestContract}
             onBack={() => navigate(ROUTES.CONTRACTS)}
             onEdit={(contract) => {
                 openPanel({
@@ -181,7 +184,10 @@ export const ContractDetailPage: React.FC = () => {
                         <div className="p-4 md:p-6 lg:p-8">
                             <ContractFormInPanel
                                 contractId={contract.id}
-                                onSuccess={() => setRefreshKey(prev => prev + 1)}
+                                onSuccess={(savedContract) => {
+                                    setLatestContract(savedContract);
+                                    setTimeout(() => setRefreshKey(prev => prev + 1), 0);
+                                }}
                             />
                         </div>
                     ),

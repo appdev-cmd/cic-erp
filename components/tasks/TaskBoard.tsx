@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Task, TaskStatus } from '../../types';
 import { Plus, User, Calendar, Flag, GripVertical, CheckSquare } from 'lucide-react';
+import { formatDateShort } from '../../utils/formatters';
 
 interface Props {
     tasks: Task[];
@@ -84,8 +85,8 @@ const TaskBoard: React.FC<Props> = ({ tasks, statuses, onUpdateTask, onSelectTas
                                                 </span>
                                             )}
                                             <span className={`text-sm font-medium truncate ${task.status_id === 'status_done'
-                                                    ? 'text-slate-400 dark:text-slate-500 line-through'
-                                                    : 'text-slate-800 dark:text-slate-200'
+                                                ? 'text-slate-400 dark:text-slate-500 line-through'
+                                                : 'text-slate-800 dark:text-slate-200'
                                                 }`}>
                                                 {task.title}
                                             </span>
@@ -107,11 +108,11 @@ const TaskBoard: React.FC<Props> = ({ tasks, statuses, onUpdateTask, onSelectTas
                                             <div className="flex items-center gap-2">
                                                 {task.due_date && (
                                                     <span className={`text-[11px] flex items-center gap-0.5 ${task.due_date < new Date().toISOString().slice(0, 10) && task.status_id !== 'status_done'
-                                                            ? 'text-red-500 dark:text-red-400'
-                                                            : 'text-slate-400 dark:text-slate-500'
+                                                        ? 'text-red-500 dark:text-red-400'
+                                                        : 'text-slate-400 dark:text-slate-500'
                                                         }`}>
                                                         <Calendar size={10} />
-                                                        {new Date(task.due_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                                        {formatDateShort(task.due_date)}
                                                     </span>
                                                 )}
                                                 {task.subtask_count && task.subtask_count > 0 && (

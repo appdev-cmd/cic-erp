@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, User, Phone, Mail, MapPin, Calendar, GraduationCap, CreditCard, Heart, Building, Pencil, Trash2 } from 'lucide-react';
 import { Employee, Unit } from '../types';
 import { usePermissionCheck } from '../hooks/usePermissions';
+import { formatDate } from '../utils/formatters';
 
 interface EmployeeDetailModalProps {
     isOpen: boolean;
@@ -20,12 +21,7 @@ const EmployeeDetailModal: React.FC<EmployeeDetailModalProps> = ({ isOpen, onClo
 
     if (!isOpen || !employee) return null;
 
-    const formatDate = (dateStr?: string) => {
-        if (!dateStr) return '—';
-        try {
-            return new Date(dateStr).toLocaleDateString('vi-VN');
-        } catch { return '—'; }
-    };
+
 
     const getGenderLabel = (gender?: string) => {
         switch (gender) {

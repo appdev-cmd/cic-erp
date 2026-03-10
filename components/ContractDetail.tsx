@@ -50,15 +50,17 @@ import { AddDocumentLinkDialog } from './workflow/AddDocumentLinkDialog';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useFinancialCalculations } from '../hooks/useFinancialCalculations';
 import { formatVND, getStatusColor } from '../utils/contractHelpers';
+import { formatDate } from '../utils/formatters';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
 import CustomerDetail from './CustomerDetail';
 
 interface ContractDetailProps {
   contract?: Contract;
+  initialContract?: any;
   contractId?: string;
   onBack: () => void;
   onEdit: (contract: Contract) => void;
-  onDelete: () => void;
+  onDelete: () => Promise<void>;
 }
 
 const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContract, contractId, onBack, onEdit, onDelete }) => {
@@ -103,6 +105,27 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   // Drive folder state
   const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(null);
 
+  // ── Auto-update via custom event (fired by ContractFormInPanel after save) ──
+  useEffect(() => {
+    const handleContractUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (contractId && (!detail?.contractId || detail.contractId === contractId)) {
+        console.log('[ContractDetail] contract-updated event received!', detail);
+        // Use saved contract data directly (no network refetch needed)
+        if (detail?.contract) {
+          setContract(detail.contract);
+        } else if (contractId) {
+          // Fallback: refetch from DB
+          ContractService.getById(contractId)
+            .then(data => { if (data) setContract(data); })
+            .catch(err => console.error('Refetch error:', err));
+        }
+      }
+    };
+    window.addEventListener('contract-updated', handleContractUpdated);
+    return () => window.removeEventListener('contract-updated', handleContractUpdated);
+  }, [contractId]);
+
   useEffect(() => {
     if (initialContract) {
       setContract(initialContract);
@@ -139,6 +162,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
 
         // Employee/Salesperson
         if (contract.salespersonId) {
+          console.log('[DEBUG ContractDetail] salespersonId:', contract.salespersonId);
           const emp = await EmployeeService.getById(contract.salespersonId);
           setSalesName(emp?.name || 'Unknown');
         }
@@ -425,7 +449,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                       className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors cursor-pointer"
                       title="Click để xem chi tiết khách hàng"
                     >
-                      {customerName}{customerShortName ? ` (${customerShortName})` : ''}
+                      {customerName}{customerShortName && !customerName.includes(customerShortName) ? ` (${customerShortName})` : ''}
                     </button>
                   ) : (
                     <b className="text-slate-700 dark:text-slate-200">{customerName}</b>
@@ -449,19 +473,19 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                 {contract.signedDate && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
                     <Calendar size={14} className="text-emerald-500" />
-                    <span className="text-slate-500 dark:text-slate-400">Ngày ký: <b className="text-emerald-600 dark:text-emerald-400">{new Date(contract.signedDate).toLocaleDateString('vi-VN')}</b></span>
+                    <span className="text-slate-500 dark:text-slate-400">Ngày ký: <b className="text-emerald-600 dark:text-emerald-400">{formatDate(contract.signedDate)}</b></span>
                   </div>
                 )}
                 {contract.startDate && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
                     <Calendar size={14} className="text-blue-500" />
-                    <span className="text-slate-500 dark:text-slate-400">Bắt đầu: <b className="text-blue-600 dark:text-blue-400">{new Date(contract.startDate).toLocaleDateString('vi-VN')}</b></span>
+                    <span className="text-slate-500 dark:text-slate-400">Bắt đầu: <b className="text-blue-600 dark:text-blue-400">{formatDate(contract.startDate)}</b></span>
                   </div>
                 )}
                 {contract.endDate && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
                     <Calendar size={14} className="text-rose-500" />
-                    <span className="text-slate-500 dark:text-slate-400">Kết thúc: <b className="text-rose-600 dark:text-rose-400">{new Date(contract.endDate).toLocaleDateString('vi-VN')}</b></span>
+                    <span className="text-slate-500 dark:text-slate-400">Kết thúc: <b className="text-rose-600 dark:text-rose-400">{formatDate(contract.endDate)}</b></span>
                   </div>
                 )}
               </div>

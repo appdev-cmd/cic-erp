@@ -10,6 +10,7 @@ import { TaskService } from '../../services';
 import { Task, TaskStatus, TaskComment, Checklist, ChecklistItem, TaskActivity, TaskDependency, TimeEntry, TaskWatcher, CustomFieldType } from '../../types';
 import { TASK_PRIORITY_LABELS } from '../../constants';
 import { toast } from 'sonner';
+import { formatDate, formatDateShort } from '../../utils/formatters';
 
 interface Props {
     taskId: string;
@@ -640,7 +641,7 @@ const TaskDetail: React.FC<Props> = ({ taskId, statuses, onClose, onUpdate, onDe
                                                 {entry.description || 'Không có mô tả'}
                                             </span>
                                             <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                                                {entry.created_at ? new Date(entry.created_at).toLocaleDateString('vi-VN') : ''}
+                                                {entry.created_at ? formatDate(entry.created_at) : ''}
                                             </span>
                                         </div>
                                     ))}
@@ -812,7 +813,7 @@ const SubtaskItem: React.FC<{
 
                 {subtask.due_date && (
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                        {new Date(subtask.due_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                        {formatDateShort(subtask.due_date)}
                     </span>
                 )}
             </div>

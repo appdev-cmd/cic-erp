@@ -8,6 +8,7 @@ import * as chatService from '../../services/chatService';
 import type { ChatRoomWithDetails, ChatMessageWithSender } from '../../types';
 import { toast } from 'sonner';
 import { Search, X, MessageCircle, ArrowRight } from 'lucide-react';
+import { formatDate } from '../../utils/formatters';
 
 const ChatPage: React.FC = () => {
     const { user, profile } = useAuth();
@@ -186,7 +187,7 @@ const ChatPage: React.FC = () => {
                                                     {msg.sender?.fullName || 'Unknown'}
                                                 </span>
                                                 <span className="text-[10px] text-slate-400">
-                                                    {new Date(msg.created_at).toLocaleDateString('vi-VN')}
+                                                    {formatDate(msg.created_at)}
                                                 </span>
                                             </div>
                                             <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-2">{msg.content}</p>

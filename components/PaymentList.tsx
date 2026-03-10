@@ -17,7 +17,8 @@ import {
     ArrowDownCircle,
     ArrowUpCircle,
     Receipt,
-    AlertTriangle
+    AlertTriangle,
+    TrendingUp
 } from 'lucide-react';
 import { Payment, PaymentStatus, Customer, Unit, VoucherType } from '../types';
 import { PaymentService, ContractService, CustomerService, UnitService } from '../services';
@@ -30,6 +31,7 @@ import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import { formatNumber } from '../lib/utils';
+import { formatDate } from '../utils/formatters';
 
 interface PaymentListProps {
     onSelectContract?: (id: string) => void;
@@ -288,75 +290,49 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 ))}
             </div>
 
-            {/* Stats Cards */}
+            {/* Global Financial Summary — Always visible across all tabs */}
             {stats && (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {voucherTab === 'VAT_INVOICE' && (
-                        <>
-                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-xl"><FileCheck size={18} className="text-blue-600 dark:text-blue-400" /></div>
-                                    <div>
-                                        <p className="text-lg font-black text-blue-600 dark:text-blue-400">{formatCurrency(stats.invoicedAmount || 0)}</p>
-                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Đã xuất HĐ ({stats.invoicedCount || 0} phiếu)</p>
-                                    </div>
-                                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* Doanh thu (−VAT) = same as Dashboard "Doanh thu" */}
+                    <div className={`bg-white dark:bg-slate-900 p-4 rounded-xl border transition-all ${voucherTab === 'VAT_INVOICE' ? 'border-indigo-300 dark:border-indigo-700 ring-1 ring-indigo-200 dark:ring-indigo-800' : 'border-slate-200 dark:border-slate-800'}`}>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl"><TrendingUp size={18} className="text-indigo-600 dark:text-indigo-400" /></div>
+                            <div>
+                                <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(stats.revenueAmount || 0)}</p>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Doanh thu (−VAT)</p>
                             </div>
-                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><AlertTriangle size={18} className="text-amber-600 dark:text-amber-400" /></div>
-                                    <div>
-                                        <p className="text-lg font-black text-amber-600 dark:text-amber-400">{formatCurrency((stats.invoicedAmount || 0) - (stats.cashReceivedAmount || 0))}</p>
-                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Tiền về</p>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    {/* Đã xuất HĐ (gross VAT invoiced) */}
+                    <div className={`bg-white dark:bg-slate-900 p-4 rounded-xl border transition-all ${voucherTab === 'VAT_INVOICE' ? 'border-blue-300 dark:border-blue-700 ring-1 ring-blue-200 dark:ring-blue-800' : 'border-slate-200 dark:border-slate-800'}`}>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-xl"><FileCheck size={18} className="text-blue-600 dark:text-blue-400" /></div>
+                            <div>
+                                <p className="text-lg font-black text-blue-600 dark:text-blue-400">{formatCurrency(stats.invoicedAmount || 0)}</p>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Đã xuất HĐ ({stats.invoicedCount || 0} phiếu)</p>
                             </div>
-                        </>
-                    )}
-                    {voucherTab === 'RECEIPT' && (
-                        <>
-                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl"><CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400" /></div>
-                                    <div>
-                                        <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(stats.cashReceivedAmount || 0)}</p>
-                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Tiền về ({stats.cashReceivedCount || 0} phiếu)</p>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    {/* Tiền về */}
+                    <div className={`bg-white dark:bg-slate-900 p-4 rounded-xl border transition-all ${voucherTab === 'RECEIPT' ? 'border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-200 dark:ring-emerald-800' : 'border-slate-200 dark:border-slate-800'}`}>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl"><CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400" /></div>
+                            <div>
+                                <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">{formatCurrency((stats.cashReceivedAmount || 0) + (stats.advanceAmount || 0))}</p>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Tiền về ({stats.cashReceivedCount || 0}) + Tạm ứng ({stats.advanceCount || 0})</p>
                             </div>
-                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 bg-amber-100 dark:bg-amber-900/30 rounded-xl"><DollarSign size={18} className="text-amber-600 dark:text-amber-400" /></div>
-                                    <div>
-                                        <p className="text-lg font-black text-amber-600 dark:text-amber-400">{formatCurrency(stats.advanceAmount || 0)}</p>
-                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Tạm ứng ({stats.advanceCount || 0} phiếu)</p>
-                                    </div>
-                                </div>
+                        </div>
+                    </div>
+                    {/* Tổng chi */}
+                    <div className={`bg-white dark:bg-slate-900 p-4 rounded-xl border transition-all ${voucherTab === 'EXPENSE' ? 'border-rose-300 dark:border-rose-700 ring-1 ring-rose-200 dark:ring-rose-800' : 'border-slate-200 dark:border-slate-800'}`}>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-rose-100 dark:bg-rose-900/30 rounded-xl"><ArrowUpCircle size={18} className="text-rose-600 dark:text-rose-400" /></div>
+                            <div>
+                                <p className="text-lg font-black text-rose-600 dark:text-rose-400">{formatCurrency(stats.expenseAmount || 0)}</p>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Tổng chi ({stats.expenseCount || 0}){stats.pendingExpenseAmount > 0 ? ` · Chờ duyệt: ${formatCurrency(stats.pendingExpenseAmount)}` : ''}</p>
                             </div>
-                        </>
-                    )}
-                    {voucherTab === 'EXPENSE' && (
-                        <>
-                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 bg-rose-100 dark:bg-rose-900/30 rounded-xl"><ArrowUpCircle size={18} className="text-rose-600 dark:text-rose-400" /></div>
-                                    <div>
-                                        <p className="text-lg font-black text-rose-600 dark:text-rose-400">{formatCurrency(stats.expenseAmount || 0)}</p>
-                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Đã chi ({stats.expenseCount || 0} phiếu)</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 bg-orange-100 dark:bg-orange-900/30 rounded-xl"><Clock size={18} className="text-orange-600 dark:text-orange-400" /></div>
-                                    <div>
-                                        <p className="text-lg font-black text-orange-600 dark:text-orange-400">{formatCurrency(stats.pendingExpenseAmount || 0)}</p>
-                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Chờ duyệt chi</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -449,7 +425,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                             <div className="flex items-center gap-1.5">
                                                 <Calendar size={12} className="text-slate-400" />
                                                 <span className="text-xs text-slate-600 dark:text-slate-400">
-                                                    {dateStr ? new Date(dateStr).toLocaleDateString('vi-VN') : '—'}
+                                                    {dateStr ? formatDate(dateStr) : '—'}
                                                 </span>
                                             </div>
                                         </td>

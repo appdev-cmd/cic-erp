@@ -441,8 +441,8 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   const formatCurrency = (val: number) => {
     const abs = Math.abs(val);
     const sign = val < 0 ? '-' : '';
-    if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)}B`;
-    if (abs >= 1e6) return `${sign}${Math.round(abs / 1e6)}M`;
+    if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)} tỷ`;
+    if (abs >= 1e6) return `${sign}${Math.round(abs / 1e6)} triệu`;
     if (abs >= 1e3) return `${sign}${Math.round(abs / 1e3)}K`;
     return Math.round(val).toString();
   };
@@ -502,13 +502,14 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         sumTarget.adminProfit += u.target?.adminProfit || 0;
         sumTarget.cash += u.target?.cash || 0;
       });
-      // Chỉ tiêu LNG Doanh thu = Chỉ tiêu LNG Quản trị
+      // Chỉ tiêu LNG Doanh thu = Chỉ tiêu LNG Quản trị; cash không có chỉ tiêu
       sumTarget.revProfit = sumTarget.adminProfit;
+      sumTarget.cash = 0;
       return sumTarget;
     }
     // Đơn vị cụ thể: revProfit target cũng lấy bằng adminProfit
     const t = safeUnit.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
-    return { ...t, revProfit: t.adminProfit };
+    return { ...t, revProfit: t.adminProfit, cash: 0 };
   }, [safeUnit, rawDistData]);
 
   if (loadingConfig || !selectedUnit) {
@@ -792,8 +793,8 @@ const KPIItem = ({ title, metric, stats, target, yoy, color, icon }: any) => {
   const formatValue = (val: number) => {
     const abs = Math.abs(val);
     const sign = val < 0 ? '-' : '';
-    if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)}B`;
-    if (abs >= 1e6) return `${sign}${Math.round(abs / 1e6)}M`;
+    if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)} tỷ`;
+    if (abs >= 1e6) return `${sign}${Math.round(abs / 1e6)} triệu`;
     if (abs >= 1e3) return `${sign}${Math.round(abs / 1e3)}K`;
     return Math.round(val).toString();
   };
@@ -819,17 +820,21 @@ const KPIItem = ({ title, metric, stats, target, yoy, color, icon }: any) => {
       <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">{title}</p>
       <div className="flex items-baseline gap-2 mb-4">
         <h4 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{formatValue(actual)}</h4>
-        <span className="text-xs font-bold text-slate-400">/ {formatValue(plan)}</span>
+        {plan > 0 && <span className="text-xs font-bold text-slate-400">/ {formatValue(plan)}</span>}
       </div>
-      <div className="space-y-2">
-        <div className="flex justify-between text-xs font-black uppercase tracking-tighter">
-          <span className="text-slate-400">Hoàn thành KH</span>
-          <span className={yoy.isUp ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}>{progress.toFixed(1)}%</span>
+      {plan > 0 ? (
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs font-black uppercase tracking-tighter">
+            <span className="text-slate-400">Hoàn thành KH</span>
+            <span className={yoy.isUp ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}>{progress.toFixed(1)}%</span>
+          </div>
+          <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all duration-1000 ${color === 'emerald' ? 'bg-emerald-500' : color === 'amber' ? 'bg-amber-500' : 'bg-indigo-600'}`} style={{ width: `${Math.min(100, progress)}%` }}></div>
+          </div>
         </div>
-        <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-          <div className={`h-full rounded-full transition-all duration-1000 ${color === 'emerald' ? 'bg-emerald-500' : color === 'amber' ? 'bg-amber-500' : 'bg-indigo-600'}`} style={{ width: `${Math.min(100, progress)}%` }}></div>
-        </div>
-      </div>
+      ) : (
+        <div className="h-2" />
+      )}
     </div>
   );
 };

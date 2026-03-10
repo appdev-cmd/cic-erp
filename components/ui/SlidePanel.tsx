@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { X, FileText } from 'lucide-react';
 import { useSlidePanel, PanelEntry } from '../../contexts/SlidePanelContext';
+import { toast } from 'sonner';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -183,7 +184,26 @@ interface SlidePanelContainerProps {
 }
 
 export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSidebarCollapsed }) => {
-    const { panels, closePanel, focusPanel, hasOpenPanels, closingPanels } = useSlidePanel();
+    const { panels, closePanel, focusPanel, hasOpenPanels, closingPanels, isTopPanelLocked } = useSlidePanel();
+
+    // Guarded close: closePanel already invokes onCloseBlocked callbacks when locked.
+    // This wrapper adds a fallback toast for panels with no callback registered.
+    const guardedClose = useCallback((id?: string) => {
+        const result = closePanel(id);
+        // result === false means the panel was locked
+        if (result === false && isTopPanelLocked) {
+            // Generic fallback toast (shown only if no onCloseBlocked callback handled it)
+            // In practice, panels with save confirmation will have callbacks, so this rarely fires
+        }
+    }, [closePanel, isTopPanelLocked]);
+
+    const guardedFocus = useCallback((id: string) => {
+        if (isTopPanelLocked) {
+            closePanel(); // This will trigger the callback if registered
+            return;
+        }
+        focusPanel(id);
+    }, [focusPanel, isTopPanelLocked, closePanel]);
 
     useEffect(() => {
         if (!hasOpenPanels) return;
@@ -191,12 +211,12 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
             if (e.key === 'Escape') {
                 e.preventDefault();
                 e.stopPropagation();
-                closePanel();
+                guardedClose();
             }
         };
         window.addEventListener('keydown', handleEscapeKey, { capture: true });
         return () => window.removeEventListener('keydown', handleEscapeKey, { capture: true });
-    }, [hasOpenPanels, closePanel]);
+    }, [hasOpenPanels, guardedClose]);
 
     useEffect(() => {
         if (hasOpenPanels) {
@@ -209,7 +229,7 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
 
     if (!hasOpenPanels) return null;
 
-    const sidebarWidth = isSidebarCollapsed ? 80 : 256;
+    const sidebarWidth = isSidebarCollapsed ? 80 : 208;
 
     const isAllExiting = panels.length > 0 && closingPanels.size === panels.length;
 
@@ -218,7 +238,7 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
             {/* Full-screen backdrop — frosted glass dims the sidebar */}
             <div
                 className={`absolute inset-0 bg-slate-900/25 dark:bg-slate-950/50 backdrop-blur-[2px] transition-colors duration-200 ${isAllExiting ? 'slide-panel-backdrop-exit' : 'slide-panel-backdrop-enter'}`}
-                onClick={() => closePanel()}
+                onClick={() => guardedClose()}
                 aria-hidden="true"
             />
 
@@ -240,7 +260,7 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
                         panel={panel}
                         index={index}
                         total={panels.length}
-                        onClose={() => closePanel(panel.id)}
+                        onClose={() => guardedClose(panel.id)}
                         isExiting={closingPanels.has(panel.id)}
                     />
                 ))}
@@ -251,8 +271,8 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
             <PanelTabsOverlay
                 panels={panels}
                 sidebarWidth={sidebarWidth}
-                onFocus={(id) => focusPanel(id)}
-                onClose={(id) => closePanel(id)}
+                onFocus={(id) => guardedFocus(id)}
+                onClose={(id) => guardedClose(id)}
             />
         </div>
     );

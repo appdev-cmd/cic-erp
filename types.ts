@@ -239,12 +239,16 @@ export interface Contract {
   signedDate: string;
   startDate: string;
   endDate: string;
-  value: number;
-  estimatedCost: number;
+  value: number; // Sum(outputPrice * quantity * (1 + vatRate/100))
+  estimatedCost: number; // Sum(inputPrice * quantity) + directCosts + executionCosts
   actualRevenue: number;
   invoicedAmount?: number; // Đã xuất hóa đơn
   cashReceived?: number; // Tiền về thực tế (tổng paid_amount từ payments)
   advanceAmount?: number; // Tạm ứng — tiền đã nhận chưa xuất HĐ
+  receivables?: number; // Công nợ phải thu (Receivables) = Tổng giá trị xuất hoá đơn sau VAT - Tổng tiền về thực tế
+  payables?: number; // Công nợ phải trả (Payables) = Tổng giá đầu vào từ nhà cung cấp - Tổng chi cho nhà cung cấp
+  adminProfit?: number; // Lợi nhuận gộp quản trị = Doanh thu dự kiến - Chi phí dự kiến
+  revProfit?: number; // Lợi nhuận gộp theo doanh thu
   actualCost: number;
   status: ContractStatus;
   stage: ImplementationStage;

@@ -11,6 +11,7 @@ import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useImpersonation } from '../contexts/ImpersonationContext';
+import { formatDate } from '../utils/formatters';
 
 interface PersonnelListProps {
     selectedUnit: Unit;
@@ -214,13 +215,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
         setIsDetailOpen(true);
     };
 
-    // Format date for display
-    const formatDate = (dateStr?: string) => {
-        if (!dateStr) return '—';
-        try {
-            return new Date(dateStr).toLocaleDateString('vi-VN');
-        } catch { return '—'; }
-    };
+
 
     // Export to Excel
     const handleExport = () => {

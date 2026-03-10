@@ -320,6 +320,15 @@ const AIDataIngestion: React.FC = () => {
                         const customers = await CustomerService.search(row.customerName, 1);
                         if (customers.length > 0) {
                             customerId = customers[0].id;
+                            // If customer found by name but has no tax code yet → update with extracted MST
+                            if (taxCode && !customers[0].taxCode) {
+                                try {
+                                    await CustomerService.update(customerId, { taxCode });
+                                    console.log(`[AI] Updated customer "${customers[0].name}" with MST: ${taxCode}`);
+                                } catch (e) {
+                                    console.warn(`[AI] Failed to update customer tax code:`, e);
+                                }
+                            }
                         }
                     }
                     // Auto-create customer if not found

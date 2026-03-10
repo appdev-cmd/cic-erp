@@ -75,8 +75,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className={`
         fixed left-0 top-0 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col z-50 transition-all duration-300 ease-in-out
-        ${isCollapsed ? 'md:w-20' : 'md:w-64'} 
-        ${isOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'}
+        ${isCollapsed ? 'md:w-20' : 'md:w-52'} 
+        ${isOpen ? 'translate-x-0 w-52' : '-translate-x-full md:translate-x-0'}
       `}>
         {/* Header & Logo - Modern Professional Style */}
         <div className={`relative p-4 flex items-center justify-between ${isCollapsed ? 'md:px-3 md:justify-center' : ''}`}>
