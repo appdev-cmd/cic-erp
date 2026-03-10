@@ -348,6 +348,7 @@ const AIDataIngestion: React.FC = () => {
                     const sanitizedId = row.contractCode.replace(/\//g, '-');
 
                     const contractData: any = {
+                        contractCode: row.contractCode,
                         title: row.contractCode,
                         content: row.content || '',
                         category: row.content || 'BIM',
