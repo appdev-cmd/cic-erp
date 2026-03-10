@@ -76,18 +76,22 @@ import ContractDetailComponent from './ContractDetail';
 const ContractDetailInPanel: React.FC<{ contractId: string }> = ({ contractId }) => {
     const navigate = useNavigate();
     const { openPanel, closePanel } = useSlidePanel();
+    const [refreshKey, setRefreshKey] = React.useState(0);
 
     const handleEdit = useCallback((contract: any) => {
         openPanel({
             title: `Chỉnh sửa ${contract.contractCode}`,
             component: (
-                <ContractFormInPanel contractId={contract.id} />
+                <ContractFormInPanel
+                    contractId={contract.id}
+                    onSuccess={() => setRefreshKey(prev => prev + 1)}
+                />
             ),
         });
     }, [openPanel]);
 
     return (
-        <div className="p-4 md:p-6 lg:p-8">
+        <div className="p-4 md:p-6 lg:p-8" key={refreshKey}>
             <ContractDetailComponent
                 contractId={contractId}
                 onBack={() => closePanel()}
@@ -109,7 +113,7 @@ import { useLocation } from 'react-router-dom';
 import { ContractService } from '../services';
 import { toast } from 'sonner';
 
-const ContractFormInPanel: React.FC<{ contractId?: string; cloneFrom?: any }> = ({ contractId, cloneFrom }) => {
+const ContractFormInPanel: React.FC<{ contractId?: string; cloneFrom?: any; onSuccess?: (contract: any) => void }> = ({ contractId, cloneFrom, onSuccess }) => {
     const { closePanel } = useSlidePanel();
     const [contract, setContract] = React.useState<any>(cloneFrom || null);
     const [loading, setLoading] = React.useState(!!contractId && !cloneFrom);
@@ -135,12 +139,16 @@ const ContractFormInPanel: React.FC<{ contractId?: string; cloneFrom?: any }> = 
                 isCloning={!!cloneFrom}
                 onSave={async (data) => {
                     try {
+                        let savedContract;
                         if (contractId && !cloneFrom) {
-                            await ContractService.update(contractId, data);
+                            savedContract = await ContractService.update(contractId, data);
                             toast.success('Cập nhật hợp đồng thành công!');
                         } else {
-                            await ContractService.create(data);
+                            savedContract = await ContractService.create(data);
                             toast.success(cloneFrom ? 'Nhân bản hợp đồng thành công!' : 'Tạo hợp đồng thành công!');
+                        }
+                        if (onSuccess && savedContract) {
+                            onSuccess(savedContract);
                         }
                         closePanel();
                     } catch (e: any) {
@@ -159,9 +167,11 @@ export const ContractDetailPage: React.FC = () => {
     const { id: rawId } = useParams<{ id: string }>();
     const id = rawId ? decodeURIComponent(rawId) : undefined;
     const { openPanel, closePanel } = useSlidePanel();
+    const [refreshKey, setRefreshKey] = React.useState(0);
     if (!id) return <div>Contract not found</div>;
     return (
         <ContractDetailComponent
+            key={refreshKey}
             contractId={id}
             onBack={() => navigate(ROUTES.CONTRACTS)}
             onEdit={(contract) => {
@@ -169,7 +179,10 @@ export const ContractDetailPage: React.FC = () => {
                     title: `Chỉnh sửa ${contract.contractCode}`,
                     component: (
                         <div className="p-4 md:p-6 lg:p-8">
-                            <ContractFormInPanel contractId={contract.id} />
+                            <ContractFormInPanel
+                                contractId={contract.id}
+                                onSuccess={() => setRefreshKey(prev => prev + 1)}
+                            />
                         </div>
                     ),
                 });
