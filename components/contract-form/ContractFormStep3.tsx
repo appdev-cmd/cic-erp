@@ -75,12 +75,14 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                     <label className="text-[9px] text-slate-400 font-bold uppercase">Tiền (VAT)</label>
                                     <div className="flex items-center justify-end gap-2">
                                         <input
-                                            type="number"
+                                            type="text"
                                             placeholder="Tiền..."
-                                            value={rev.amount}
+                                            value={rev.amount ? formatVND(rev.amount) : ''}
                                             onChange={(e) => {
+                                                const raw = e.target.value.replace(/\./g, '');
+                                                if (!/^\d*$/.test(raw)) return;
                                                 const newSched = [...revenueSchedules];
-                                                newSched[idx].amount = Number(e.target.value);
+                                                newSched[idx].amount = Number(raw);
                                                 setRevenueSchedules(newSched);
                                             }}
                                             className="w-full bg-transparent text-[11px] font-black text-right outline-none text-slate-800 dark:text-slate-200"
@@ -142,12 +144,14 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                     <label className="text-[9px] text-slate-400 font-bold uppercase">Số tiền</label>
                                     <div className="flex items-center justify-end gap-2">
                                         <input
-                                            type="number"
+                                            type="text"
                                             placeholder="Tiền..."
-                                            value={pay.amount}
+                                            value={pay.amount ? formatVND(pay.amount) : ''}
                                             onChange={(e) => {
+                                                const raw = e.target.value.replace(/\./g, '');
+                                                if (!/^\d*$/.test(raw)) return;
                                                 const newSched = [...paymentSchedules];
-                                                newSched[idx].amount = Number(e.target.value);
+                                                newSched[idx].amount = Number(raw);
                                                 setPaymentSchedules(newSched);
                                             }}
                                             className="w-full bg-transparent text-[11px] font-black text-right outline-none text-emerald-600"
@@ -218,12 +222,14 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                 <label className="text-[9px] text-slate-400 font-bold uppercase">Số tiền chi</label>
                                 <div className="flex items-center justify-end gap-2">
                                     <input
-                                        type="number"
+                                        type="text"
                                         placeholder="Tiền..."
-                                        value={pay.amount}
+                                        value={pay.amount ? formatVND(pay.amount) : ''}
                                         onChange={(e) => {
+                                            const raw = e.target.value.replace(/\./g, '');
+                                            if (!/^\d*$/.test(raw)) return;
                                             const newSched = [...supplierSchedules];
-                                            newSched[idx].amount = Number(e.target.value);
+                                            newSched[idx].amount = Number(raw);
                                             setSupplierSchedules(newSched);
                                         }}
                                         className="w-full bg-transparent text-[11px] font-black text-right outline-none text-rose-500"
