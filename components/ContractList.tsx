@@ -50,6 +50,14 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
+  // Sync: when user picks a specific year in Header, clear the date range
+  useEffect(() => {
+    if (yearFilter && yearFilter !== 'All') {
+      setDateFrom('');
+      setDateTo('');
+    }
+  }, [yearFilter]);
+
   // Infinite scroll batch size
   const PAGE_SIZE = 20;
 
@@ -680,27 +688,40 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       {/* TABLE */}
       <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]">
         <table className="w-full text-left" style={{ tableLayout: 'fixed' }}>
+          {/* Colgroup: controls column widths proportionally */}
+          <colgroup>
+            <col style={{ width: '2.5%' }} />   {/* STT */}
+            <col style={{ width: '12%' }} />    {/* Số HĐ */}
+            <col />                              {/* Nội dung HĐ — auto fills remaining */}
+            <col style={{ width: '8%' }} />     {/* Ký kết */}
+            <col style={{ width: '7%' }} />     {/* Doanh thu TT */}
+            <col style={{ width: '7%' }} />     {/* Tiền về TT */}
+            <col style={{ width: '8%' }} />     {/* LNG quản trị */}
+            <col style={{ width: '7%' }} />     {/* LNG theo DT */}
+            <col style={{ width: '4%' }} />     {/* Tỷ suất LN/DT */}
+            <col style={{ width: '10%' }} />    {/* Trạng thái */}
+            <col style={{ width: '2.5%' }} />   {/* Actions */}
+          </colgroup>
           <thead>
             <tr className="z-20">
               {[
-                { label: 'STT', align: 'center', width: 'w-[3%]' },
-                { label: 'Số HĐ', align: 'center', sortKey: 'signedDate', width: 'w-[12%]', dataAlign: 'left' },
-                { label: 'Nội dung hợp đồng', align: 'center', sortKey: 'title', dataAlign: 'left' },
-                { label: 'Ký kết', align: 'center', sortKey: 'value', width: 'w-[9%]', dataAlign: 'right' },
-                { label: 'Doanh thu TT', align: 'center', sortKey: 'actualRevenue', width: 'w-[9%]', dataAlign: 'right' },
-                { label: 'Tiền về TT', align: 'center', width: 'w-[9%]', dataAlign: 'right' },
-                { label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit', width: 'w-[9%]', dataAlign: 'right' },
-                { label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit', width: 'w-[9%]', dataAlign: 'right' },
-                { label: 'Tỷ suất LN/DT', align: 'center', width: 'w-[5%]', dataAlign: 'right' },
-                { label: 'Trạng thái', align: 'center', sortKey: 'status', width: 'w-[10%]', dataAlign: 'left' },
-                { label: '', align: 'center', width: 'w-[3%]' },
+                { label: 'STT', align: 'center' },
+                { label: 'Số HĐ', align: 'center', sortKey: 'signedDate' },
+                { label: 'Nội dung hợp đồng', align: 'center', sortKey: 'title' },
+                { label: 'Ký kết', align: 'center', sortKey: 'value' },
+                { label: 'Doanh thu TT', align: 'center', sortKey: 'actualRevenue' },
+                { label: 'Tiền về TT', align: 'center' },
+                { label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit' },
+                { label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit' },
+                { label: 'Tỷ suất', align: 'center' },
+                { label: 'Trạng thái', align: 'center', sortKey: 'status' },
+                { label: '', align: 'center' },
               ].map((col, idx) => (
                 <th
                   key={idx}
-                  className={`sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-3 py-4 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700
+                  className={`sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-2 py-3 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700
                     ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}
                     ${col.color || 'text-slate-700 dark:text-slate-300'}
-                    ${col.width || ''}
                     ${col.sortKey ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 select-none transition-colors' : ''}`}
                   onClick={() => {
                     if (!col.sortKey) return;
@@ -851,7 +872,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     </div>
                   </td>
                   {/* Ký kết — hiển thị giá trị phân bổ, hover xem giá trị ký kết gốc */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-2 py-2 text-right whitespace-nowrap">
                     {(() => {
                       const fullValue = contract.value || 0;
                       const allocatedValue = allocationPct !== undefined && allocationPct < 100
@@ -869,7 +890,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     })()}
                   </td>
                   {/* Doanh thu */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-2 py-2 text-right whitespace-nowrap">
                     <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100" title={formatCurrency(revenue)}>
                       {formatCurrency(revenue)}
                     </span>
@@ -880,7 +901,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     )}
                   </td>
                   {/* Tiền về */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-2 py-2 text-right whitespace-nowrap">
                     {cashReceived > 0 ? (
                       advanceAmount > 0 && advanceAmount >= cashReceived ? (
                         // All cash is from advance payments
@@ -910,13 +931,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     )}
                   </td>
                   {/* LNG Quản trị */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-2 py-2 text-right whitespace-nowrap">
                     <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400" title={formatCurrency(contract.adminProfit || 0)}>
                       {formatCurrency(contract.adminProfit || 0)}
                     </span>
                   </td>
                   {/* LNG theo DT */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-2 py-2 text-right whitespace-nowrap">
                     <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400" title={formatCurrency(contract.revProfit || 0)}>
                       {formatCurrency(contract.revProfit || 0)}
                     </span>
