@@ -1242,7 +1242,16 @@ export const ContractService = {
             changedBy: (await supabase.auth.getUser()).data.user?.email || undefined,
         }).catch(() => { }); // Silent
 
-        return mapContract(result);
+        const mapped = mapContract(result);
+
+        // 7. Notify UI components to refresh lists
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('contract-created', {
+                detail: { contractId: result.id, contract: mapped }
+            }));
+        }
+
+        return mapped;
     },
 
     /**
@@ -1353,6 +1362,13 @@ export const ContractService = {
             contractId: id,
             changedBy: (await supabase.auth.getUser()).data.user?.email || undefined,
         }).catch(() => { });
+
+        // Notify UI components to refresh lists
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('contract-deleted', {
+                detail: { contractId: id }
+            }));
+        }
 
         return true;
     },

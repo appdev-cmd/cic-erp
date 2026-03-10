@@ -377,6 +377,22 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     resetDeps: [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, dateFrom, dateTo, sortBy, sortDir, matchingCustomerIds]
   });
 
+  // Auto-refresh list when contracts are created, updated, or deleted
+  useEffect(() => {
+    const handleRefresh = () => {
+      console.log('[ContractList] contract created/updated/deleted, refreshing list...');
+      resetInfiniteScroll();
+    };
+    window.addEventListener('contract-created', handleRefresh);
+    window.addEventListener('contract-updated', handleRefresh);
+    window.addEventListener('contract-deleted', handleRefresh);
+    return () => {
+      window.removeEventListener('contract-created', handleRefresh);
+      window.removeEventListener('contract-updated', handleRefresh);
+      window.removeEventListener('contract-deleted', handleRefresh);
+    };
+  }, [resetInfiniteScroll]);
+
   // Tự động sinh danh sách 5 năm gần nhất
   const availableYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
