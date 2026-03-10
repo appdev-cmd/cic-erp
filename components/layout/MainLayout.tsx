@@ -135,7 +135,7 @@ const MainLayout: React.FC = () => {
         );
     }
 
-    const mainMarginClass = isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64';
+    const mainMarginClass = isSidebarCollapsed ? 'md:ml-20' : 'md:ml-52';
     const contentMaxWidthClass = isSidebarCollapsed ? 'max-w-[1920px]' : 'max-w-[1600px]';
 
     return (
@@ -165,6 +165,10 @@ const MainLayout: React.FC = () => {
                             yearFilter={yearFilter}
                             onYearChange={setYearFilter}
                             allUnits={allUnits}
+                            theme={theme}
+                            setTheme={setTheme}
+                            accent={accent}
+                            setAccent={setAccent}
                         />
 
                         {/* Page Content */}

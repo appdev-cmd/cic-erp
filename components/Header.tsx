@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, Bell, Menu, LogOut, ChevronDown, User as UserIcon, Building2, Calendar } from 'lucide-react';
+import { Search, Bell, Menu, LogOut, ChevronDown, User as UserIcon, Building2, Calendar, Sun, Moon, Palette } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { Unit, NotificationItem as NotificationItemType } from '../types';
@@ -16,10 +16,14 @@ interface HeaderProps {
   onYearChange?: (year: string) => void;
   allUnits?: Unit[];
   onNavigateToContract?: (contractId: string) => void;
+  theme?: 'light' | 'dark';
+  setTheme?: (theme: 'light' | 'dark') => void;
+  accent?: 'orange' | 'blue';
+  setAccent?: (accent: 'orange' | 'blue') => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, selectedUnit, onSelectUnit, yearFilter, onYearChange, allUnits = [], onNavigateToContract }) => {
-  const marginClass = isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64';
+const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, selectedUnit, onSelectUnit, yearFilter, onYearChange, allUnits = [], onNavigateToContract, theme, setTheme, accent, setAccent }) => {
+  const marginClass = isSidebarCollapsed ? 'md:ml-20' : 'md:ml-52';
   const { signOut, user, profile } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -241,6 +245,64 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
                   </span>
                 )}
               </div>
+
+              {/* ═══ Theme Picker ═══ */}
+              {setTheme && setAccent && (
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 space-y-3">
+                  {/* Light / Dark Mode */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Giao diện</span>
+                    <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-700 rounded-lg">
+                      <button
+                        onClick={() => setTheme('light')}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${theme === 'light'
+                          ? 'bg-white dark:bg-slate-600 text-orange-600 dark:text-orange-400 shadow-sm'
+                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                          }`}
+                      >
+                        <Sun size={13} />
+                        Sáng
+                      </button>
+                      <button
+                        onClick={() => setTheme('dark')}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${theme === 'dark'
+                          ? 'bg-slate-800 dark:bg-slate-600 text-orange-400 shadow-sm'
+                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                          }`}
+                      >
+                        <Moon size={13} />
+                        Tối
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Accent Color */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Màu chủ đạo</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setAccent('orange')}
+                        title="Cam"
+                        style={accent === 'orange'
+                          ? { backgroundColor: '#f97316', '--tw-ring-color': '#f97316' } as React.CSSProperties
+                          : { backgroundColor: '#f97316' }}
+                        className={`w-6 h-6 rounded-full transition-all cursor-pointer ring-offset-2 ring-offset-white dark:ring-offset-slate-800 ${accent === 'orange' ? 'ring-2 scale-110' : 'hover:scale-110 opacity-70 hover:opacity-100'
+                          }`}
+                      />
+                      <button
+                        onClick={() => setAccent('blue')}
+                        title="CIC Blue"
+                        style={accent === 'blue'
+                          ? { backgroundColor: '#0ea5e9', '--tw-ring-color': '#0ea5e9' } as React.CSSProperties
+                          : { backgroundColor: '#0ea5e9' }}
+                        className={`w-6 h-6 rounded-full transition-all cursor-pointer ring-offset-2 ring-offset-white dark:ring-offset-slate-800 ${accent === 'blue' ? 'ring-2 scale-110' : 'hover:scale-110 opacity-70 hover:opacity-100'
+                          }`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="py-1">
                 <button
                   onClick={handleSignOut}

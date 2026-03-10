@@ -34,9 +34,11 @@ interface ContractFormProps {
   isCloning?: boolean;
   onSave: (contract: any) => void;
   onCancel: () => void;
+  /** Called when form dirty state changes (true = has unsaved modifications) */
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
-const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false, onSave, onCancel }) => {
+const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false, onSave, onCancel, onDirtyChange }) => {
   const { profile } = useAuth();
   const isEditing = !!contract && !isCloning;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -299,6 +301,47 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     isEditing, contractType, unitId, coordinatingUnitId, salespersonId, customerId, title, clientName,
     signedDate, contacts, lineItems, revenueSchedules, paymentSchedules, supplierSchedules
   ]);
+
+  // ==================== DIRTY STATE TRACKING ====================
+  const initialSnapshotRef = useRef<string | null>(null);
+  const wasDirtyRef = useRef(false);
+
+  // Key fields that constitute "user data"
+  const currentSnapshot = useMemo(() => JSON.stringify({
+    contractType, unitId, coordinatingUnitId, salespersonId, customerId,
+    title, clientName, signedDate, hasVat, vatRate, isDealerSale,
+    endUserId, endUserName, contacts, lineItems, executionCosts,
+    revenueSchedules, paymentSchedules, supplierSchedules,
+    employeeAllocations, unitAllocations, formContractId,
+    customerContractNumber, hasCustomerContractNumber,
+  }), [
+    contractType, unitId, coordinatingUnitId, salespersonId, customerId,
+    title, clientName, signedDate, hasVat, vatRate, isDealerSale,
+    endUserId, endUserName, contacts, lineItems, executionCosts,
+    revenueSchedules, paymentSchedules, supplierSchedules,
+    employeeAllocations, unitAllocations, formContractId,
+    customerContractNumber, hasCustomerContractNumber,
+  ]);
+
+  // Capture initial snapshot after first render (delay to let sync effects settle)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (initialSnapshotRef.current === null) {
+        initialSnapshotRef.current = currentSnapshot;
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []); // only once
+
+  // Compare and notify dirty state
+  useEffect(() => {
+    if (!onDirtyChange || initialSnapshotRef.current === null) return;
+    const isDirty = currentSnapshot !== initialSnapshotRef.current;
+    if (isDirty !== wasDirtyRef.current) {
+      wasDirtyRef.current = isDirty;
+      onDirtyChange(isDirty);
+    }
+  }, [currentSnapshot, onDirtyChange]);
 
   // Restore Draft
   useEffect(() => {

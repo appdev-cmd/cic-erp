@@ -623,20 +623,21 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
       {/* TABLE */}
       <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]">
-        <table className="w-full text-left">
+        <table className="w-full table-fixed text-left">
           <thead>
             <tr className="z-20">
               {[
-                { label: 'STT', align: 'center', width: 'w-12' },
-                { label: 'Số hợp đồng', align: 'left', sortKey: 'signedDate' },
+                { label: 'STT', align: 'center', width: 'w-8' },
+                { label: 'Số HĐ', align: 'left', sortKey: 'signedDate', width: 'w-[150px]' },
                 { label: 'Nội dung hợp đồng', align: 'left', sortKey: 'title' },
-                { label: 'Phụ trách KD', align: 'left' },
-                { label: 'Ký kết', align: 'right', sortKey: 'value' },
-                { label: 'Doanh thu TT', align: 'right', sortKey: 'actualRevenue' },
-                { label: 'Tiền về', align: 'right' },
-                { label: 'Lợi nhuận gộp', align: 'right', color: 'text-emerald-700 dark:text-emerald-400', sortKey: 'estimatedCost' },
-                { label: 'Tỷ suất LN/DT', align: 'center' },
-                { label: 'Trạng thái', align: 'center', sortKey: 'status' },
+                { label: 'Ký kết', align: 'right', sortKey: 'value', width: 'w-[90px]' },
+                { label: 'Doanh thu TT', align: 'right', sortKey: 'actualRevenue', width: 'w-[95px]' },
+                { label: 'Tiền về TT', align: 'right', width: 'w-[90px]' },
+                { label: 'LNG quản trị', align: 'right', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit', width: 'w-[90px]' },
+                { label: 'LNG theo DT', align: 'right', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit', width: 'w-[90px]' },
+                { label: 'Tỷ suất LN/DT', align: 'center', width: 'w-[55px]' },
+                { label: 'Trạng thái', align: 'center', sortKey: 'status', width: 'w-[95px]' },
+                { label: '', align: 'center', width: 'w-10' },
               ].map((col, idx) => (
                 <th
                   key={idx}
@@ -707,12 +708,14 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 </td>
               </tr>
             ) : contracts.map((contract, index) => {
-              const profit = (contract.value || 0) - (contract.estimatedCost || 0);
+              const adminProfit = contract.adminProfit || 0;
               // Doanh thu thực tế: chỉ hiển thị actual_revenue (ghi nhận sau xuất hóa đơn), không fallback
               const revenue = contract.actualRevenue || 0;
               const cashReceived = contract.cashReceived || 0;
               const advanceAmount = contract.advanceAmount || 0;
-              const margin = revenue > 0 ? (profit / revenue) * 100 : ((contract.value || 0) > 0 ? (profit / contract.value) * 100 : 0);
+              // Tỷ suất LN = LNG Quản trị / Doanh thu dự kiến (Sum outputPrice * quantity)
+              const expectedRevenue = (contract.lineItems || []).reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0);
+              const margin = expectedRevenue > 0 ? (adminProfit / expectedRevenue) * 100 : 0;
               const salesperson = salespeople.find(s => s.id === contract.salespersonId);
 
               // Allocation info (tagged by ContractService.list for collaborative contracts)
@@ -733,9 +736,10 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   <td className="px-3 py-2 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
                     {stt.toString().padStart(2, '0')}
                   </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black flex-shrink-0 ${contract.contractType === 'HĐ' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'}`}>
+                  {/* Số HĐ + Phụ trách KD */}
+                  <td className="px-2 py-2 overflow-hidden" title={`${contract.id}\n${contract.signedDate ? new Date(contract.signedDate).toLocaleDateString('vi-VN') : 'Chưa ký'}\n${salesperson?.name || 'Chưa gán'}${contract.customerContractNumber ? '\nSố HĐ KH: ' + contract.customerContractNumber : ''}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${contract.contractType === 'HĐ' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'}`}>
                         {contract.contractType}
                       </div>
                       <div>
@@ -751,16 +755,20 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                           {contract.signedDate ? new Date(contract.signedDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Chưa ký'}
                         </p>
                         {contract.customerContractNumber && (
-                          <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate max-w-[160px]">
+                          <p className="text-[8px] font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
                             📋 {contract.customerContractNumber}
                           </p>
                         )}
+                        <p className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 mt-0.5 truncate">
+                          {salesperson?.name || 'Chưa gán'}
+                        </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                  {/* Nội dung HĐ + Khách hàng */}
+                  <td className="px-3 py-2 text-[11px] font-bold text-slate-800 dark:text-slate-200" title={`${contract.title}\n${contract.partyA}${contract.endUserName ? '\nEnd User: ' + contract.endUserName : ''}`}>
                     <div className="flex items-center gap-2">
-                      <p className="line-clamp-2" title={contract.title}>{contract.title}</p>
+                      <p className="line-clamp-2">{contract.title}</p>
                       {isCollaborative && (
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 whitespace-nowrap flex-shrink-0" title={`Đơn vị phối hợp — Phân bổ ${allocationPct}%`}>
                           Phối hợp {allocationPct}%
@@ -775,23 +783,15 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     <div>
                       <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1" title={contract.endUserName ? `End User: ${contract.endUserName}` : undefined}>
                         {contract.partyA}
-                        {contract.customerId && customerShortNames.get(contract.customerId) && (
+                        {contract.customerId && customerShortNames.get(contract.customerId) && !contract.partyA?.includes(customerShortNames.get(contract.customerId)!) && (
                           <span className="text-cyan-600 dark:text-cyan-400 font-bold"> ({customerShortNames.get(contract.customerId)})</span>
                         )}
                       </p>
                       {contract.endUserName && (
-                        <p className="text-[9px] font-bold text-teal-600 dark:text-teal-400 mt-0.5 truncate max-w-[180px]" title={`End User: ${contract.endUserName}`}>
+                        <p className="text-[9px] font-bold text-teal-600 dark:text-teal-400 mt-0.5 truncate max-w-[220px]" title={`End User: ${contract.endUserName}`}>
                           👤 {contract.endUserName}
                         </p>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-400">
-                        {salesperson?.name ? salesperson.name[0] : '?'}
-                      </div>
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{salesperson?.name || 'Chưa gán'}</span>
                     </div>
                   </td>
                   {/* Ký kết — hiển thị giá trị phân bổ, hover xem giá trị ký kết gốc */}
@@ -853,10 +853,16 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       </span>
                     )}
                   </td>
-                  {/* Lợi nhuận gộp */}
+                  {/* LNG Quản trị */}
                   <td className="px-3 py-2 text-right">
-                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400" title={formatCurrency(profit)}>
-                      {formatCurrency(profit)}
+                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400" title={formatCurrency(contract.adminProfit || 0)}>
+                      {formatCurrency(contract.adminProfit || 0)}
+                    </span>
+                  </td>
+                  {/* LNG theo DT */}
+                  <td className="px-3 py-2 text-right">
+                    <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400" title={formatCurrency(contract.revProfit || 0)}>
+                      {formatCurrency(contract.revProfit || 0)}
                     </span>
                   </td>
                   {/* Tỷ suất LN/DT */}

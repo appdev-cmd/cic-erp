@@ -291,7 +291,8 @@ export const calculateInvoicedFromPayments = (payments: any[]): number => {
 };
 
 /**
- * Calculate cash received from RECEIPT vouchers (only money actually in bank).
+ * Calculate cash received from RECEIPT vouchers (only money actually in bank)
+ * Or from PAID status depending on the context.
  * Only counts RECEIPT vouchers with status 'Tiền về' or 'Tạm ứng'.
  */
 export const calculateCashReceived = (payments: any[]): number => {
@@ -312,6 +313,27 @@ export const calculateAdvanceAmount = (payments: any[]): number => {
         .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
 };
 
+/**
+ * Calculate Receivables (Công nợ phải thu)
+ * Total Invoiced Amount (After VAT) - Total Cash Received
+ */
+export const calculateReceivables = (payments: any[]): number => {
+    const totalInvoiced = calculateInvoicedFromPayments(payments); // This is after VAT amount
+    const totalCash = calculateCashReceived(payments);
+    return totalInvoiced - totalCash;
+};
+
+/**
+ * Calculate Payables (Công nợ phải trả)
+ * Total Input Cost - Total Expenses Paid
+ */
+export const calculatePayables = (payments: any[], totalInputCost: number): number => {
+    const totalPaidExpenses = payments
+        .filter((p: any) => p.voucher_type === 'EXPENSE' && p.status === 'Đã chi')
+        .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+    return totalInputCost - totalPaidExpenses;
+};
+
 // Helper to map DB Contract to Frontend Contract
 const mapContract = (c: any): Contract => {
     if (!c) return {
@@ -324,6 +346,45 @@ const mapContract = (c: any): Contract => {
     } as any; // Partial fallback
 
     const payments: any[] = c.payments || [];
+    
+    // Line items for total input cost
+    const lineItems = c.details?.lineItems || c.line_items || [];
+    const executionCosts = c.details?.executionCosts || c.execution_costs || [];
+    
+    // Calculate exact value and estimated cost based on formulas
+    const estimatedCost = (c.estimated_cost || 0); // Already handles sum(input * qty) + direct + execution
+    const totalInputCost = lineItems.reduce((sum: number, li: any) => sum + (li.inputPrice || 0) * (li.quantity || 1), 0);
+
+    // Revenue calculations
+    const actualRevenue = calculateRevenueFromPayments(
+            payments, c.vat_rate ?? 10, c.has_vat !== false, c.actual_revenue || 0
+        );
+    
+    const invoicedAmount = payments.length > 0
+            ? calculateInvoicedFromPayments(payments)
+            : (c.invoiced_amount || 0);
+            
+    const cashReceived = calculateCashReceived(payments);
+        
+    // Expected Revenue (Doanh thu dự kiến) = Sum(outputPrice * quantity) — pre-VAT
+    const expectedRevenue = lineItems.reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0);
+        
+    // Profit Metrics Calculations
+    // LNG Quản trị = Doanh thu dự kiến - Chi phí dự kiến
+    const adminProfit = expectedRevenue - estimatedCost;
+    
+    let revProfit = 0;
+    if (c.status === 'Completed') {
+        const actualCost = payments
+            .filter((p: any) => p.voucher_type === 'EXPENSE' && p.status === 'Đã chi')
+            .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+        revProfit = actualRevenue - actualCost;
+    } else {
+        // Trạng thái KHÁC Hoàn thành: Doanh thu thực tế - Chi phí dự kiến * Tỷ lệ xuất doanh thu
+        const revenueRatio = expectedRevenue > 0 ? (actualRevenue / expectedRevenue) : 0;
+        revProfit = actualRevenue - (estimatedCost * revenueRatio);
+    }
+        
 
     return {
         id: c.id || 'unknown',
@@ -347,7 +408,7 @@ const mapContract = (c: any): Contract => {
         // Map from DB 'employee_id' (new) or 'salesperson_id' (legacy)
         salespersonId: c.employee_id || c.salesperson_id || undefined,
         value: c.value || 0,
-        estimatedCost: c.estimated_cost || 0,
+        estimatedCost: estimatedCost,
         actualCost: c.actual_cost || 0,
         status: c.status || 'Processing',
         stage: c.stage || 'Signed',
@@ -360,22 +421,21 @@ const mapContract = (c: any): Contract => {
         milestones: c.milestones || [],
         paymentPhases: c.payment_phases || [],
         // Map details from JSONB (single source of truth)
-        lineItems: c.details?.lineItems || c.line_items || [],
+        lineItems: lineItems,
         adminCosts: c.details?.adminCosts || undefined,
-        executionCosts: c.details?.executionCosts || c.execution_costs || [],
+        executionCosts: executionCosts,
         revenueSchedules: c.details?.revenueSchedules || [],
         documents: c.documents || [],
         draft_url: c.draft_url || undefined,
-        // Revenue & Cash — calculated from payments using shared pure functions
-        actualRevenue: calculateRevenueFromPayments(
-            payments, c.vat_rate ?? 10, c.has_vat !== false, c.actual_revenue || 0
-        ),
-        // Invoiced: prefer calculated from payments over stale DB column
-        invoicedAmount: payments.length > 0
-            ? calculateInvoicedFromPayments(payments)
-            : (c.invoiced_amount || 0),
-        cashReceived: calculateCashReceived(payments),
+        // Revenue & Cash & Profit
+        actualRevenue: actualRevenue,
+        invoicedAmount: invoicedAmount,
+        cashReceived: cashReceived,
         advanceAmount: calculateAdvanceAmount(payments),
+        receivables: invoicedAmount - cashReceived,
+        payables: calculatePayables(payments, totalInputCost),
+        adminProfit: adminProfit,
+        revProfit: revProfit,
         // Parallel approval workflow fields
         legal_approved: c.legal_approved || false,
         finance_approved: c.finance_approved || false
@@ -653,8 +713,8 @@ export const ContractService = {
             return filter;
         };
         // Fetch ALL contracts with unit_allocations for allocation-aware filtering
-        // Unit filter is done in JS to support contracts where the unit is a collaborative partner
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, title, party_a, signed_date, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)');
+        // OPTIMIZED: No payments JOIN — use pre-computed columns
+        let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, title, party_a, signed_date, unit_id, unit_allocations');
 
         if (search) {
             query = query.or(buildSearchFilter(search, matchingCustomerIds));
@@ -715,15 +775,13 @@ export const ContractService = {
             else if (c.status === 'Completed') statusCounts.completedCount++;
         });
 
-        // Calculate aggregates in JS — with unit_allocations support (same as getStatsFallback)
+        // OPTIMIZED: Calculate aggregates from pre-computed columns — no payment recalculation
         const financials = (data || []).reduce((acc, curr: any) => {
             const val = curr.value || 0;
-            const cost = curr.estimated_cost || 0;
-            const actCost = curr.actual_cost || 0;
-
-            // Revenue and Cash calculations using shared pure functions
-            const rev = calculateRevenueFromPayments(curr.payments || [], curr.vat_rate ?? 10, curr.has_vat !== false, curr.actual_revenue || 0);
-            const cash = calculateCashReceived(curr.payments || []);
+            const rev = curr.actual_revenue || 0;
+            const adminProfit = curr.admin_profit || 0;
+            const revProfit = curr.rev_profit || 0;
+            const cash = curr.cash_received || 0;
 
             // Determine this unit's share percentage using shared helper
             let sharePct = 100; // Default: 100% for "all" view
@@ -744,9 +802,9 @@ export const ContractService = {
                 totalContracts: acc.totalContracts + 1,
                 totalValue: acc.totalValue + val * fraction,
                 totalRevenue: acc.totalRevenue + rev * fraction,
-                totalProfit: acc.totalProfit + (val - cost) * fraction,
-                totalSigningProfit: acc.totalSigningProfit + (val - cost) * fraction,
-                totalRevenueProfit: acc.totalRevenueProfit + (rev > 0 ? Math.round((rev - actCost) * fraction) : 0),
+                totalProfit: acc.totalProfit + adminProfit * fraction,
+                totalSigningProfit: acc.totalSigningProfit + adminProfit * fraction,
+                totalRevenueProfit: acc.totalRevenueProfit + revProfit * fraction,
                 totalCash: acc.totalCash + cash * fraction
             };
         }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0 });
@@ -800,10 +858,9 @@ export const ContractService = {
         handoverCount: number,
         overduePaymentCount: number
     }> => {
-        console.log('[ContractService.getStatsFallback] Using direct query');
-        // When filtering by unit, we need ALL contracts to check unit_allocations too
-        // Include payment status+amount to calculate revenue from invoiced payments
-        let query = supabase.from('contracts').select('id, value, actual_revenue, estimated_cost, actual_cost, status, unit_id, unit_allocations, vat_rate, has_vat, end_date, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)');
+        console.log('[ContractService.getStatsFallback] Using pre-computed columns');
+        // OPTIMIZED: No payments JOIN — use pre-computed columns on contracts table
+        let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, unit_id, unit_allocations, end_date');
 
         // Only apply year filter at query level (unit filter is done in JS for allocation support)
         if (year && year !== 'All' && year !== 'all') {
@@ -830,12 +887,10 @@ export const ContractService = {
 
         return (data || []).reduce((acc: any, curr: any) => {
             const val = curr.value || 0;
-            const cost = curr.estimated_cost || 0;
-            const actCost = curr.actual_cost || 0;
-
-            // Revenue and Cash calculations using shared pure functions
-            const rev = calculateRevenueFromPayments(curr.payments || [], curr.vat_rate ?? 10, curr.has_vat !== false, curr.actual_revenue || 0);
-            const cash = calculateCashReceived(curr.payments || []);
+            const rev = curr.actual_revenue || 0;
+            const adminProfit = curr.admin_profit || 0;
+            const revProfit = curr.rev_profit || 0;
+            const cash = curr.cash_received || 0;
 
             // Determine this unit's share percentage using shared helper
             let sharePct = 100;
@@ -849,12 +904,12 @@ export const ContractService = {
             const fraction = sharePct / 100;
 
             return {
-                totalContracts: acc.totalContracts + (sharePct > 0 ? 1 : 0),
+                totalContracts: acc.totalContracts + 1,
                 totalValue: acc.totalValue + val * fraction,
                 totalRevenue: acc.totalRevenue + rev * fraction,
-                totalProfit: acc.totalProfit + (val - cost) * fraction,
-                totalSigningProfit: acc.totalSigningProfit + (val - cost) * fraction,
-                totalRevenueProfit: acc.totalRevenueProfit + (rev > 0 ? Math.round((rev - actCost) * fraction) : 0),
+                totalProfit: acc.totalProfit + adminProfit * fraction,
+                totalSigningProfit: acc.totalSigningProfit + adminProfit * fraction,
+                totalRevenueProfit: acc.totalRevenueProfit + revProfit * fraction,
                 totalCash: acc.totalCash + cash * fraction,
                 activeCount: acc.activeCount + (['Processing', 'Acceptance', 'Handover'].includes(curr.status) ? 1 : 0),
                 pendingCount: acc.pendingCount + (curr.status === 'Pending' ? 1 : 0),

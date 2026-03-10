@@ -104,7 +104,7 @@ const Settings: React.FC = () => {
                                         : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
                                         }`}
                                 >
-                                    <div className="w-5 h-5 rounded-full bg-orange-500" />
+                                    <div className="w-5 h-5 rounded-full" style={{ backgroundColor: '#f97316' }} />
                                     <span className="font-bold text-sm">Cam (Mặc định)</span>
                                 </button>
                                 <button
@@ -114,7 +114,7 @@ const Settings: React.FC = () => {
                                         : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
                                         }`}
                                 >
-                                    <div className="w-5 h-5 rounded-full bg-sky-500" />
+                                    <div className="w-5 h-5 rounded-full" style={{ backgroundColor: '#0ea5e9' }} />
                                     <span className="font-bold text-sm">CIC Blue</span>
                                 </button>
                             </div>

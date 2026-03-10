@@ -217,9 +217,46 @@ export const LazyContractDetailPage: React.FC = () => {
 
 // ── Contract Form rendered inside a slide panel ──────────────────────────────
 const ContractFormInSlidePanel: React.FC<{ contractId?: string; cloneFrom?: any }> = ({ contractId, cloneFrom }) => {
-    const { closePanel } = useSlidePanel();
+    const { closePanel, lockPanel, unlockPanel, setOnCloseBlocked, forceClosePanel } = useSlidePanel();
     const [contract, setContract] = React.useState<Contract | null>(cloneFrom || null);
     const [loading, setLoading] = React.useState(!!contractId && !cloneFrom);
+    const isDirtyRef = React.useRef(false);
+
+    // Dirty-state based lock: only lock when form has actual changes
+    const handleDirtyChange = React.useCallback((isDirty: boolean) => {
+        isDirtyRef.current = isDirty;
+        if (isDirty) {
+            lockPanel();
+        } else {
+            unlockPanel();
+        }
+    }, [lockPanel, unlockPanel]);
+
+    // Show discard confirmation toast (shared between panel close & form X button)
+    const showDiscardConfirmation = React.useCallback(() => {
+        toast('Bạn có thay đổi chưa lưu', {
+            description: 'Vui lòng lưu hoặc bỏ thay đổi trước khi đóng.',
+            id: 'panel-save-confirm',
+            duration: 5000,
+            action: {
+                label: 'Bỏ thay đổi',
+                onClick: () => {
+                    forceClosePanel();
+                },
+            },
+        });
+    }, [forceClosePanel]);
+
+    // Register callback for when panel close is blocked
+    React.useEffect(() => {
+        setOnCloseBlocked(undefined, showDiscardConfirmation);
+        return () => { setOnCloseBlocked(undefined, null); };
+    }, [setOnCloseBlocked, showDiscardConfirmation]);
+
+    // Cleanup: unlock on unmount
+    React.useEffect(() => {
+        return () => { unlockPanel(); };
+    }, [unlockPanel]);
 
     React.useEffect(() => {
         if (contractId && !cloneFrom) {
@@ -240,11 +277,26 @@ const ContractFormInSlidePanel: React.FC<{ contractId?: string; cloneFrom?: any 
         );
     }
 
+    const handleClose = () => {
+        unlockPanel();
+        setTimeout(() => closePanel(), 10);
+    };
+
+    // onCancel: if dirty → show confirmation; if clean → close immediately
+    const handleCancel = () => {
+        if (isDirtyRef.current) {
+            showDiscardConfirmation();
+        } else {
+            handleClose();
+        }
+    };
+
     return (
         <div className="p-4 md:p-6 lg:p-8">
             <ContractForm
                 contract={contract || undefined}
                 isCloning={!!cloneFrom}
+                onDirtyChange={handleDirtyChange}
                 onSave={async (data) => {
                     try {
                         if (contractId && !cloneFrom) {
@@ -254,12 +306,12 @@ const ContractFormInSlidePanel: React.FC<{ contractId?: string; cloneFrom?: any 
                             await ContractService.create(data);
                             toast.success(cloneFrom ? 'Nhân bản hợp đồng thành công!' : 'Tạo hợp đồng thành công!');
                         }
-                        closePanel();
+                        handleClose();
                     } catch (e: any) {
                         toast.error('Lỗi: ' + (e.message || e));
                     }
                 }}
-                onCancel={() => closePanel()}
+                onCancel={handleCancel}
             />
         </div>
     );

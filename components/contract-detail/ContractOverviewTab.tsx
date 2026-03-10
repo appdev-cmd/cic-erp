@@ -13,6 +13,7 @@ import { formatVND } from '../../utils/contractHelpers';
 import { formatNumber } from '../../lib/utils';
 import PaymentForm from '../PaymentForm';
 import { usePermissionCheck } from '../../hooks/usePermissions';
+import { useSlidePanelSafe } from '../../contexts/SlidePanelContext';
 
 interface ContractOverviewTabProps {
     contract: Contract;
@@ -55,6 +56,18 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
     const [showVoucherForm, setShowVoucherForm] = useState(false);
     const [editingVoucher, setEditingVoucher] = useState<Payment | undefined>(undefined);
     const [voucherFormType, setVoucherFormType] = useState<VoucherType>('VAT_INVOICE');
+
+    // Panel lock: prevent accidental closure when form is open
+    const slidePanelCtx = useSlidePanelSafe();
+
+    useEffect(() => {
+        if (!slidePanelCtx) return;
+        if (showVoucherForm) {
+            slidePanelCtx.lockPanel();
+        } else {
+            slidePanelCtx.unlockPanel();
+        }
+    }, [showVoucherForm]);
 
     const canCreatePayment = can('payments', 'create');
     const canDeletePayment = can('payments', 'delete');

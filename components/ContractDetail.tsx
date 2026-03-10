@@ -425,7 +425,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                       className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors cursor-pointer"
                       title="Click để xem chi tiết khách hàng"
                     >
-                      {customerName}{customerShortName ? ` (${customerShortName})` : ''}
+                      {customerName}{customerShortName && !customerName.includes(customerShortName) ? ` (${customerShortName})` : ''}
                     </button>
                   ) : (
                     <b className="text-slate-700 dark:text-slate-200">{customerName}</b>
