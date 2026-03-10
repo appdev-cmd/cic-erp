@@ -513,8 +513,8 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
     const format = detectTemplateFormat(headerRow);
     const COL = getColumnMapping(format);
 
-    // ── Dynamic fee column detection ──────────────────────────────
-    // Scan header row AND sub-header row (next row) for exact fee column keywords.
+    // ── Dynamic column detection ──────────────────────────────
+    // Scan header row AND sub-header row (next row) for exact column keywords.
     // This overrides the static column mapping to handle merged/shifted headers.
     const rowsToScan = [headerRow, jsonData[headerRowIdx + 1] || []];
     for (const scanRow of rowsToScan) {
@@ -522,7 +522,30 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
             const cellText = String(scanRow[c] || '').toLowerCase().trim();
             if (!cellText) continue;
 
-            if ((cellText.includes('nhập') || cellText === 'nhập khẩu') && !cellText.includes('nhập từ') && !cellText.includes('đầu vào')) {
+            // Supplier/NCC column
+            if (cellText.includes('nhà cung cấp') || cellText.includes('nha cung cap') ||
+                cellText === 'ncc' || cellText.includes('nhập từ') || cellText.includes('nhap tu')) {
+                if (COL.SUPPLIER !== c) {
+                    console.log(`[PAKD Parser] Dynamic override: SUPPLIER ${COL.SUPPLIER} → ${c} (found "${cellText}")`);
+                    COL.SUPPLIER = c;
+                }
+            }
+            // Quantity column
+            if (cellText === 'sl' || cellText === 'số lượng' || cellText.includes('s.lượng') || cellText.includes('số lượng')) {
+                if (COL.QUANTITY !== c) {
+                    console.log(`[PAKD Parser] Dynamic override: QUANTITY ${COL.QUANTITY} → ${c} (found "${cellText}")`);
+                    COL.QUANTITY = c;
+                }
+            }
+            // Unit column
+            if (cellText === 'đvt' || cellText === 'dvt' || cellText === 'đơn vị tính') {
+                if (COL.UNIT !== c && COL.UNIT >= 0) {
+                    console.log(`[PAKD Parser] Dynamic override: UNIT ${COL.UNIT} → ${c} (found "${cellText}")`);
+                    COL.UNIT = c;
+                }
+            }
+            // Fee columns
+            if ((cellText.includes('nhập') || cellText === 'nhập khẩu') && !cellText.includes('nhập từ') && !cellText.includes('đầu vào') && !cellText.includes('nhà cung cấp')) {
                 if (COL.IMPORT_FEE !== c) {
                     console.log(`[PAKD Parser] Dynamic override: IMPORT_FEE ${COL.IMPORT_FEE} → ${c} (found "${cellText}")`);
                     COL.IMPORT_FEE = c;
@@ -542,7 +565,39 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
             }
         }
     }
-    console.log(`[PAKD Parser] Final fee columns: IMPORT_FEE=${COL.IMPORT_FEE}, CONTRACTOR_TAX=${COL.CONTRACTOR_TAX}, TRANSFER_FEE=${COL.TRANSFER_FEE}`);
+    console.log(`[PAKD Parser] Final columns: SUPPLIER=${COL.SUPPLIER}, QUANTITY=${COL.QUANTITY}, UNIT=${COL.UNIT}, IMPORT_FEE=${COL.IMPORT_FEE}, CONTRACTOR_TAX=${COL.CONTRACTOR_TAX}, TRANSFER_FEE=${COL.TRANSFER_FEE}`);
+
+    // ── Extra: Scan worksheet cells directly for header keywords ──
+    // This handles merged header cells that sheet_to_json might not expose correctly
+    for (let r = Math.max(0, headerRowIdx - 1); r <= headerRowIdx + 1; r++) {
+        for (let c = 0; c < 20; c++) {
+            const cellAddr = XLSX.utils.encode_cell({ r, c });
+            const cell = worksheet[cellAddr];
+            if (!cell || !cell.v) continue;
+            const cellText = String(cell.v).toLowerCase().trim();
+
+            if (cellText.includes('nhà cung cấp') || cellText.includes('nha cung cap') ||
+                cellText === 'ncc' || cellText === 'nhập từ' || cellText === 'nhap tu') {
+                if (COL.SUPPLIER !== c) {
+                    console.log(`[PAKD Parser] Worksheet override: SUPPLIER ${COL.SUPPLIER} → ${c} (found "${cellText}" at ${cellAddr})`);
+                    COL.SUPPLIER = c;
+                }
+            }
+            if (cellText === 'sl' || cellText === 'số lượng' || cellText.includes('s.lượng')) {
+                if (COL.QUANTITY !== c) {
+                    console.log(`[PAKD Parser] Worksheet override: QUANTITY ${COL.QUANTITY} → ${c} (found "${cellText}" at ${cellAddr})`);
+                    COL.QUANTITY = c;
+                }
+            }
+            if (cellText === 'đvt' || cellText === 'dvt') {
+                if (COL.UNIT !== c && COL.UNIT >= 0) {
+                    console.log(`[PAKD Parser] Worksheet override: UNIT ${COL.UNIT} → ${c} (found "${cellText}" at ${cellAddr})`);
+                    COL.UNIT = c;
+                }
+            }
+        }
+    }
+    console.log(`[PAKD Parser] After worksheet scan: SUPPLIER=${COL.SUPPLIER}, QUANTITY=${COL.QUANTITY}, UNIT=${COL.UNIT}`);
 
     const DATA_START_ROW = headerRowIdx + 1;
 
@@ -671,11 +726,29 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
         // Trích xuất thông tin ngoại tệ từ công thức đơn giá
         const foreignCurrency = extractForeignCurrencyFromFormula(worksheet, rowIndex, COL.UNIT_COST, header);
 
+        // Resolve supplier from merged cells if empty
+        let supplierValue = String(getCellValue(row, COL.SUPPLIER, '')).trim();
+        if (!supplierValue && COL.SUPPLIER >= 0) {
+            // Check if supplier cell belongs to a merged range
+            for (const merge of merges) {
+                if (merge.s.c <= COL.SUPPLIER && merge.e.c >= COL.SUPPLIER &&
+                    rowIndex >= merge.s.r && rowIndex <= merge.e.r) {
+                    const cellAddr = XLSX.utils.encode_cell({ r: merge.s.r, c: COL.SUPPLIER });
+                    const cell = worksheet[cellAddr];
+                    if (cell && cell.v) {
+                        supplierValue = String(cell.v).trim();
+                        console.log(`[PAKD Parser] Resolved supplier from merged cell ${cellAddr}: "${supplierValue}"`);
+                    }
+                    break;
+                }
+            }
+        }
+
         const item: PAKDLineItem = {
             id: `item-${Date.now()}-${rowIndex}`,
             stt: Number(getCellValue(row, COL.STT, lineItems.length + 1)) || lineItems.length + 1,
             name: String(getCellValue(row, COL.NAME, '')),
-            supplier: String(getCellValue(row, COL.SUPPLIER, '')),
+            supplier: supplierValue,
             quantity: Number(getCellValue(row, COL.QUANTITY, 0)) || 0,
             unit: String(getCellValue(row, COL.UNIT, 'VNĐ')),
             unitCost: Number(getCellValue(row, COL.UNIT_COST, 0)) || 0,
@@ -691,7 +764,7 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
             foreignCurrency,
         };
 
-        console.log(`[PAKD Parser] Item ${item.stt} "${item.name}": importFee=${item.importFee}, contractorTax=${item.contractorTax}, transferFee=${item.transferFee}`);
+        console.log(`[PAKD Parser] Item ${item.stt} "${item.name}" supplier="${item.supplier}": importFee=${item.importFee}, contractorTax=${item.contractorTax}, transferFee=${item.transferFee}`);
 
         lineItems.push(item);
         totalCostSum += item.totalCost;

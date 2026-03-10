@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Plus, Search, Filter, LayoutList, LayoutGrid, ChevronRight, ChevronDown,
     Folder as FolderIcon, List as ListIcon, MoreHorizontal, Settings2,
-    Calendar, Flag, User, Clock, CheckSquare, Trash2, Edit3, X,
-    AlertCircle, ArrowUpDown
+    Calendar as CalendarIcon, Flag, User, Clock, CheckSquare, Trash2, Edit3, X,
+    AlertCircle, ArrowUpDown, ChartNoAxesGantt, Table2, AlignHorizontalJustifyStart, BarChart3, Zap, Users
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { SpaceService, TaskService } from '../../services';
@@ -12,8 +12,17 @@ import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '../../constants';
 import { DEFAULT_STATUSES } from '../../services/taskService';
 import { toast } from 'sonner';
 import TaskBoard from './TaskBoard';
+import TaskCalendar from './TaskCalendar';
+import TaskGantt from './TaskGantt';
+import TaskTable from './TaskTable';
+import TaskTimeline from './TaskTimeline';
+import TaskDashboardWidgets from './TaskDashboardWidgets';
+import TaskAutomation from './TaskAutomation';
+import TaskWorkload from './TaskWorkload';
 import TaskDetail from './TaskDetail';
 import TaskForm from './TaskForm';
+
+type ViewMode = 'list' | 'board' | 'calendar' | 'gantt' | 'table' | 'timeline' | 'dashboard' | 'automation' | 'workload';
 
 interface Props {
     selectedUnit?: string;
@@ -40,7 +49,7 @@ const TaskListPage: React.FC<Props> = ({ selectedUnit }) => {
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
     // UI state
-    const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
+    const [viewMode, setViewMode] = useState<ViewMode>('list');
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [priorityFilter, setPriorityFilter] = useState('');
@@ -268,8 +277,8 @@ const TaskListPage: React.FC<Props> = ({ selectedUnit }) => {
                             <button
                                 onClick={() => { toggleSpace(space.id); setSelectedSpaceId(space.id); setSelectedListId(null); setPage(1); }}
                                 className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded text-sm transition-colors cursor-pointer ${selectedSpaceId === space.id && !selectedListId
-                                        ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
-                                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
+                                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                                     }`}
                             >
                                 {expandedSpaces.has(space.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -298,8 +307,8 @@ const TaskListPage: React.FC<Props> = ({ selectedUnit }) => {
                                                             key={list.id}
                                                             onClick={() => selectList(list.id, space.id)}
                                                             className={`w-full flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${selectedListId === list.id
-                                                                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                                ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
+                                                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                                                                 }`}
                                                         >
                                                             <ListIcon size={12} />
@@ -317,8 +326,8 @@ const TaskListPage: React.FC<Props> = ({ selectedUnit }) => {
                                             key={list.id}
                                             onClick={() => selectList(list.id, space.id)}
                                             className={`w-full flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors cursor-pointer ${selectedListId === list.id
-                                                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                                ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
+                                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                                                 }`}
                                         >
                                             <ListIcon size={12} />
@@ -409,20 +418,29 @@ const TaskListPage: React.FC<Props> = ({ selectedUnit }) => {
 
                     {/* View Mode Toggle */}
                     <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}
-                            title="Dạng danh sách"
-                        >
-                            <LayoutList size={16} />
-                        </button>
-                        <button
-                            onClick={() => setViewMode('board')}
-                            className={`p-1.5 rounded-md transition-colors ${viewMode === 'board' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}
-                            title="Dạng Kanban"
-                        >
-                            <LayoutGrid size={16} />
-                        </button>
+                        {[
+                            { mode: 'list' as ViewMode, icon: LayoutList, label: 'Danh sách' },
+                            { mode: 'board' as ViewMode, icon: LayoutGrid, label: 'Kanban' },
+                            { mode: 'calendar' as ViewMode, icon: CalendarIcon, label: 'Lịch' },
+                            { mode: 'gantt' as ViewMode, icon: ChartNoAxesGantt, label: 'Gantt' },
+                            { mode: 'table' as ViewMode, icon: Table2, label: 'Bảng' },
+                            { mode: 'timeline' as ViewMode, icon: AlignHorizontalJustifyStart, label: 'Timeline' },
+                            { mode: 'dashboard' as ViewMode, icon: BarChart3, label: 'Dashboard' },
+                            { mode: 'automation' as ViewMode, icon: Zap, label: 'Tự động' },
+                            { mode: 'workload' as ViewMode, icon: Users, label: 'Workload' },
+                        ].map(({ mode, icon: Icon, label }) => (
+                            <button
+                                key={mode}
+                                onClick={() => setViewMode(mode)}
+                                className={`p-1.5 rounded-md transition-colors cursor-pointer ${viewMode === mode
+                                    ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400'
+                                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                    }`}
+                                title={label}
+                            >
+                                <Icon size={16} />
+                            </button>
+                        ))}
                     </div>
 
                     {/* Create Task Button */}
@@ -471,6 +489,10 @@ const TaskListPage: React.FC<Props> = ({ selectedUnit }) => {
                                 <p className="text-sm mt-1">để xem danh sách công việc</p>
                             </div>
                         </div>
+                    ) : tasksLoading ? (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                        </div>
                     ) : viewMode === 'board' ? (
                         <TaskBoard
                             tasks={tasks}
@@ -479,14 +501,50 @@ const TaskListPage: React.FC<Props> = ({ selectedUnit }) => {
                             onSelectTask={setSelectedTaskId}
                             getPriorityInfo={getPriorityInfo}
                         />
+                    ) : viewMode === 'calendar' ? (
+                        <TaskCalendar
+                            tasks={tasks}
+                            statuses={currentStatuses}
+                            onSelectTask={setSelectedTaskId}
+                            onUpdateTask={handleUpdateTask}
+                            getPriorityInfo={getPriorityInfo}
+                        />
+                    ) : viewMode === 'gantt' ? (
+                        <TaskGantt
+                            tasks={tasks}
+                            statuses={currentStatuses}
+                            onSelectTask={setSelectedTaskId}
+                            onUpdateTask={handleUpdateTask}
+                            getPriorityInfo={getPriorityInfo}
+                        />
+                    ) : viewMode === 'table' ? (
+                        <TaskTable
+                            tasks={tasks}
+                            statuses={currentStatuses}
+                            onSelectTask={setSelectedTaskId}
+                            onUpdateTask={handleUpdateTask}
+                            getPriorityInfo={getPriorityInfo}
+                        />
+                    ) : viewMode === 'timeline' ? (
+                        <TaskTimeline
+                            tasks={tasks}
+                            onTaskClick={task => setSelectedTaskId(task.id)}
+                        />
+                    ) : viewMode === 'dashboard' ? (
+                        <TaskDashboardWidgets tasks={tasks} />
+                    ) : viewMode === 'automation' ? (
+                        <div className="p-4">
+                            <TaskAutomation spaceId={selectedSpaceId || ''} listId={selectedListId || undefined} />
+                        </div>
+                    ) : viewMode === 'workload' ? (
+                        <TaskWorkload
+                            tasks={tasks}
+                            onTaskClick={task => setSelectedTaskId(task.id)}
+                        />
                     ) : (
                         /* LIST VIEW */
                         <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {tasksLoading ? (
-                                <div className="flex items-center justify-center py-20">
-                                    <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                                </div>
-                            ) : tasks.length === 0 ? (
+                            {tasks.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-20 text-slate-500 dark:text-slate-400">
                                     <CheckSquare size={40} className="opacity-30 mb-3" />
                                     <p className="font-medium">Chưa có công việc nào</p>
@@ -535,8 +593,8 @@ const TaskListPage: React.FC<Props> = ({ selectedUnit }) => {
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <span className={`text-sm font-medium truncate ${task.status_id === 'status_done'
-                                                        ? 'text-slate-400 dark:text-slate-500 line-through'
-                                                        : 'text-slate-800 dark:text-slate-200'
+                                                    ? 'text-slate-400 dark:text-slate-500 line-through'
+                                                    : 'text-slate-800 dark:text-slate-200'
                                                     }`}>
                                                     {task.title}
                                                 </span>
@@ -573,10 +631,10 @@ const TaskListPage: React.FC<Props> = ({ selectedUnit }) => {
                                         {/* Due date */}
                                         {task.due_date && (
                                             <span className={`text-xs flex items-center gap-1 ${task.due_date < new Date().toISOString().slice(0, 10) && task.status_id !== 'status_done'
-                                                    ? 'text-red-500 dark:text-red-400'
-                                                    : 'text-slate-500 dark:text-slate-400'
+                                                ? 'text-red-500 dark:text-red-400'
+                                                : 'text-slate-500 dark:text-slate-400'
                                                 }`}>
-                                                <Calendar size={12} />
+                                                <CalendarIcon size={12} />
                                                 {new Date(task.due_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
                                             </span>
                                         )}

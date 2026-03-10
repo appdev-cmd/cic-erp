@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     X, Edit3, Trash2, ChevronDown, ChevronRight, Plus, Send,
     Calendar, Clock, Flag, User, Tag, Paperclip, MessageSquare,
-    CheckSquare, Activity, ExternalLink
+    CheckSquare, Activity, ExternalLink, Link2, Timer, Eye, EyeOff,
+    Play, Square, Hash, Type, ToggleLeft, Globe, Mail, DollarSign, CalendarDays, ListChecks
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { TaskService } from '../../services';
-import { Task, TaskStatus, TaskComment, Checklist, ChecklistItem, TaskActivity } from '../../types';
+import { Task, TaskStatus, TaskComment, Checklist, ChecklistItem, TaskActivity, TaskDependency, TimeEntry, TaskWatcher, CustomFieldType } from '../../types';
 import { TASK_PRIORITY_LABELS } from '../../constants';
 import { toast } from 'sonner';
 
@@ -31,7 +32,21 @@ const TaskDetail: React.FC<Props> = ({ taskId, statuses, onClose, onUpdate, onDe
     const [checklists, setChecklists] = useState<Checklist[]>([]);
     const [activities, setActivities] = useState<TaskActivity[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'subtasks' | 'comments' | 'checklist' | 'activity'>('subtasks');
+    const [activeTab, setActiveTab] = useState<'subtasks' | 'comments' | 'checklist' | 'activity' | 'dependencies' | 'time' | 'fields' | 'watchers'>('subtasks');
+
+    // Phase 2 states
+    const [dependencies, setDependencies] = useState<TaskDependency[]>([]);
+    const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+    const [watchers, setWatchers] = useState<TaskWatcher[]>([]);
+    const [isTimerRunning, setIsTimerRunning] = useState(false);
+    const [timerStart, setTimerStart] = useState<Date | null>(null);
+    const [timerElapsed, setTimerElapsed] = useState(0);
+    const [newTimeMinutes, setNewTimeMinutes] = useState('');
+    const [newTimeDesc, setNewTimeDesc] = useState('');
+    const [customFieldDraft, setCustomFieldDraft] = useState<Record<string, any>>({});
+    const [newFieldName, setNewFieldName] = useState('');
+    const [newFieldType, setNewFieldType] = useState<CustomFieldType>('text');
+    const [showAddField, setShowAddField] = useState(false);
 
     // Form states
     const [newComment, setNewComment] = useState('');
@@ -54,6 +69,16 @@ const TaskDetail: React.FC<Props> = ({ taskId, statuses, onClose, onUpdate, onDe
                 setActivities(detail.activities || []);
                 setTitleDraft(detail.title);
             }
+            // Load Phase 2 data (non-blocking)
+            Promise.all([
+                TaskService.getDependencies(taskId),
+                TaskService.getTimeEntries(taskId),
+                TaskService.getWatchers(taskId),
+            ]).then(([deps, entries, w]) => {
+                setDependencies(deps);
+                setTimeEntries(entries);
+                setWatchers(w);
+            }).catch(() => { /* tables may not exist yet */ });
         } catch (e: any) {
             toast.error('Lỗi tải chi tiết: ' + e.message);
         } finally {
@@ -62,6 +87,15 @@ const TaskDetail: React.FC<Props> = ({ taskId, statuses, onClose, onUpdate, onDe
     };
 
     useEffect(() => { loadTask(); }, [taskId]);
+
+    // Timer tick effect
+    useEffect(() => {
+        if (!isTimerRunning || !timerStart) return;
+        const interval = setInterval(() => {
+            setTimerElapsed(Math.round((Date.now() - timerStart.getTime()) / 1000));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [isTimerRunning, timerStart]);
 
     // Handlers
     const handleTitleSave = async () => {
@@ -240,6 +274,29 @@ const TaskDetail: React.FC<Props> = ({ taskId, statuses, onClose, onUpdate, onDe
                         </div>
                     </div>
 
+                    {/* Time Estimate & Spent */}
+                    <div className="flex items-center gap-4 text-sm">
+                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                            <Timer size={14} />
+                            <span className="text-xs">Ước tính:</span>
+                            <input
+                                type="number"
+                                min={0}
+                                value={task.time_estimate || ''}
+                                onChange={e => { onUpdate(taskId, { time_estimate: parseInt(e.target.value) || 0 }); loadTask(); }}
+                                placeholder="0"
+                                className="w-14 text-xs bg-transparent border-0 text-slate-700 dark:text-slate-300 focus:outline-none text-right"
+                            />
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">phút</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                            <Clock size={14} />
+                            <span className="text-xs">
+                                Đã dùng: <span className="font-medium text-slate-700 dark:text-slate-300">{task.time_spent || 0}p</span>
+                            </span>
+                        </div>
+                    </div>
+
                     {/* Description */}
                     {task.description && (
                         <div className="text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-lg p-3 whitespace-pre-wrap">
@@ -248,17 +305,20 @@ const TaskDetail: React.FC<Props> = ({ taskId, statuses, onClose, onUpdate, onDe
                     )}
 
                     {/* Tabs */}
-                    <div className="flex border-b border-slate-200 dark:border-slate-700 gap-1">
+                    <div className="flex border-b border-slate-200 dark:border-slate-700 gap-0.5 overflow-x-auto">
                         {[
-                            { key: 'subtasks', label: 'Subtask', icon: <CheckSquare size={14} />, count: subtasks.length },
-                            { key: 'comments', label: 'Bình luận', icon: <MessageSquare size={14} />, count: comments.length },
-                            { key: 'checklist', label: 'Checklist', icon: <CheckSquare size={14} />, count: checklists.reduce((s, c) => s + c.items.length, 0) },
-                            { key: 'activity', label: 'Nhật ký', icon: <Activity size={14} />, count: activities.length },
+                            { key: 'subtasks', label: 'Subtask', icon: <CheckSquare size={13} />, count: subtasks.length },
+                            { key: 'dependencies', label: 'Phụ thuộc', icon: <Link2 size={13} />, count: dependencies.length },
+                            { key: 'time', label: 'Thời gian', icon: <Timer size={13} />, count: timeEntries.length },
+                            { key: 'fields', label: 'Trường', icon: <Hash size={13} />, count: Object.keys(task.custom_fields || {}).length },
+                            { key: 'comments', label: 'Bình luận', icon: <MessageSquare size={13} />, count: comments.length },
+                            { key: 'checklist', label: 'Checklist', icon: <ListChecks size={13} />, count: checklists.reduce((s, c) => s + c.items.length, 0) },
+                            { key: 'activity', label: 'Nhật ký', icon: <Activity size={13} />, count: activities.length },
                         ].map(tab => (
                             <button
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key as any)}
-                                className={`flex items-center gap-1 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === tab.key
+                                className={`flex items-center gap-1 px-2 py-2 text-[11px] font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.key
                                     ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
                                     : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                                     }`}
@@ -418,6 +478,273 @@ const TaskDetail: React.FC<Props> = ({ taskId, statuses, onClose, onUpdate, onDe
                                 ))}
                                 {activities.length === 0 && (
                                     <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-4">Chưa có hoạt động</p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* DEPENDENCIES TAB */}
+                        {activeTab === 'dependencies' && (
+                            <div className="space-y-3">
+                                {/* Blocking */}
+                                <div>
+                                    <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Đang chặn bởi</h4>
+                                    {dependencies.filter(d => d.type === 'blocked_by').length === 0 ? (
+                                        <p className="text-xs text-slate-400 dark:text-slate-500">Không có</p>
+                                    ) : (
+                                        dependencies.filter(d => d.type === 'blocked_by').map(dep => (
+                                            <div key={dep.id} className="flex items-center gap-2 py-1.5 px-2 rounded bg-red-50 dark:bg-red-900/10 mb-1">
+                                                <Link2 size={12} className="text-red-400" />
+                                                <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">
+                                                    {dep.depends_on_task?.title || dep.depends_on_id}
+                                                </span>
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            await TaskService.removeDependency(dep.id);
+                                                            setDependencies(prev => prev.filter(d => d.id !== dep.id));
+                                                        } catch (e: any) { toast.error(e.message); }
+                                                    }}
+                                                    className="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Blocking others */}
+                                <div>
+                                    <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Đang chặn</h4>
+                                    {dependencies.filter(d => d.type === 'blocking').length === 0 ? (
+                                        <p className="text-xs text-slate-400 dark:text-slate-500">Không có</p>
+                                    ) : (
+                                        dependencies.filter(d => d.type === 'blocking').map(dep => (
+                                            <div key={dep.id} className="flex items-center gap-2 py-1.5 px-2 rounded bg-amber-50 dark:bg-amber-900/10 mb-1">
+                                                <Link2 size={12} className="text-amber-400" />
+                                                <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 truncate">
+                                                    {dep.task?.title || dep.task_id}
+                                                </span>
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            await TaskService.removeDependency(dep.id);
+                                                            setDependencies(prev => prev.filter(d => d.id !== dep.id));
+                                                        } catch (e: any) { toast.error(e.message); }
+                                                    }}
+                                                    className="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                <p className="text-[10px] text-slate-400 dark:text-slate-500 italic">Tính năng thêm phụ thuộc sẽ hỗ trợ trong phiên bản tiếp theo</p>
+                            </div>
+                        )}
+
+                        {/* TIME TRACKING TAB */}
+                        {activeTab === 'time' && (
+                            <div className="space-y-3">
+                                {/* Timer */}
+                                <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                                    <button
+                                        onClick={() => {
+                                            if (isTimerRunning) {
+                                                // Stop timer
+                                                const elapsed = Math.round((Date.now() - (timerStart?.getTime() || Date.now())) / 60000);
+                                                if (elapsed > 0) {
+                                                    TaskService.addTimeEntry(taskId, user?.id || '', elapsed, 'Bấm giờ tự động').then(() => {
+                                                        onUpdate(taskId, { time_spent: (task.time_spent || 0) + elapsed });
+                                                        loadTask();
+                                                    }).catch((e: any) => toast.error(e.message));
+                                                }
+                                                setIsTimerRunning(false);
+                                                setTimerStart(null);
+                                                setTimerElapsed(0);
+                                            } else {
+                                                // Start timer
+                                                setIsTimerRunning(true);
+                                                setTimerStart(new Date());
+                                            }
+                                        }}
+                                        className={`p-2 rounded-lg transition-colors ${isTimerRunning
+                                            ? 'bg-red-500 hover:bg-red-600 text-white'
+                                            : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                                            }`}
+                                    >
+                                        {isTimerRunning ? <Square size={14} /> : <Play size={14} />}
+                                    </button>
+                                    <div>
+                                        <div className="text-sm font-mono font-bold text-slate-800 dark:text-slate-200">
+                                            {isTimerRunning
+                                                ? `${Math.floor(timerElapsed / 60).toString().padStart(2, '0')}:${(timerElapsed % 60).toString().padStart(2, '0')}`
+                                                : '00:00'
+                                            }
+                                        </div>
+                                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                            {isTimerRunning ? 'Đang bấm giờ...' : 'Nhấn để bắt đầu'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Manual entry */}
+                                <div className="space-y-2">
+                                    <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Thêm thủ công</h4>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            value={newTimeMinutes}
+                                            onChange={e => setNewTimeMinutes(e.target.value)}
+                                            placeholder="Phút"
+                                            className="w-20 text-xs px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                        <input
+                                            value={newTimeDesc}
+                                            onChange={e => setNewTimeDesc(e.target.value)}
+                                            placeholder="Mô tả..."
+                                            className="flex-1 text-xs px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                        <button
+                                            onClick={async () => {
+                                                const mins = parseInt(newTimeMinutes);
+                                                if (!mins || mins <= 0) return;
+                                                try {
+                                                    await TaskService.addTimeEntry(taskId, user?.id || '', mins, newTimeDesc);
+                                                    onUpdate(taskId, { time_spent: (task.time_spent || 0) + mins });
+                                                    setNewTimeMinutes('');
+                                                    setNewTimeDesc('');
+                                                    loadTask();
+                                                    toast.success(`Đã thêm ${mins} phút`);
+                                                } catch (e: any) { toast.error(e.message); }
+                                            }}
+                                            className="px-2 py-1.5 rounded bg-indigo-500 hover:bg-indigo-600 text-white text-xs transition-colors"
+                                        >
+                                            <Plus size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Time entries list */}
+                                <div className="space-y-1">
+                                    {timeEntries.map(entry => (
+                                        <div key={entry.id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                                            <Clock size={12} className="text-slate-400 dark:text-slate-500" />
+                                            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 w-12">
+                                                {entry.duration_minutes}p
+                                            </span>
+                                            <span className="text-xs text-slate-600 dark:text-slate-400 flex-1 truncate">
+                                                {entry.description || 'Không có mô tả'}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                                                {entry.created_at ? new Date(entry.created_at).toLocaleDateString('vi-VN') : ''}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    {timeEntries.length === 0 && (
+                                        <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-4">Chưa có bản ghi thời gian</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* CUSTOM FIELDS TAB */}
+                        {activeTab === 'fields' && (
+                            <div className="space-y-3">
+                                {/* Existing custom fields */}
+                                {Object.entries(task.custom_fields || {}).map(([key, value]) => (
+                                    <div key={key} className="flex items-center gap-2">
+                                        <span className="text-xs font-medium text-slate-600 dark:text-slate-400 w-24 truncate" title={key}>
+                                            {key}
+                                        </span>
+                                        <input
+                                            value={customFieldDraft[key] !== undefined ? customFieldDraft[key] : (value || '')}
+                                            onChange={e => setCustomFieldDraft(prev => ({ ...prev, [key]: e.target.value }))}
+                                            onBlur={() => {
+                                                if (customFieldDraft[key] !== undefined) {
+                                                    const newFields = { ...(task.custom_fields || {}), [key]: customFieldDraft[key] };
+                                                    onUpdate(taskId, { custom_fields: newFields });
+                                                    setCustomFieldDraft(prev => { const n = { ...prev }; delete n[key]; return n; });
+                                                    loadTask();
+                                                }
+                                            }}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                            }}
+                                            className="flex-1 text-xs px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                const newFields = { ...(task.custom_fields || {}) };
+                                                delete newFields[key];
+                                                onUpdate(taskId, { custom_fields: newFields });
+                                                loadTask();
+                                            }}
+                                            className="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                ))}
+
+                                {Object.keys(task.custom_fields || {}).length === 0 && !showAddField && (
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-4">Chưa có trường tùy chỉnh</p>
+                                )}
+
+                                {/* Add new field */}
+                                {showAddField ? (
+                                    <div className="space-y-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800">
+                                        <div className="flex gap-2">
+                                            <input
+                                                autoFocus
+                                                value={newFieldName}
+                                                onChange={e => setNewFieldName(e.target.value)}
+                                                placeholder="Tên trường..."
+                                                className="flex-1 text-xs px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                            />
+                                            <select
+                                                value={newFieldType}
+                                                onChange={e => setNewFieldType(e.target.value as CustomFieldType)}
+                                                className="text-xs px-2 py-1.5 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none"
+                                            >
+                                                <option value="text">Văn bản</option>
+                                                <option value="number">Số</option>
+                                                <option value="date">Ngày</option>
+                                                <option value="checkbox">Checkbox</option>
+                                                <option value="url">URL</option>
+                                                <option value="email">Email</option>
+                                                <option value="currency">Tiền tệ</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    if (!newFieldName.trim()) return;
+                                                    const newFields = { ...(task.custom_fields || {}), [newFieldName.trim()]: '' };
+                                                    onUpdate(taskId, { custom_fields: newFields });
+                                                    setNewFieldName('');
+                                                    setShowAddField(false);
+                                                    loadTask();
+                                                    toast.success(`Đã thêm trường "${newFieldName}"`);
+                                                }}
+                                                className="text-xs px-3 py-1 rounded bg-indigo-500 hover:bg-indigo-600 text-white transition-colors"
+                                            >Thêm</button>
+                                            <button
+                                                onClick={() => { setShowAddField(false); setNewFieldName(''); }}
+                                                className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                            >Hủy</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setShowAddField(true)}
+                                        className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                                    >
+                                        <Plus size={14} /> Thêm trường
+                                    </button>
                                 )}
                             </div>
                         )}

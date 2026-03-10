@@ -92,11 +92,9 @@ export function getHiddenNavItems(role: UserRole, userUnitCode?: string, userEma
         hidden.add('tools');
     }
 
-    // Task Management: dev only (localhost + DEV_BYPASS_AUTH)
-    const isLocalDev = typeof window !== 'undefined'
-        && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        && import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
-    if (!isLocalDev) {
+    // Task Management: only for specific dev accounts
+    const TASKS_ALLOWED_EMAILS = ['hoangha@cic.com.vn', 'anhnq@cic.com.vn', 'haith@cic.com.vn'];
+    if (!userEmail || !TASKS_ALLOWED_EMAILS.includes(userEmail.toLowerCase())) {
         hidden.add('tasks');
         hidden.add('my-tasks');
     }

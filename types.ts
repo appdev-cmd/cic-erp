@@ -646,6 +646,56 @@ export interface TaskActivity {
   user?: { fullName: string; avatarUrl?: string };
 }
 
+
+export interface TaskDependency {
+  id: string;
+  task_id: string;
+  depends_on_id: string;
+  type: DependencyType;
+  created_by?: string;
+  created_at?: string;
+  // Joined
+  task?: { id: string; title: string; status_id: string };
+  depends_on_task?: { id: string; title: string; status_id: string };
+}
+
+export interface TimeEntry {
+  id: string;
+  task_id: string;
+  user_id: string;
+  start_time: string;
+  end_time?: string;
+  duration_minutes: number;
+  description?: string;
+  billable?: boolean;
+  created_at?: string;
+  // Joined
+  user?: { fullName: string; avatarUrl?: string };
+}
+
+export interface TaskWatcher {
+  id: string;
+  task_id: string;
+  user_id: string;
+  created_at?: string;
+  // Joined
+  user?: { fullName: string; avatarUrl?: string };
+}
+
+export type CustomFieldType = 'text' | 'number' | 'date' | 'select' | 'multi_select' | 'checkbox' | 'url' | 'email' | 'currency';
+
+export interface CustomFieldDefinition {
+  id: string;
+  space_id: string;
+  name: string;
+  field_type: CustomFieldType;
+  options?: string[]; // for select/multi_select
+  required?: boolean;
+  sort_order?: number;
+  created_at?: string;
+}
+
+
 // ============================================
 // WORKFLOW & PERMISSIONS
 // ============================================

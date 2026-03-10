@@ -14,13 +14,13 @@ export const getStatusColor = (status: ContractStatus | string): string => {
     switch (status) {
         case 'Active':
         case 'Processing':
-            return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800';
         case 'Pending':
+        case 'Reviewing':
+        case 'Draft':
+            return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800';
         case 'Pending_Review':
         case 'Pending_Sign':
             return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800';
-        case 'Reviewing':
-            return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800';
         case 'Suspended':
             return 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400 border border-rose-200 dark:border-rose-800';
         case 'Overdue_Advance':

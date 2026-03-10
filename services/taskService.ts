@@ -450,4 +450,115 @@ export const TaskService = {
         if (error) throw error;
         return data || [];
     },
+
+    // ===================== DEPENDENCIES =====================
+
+    async getDependencies(taskId: string): Promise<any[]> {
+        const { data, error } = await supabase
+            .from('task_dependencies')
+            .select('*')
+            .or(`task_id.eq.${taskId},depends_on_id.eq.${taskId}`)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            // Table might not exist yet — return empty
+            console.warn('task_dependencies table might not exist:', error.message);
+            return [];
+        }
+        return data || [];
+    },
+
+    async addDependency(taskId: string, dependsOnTaskId: string, depType: string, userId?: string): Promise<any> {
+        const { data, error } = await supabase
+            .from('task_dependencies')
+            .insert({
+                task_id: taskId,
+                depends_on_id: dependsOnTaskId,
+                type: depType,
+                created_by: userId,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    async removeDependency(id: string): Promise<void> {
+        const { error } = await supabase
+            .from('task_dependencies')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+    },
+
+    // ===================== TIME TRACKING =====================
+
+    async getTimeEntries(taskId: string): Promise<any[]> {
+        const { data, error } = await supabase
+            .from('time_entries')
+            .select('*')
+            .eq('task_id', taskId)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            // Table might not exist yet — return empty
+            console.warn('time_entries table might not exist:', error.message);
+            return [];
+        }
+        return data || [];
+    },
+
+    async addTimeEntry(taskId: string, userId: string, durationMinutes: number, description?: string): Promise<any> {
+        const { data, error } = await supabase
+            .from('time_entries')
+            .insert({
+                task_id: taskId,
+                user_id: userId,
+                duration_minutes: durationMinutes,
+                description: description || null,
+                start_time: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // ===================== WATCHERS =====================
+
+    async getWatchers(taskId: string): Promise<any[]> {
+        const { data, error } = await supabase
+            .from('task_watchers')
+            .select('*')
+            .eq('task_id', taskId);
+
+        if (error) {
+            console.warn('task_watchers table might not exist:', error.message);
+            return [];
+        }
+        return data || [];
+    },
+
+    async addWatcher(taskId: string, userId: string): Promise<any> {
+        const { data, error } = await supabase
+            .from('task_watchers')
+            .insert({ task_id: taskId, user_id: userId })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    async removeWatcher(id: string): Promise<void> {
+        const { error } = await supabase
+            .from('task_watchers')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+    },
 };
