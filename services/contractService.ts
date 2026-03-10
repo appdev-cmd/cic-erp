@@ -519,12 +519,14 @@ export const ContractService = {
         status?: string;
         unitId?: string;
         year?: string;
+        dateFrom?: string;
+        dateTo?: string;
         salespersonId?: string;
         sortBy?: string;
         sortDir?: 'asc' | 'desc';
         matchingCustomerIds?: string[];
     }): Promise<{ data: Contract[]; count: number }> => {
-        const { page, limit, search, status, unitId, year, salespersonId, sortBy, sortDir, matchingCustomerIds } = params;
+        const { page, limit, search, status, unitId, year, dateFrom, dateTo, salespersonId, sortBy, sortDir, matchingCustomerIds } = params;
 
         // Build search OR filter including customer short name matches
         const buildSearchFilter = (searchTerm: string, customerIds?: string[]): string => {
@@ -551,7 +553,10 @@ export const ContractService = {
             if (status && status !== 'All') {
                 query = query.eq('status', status);
             }
-            if (year && year !== 'All') {
+            if (dateFrom || dateTo) {
+                if (dateFrom) query = query.gte('signed_date', dateFrom);
+                if (dateTo) query = query.lte('signed_date', dateTo);
+            } else if (year && year !== 'All') {
                 const startDate = `${year}-01-01`;
                 const endDate = `${year}-12-31`;
                 query = query.gte('signed_date', startDate).lte('signed_date', endDate);
@@ -622,7 +627,10 @@ export const ContractService = {
                     query = query.eq('unit_id', unitId);
                 }
             }
-            if (year && year !== 'All') {
+            if (dateFrom || dateTo) {
+                if (dateFrom) query = query.gte('signed_date', dateFrom);
+                if (dateTo) query = query.lte('signed_date', dateTo);
+            } else if (year && year !== 'All') {
                 const startDate = `${year}-01-01`;
                 const endDate = `${year}-12-31`;
                 query = query.gte('signed_date', startDate).lte('signed_date', endDate);
@@ -688,6 +696,8 @@ export const ContractService = {
         status?: string;
         unitId?: string;
         year?: string;
+        dateFrom?: string;
+        dateTo?: string;
         salespersonId?: string;
         matchingCustomerIds?: string[];
     }): Promise<{
@@ -706,7 +716,7 @@ export const ContractService = {
         overduePaymentCount: number,
         completedCount: number
     }> => {
-        const { search, status, unitId, year, salespersonId, matchingCustomerIds } = params;
+        const { search, status, unitId, year, dateFrom, dateTo, salespersonId, matchingCustomerIds } = params;
 
         // Build search OR filter including customer short name matches
         const buildSearchFilter = (searchTerm: string, customerIds?: string[]): string => {
@@ -727,7 +737,10 @@ export const ContractService = {
             query = query.eq('status', status);
         }
         // NOTE: Unit filter is NOT applied at SQL level — done in JS below for allocation support
-        if (year && year !== 'All') {
+        if (dateFrom || dateTo) {
+            if (dateFrom) query = query.gte('signed_date', dateFrom);
+            if (dateTo) query = query.lte('signed_date', dateTo);
+        } else if (year && year !== 'All') {
             const startDate = `${year}-01-01`;
             const endDate = `${year}-12-31`;
             query = query.gte('signed_date', startDate).lte('signed_date', endDate);
@@ -744,7 +757,10 @@ export const ContractService = {
         if (search) {
             statusCountQuery = statusCountQuery.or(buildSearchFilter(search, matchingCustomerIds));
         }
-        if (year && year !== 'All') {
+        if (dateFrom || dateTo) {
+            if (dateFrom) statusCountQuery = statusCountQuery.gte('signed_date', dateFrom);
+            if (dateTo) statusCountQuery = statusCountQuery.lte('signed_date', dateTo);
+        } else if (year && year !== 'All') {
             const startDate = `${year}-01-01`;
             const endDate = `${year}-12-31`;
             statusCountQuery = statusCountQuery.gte('signed_date', startDate).lte('signed_date', endDate);

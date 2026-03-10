@@ -8,6 +8,7 @@ import {
     UnitAllocation, EmployeeAllocation
 } from '../../types';
 import SearchableSelect from '../ui/SearchableSelect';
+import DateInput from '../ui/DateInput';
 import { CustomerService } from '../../services';
 import UnitAllocationsInput from './UnitAllocationsInput';
 
@@ -329,11 +330,9 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                         <label className="text-[11px] font-bold text-slate-500 uppercase ml-1 flex items-center gap-1">
                             <Calendar size={10} /> Ngày ký kết
                         </label>
-                        <input
-                            type="date"
+                        <DateInput
                             value={signedDate}
-                            onChange={(e) => setSignedDate(e.target.value)}
-                            style={{ colorScheme: 'dark' }}
+                            onChange={setSignedDate}
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 transition-all"
                         />
                     </div>

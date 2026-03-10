@@ -2,6 +2,7 @@
 import React from 'react';
 import { DollarSign, Calculator, X, Receipt, CreditCard } from 'lucide-react';
 import { PaymentSchedule, RevenueSchedule } from '../../types';
+import DateInput from '../ui/DateInput';
 
 interface ContractFormStep3Props {
     revenueSchedules: RevenueSchedule[];
@@ -46,15 +47,13 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                             <div key={rev.id} className="grid grid-cols-12 gap-2 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
                                 <div className="col-span-4 space-y-1">
                                     <label className="text-[9px] text-slate-400 font-bold uppercase">Ngày XHĐ</label>
-                                    <input
-                                        type="date"
+                                    <DateInput
                                         value={rev.date}
-                                        onChange={(e) => {
+                                        onChange={(val) => {
                                             const newSched = [...revenueSchedules];
-                                            newSched[idx].date = e.target.value;
+                                            newSched[idx].date = val;
                                             setRevenueSchedules(newSched);
                                         }}
-                                        style={{ colorScheme: 'dark' }}
                                         className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
                                     />
                                 </div>
@@ -115,15 +114,13 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                             <div key={pay.id} className="grid grid-cols-12 gap-2 bg-emerald-50/50 dark:bg-emerald-900/20 p-3 rounded-lg border border-emerald-100 dark:border-emerald-800">
                                 <div className="col-span-4 space-y-1">
                                     <label className="text-[9px] text-slate-400 font-bold uppercase">Ngày thanh toán</label>
-                                    <input
-                                        type="date"
+                                    <DateInput
                                         value={pay.date}
-                                        onChange={(e) => {
+                                        onChange={(val) => {
                                             const newSched = [...paymentSchedules];
-                                            newSched[idx].date = e.target.value;
+                                            newSched[idx].date = val;
                                             setPaymentSchedules(newSched);
                                         }}
-                                        style={{ colorScheme: 'dark' }}
                                         className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
                                     />
                                 </div>
@@ -193,15 +190,13 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                         <div key={pay.id} className="grid grid-cols-12 gap-2 bg-rose-50/50 dark:bg-rose-900/10 p-3 rounded-lg border border-rose-100 dark:border-rose-800">
                             <div className="col-span-4 space-y-1">
                                 <label className="text-[9px] text-slate-400 font-bold uppercase">Hạn thanh toán</label>
-                                <input
-                                    type="date"
+                                <DateInput
                                     value={pay.date}
-                                    onChange={(e) => {
+                                    onChange={(val) => {
                                         const newSched = [...supplierSchedules];
-                                        newSched[idx].date = e.target.value;
+                                        newSched[idx].date = val;
                                         setSupplierSchedules(newSched);
                                     }}
-                                    style={{ colorScheme: 'dark' }}
                                     className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
                                 />
                             </div>

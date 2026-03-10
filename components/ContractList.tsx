@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Check, Clock, AlertCircle, FileText, CheckCircle, PackageCheck } from 'lucide-react';
+import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Check, Clock, AlertCircle, FileText, CheckCircle, PackageCheck, X } from 'lucide-react';
 import { ContractService, EmployeeService, UnitService } from '../services';
 import { ContractStatus, Unit, Contract, Employee, UserRole } from '../types';
 import { CONTRACT_STATUS_LABELS } from '../constants';
@@ -15,6 +15,7 @@ import { usePermissionCheck } from '../hooks/usePermissions';
 import { formatVND as formatCurrency, getStatusColor } from '../utils/contractHelpers';
 import { formatDate } from '../utils/formatters';
 import { useLayoutContext } from './layout/MainLayout';
+import DateInput from './ui/DateInput';
 
 // Inline debounce hook if not exists, but better to check. 
 // For now, I'll use a simple useEffect debounce logic.
@@ -44,6 +45,10 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [searchTerm, setSearchTerm] = useState('');
   const [salespersonFilter, setSalespersonFilter] = useState<string>('All');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Date range filter (overrides year filter when set)
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
 
   // Infinite scroll batch size
   const PAGE_SIZE = 20;
@@ -297,7 +302,10 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
             query = query.eq('unit_id', effectiveUnitId);
           }
         }
-        if (yearFilter && yearFilter !== 'All') {
+        if (dateFrom || dateTo) {
+          if (dateFrom) query = query.gte('signed_date', dateFrom);
+          if (dateTo) query = query.lte('signed_date', dateTo);
+        } else if (yearFilter && yearFilter !== 'All') {
           query = query.gte('signed_date', `${yearFilter}-01-01`).lte('signed_date', `${yearFilter}-12-31`);
         }
         const { data } = await query;
@@ -308,7 +316,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       }
     };
     fetchSalespersonIds();
-  }, [effectiveUnitId, yearFilter]);
+  }, [effectiveUnitId, yearFilter, dateFrom, dateTo]);
 
   // Compute matching customer IDs when search matches customer short names (tên viết tắt)
   const matchingCustomerIds = useMemo(() => {
@@ -332,6 +340,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       status: statusFilter,
       unitId: effectiveUnitId,
       year: yearFilter,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
       salespersonId: salespersonFilter !== 'All' ? salespersonFilter : undefined,
       sortBy: sortBy || undefined,
       sortDir: sortBy ? sortDir : undefined,
@@ -350,7 +360,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       hasMore: listRes.data.length >= PAGE_SIZE,
       totalCount: listRes.count
     };
-  }, [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, sortBy, sortDir, matchingCustomerIds]);
+  }, [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, dateFrom, dateTo, sortBy, sortDir, matchingCustomerIds]);
 
   const {
     items: contracts,
@@ -364,7 +374,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   } = useInfiniteScroll<Contract>({
     fetchFn: fetchContractPage,
     pageSize: PAGE_SIZE,
-    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, sortBy, sortDir, matchingCustomerIds]
+    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, dateFrom, dateTo, sortBy, sortDir, matchingCustomerIds]
   });
 
   // Tự động sinh danh sách 5 năm gần nhất
@@ -431,7 +441,9 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   search: debouncedSearch,
                   status: statusFilter,
                   unitId: effectiveUnitId,
-                  year: yearFilter
+                  year: yearFilter,
+                  dateFrom: dateFrom || undefined,
+                  dateTo: dateTo || undefined,
                 });
 
                 // Map to export format
@@ -620,25 +632,52 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               ))}
           </select>
         </div>
+
+        {/* Date Range Filter */}
+        <div className="flex items-center gap-1.5">
+          <Calendar size={15} className="text-slate-400 flex-shrink-0" />
+          <DateInput
+            value={dateFrom}
+            onChange={(v) => { setDateFrom(v); if (v) setYearFilter('All'); }}
+            placeholder="Từ ngày"
+            className="w-[120px] px-2.5 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <span className="text-slate-400 text-xs">→</span>
+          <DateInput
+            value={dateTo}
+            onChange={(v) => { setDateTo(v); if (v) setYearFilter('All'); }}
+            placeholder="Đến ngày"
+            className="w-[120px] px-2.5 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          {(dateFrom || dateTo) && (
+            <button
+              onClick={() => { setDateFrom(''); setDateTo(''); }}
+              className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+              title="Xóa bộ lọc ngày"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* TABLE */}
       <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]">
-        <table className="w-full table-fixed text-left">
+        <table className="w-full text-left" style={{ tableLayout: 'fixed' }}>
           <thead>
             <tr className="z-20">
               {[
-                { label: 'STT', align: 'center', width: 'w-10' },
-                { label: 'Số HĐ', align: 'center', sortKey: 'signedDate', width: 'w-[150px]', dataAlign: 'left' },
+                { label: 'STT', align: 'center', width: 'w-[3%]' },
+                { label: 'Số HĐ', align: 'center', sortKey: 'signedDate', width: 'w-[12%]', dataAlign: 'left' },
                 { label: 'Nội dung hợp đồng', align: 'center', sortKey: 'title', dataAlign: 'left' },
-                { label: 'Ký kết', align: 'center', sortKey: 'value', width: 'w-[90px]', dataAlign: 'right' },
-                { label: 'Doanh thu TT', align: 'center', sortKey: 'actualRevenue', width: 'w-[95px]', dataAlign: 'right' },
-                { label: 'Tiền về TT', align: 'center', width: 'w-[90px]', dataAlign: 'right' },
-                { label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit', width: 'w-[90px]', dataAlign: 'right' },
-                { label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit', width: 'w-[90px]', dataAlign: 'right' },
-                { label: 'Tỷ suất LN/DT', align: 'center', width: 'w-[55px]', dataAlign: 'right' },
-                { label: 'Trạng thái', align: 'center', sortKey: 'status', width: 'w-[95px]', dataAlign: 'left' },
-                { label: '', align: 'center', width: 'w-10' },
+                { label: 'Ký kết', align: 'center', sortKey: 'value', width: 'w-[9%]', dataAlign: 'right' },
+                { label: 'Doanh thu TT', align: 'center', sortKey: 'actualRevenue', width: 'w-[9%]', dataAlign: 'right' },
+                { label: 'Tiền về TT', align: 'center', width: 'w-[9%]', dataAlign: 'right' },
+                { label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit', width: 'w-[9%]', dataAlign: 'right' },
+                { label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit', width: 'w-[9%]', dataAlign: 'right' },
+                { label: 'Tỷ suất LN/DT', align: 'center', width: 'w-[5%]', dataAlign: 'right' },
+                { label: 'Trạng thái', align: 'center', sortKey: 'status', width: 'w-[10%]', dataAlign: 'left' },
+                { label: '', align: 'center', width: 'w-[3%]' },
               ].map((col, idx) => (
                 <th
                   key={idx}
@@ -880,7 +919,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                           setStatusDropdownId(statusDropdownId === contract.id ? null : contract.id);
                         }}
                         disabled={changingStatusId === contract.id}
-                        className={`group/status w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold shadow-sm transition-all focus:ring-2 focus:ring-orange-500 cursor-pointer ${contract.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/20' :
+                        className={`group/status w-full flex items-center justify-start gap-1.5 px-2 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold shadow-sm transition-all focus:ring-2 focus:ring-orange-500 cursor-pointer ${contract.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/20' :
                           contract.status === 'Processing' ? 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 hover:bg-orange-500/20' :
                             contract.status === 'Suspended' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 hover:bg-rose-500/20' :
                               contract.status === 'Overdue_Advance' ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 hover:bg-amber-500/20' :
