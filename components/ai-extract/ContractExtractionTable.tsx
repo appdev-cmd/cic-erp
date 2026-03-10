@@ -25,18 +25,46 @@ export const ContractExtractionTable: React.FC<{
 
     // Load units on mount
     useEffect(() => {
-        UnitService.getAll().then(u => setUnits(u.filter(x => x.id !== 'all').map(x => ({ id: x.id, name: x.name }))));
+        UnitService.getAll().then(u => {
+            const filtered = u.filter(x => x.id !== 'all').map(x => ({ id: x.id, name: x.name }));
+            setUnits(filtered);
+
+            // Auto-match unit from first row's unitName
+            const firstUnitName = (data[0] as any)?.unitName;
+            if (firstUnitName && !unitId) {
+                const matched = filtered.find(unit =>
+                    unit.name.toLowerCase() === firstUnitName.toLowerCase() ||
+                    unit.name.toLowerCase().includes(firstUnitName.toLowerCase()) ||
+                    firstUnitName.toLowerCase().includes(unit.name.toLowerCase())
+                );
+                if (matched) setUnitId(matched.id);
+            }
+        });
     }, []);
 
-    // Load employees when unit changes
+    // Load employees when unit changes, then auto-match salesperson from row data
     useEffect(() => {
         setGlobalSalespersonId('');
-        // Reset per-row salesperson when unit changes
-        setEditRows(prev => prev.map(r => ({ ...r, salespersonId: '' })));
         const promise = unitId
             ? EmployeeService.getByUnitId(unitId)
             : EmployeeService.getAll();
-        promise.then(e => setEmployees(e.map(x => ({ id: x.id, name: x.name }))));
+        promise.then(e => {
+            const empList = e.map(x => ({ id: x.id, name: x.name }));
+            setEmployees(empList);
+
+            // Auto-match salesperson from row-level salespersonName
+            setEditRows(prev => prev.map(r => {
+                if (r.salespersonId) return r; // Already set, skip
+                const spName = (r as any).salespersonName;
+                if (!spName) return r;
+                const matched = empList.find(emp =>
+                    emp.name.toLowerCase() === spName.toLowerCase() ||
+                    emp.name.toLowerCase().includes(spName.toLowerCase()) ||
+                    spName.toLowerCase().includes(emp.name.toLowerCase())
+                );
+                return matched ? { ...r, salespersonId: matched.id } : r;
+            }));
+        });
     }, [unitId]);
 
     // When global salesperson changes, apply to all rows that don't have one set
@@ -65,9 +93,9 @@ export const ContractExtractionTable: React.FC<{
     const fmtMoney = (v?: number) => v != null ? v.toLocaleString('vi-VN') : '—';
 
     const selectedRows = editRows.filter((_, i) => selected.has(i));
-    // Check all selected rows have salespersonId
-    const allSelectedHaveSalesperson = selectedRows.every(r => r.salespersonId);
-    const canSave = selectedRows.length > 0 && unitId && allSelectedHaveSalesperson;
+    // Check all selected rows have salespersonId OR salespersonName (will be resolved on save)
+    const allSelectedHaveSalesperson = selectedRows.every(r => r.salespersonId || (r as any).salespersonName);
+    const canSave = selectedRows.length > 0 && (unitId || selectedRows.every(r => (r as any).unitName));
 
     // Editable cell component
     const EditableText = ({ row, col, value, className }: { row: number; col: string; value: string; className?: string }) => {
@@ -177,6 +205,7 @@ export const ContractExtractionTable: React.FC<{
                             </th>
                             <th className="px-3 py-2 text-left font-bold text-slate-600 dark:text-slate-300">Số HĐ</th>
                             <th className="px-3 py-2 text-left font-bold text-slate-600 dark:text-slate-300">Khách hàng</th>
+                            <th className="px-3 py-2 text-left font-bold text-slate-600 dark:text-slate-300">MST</th>
                             <th className="px-3 py-2 text-left font-bold text-slate-600 dark:text-slate-300">Nội dung</th>
                             <th className="px-3 py-2 text-right font-bold text-slate-600 dark:text-slate-300">Giá trị ký</th>
                             <th className="px-3 py-2 text-center font-bold text-slate-600 dark:text-slate-300">Ngày ký</th>
@@ -206,6 +235,9 @@ export const ContractExtractionTable: React.FC<{
                                 </td>
                                 <td className="px-3 py-2 max-w-[200px]">
                                     <EditableText row={idx} col="customerName" value={row.customerName} className="text-slate-700 dark:text-slate-300" />
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                    <EditableText row={idx} col="customerTaxCode" value={(row as any).customerTaxCode || ''} className="text-slate-500 dark:text-slate-400 font-mono text-[10px]" />
                                 </td>
                                 <td className="px-3 py-2">
                                     <EditableText row={idx} col="content" value={row.content || ''} className="text-slate-600 dark:text-slate-400" />
@@ -243,14 +275,14 @@ export const ContractExtractionTable: React.FC<{
 
             {/* Save Button */}
             <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700">
-                {!unitId && (
+                {!unitId && !selectedRows.every(r => (r as any).unitName) && (
                     <p className="text-xs text-rose-500 dark:text-rose-400 mb-2 text-center">
-                        ⚠️ Vui lòng chọn <b>Đơn vị</b> trước khi nạp
+                        ⚠️ Vui lòng chọn <b>Đơn vị</b> trước khi nạp (hoặc đảm bảo dữ liệu có cột Đơn vị)
                     </p>
                 )}
-                {unitId && !allSelectedHaveSalesperson && (
-                    <p className="text-xs text-rose-500 dark:text-rose-400 mb-2 text-center">
-                        ⚠️ Vui lòng chọn <b>Người thực hiện</b> cho từng hợp đồng (hoặc dùng nút "Gán tất cả" ở trên)
+                {!allSelectedHaveSalesperson && (
+                    <p className="text-xs text-amber-500 dark:text-amber-400 mb-2 text-center">
+                        ℹ️ Một số HĐ chưa có <b>Người thực hiện</b>. Chọn thủ công hoặc dùng {'"'}Gán tất cả{'"'}
                     </p>
                 )}
                 <button

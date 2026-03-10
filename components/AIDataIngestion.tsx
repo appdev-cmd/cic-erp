@@ -277,33 +277,71 @@ const AIDataIngestion: React.FC = () => {
         const failMessages: string[] = [];
 
         try {
+            // Pre-fetch units and employees for name-based matching
+            const { UnitService } = await import('../services/unitService');
+            const { EmployeeService } = await import('../services/employeeService');
+            const allUnits = await UnitService.getAll();
+            const allEmployees = await EmployeeService.getAll();
+
             for (const row of rows) {
                 try {
-                    // 1. Lookup customer by name — auto-create if not found
+                    // 1. Resolve unitId: row.unitName → match by name, fallback to global unitId
+                    let resolvedUnitId = unitId;
+                    if ((row as any).unitName) {
+                        const matchedUnit = allUnits.find(u =>
+                            u.name.toLowerCase() === (row as any).unitName.toLowerCase() ||
+                            u.name.toLowerCase().includes((row as any).unitName.toLowerCase()) ||
+                            (row as any).unitName.toLowerCase().includes(u.name.toLowerCase())
+                        );
+                        if (matchedUnit) resolvedUnitId = matchedUnit.id;
+                    }
+
+                    // 2. Resolve salespersonId: row.salespersonName → match by name, fallback to global
+                    let resolvedSalespersonId = (row as any).salespersonId || salespersonId;
+                    if ((row as any).salespersonName) {
+                        const matchedEmployee = allEmployees.find(e =>
+                            e.name.toLowerCase() === (row as any).salespersonName.toLowerCase() ||
+                            e.name.toLowerCase().includes((row as any).salespersonName.toLowerCase()) ||
+                            (row as any).salespersonName.toLowerCase().includes(e.name.toLowerCase())
+                        );
+                        if (matchedEmployee) resolvedSalespersonId = matchedEmployee.id;
+                    }
+
+                    // 3. Lookup customer: by MST first, then by name → auto-create if not found
                     let customerId = '';
-                    if (row.customerName && row.customerName.length >= 2) {
+                    const taxCode = (row as any).customerTaxCode?.trim();
+                    if (taxCode) {
+                        const existing = await CustomerService.findByTaxCode(taxCode);
+                        if (existing) {
+                            customerId = existing.id;
+                        }
+                    }
+                    if (!customerId && row.customerName && row.customerName.length >= 2) {
                         const customers = await CustomerService.search(row.customerName, 1);
                         if (customers.length > 0) {
                             customerId = customers[0].id;
-                        } else {
-                            try {
-                                const newCustomer = await CustomerService.create({
-                                    name: row.customerName,
-                                    shortName: '',
-                                    contactPerson: row.contactPerson || '',
-                                    phone: '',
-                                    email: '',
-                                    address: '',
-                                    industry: [],
-                                } as any);
-                                customerId = newCustomer.id;
-                            } catch (custErr) {
-                                console.warn(`[AI] Auto-create customer failed:`, custErr);
-                            }
+                        }
+                    }
+                    // Auto-create customer if not found
+                    if (!customerId && row.customerName && row.customerName.length >= 2) {
+                        try {
+                            const newCustomer = await CustomerService.create({
+                                name: row.customerName,
+                                shortName: '',
+                                taxCode: taxCode || '',
+                                contactPerson: row.contactPerson || '',
+                                phone: '',
+                                email: '',
+                                address: '',
+                                industry: [],
+                            } as any);
+                            customerId = newCustomer.id;
+                        } catch (custErr) {
+                            console.warn(`[AI] Auto-create customer failed:`, custErr);
                         }
                     }
 
-                    // 2. Check if contract already exists (by title)
+                    // 4. Check if contract already exists (by title)
                     const existing = await ContractService.findByTitle(row.contractCode);
 
                     // Sanitize contract ID: replace / with -
@@ -318,8 +356,8 @@ const AIDataIngestion: React.FC = () => {
                         startDate: row.signedDate || null,
                         endDate: null,
                         actualRevenue: row.acceptanceValue || 0,
-                        unitId,
-                        salespersonId: (row as any).salespersonId || salespersonId,
+                        unitId: resolvedUnitId,
+                        salespersonId: resolvedSalespersonId,
                         contacts: row.contactPerson ? [{ id: crypto.randomUUID(), name: row.contactPerson, role: 'Đầu mối' }] : [],
                     };
 

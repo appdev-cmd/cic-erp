@@ -256,7 +256,7 @@ export const CustomerService = {
             .from('customers')
             .select('*')
             .ilike('name', name.trim())
-            .eq('type', 'Supplier')
+            .in('type', ['Supplier', 'Both'])
             .limit(1);
 
         if (searchError) throw searchError;

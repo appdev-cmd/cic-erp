@@ -35,7 +35,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     initialOptions = [],
     getDisplayValue,
     onAddNew,
-    addNewLabel = '+ Thêm mới',
+    addNewLabel = 'Thêm mới',
     size = 'md',
 }) => {
     const [isOpen, setIsOpen] = useState(false);

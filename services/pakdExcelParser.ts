@@ -687,7 +687,7 @@ export function parsePAKDWorkbook(workbook: XLSX.WorkBook): ParsedPAKD {
             transferFee: transferFeeVal,
             margin,
             marginPercent,
-            vatRate: 10, // Default VAT rate for line item
+            vatRate: 0, // Default VAT rate for line item (0% mặc định)
             foreignCurrency,
         };
 

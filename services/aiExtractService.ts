@@ -4,7 +4,10 @@ import { Customer } from '../types';
 export interface ContractExtraction {
     contractCode: string;      // Số hợp đồng
     customerName: string;      // Tên khách hàng
+    customerTaxCode?: string;  // Mã số thuế khách hàng
     contactPerson?: string;    // Đầu mối liên hệ
+    unitName?: string;         // Tên đơn vị phụ trách (P.BIM1, P.BIM2...)
+    salespersonName?: string;  // Tên người phụ trách
     content?: string;          // Nội dung HĐ (BIM, Tư vấn...)
     signedValue?: number;      // Giá trị ký kết
     signedDate?: string;       // Ngày ký (YYYY-MM-DD)
@@ -139,7 +142,10 @@ Trả về JSON thuần (KHÔNG markdown, KHÔNG \`\`\`): một MẢNG [] các o
 Mỗi object chứa:
 - contractCode: Số hợp đồng (VD: "01.PPXD-CICHD2023")
 - customerName: Tên khách hàng
+- customerTaxCode: Mã số thuế khách hàng (null nếu không có)
 - contactPerson: Đầu mối liên hệ (null nếu không có)
+- unitName: Đơn vị/phòng ban phụ trách (VD: "P.BIM1", "P.BIM2", null nếu không có)
+- salespersonName: Tên người phụ trách hợp đồng (null nếu không có)
 - content: Nội dung HĐ / loại dịch vụ (BIM, Tư vấn BIM...)
 - signedValue: Giá trị ký kết (số, VD: 4300000000). Bỏ dấu chấm/phẩy ngăn cách, chuyển thành số.
 - signedDate: Ngày ký (format YYYY-MM-DD, VD: "2023-01-31")
@@ -510,7 +516,10 @@ function normalizeContractRow(row: any): ContractExtraction {
     return {
         contractCode: row.contractCode || '',
         customerName: row.customerName || '',
+        customerTaxCode: row.customerTaxCode || undefined,
         contactPerson: row.contactPerson || undefined,
+        unitName: row.unitName || undefined,
+        salespersonName: row.salespersonName || undefined,
         content: row.content || undefined,
         signedValue: parseNum(row.signedValue),
         signedDate: row.signedDate || undefined,

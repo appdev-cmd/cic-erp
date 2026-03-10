@@ -55,7 +55,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           UnitService.getAll(),
           EmployeeService.getAll(),
           ProductService.getAll(),
-          CustomerService.getAll({ pageSize: 100, type: 'Supplier' }),
+          CustomerService.getAll({ pageSize: 200 }),
           ExecutionCostService.getAll()
         ]);
         setUnits(unitsData);
@@ -635,7 +635,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
             newList[addSupplierForIndex].supplier = supplier.shortName || supplier.name;
             setLineItems(newList);
           }
-          const suppliersRes = await CustomerService.getAll({ pageSize: 100, type: 'Supplier' });
+          const suppliersRes = await CustomerService.getAll({ pageSize: 200 });
           setSuppliers(suppliersRes.data?.filter(c => c.type === 'Supplier' || c.type === 'Both') || []);
           toast.success(`Đã thêm NCC: ${supplier.shortName || supplier.name}`);
         }}

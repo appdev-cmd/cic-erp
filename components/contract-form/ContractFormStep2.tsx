@@ -106,9 +106,9 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                             if (item.supplier?.trim()) {
                                                 try {
                                                     const supplier = await CustomerService.findOrCreateSupplier(item.supplier);
-                                                    supplierName = supplier.shortName || supplier.name;
-                                                    const allSuppliers = await CustomerService.getAll({ type: 'Supplier' });
-                                                    setSuppliers(allSuppliers.data);
+                                                    supplierName = supplier.name;
+                                                    const allSuppliers = await CustomerService.getAll({ pageSize: 200 });
+                                                    setSuppliers(allSuppliers.data?.filter(c => c.type === 'Supplier' || c.type === 'Both') || []);
                                                 } catch (e) {
                                                     console.warn('[PAKD Import] Could not create supplier:', e);
                                                 }
@@ -140,8 +140,8 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                         setLineItems(processedItems);
 
                                         try {
-                                            const finalSuppliers = await CustomerService.getAll({ type: 'Supplier' });
-                                            setSuppliers(finalSuppliers.data);
+                                            const finalSuppliers = await CustomerService.getAll({ pageSize: 200 });
+                                            setSuppliers(finalSuppliers.data?.filter(c => c.type === 'Supplier' || c.type === 'Both') || []);
                                         } catch (e) {
                                             console.warn('[PAKD Import] Could not refresh suppliers:', e);
                                         }
@@ -233,7 +233,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         setAddProductForIndex(index);
                                                         setShowAddProductDialog(true);
                                                     }}
-                                                    addNewLabel="+ Thêm sản phẩm mới"
+                                                    addNewLabel="Thêm sản phẩm mới"
                                                 />
                                             </td>
                                             <td className="px-2 py-3">
@@ -250,7 +250,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                             </td>
                                             <td className="px-4 py-3">
                                                 <SearchableSelect
-                                                    value={suppliers.find(s => (s.shortName || s.name) === item.supplier)?.id || null}
+                                                    value={suppliers.find(s => s.name === item.supplier || s.shortName === item.supplier)?.id || null}
                                                     placeholder="Gõ để tìm NCC..."
                                                     getDisplayValue={(id) => {
                                                         const sup = suppliers.find(s => s.id === id);
@@ -260,6 +260,10 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         const newList = [...lineItems];
                                                         if (sId && option) {
                                                             newList[index].supplier = option.name;
+                                                            // Add to suppliers list if not already present so value match works on re-render
+                                                            if (!suppliers.find(s => s.id === sId)) {
+                                                                setSuppliers([...suppliers, { id: sId, name: option.name, shortName: option.name, type: 'Supplier', industry: [], contactPerson: '', phone: '', email: '', address: '', rating: 'Standard' } as Customer]);
+                                                            }
                                                         } else {
                                                             newList[index].supplier = '';
                                                         }
@@ -275,7 +279,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         setAddSupplierForIndex(index);
                                                         setShowAddSupplierDialog(true);
                                                     }}
-                                                    addNewLabel="+ Thêm NCC mới"
+                                                    addNewLabel="Thêm NCC mới"
                                                 />
                                             </td>
                                             <td className="px-4 py-3 text-right">
