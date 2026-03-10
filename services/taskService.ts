@@ -96,9 +96,10 @@ export const TaskService = {
     },
 
     async delete(id: string, userId?: string): Promise<void> {
-        await this.logActivity(id, userId || null, 'deleted');
         const { error } = await supabase.from('tasks').delete().eq('id', id);
         if (error) throw error;
+        // Log activity after delete (best-effort, don't block on failure)
+        try { await this.logActivity(id, userId || null, 'deleted'); } catch { }
     },
 
     // ===================== QUERIES =====================
