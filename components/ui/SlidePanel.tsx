@@ -229,7 +229,7 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
 
     if (!hasOpenPanels) return null;
 
-    const sidebarWidth = isSidebarCollapsed ? 80 : 256;
+    const sidebarWidth = isSidebarCollapsed ? 80 : 208;
 
     const isAllExiting = panels.length > 0 && closingPanels.size === panels.length;
 
