@@ -184,7 +184,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                             <thead className="bg-slate-50 dark:bg-slate-800">
                                 <tr>
                                     <th className="px-4 py-4 font-black text-slate-400 uppercase tracking-tighter w-[320px]">Sản phẩm/Dịch vụ</th>
-                                    <th className="px-2 py-4 font-black text-slate-400 uppercase tracking-tighter w-10">SL</th>
+                                    <th className="px-2 py-4 font-black text-slate-400 uppercase tracking-tighter w-16">SL</th>
                                     <th className="px-4 py-4 font-black text-slate-400 uppercase tracking-tighter w-[180px]">Nhà cung cấp</th>
                                     <th className="px-3 py-4 font-black text-slate-400 uppercase tracking-tighter text-right w-[120px] whitespace-nowrap">Giá Đầu vào</th>
                                     <th className="px-3 py-4 font-black text-cyan-500 uppercase tracking-tighter text-right w-[120px] whitespace-nowrap">TT Đầu vào</th>
@@ -245,7 +245,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         newList[index].quantity = Number(e.target.value);
                                                         setLineItems(newList);
                                                     }}
-                                                    className="w-full bg-transparent font-black outline-none text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+                                                    className="w-full min-w-[48px] bg-transparent font-black outline-none text-slate-800 dark:text-slate-200 dark:bg-slate-800"
                                                 />
                                             </td>
                                             <td className="px-4 py-3">
