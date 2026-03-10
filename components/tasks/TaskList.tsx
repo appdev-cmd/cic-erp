@@ -11,6 +11,7 @@ import { Space, Folder, TaskList as TaskListType, Task, TaskStatus } from '../..
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '../../constants';
 import { DEFAULT_STATUSES } from '../../services/taskService';
 import { toast } from 'sonner';
+import { formatDateShort } from '../../utils/formatters';
 import TaskBoard from './TaskBoard';
 import TaskCalendar from './TaskCalendar';
 import TaskGantt from './TaskGantt';
@@ -635,7 +636,7 @@ const TaskListPage: React.FC<Props> = ({ selectedUnit }) => {
                                                 : 'text-slate-500 dark:text-slate-400'
                                                 }`}>
                                                 <CalendarIcon size={12} />
-                                                {new Date(task.due_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                                {formatDateShort(task.due_date)}
                                             </span>
                                         )}
 

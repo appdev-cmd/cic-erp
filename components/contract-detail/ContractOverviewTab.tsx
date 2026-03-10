@@ -10,6 +10,7 @@ import {
 import { Contract, PaymentPhase, ContractDocument, Payment, VoucherType } from '../../types';
 import { AuditLogService, AuditLog, PaymentService } from '../../services';
 import { formatVND } from '../../utils/contractHelpers';
+import { formatDate } from '../../utils/formatters';
 import { formatNumber } from '../../lib/utils';
 import PaymentForm from '../PaymentForm';
 import { usePermissionCheck } from '../../hooks/usePermissions';
@@ -132,7 +133,7 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
     const receipts = vouchers.filter(v => v.voucherType === 'RECEIPT');
     const expenses = vouchers.filter(v => v.voucherType === 'EXPENSE');
 
-    const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+
 
     return (
         <>
@@ -430,7 +431,7 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                                     <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{rev.description || `Đợt ${idx + 1}`}</p>
                                                     <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
                                                         <Calendar size={10} />
-                                                        {rev.date ? new Date(rev.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Chưa xác định'}
+                                                        {rev.date ? formatDate(rev.date) : 'Chưa xác định'}
                                                     </p>
                                                 </div>
                                             </div>
@@ -495,7 +496,7 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                             </div>
                                             <div className="flex justify-between items-end">
                                                 <span className="text-[10px] text-slate-400">
-                                                    {p.dueDate ? new Date(p.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Chưa xác định'}
+                                                    {p.dueDate ? formatDate(p.dueDate) : 'Chưa xác định'}
                                                 </span>
                                                 <span className="text-sm font-black text-emerald-600">{formatVND(p.amount)}</span>
                                             </div>
@@ -517,7 +518,7 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                             </div>
                                             <div className="flex justify-between items-end">
                                                 <span className="text-[10px] text-slate-400">
-                                                    {p.dueDate ? new Date(p.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Chưa xác định'}
+                                                    {p.dueDate ? formatDate(p.dueDate) : 'Chưa xác định'}
                                                 </span>
                                                 <span className="text-sm font-black text-rose-500">{formatVND(p.amount)}</span>
                                             </div>
@@ -622,7 +623,7 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                             <div className={`p-2 rounded-lg group-hover:opacity-80 transition-colors ${iconBg}`}><FileText size={16} /></div>
                                             <div className="overflow-hidden">
                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{file.name}</p>
-                                                <p className="text-[10px] text-slate-400 dark:text-slate-500">{typeLabel} • {new Date(file.uploadedAt).toLocaleDateString('vi-VN')}</p>
+                                                <p className="text-[10px] text-slate-400 dark:text-slate-500">{typeLabel} • {formatDate(file.uploadedAt)}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">

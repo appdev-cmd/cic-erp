@@ -162,18 +162,47 @@ export const PaymentService = {
             if (contractIds.length > 0) {
                 query = query.in('contract_id', contractIds);
             } else {
-                return { totalAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0, expenseAmount: 0, expenseCount: 0, pendingExpenseAmount: 0, advanceAmount: 0, advanceCount: 0 };
+                return { totalAmount: 0, revenueAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0, expenseAmount: 0, expenseCount: 0, pendingExpenseAmount: 0, advanceAmount: 0, advanceCount: 0 };
             }
         }
 
         const { data, error } = await query;
-        if (error || !data) return { totalAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0, expenseAmount: 0, expenseCount: 0, pendingExpenseAmount: 0, advanceAmount: 0, advanceCount: 0 };
+        if (error || !data) return { totalAmount: 0, revenueAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0, expenseAmount: 0, expenseCount: 0, pendingExpenseAmount: 0, advanceAmount: 0, advanceCount: 0 };
 
         const total = data.reduce((sum, p) => sum + (p.amount || 0), 0);
 
         // VAT Invoice stats
         const vatData = data.filter(p => p.voucher_type === 'VAT_INVOICE');
         const invoiced = vatData.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+        // Pre-VAT revenue (matches Dashboard "Doanh thu")
+        // Use vat_invoice_items JSONB for accuracy, fallback to VAT division
+        const vatContractIds = [...new Set(vatData.map(p => p.contract_id).filter(Boolean))];
+        let contractVatMap: Record<string, { vatRate: number; hasVat: boolean }> = {};
+        if (vatContractIds.length > 0) {
+            const { data: contractsVat } = await supabase
+                .from('contracts')
+                .select('id, vat_rate, has_vat')
+                .in('id', vatContractIds);
+            (contractsVat || []).forEach((c: any) => {
+                contractVatMap[c.id] = { vatRate: c.vat_rate ?? 10, hasVat: c.has_vat !== false };
+            });
+        }
+        let revenuePreVat = 0;
+        for (const inv of vatData) {
+            const items = inv.vat_invoice_items || [];
+            if (Array.isArray(items) && items.length > 0) {
+                revenuePreVat += items.reduce((s: number, item: any) => s + (Number(item.amountBeforeVAT) || 0), 0);
+            } else {
+                const gross = Number(inv.amount) || 0;
+                const cInfo = contractVatMap[inv.contract_id] || { vatRate: 10, hasVat: true };
+                if (cInfo.hasVat && cInfo.vatRate > 0) {
+                    revenuePreVat += gross / (1 + cInfo.vatRate / 100);
+                } else {
+                    revenuePreVat += gross;
+                }
+            }
+        }
 
         // Receipt stats (Tiền về + Tạm ứng)
         const receiptData = data.filter(p => p.voucher_type === 'RECEIPT');
@@ -190,6 +219,7 @@ export const PaymentService = {
 
         return {
             totalAmount: total,
+            revenueAmount: revenuePreVat,
             invoicedAmount: invoiced,
             invoicedCount: vatData.length,
             cashReceivedAmount: cash,

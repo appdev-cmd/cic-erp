@@ -22,6 +22,7 @@ import {
 import { EmployeeService, ContractService, UnitService } from '../services'; // Updated imports
 import PersonnelForm from './PersonnelForm';
 import { Employee, Contract, Unit, UserRole } from '../types';
+import { formatDate } from '../utils/formatters';
 
 interface PersonnelDetailProps {
     personnelId: string;
@@ -266,7 +267,7 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
                                         <div>
                                             <p className="text-[10px] text-slate-400 uppercase tracking-wide">Ngày vào</p>
                                             <p className="font-medium text-slate-700 dark:text-slate-300">
-                                                {new Date(person.dateJoined).toLocaleDateString('vi-VN')}
+                                                {formatDate(person.dateJoined)}
                                             </p>
                                         </div>
                                     </div>

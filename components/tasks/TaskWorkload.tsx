@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { User, ChevronDown, ChevronRight, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { Task } from '../../types';
 import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from '../../constants';
+import { formatDateShort } from '../../utils/formatters';
 
 // ============================================================================
 // TASK WORKLOAD — Capacity planning view: see each member's load
@@ -250,7 +251,7 @@ const TaskWorkload: React.FC<TaskWorkloadProps> = ({ tasks, onTaskClick }) => {
                                                 </span>
                                                 {task.due_date && (
                                                     <span className="text-[10px] text-slate-400 dark:text-slate-500 flex-shrink-0">
-                                                        {new Date(task.due_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                                        {formatDateShort(task.due_date)}
                                                     </span>
                                                 )}
                                             </div>

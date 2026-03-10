@@ -346,33 +346,33 @@ const mapContract = (c: any): Contract => {
     } as any; // Partial fallback
 
     const payments: any[] = c.payments || [];
-    
+
     // Line items for total input cost
     const lineItems = c.details?.lineItems || c.line_items || [];
     const executionCosts = c.details?.executionCosts || c.execution_costs || [];
-    
+
     // Calculate exact value and estimated cost based on formulas
     const estimatedCost = (c.estimated_cost || 0); // Already handles sum(input * qty) + direct + execution
     const totalInputCost = lineItems.reduce((sum: number, li: any) => sum + (li.inputPrice || 0) * (li.quantity || 1), 0);
 
     // Revenue calculations
     const actualRevenue = calculateRevenueFromPayments(
-            payments, c.vat_rate ?? 10, c.has_vat !== false, c.actual_revenue || 0
-        );
-    
+        payments, c.vat_rate ?? 10, c.has_vat !== false, c.actual_revenue || 0
+    );
+
     const invoicedAmount = payments.length > 0
-            ? calculateInvoicedFromPayments(payments)
-            : (c.invoiced_amount || 0);
-            
+        ? calculateInvoicedFromPayments(payments)
+        : (c.invoiced_amount || 0);
+
     const cashReceived = calculateCashReceived(payments);
-        
+
     // Expected Revenue (Doanh thu dự kiến) = Sum(outputPrice * quantity) — pre-VAT
     const expectedRevenue = lineItems.reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0);
-        
+
     // Profit Metrics Calculations
     // LNG Quản trị = Doanh thu dự kiến - Chi phí dự kiến
     const adminProfit = expectedRevenue - estimatedCost;
-    
+
     let revProfit = 0;
     if (c.status === 'Completed') {
         const actualCost = payments
@@ -384,7 +384,7 @@ const mapContract = (c: any): Contract => {
         const revenueRatio = expectedRevenue > 0 ? (actualRevenue / expectedRevenue) : 0;
         revProfit = actualRevenue - (estimatedCost * revenueRatio);
     }
-        
+
 
     return {
         id: c.id || 'unknown',
@@ -563,6 +563,7 @@ export const ContractService = {
                 id: 'id', signedDate: 'signed_date', value: 'value',
                 actualRevenue: 'actual_revenue', estimatedCost: 'estimated_cost',
                 status: 'status', title: 'title', partyA: 'party_a',
+                adminProfit: 'admin_profit', revProfit: 'rev_profit',
             };
             const dbSortColumn = sortBy ? SORT_MAP[sortBy] : null;
             if (dbSortColumn) {
@@ -632,6 +633,7 @@ export const ContractService = {
                 id: 'id', signedDate: 'signed_date', value: 'value',
                 actualRevenue: 'actual_revenue', estimatedCost: 'estimated_cost',
                 status: 'status', title: 'title', partyA: 'party_a',
+                adminProfit: 'admin_profit', revProfit: 'rev_profit',
             };
             const dbSortColumn = sortBy ? SORT_MAP[sortBy] : null;
             if (dbSortColumn) {

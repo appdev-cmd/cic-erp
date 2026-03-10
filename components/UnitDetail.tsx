@@ -24,6 +24,7 @@ import { Unit, KPIPlan, Employee, Contract } from '../types';
 import UnitForm from './UnitForm';
 import UnitSigningTab from './UnitSigningTab';
 import { useLayoutContext } from './layout/MainLayout';
+import { formatDate } from '../utils/formatters';
 
 interface UnitDetailProps {
     unitId: string;
@@ -451,7 +452,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                 </td>
                                 <td className="px-4 py-3 text-sm text-right font-bold text-slate-900 dark:text-slate-100">{formatCurrency(c.value)}</td>
                                 <td className="px-4 py-3 text-sm text-right text-slate-600 dark:text-slate-400">{formatCurrency(c.actualRevenue)}</td>
-                                <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{c.signedDate ? new Date(c.signedDate).toLocaleDateString('vi-VN') : '—'}</td>
+                                <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{c.signedDate ? formatDate(c.signedDate) : '—'}</td>
                                 <td className="px-4 py-3 text-right">
                                     <ChevronRight size={16} className="text-slate-300" />
                                 </td>

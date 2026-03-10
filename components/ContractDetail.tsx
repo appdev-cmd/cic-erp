@@ -50,6 +50,7 @@ import { AddDocumentLinkDialog } from './workflow/AddDocumentLinkDialog';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useFinancialCalculations } from '../hooks/useFinancialCalculations';
 import { formatVND, getStatusColor } from '../utils/contractHelpers';
+import { formatDate } from '../utils/formatters';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
 import CustomerDetail from './CustomerDetail';
 
@@ -449,19 +450,19 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                 {contract.signedDate && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
                     <Calendar size={14} className="text-emerald-500" />
-                    <span className="text-slate-500 dark:text-slate-400">Ngày ký: <b className="text-emerald-600 dark:text-emerald-400">{new Date(contract.signedDate).toLocaleDateString('vi-VN')}</b></span>
+                    <span className="text-slate-500 dark:text-slate-400">Ngày ký: <b className="text-emerald-600 dark:text-emerald-400">{formatDate(contract.signedDate)}</b></span>
                   </div>
                 )}
                 {contract.startDate && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
                     <Calendar size={14} className="text-blue-500" />
-                    <span className="text-slate-500 dark:text-slate-400">Bắt đầu: <b className="text-blue-600 dark:text-blue-400">{new Date(contract.startDate).toLocaleDateString('vi-VN')}</b></span>
+                    <span className="text-slate-500 dark:text-slate-400">Bắt đầu: <b className="text-blue-600 dark:text-blue-400">{formatDate(contract.startDate)}</b></span>
                   </div>
                 )}
                 {contract.endDate && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
                     <Calendar size={14} className="text-rose-500" />
-                    <span className="text-slate-500 dark:text-slate-400">Kết thúc: <b className="text-rose-600 dark:text-rose-400">{new Date(contract.endDate).toLocaleDateString('vi-VN')}</b></span>
+                    <span className="text-slate-500 dark:text-slate-400">Kết thúc: <b className="text-rose-600 dark:text-rose-400">{formatDate(contract.endDate)}</b></span>
                   </div>
                 )}
               </div>

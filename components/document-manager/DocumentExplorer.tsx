@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { GoogleDriveService, DriveFile } from '../../services/googleDriveService';
 import { toast } from 'sonner';
+import { formatDate } from '../../utils/formatters';
 
 interface DocumentExplorerProps {
     folderId: string;
@@ -251,7 +252,7 @@ const DocumentExplorer: React.FC<DocumentExplorerProps> = ({
                                                 </h3>
                                                 {viewMode === 'list' && (
                                                     <p className="text-[10px] text-slate-400 mt-0.5 font-bold">
-                                                        {file.size ? `${(parseInt(file.size) / 1024 / 1024).toFixed(2)} MB` : '—'} • {new Date(file.modifiedTime || '').toLocaleDateString('vi-VN')}
+                                                        {file.size ? `${(parseInt(file.size) / 1024 / 1024).toFixed(2)} MB` : '—'} • {formatDate(file.modifiedTime || '')}
                                                     </p>
                                                 )}
                                             </div>

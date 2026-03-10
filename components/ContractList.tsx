@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { formatVND as formatCurrency, getStatusColor } from '../utils/contractHelpers';
+import { formatDate } from '../utils/formatters';
 import { useLayoutContext } from './layout/MainLayout';
 
 // Inline debounce hook if not exists, but better to check. 
@@ -60,7 +61,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const canSeeAll = visibleUnits === 'all';
 
   // Sort state
-  const [sortBy, setSortBy] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<string | null>('signedDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Quick status change state
@@ -627,16 +628,16 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           <thead>
             <tr className="z-20">
               {[
-                { label: 'STT', align: 'center', width: 'w-8' },
-                { label: 'Số HĐ', align: 'left', sortKey: 'signedDate', width: 'w-[150px]' },
-                { label: 'Nội dung hợp đồng', align: 'left', sortKey: 'title' },
-                { label: 'Ký kết', align: 'right', sortKey: 'value', width: 'w-[90px]' },
-                { label: 'Doanh thu TT', align: 'right', sortKey: 'actualRevenue', width: 'w-[95px]' },
-                { label: 'Tiền về TT', align: 'right', width: 'w-[90px]' },
-                { label: 'LNG quản trị', align: 'right', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit', width: 'w-[90px]' },
-                { label: 'LNG theo DT', align: 'right', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit', width: 'w-[90px]' },
-                { label: 'Tỷ suất LN/DT', align: 'center', width: 'w-[55px]' },
-                { label: 'Trạng thái', align: 'center', sortKey: 'status', width: 'w-[95px]' },
+                { label: 'STT', align: 'center', width: 'w-10' },
+                { label: 'Số HĐ', align: 'center', sortKey: 'signedDate', width: 'w-[150px]', dataAlign: 'left' },
+                { label: 'Nội dung hợp đồng', align: 'center', sortKey: 'title', dataAlign: 'left' },
+                { label: 'Ký kết', align: 'center', sortKey: 'value', width: 'w-[90px]', dataAlign: 'right' },
+                { label: 'Doanh thu TT', align: 'center', sortKey: 'actualRevenue', width: 'w-[95px]', dataAlign: 'right' },
+                { label: 'Tiền về TT', align: 'center', width: 'w-[90px]', dataAlign: 'right' },
+                { label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit', width: 'w-[90px]', dataAlign: 'right' },
+                { label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit', width: 'w-[90px]', dataAlign: 'right' },
+                { label: 'Tỷ suất LN/DT', align: 'center', width: 'w-[55px]', dataAlign: 'right' },
+                { label: 'Trạng thái', align: 'center', sortKey: 'status', width: 'w-[95px]', dataAlign: 'left' },
                 { label: '', align: 'center', width: 'w-10' },
               ].map((col, idx) => (
                 <th
@@ -737,7 +738,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     {stt.toString().padStart(2, '0')}
                   </td>
                   {/* Số HĐ + Phụ trách KD */}
-                  <td className="px-2 py-2 overflow-hidden" title={`${contract.id}\n${contract.signedDate ? new Date(contract.signedDate).toLocaleDateString('vi-VN') : 'Chưa ký'}\n${salesperson?.name || 'Chưa gán'}${contract.customerContractNumber ? '\nSố HĐ KH: ' + contract.customerContractNumber : ''}`}>
+                  <td className="px-2 py-2 overflow-hidden" title={`${contract.id}\n${contract.signedDate ? formatDate(contract.signedDate) : 'Chưa ký'}\n${salesperson?.name || 'Chưa gán'}${contract.customerContractNumber ? '\nSố HĐ KH: ' + contract.customerContractNumber : ''}`}>
                     <div className="flex items-center gap-2">
                       <div className={`w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${contract.contractType === 'HĐ' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'}`}>
                         {contract.contractType}
@@ -752,7 +753,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                           }}
                         >{contract.contractCode}</p>
                         <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-tighter">
-                          {contract.signedDate ? new Date(contract.signedDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Chưa ký'}
+                          {contract.signedDate ? formatDate(contract.signedDate) : 'Chưa ký'}
                         </p>
                         {contract.customerContractNumber && (
                           <p className="text-[8px] font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
@@ -866,12 +867,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     </span>
                   </td>
                   {/* Tỷ suất LN/DT */}
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-3 py-2 text-right">
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${margin > 50 ? 'bg-emerald-100/50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
                       {margin.toFixed(0)}%
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-center">
+                  <td className="px-3 py-2 text-left">
                     <div className="relative inline-block" ref={statusDropdownId === contract.id ? statusDropdownRef : undefined}>
                       <button
                         onClick={(e) => {

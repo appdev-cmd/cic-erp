@@ -63,8 +63,8 @@ const KPICard = ({ title, value, icon, color, change, index }: {
     const formatValue = (val: number) => {
         const abs = Math.abs(val);
         const sign = val < 0 ? '-' : '';
-        if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)}B`;
-        if (abs >= 1e6) return `${sign}${Math.round(abs / 1e6)}M`;
+        if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)} tỷ`;
+        if (abs >= 1e6) return `${sign}${Math.round(abs / 1e6)} triệu`;
         if (abs >= 1e3) return `${sign}${Math.round(abs / 1e3)}K`;
         return Math.round(val).toString();
     };
@@ -364,8 +364,8 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
     const formatCurrency = (val: number) => {
         const abs = Math.abs(val);
         const sign = val < 0 ? '-' : '';
-        if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(1)}B`;
-        if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(0)}M`;
+        if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(1)} tỷ`;
+        if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(0)} triệu`;
         return `${val}`;
     };
 

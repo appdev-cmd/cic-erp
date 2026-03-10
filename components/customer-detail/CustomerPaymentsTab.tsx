@@ -2,6 +2,7 @@
 import React from 'react';
 import { Calendar, CheckCircle, Clock, Banknote } from 'lucide-react';
 import { Payment } from '../../types';
+import { formatDate } from '../../utils/formatters';
 
 interface CustomerPaymentsTabProps {
     payments: Payment[];
@@ -51,7 +52,7 @@ const CustomerPaymentsTab: React.FC<CustomerPaymentsTabProps> = React.memo(({
                                     <div className="flex items-center gap-2">
                                         <Calendar size={13} className="text-slate-400" />
                                         <span className="text-sm text-slate-700 dark:text-slate-300">
-                                            {new Date(payment.paymentDate).toLocaleDateString('vi-VN')}
+                                            {formatDate(payment.paymentDate)}
                                         </span>
                                     </div>
                                 </td>

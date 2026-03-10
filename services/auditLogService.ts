@@ -1,4 +1,5 @@
 import { dataClient as supabase } from '../lib/dataClient';
+import { formatDate } from '../utils/formatters';
 
 export interface AuditLog {
     id: string;
@@ -262,13 +263,10 @@ export const AuditLogService = {
      * Format thời gian thành chuỗi ngày/giờ tiếng Việt
      */
     formatDateTime(dateString: string): { date: string; time: string } {
+
         const date = new Date(dateString);
         return {
-            date: date.toLocaleDateString('vi-VN', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            }),
+            date: formatDate(dateString),
             time: date.toLocaleTimeString('vi-VN', {
                 hour: '2-digit',
                 minute: '2-digit'
