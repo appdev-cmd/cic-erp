@@ -8,6 +8,28 @@ export const formatVND = (amount: number): string => {
 };
 
 /**
+ * Format tiền tệ VND dạng compact cho bảng hẹp
+ * Ví dụ: 4,011,000,000 → "4.01 tỷ", 208,840,000 → "208.8 tr", 54,850,000 → "54.8 tr"
+ * Số < 1 triệu hiển thị đầy đủ
+ */
+export const formatCompactVND = (amount: number): string => {
+    const abs = Math.abs(amount);
+    const sign = amount < 0 ? '-' : '';
+    if (abs >= 1_000_000_000) {
+        const val = abs / 1_000_000_000;
+        return sign + (val >= 100 ? val.toFixed(0) : val >= 10 ? val.toFixed(1) : val.toFixed(2)) + ' tỷ';
+    }
+    if (abs >= 1_000_000) {
+        const val = abs / 1_000_000;
+        return sign + (val >= 100 ? val.toFixed(0) : val >= 10 ? val.toFixed(1) : val.toFixed(1)) + ' tr';
+    }
+    if (abs >= 1_000) {
+        return sign + Math.round(abs / 1_000).toLocaleString('vi-VN') + ' ng';
+    }
+    return new Intl.NumberFormat('vi-VN').format(Math.round(amount));
+};
+
+/**
  * Lấy style CSS tương ứng với trạng thái hợp đồng (dùng chung cho List, Detail, Form)
  */
 export const getStatusColor = (status: ContractStatus | string): string => {

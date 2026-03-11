@@ -12,8 +12,8 @@ import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
-import { formatVND as formatCurrency, getStatusColor, getWarningBadges } from '../utils/contractHelpers';
-import { formatDate } from '../utils/formatters';
+import { formatVND as formatCurrency, formatCompactVND, getStatusColor, getWarningBadges } from '../utils/contractHelpers';
+import { formatDate, removeDiacritics } from '../utils/formatters';
 import { useLayoutContext } from './layout/MainLayout';
 import DateInput from './ui/DateInput';
 import AcceptanceDialog from './ui/AcceptanceDialog';
@@ -363,10 +363,10 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   // Compute matching customer IDs when search matches customer short names (tên viết tắt)
   const matchingCustomerIds = useMemo(() => {
     if (!debouncedSearch || debouncedSearch.trim().length === 0) return undefined;
-    const term = debouncedSearch.toLowerCase().trim();
+    const term = removeDiacritics(debouncedSearch.toLowerCase().trim());
     const ids: string[] = [];
     customerShortNames.forEach((shortName, customerId) => {
-      if (shortName.toLowerCase().includes(term)) {
+      if (removeDiacritics(shortName.toLowerCase()).includes(term)) {
         ids.push(customerId);
       }
     });
@@ -721,13 +721,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           {/* Colgroup: controls column widths proportionally */}
           <colgroup>
             <col style={{ width: '2%' }} />     {/* STT */}
-            <col style={{ width: '13.5%' }} />  {/* Số HĐ */}
+            <col style={{ width: '9%' }} />     {/* Số HĐ */}
             <col />                              {/* Nội dung HĐ — auto fills remaining */}
-            <col style={{ width: '6.5%' }} />   {/* Ký kết */}
-            <col style={{ width: '5.8%' }} />   {/* Doanh thu */}
-            <col style={{ width: '5.8%' }} />   {/* Tiền về */}
-            <col style={{ width: '6.5%' }} />   {/* LNG quản trị */}
-            <col style={{ width: '5.8%' }} />   {/* LNG theo DT */}
+            <col style={{ width: '8%' }} />     {/* Ký kết */}
+            <col style={{ width: '7.5%' }} />   {/* Doanh thu */}
+            <col style={{ width: '7.5%' }} />   {/* Tiền về */}
+            <col style={{ width: '8%' }} />     {/* LNG quản trị */}
+            <col style={{ width: '7.5%' }} />   {/* LNG theo DT */}
             <col style={{ width: '3%' }} />     {/* Tỷ suất */}
             <col style={{ width: '9%' }} />     {/* Trạng thái */}
             <col style={{ width: '3%' }} />     {/* Actions */}
@@ -902,7 +902,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     </div>
                   </td>
                   {/* Ký kết — hiển thị giá trị phân bổ, hover xem giá trị ký kết gốc */}
-                  <td className="px-1.5 py-2 text-right whitespace-nowrap">
+                  <td className="px-1.5 py-2 text-right overflow-hidden">
                     {(() => {
                       const fullValue = contract.value || 0;
                       const allocatedValue = allocationPct !== undefined && allocationPct < 100
@@ -920,7 +920,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     })()}
                   </td>
                   {/* Doanh thu */}
-                  <td className="px-1.5 py-2 text-right whitespace-nowrap">
+                  <td className="px-1.5 py-2 text-right overflow-hidden">
                     <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100" title={formatCurrency(revenue)}>
                       {formatCurrency(revenue)}
                     </span>
@@ -931,7 +931,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     )}
                   </td>
                   {/* Tiền về */}
-                  <td className="px-1.5 py-2 text-right whitespace-nowrap">
+                  <td className="px-1.5 py-2 text-right overflow-hidden">
                     {cashReceived > 0 ? (
                       advanceAmount > 0 && advanceAmount >= cashReceived ? (
                         // All cash is from advance payments
@@ -950,7 +950,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                         </span>
                       ) : (
                         // Normal cash received
-                        <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400">
+                        <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400" title={formatCurrency(cashReceived)}>
                           {formatCurrency(cashReceived)}
                         </span>
                       )
@@ -974,13 +974,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     })()}
                   </td>
                   {/* LNG Quản trị */}
-                  <td className="px-1.5 py-2 text-right whitespace-nowrap">
+                  <td className="px-1.5 py-2 text-right overflow-hidden">
                     <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400" title={formatCurrency(contract.adminProfit || 0)}>
                       {formatCurrency(contract.adminProfit || 0)}
                     </span>
                   </td>
                   {/* LNG theo DT */}
-                  <td className="px-1.5 py-2 text-right whitespace-nowrap">
+                  <td className="px-1.5 py-2 text-right overflow-hidden">
                     <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400" title={formatCurrency(contract.revProfit || 0)}>
                       {formatCurrency(contract.revProfit || 0)}
                     </span>

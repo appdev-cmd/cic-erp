@@ -104,3 +104,19 @@ export function formatDateCompact(dateStr?: string | null, fallback: string = '�
         return fallback;
     }
 }
+
+// ============================================================
+// 🔤 Text Normalization Utilities
+// ============================================================
+
+/**
+ * Loại bỏ dấu tiếng Việt để hỗ trợ tìm kiếm không cần gõ dấu
+ * Ví dụ: "hợp đồng" → "hop dong", "Nguyễn Văn Hùng" → "Nguyen Van Hung"
+ */
+export function removeDiacritics(str: string): string {
+    return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D');
+}

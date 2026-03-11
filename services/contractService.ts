@@ -570,14 +570,30 @@ export const ContractService = {
     }): Promise<{ data: Contract[]; count: number }> => {
         const { page, limit, search, status, unitId, year, dateFrom, dateTo, salespersonId, sortBy, sortDir, matchingCustomerIds } = params;
 
-        // Build search OR filter including customer short name matches
-        const buildSearchFilter = (searchTerm: string, customerIds?: string[]): string => {
+        // Build search OR filter including customer short name matches AND unaccent matches
+        const buildSearchFilter = (searchTerm: string, customerIds?: string[], unaccentIds?: string[]): string => {
             let filter = `title.ilike.%${searchTerm}%,contract_code.ilike.%${searchTerm}%,party_a.ilike.%${searchTerm}%,customer_contract_number.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,end_user_name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`;
             if (customerIds && customerIds.length > 0) {
                 filter += `,customer_id.in.(${customerIds.join(',')})`;
             }
+            if (unaccentIds && unaccentIds.length > 0) {
+                filter += `,id.in.(${unaccentIds.join(',')})`;
+            }
             return filter;
         };
+
+        // Fetch contract IDs matching accent-insensitive search via RPC
+        let unaccentMatchIds: string[] | undefined;
+        if (search) {
+            try {
+                const { data: rpcData } = await supabase.rpc('search_contracts_ids_unaccent', { search_term: search });
+                if (rpcData && rpcData.length > 0) {
+                    unaccentMatchIds = rpcData.map((r: any) => r.id);
+                }
+            } catch (e) {
+                console.warn('[ContractService] unaccent search RPC failed, falling back to ilike:', e);
+            }
+        }
 
         // Determine if we need allocation-aware filtering (single unit, not 'All' or comma-separated)
         const isSingleUnitFilter = !isAll(unitId) && !unitId!.includes(',');
@@ -590,7 +606,7 @@ export const ContractService = {
                 .select('*, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)');
 
             if (search) {
-                query = query.or(buildSearchFilter(search, matchingCustomerIds));
+                query = query.or(buildSearchFilter(search, matchingCustomerIds, unaccentMatchIds));
             }
             if (status && status !== 'All') {
                 query = query.eq('status', status);
@@ -657,7 +673,7 @@ export const ContractService = {
                 .select('*, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)', { count: 'exact' });
 
             if (search) {
-                query = query.or(buildSearchFilter(search, matchingCustomerIds));
+                query = query.or(buildSearchFilter(search, matchingCustomerIds, unaccentMatchIds));
             }
             if (status && status !== 'All') {
                 query = query.eq('status', status);
@@ -758,20 +774,37 @@ export const ContractService = {
     }> => {
         const { search, status, unitId, year, dateFrom, dateTo, salespersonId, matchingCustomerIds } = params;
 
-        // Build search OR filter including customer short name matches
-        const buildSearchFilter = (searchTerm: string, customerIds?: string[]): string => {
+        // Build search OR filter including customer short name matches AND unaccent matches
+        const buildSearchFilter = (searchTerm: string, customerIds?: string[], unaccentIds?: string[]): string => {
             let filter = `title.ilike.%${searchTerm}%,contract_code.ilike.%${searchTerm}%,party_a.ilike.%${searchTerm}%,customer_contract_number.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,end_user_name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`;
             if (customerIds && customerIds.length > 0) {
                 filter += `,customer_id.in.(${customerIds.join(',')})`;
             }
+            if (unaccentIds && unaccentIds.length > 0) {
+                filter += `,id.in.(${unaccentIds.join(',')})`;
+            }
             return filter;
         };
+
+        // Fetch contract IDs matching accent-insensitive search via RPC
+        let unaccentMatchIds: string[] | undefined;
+        if (search) {
+            try {
+                const { data: rpcData } = await supabase.rpc('search_contracts_ids_unaccent', { search_term: search });
+                if (rpcData && rpcData.length > 0) {
+                    unaccentMatchIds = rpcData.map((r: any) => r.id);
+                }
+            } catch (e) {
+                console.warn('[ContractService] unaccent search RPC failed in getStats:', e);
+            }
+        }
+
         // Fetch ALL contracts with unit_allocations for allocation-aware filtering
         // OPTIMIZED: No payments JOIN — use pre-computed columns
         let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, title, party_a, signed_date, unit_id, unit_allocations');
 
         if (search) {
-            query = query.or(buildSearchFilter(search, matchingCustomerIds));
+            query = query.or(buildSearchFilter(search, matchingCustomerIds, unaccentMatchIds));
         }
         if (status && status !== 'All') {
             query = query.eq('status', status);
@@ -795,7 +828,7 @@ export const ContractService = {
         // Also fetch status counts WITHOUT status filter for accurate status card display
         let statusCountQuery = supabase.from('contracts').select('id, status, unit_id, unit_allocations, signed_date');
         if (search) {
-            statusCountQuery = statusCountQuery.or(buildSearchFilter(search, matchingCustomerIds));
+            statusCountQuery = statusCountQuery.or(buildSearchFilter(search, matchingCustomerIds, unaccentMatchIds));
         }
         if (dateFrom || dateTo) {
             if (dateFrom) statusCountQuery = statusCountQuery.gte('signed_date', dateFrom);

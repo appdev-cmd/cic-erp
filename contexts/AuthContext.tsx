@@ -128,6 +128,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, []);
 
+    // ── Keep session alive: refresh on tab focus & periodic interval ──
+    useEffect(() => {
+        if (isDevBypass) return;
+
+        // Refresh session when user returns to the tab after being away
+        const handleVisibilityChange = async () => {
+            if (document.visibilityState === 'visible') {
+                console.log('[AuthContext] Tab visible again – refreshing session...');
+                const { data, error } = await supabase.auth.refreshSession();
+                if (error) {
+                    console.warn('[AuthContext] Session refresh failed:', error.message);
+                } else if (data.session) {
+                    syncAuthSession(data.session);
+                    console.log('[AuthContext] Session refreshed successfully');
+                }
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        // Periodic refresh every 3.5 hours (JWT default expiry = 1h, but Supabase auto-refreshes)
+        // This is a safety net for long idle periods
+        const refreshInterval = setInterval(async () => {
+            console.log('[AuthContext] Periodic session refresh...');
+            const { data, error } = await supabase.auth.refreshSession();
+            if (!error && data.session) {
+                syncAuthSession(data.session);
+            }
+        }, 3.5 * 60 * 60 * 1000); // 3.5 hours
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            clearInterval(refreshInterval);
+        };
+    }, [isDevBypass]);
+
     // Presence Management
     useEffect(() => {
         // In dev bypass, we might not have a Supabase user, but we have a profile
