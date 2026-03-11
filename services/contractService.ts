@@ -123,6 +123,10 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
         milestones: 'milestones',
         paymentPhases: 'payment_phases',
         draft_url: 'draft_url',
+        suspendedDate: 'suspended_date',
+        handoverDate: 'handover_date',
+        acceptanceDate: 'acceptance_date',
+        completedDate: 'completed_date',
     };
 
     Object.entries(fieldMap).forEach(([key, dbKey]) => {
@@ -386,6 +390,35 @@ const mapContract = (c: any): Contract => {
     }
 
 
+    // Compute warning flags (not stored in DB — derived from data)
+    const today = new Date().toISOString().split('T')[0];
+    const paymentSchedules = (c.payment_schedules as any)?.schedules || c.payment_schedules || [];
+
+    // QH tạm ứng: kế hoạch tạm ứng quá hạn + chưa nhận tiền
+    let isOverdueAdvance = false;
+    if (Array.isArray(paymentSchedules)) {
+        const advanceEntry = paymentSchedules.find((s: any) =>
+            s.description && s.description.toLowerCase().includes('tạm ứng') &&
+            s.date && s.date < today && s.amount > 0
+        );
+        if (advanceEntry && cashReceived === 0) isOverdueAdvance = true;
+    }
+
+    // QH thanh toán: đã xuất HĐ VAT + quá hạn due_date + tiền chưa về đủ
+    let isOverduePayment = false;
+    if (invoicedAmount > 0 && cashReceived < invoicedAmount) {
+        const overdueInvoice = payments.find((p: any) =>
+            ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status) &&
+            p.payment_type === 'INVOICE' &&
+            p.due_date && p.due_date < today
+        );
+        if (overdueInvoice) isOverduePayment = true;
+    }
+
+    // Nghiệm thu chưa xuất HĐ: status = Acceptance nhưng không có VAT invoice
+    const currentStatus = c.status || 'Processing';
+    const isAcceptedNoInvoice = currentStatus === 'Acceptance' && invoicedAmount === 0;
+
     return {
         id: c.id || 'unknown',
         contractCode: c.contract_code || c.id || 'unknown',
@@ -410,7 +443,7 @@ const mapContract = (c: any): Contract => {
         value: c.value || 0,
         estimatedCost: estimatedCost,
         actualCost: c.actual_cost || 0,
-        status: c.status || 'Processing',
+        status: currentStatus,
         stage: c.stage || 'Signed',
         category: c.category || 'Mới',
         signedDate: c.signed_date || '',
@@ -427,6 +460,11 @@ const mapContract = (c: any): Contract => {
         revenueSchedules: c.details?.revenueSchedules || [],
         documents: c.documents || [],
         draft_url: c.draft_url || undefined,
+        // Status transition dates
+        suspendedDate: c.suspended_date || undefined,
+        handoverDate: c.handover_date || undefined,
+        acceptanceDate: c.acceptance_date || undefined,
+        completedDate: c.completed_date || undefined,
         // Revenue & Cash & Profit
         actualRevenue: actualRevenue,
         invoicedAmount: invoicedAmount,
@@ -436,7 +474,9 @@ const mapContract = (c: any): Contract => {
         payables: calculatePayables(payments, totalInputCost),
         adminProfit: adminProfit,
         revProfit: revProfit,
-        // Parallel approval workflow fields
+        // Warning flags (computed)
+        warnings: { isOverdueAdvance, isOverduePayment, isAcceptedNoInvoice },
+        // Legacy fields
         legal_approved: c.legal_approved || false,
         finance_approved: c.finance_approved || false
     };
@@ -710,10 +750,8 @@ export const ContractService = {
         totalCash: number,
         processingCount: number,
         suspendedCount: number,
-        overdueAdvanceCount: number,
         handoverCount: number,
         acceptanceCount: number,
-        overduePaymentCount: number,
         completedCount: number
     }> => {
         const { search, status, unitId, year, dateFrom, dateTo, salespersonId, matchingCustomerIds } = params;
@@ -777,7 +815,7 @@ export const ContractService = {
             : isFilteringByUnit ? [unitId!] : [];
 
         // Count statuses from unfiltered data (but respecting unit filter)
-        const statusCounts = { processingCount: 0, suspendedCount: 0, overdueAdvanceCount: 0, handoverCount: 0, acceptanceCount: 0, overduePaymentCount: 0, completedCount: 0 };
+        const statusCounts = { processingCount: 0, suspendedCount: 0, handoverCount: 0, acceptanceCount: 0, completedCount: 0 };
         (statusData || []).forEach((c: any) => {
             if (isFilteringByUnit) {
                 let matchedPct = 0;
@@ -788,10 +826,8 @@ export const ContractService = {
             }
             if (c.status === 'Processing') statusCounts.processingCount++;
             else if (c.status === 'Suspended') statusCounts.suspendedCount++;
-            else if (c.status === 'Overdue_Advance') statusCounts.overdueAdvanceCount++;
             else if (c.status === 'Handover') statusCounts.handoverCount++;
-            else if (c.status === 'Acceptance' || c.status === 'Liquidated') statusCounts.acceptanceCount++;
-            else if (c.status === 'Overdue_Payment') statusCounts.overduePaymentCount++;
+            else if (c.status === 'Acceptance') statusCounts.acceptanceCount++;
             else if (c.status === 'Completed') statusCounts.completedCount++;
         });
 
@@ -872,11 +908,8 @@ export const ContractService = {
         expiredCount: number,
         processingCount: number,
         acceptanceCount: number,
-        liquidatedCount: number,
         suspendedCount: number,
-        overdueAdvanceCount: number,
         handoverCount: number,
-        overduePaymentCount: number
     }> => {
         console.log('[ContractService.getStatsFallback] Using pre-computed columns');
         // OPTIMIZED: No payments JOIN — use pre-computed columns on contracts table
@@ -896,8 +929,8 @@ export const ContractService = {
                 totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0,
                 totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0,
                 activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0,
-                processingCount: 0, acceptanceCount: 0, liquidatedCount: 0, suspendedCount: 0,
-                overdueAdvanceCount: 0, handoverCount: 0, overduePaymentCount: 0
+                processingCount: 0, acceptanceCount: 0, suspendedCount: 0,
+                handoverCount: 0
             };
         }
 
@@ -935,39 +968,33 @@ export const ContractService = {
                 pendingCount: acc.pendingCount + (curr.status === 'Pending' ? 1 : 0),
                 suspendedCount: acc.suspendedCount + (curr.status === 'Suspended' ? 1 : 0),
                 completedCount: acc.completedCount + (curr.status === 'Completed' ? 1 : 0),
-                liquidatedCount: acc.liquidatedCount + (curr.status === 'Liquidated' ? 1 : 0),
-                acceptanceCount: acc.acceptanceCount + (['Acceptance', 'Liquidated'].includes(curr.status) ? 1 : 0),
+                acceptanceCount: acc.acceptanceCount + (curr.status === 'Acceptance' ? 1 : 0),
                 processingCount: acc.processingCount + (curr.status === 'Processing' ? 1 : 0),
-                overdueAdvanceCount: acc.overdueAdvanceCount + (curr.status === 'Overdue_Advance' ? 1 : 0),
                 handoverCount: acc.handoverCount + (curr.status === 'Handover' ? 1 : 0),
-                overduePaymentCount: acc.overduePaymentCount + (curr.status === 'Overdue_Payment' ? 1 : 0),
                 expiredCount: acc.expiredCount + (
                     ['Processing', 'Acceptance'].includes(curr.status) && curr.end_date && new Date(curr.end_date) < new Date() ? 1 : 0
                 )
             };
-        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, liquidatedCount: 0, suspendedCount: 0, overdueAdvanceCount: 0, handoverCount: 0, overduePaymentCount: 0 });
+        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, suspendedCount: 0, handoverCount: 0 });
     },
 
     /**
      * Auto-transition logic — runs on Dashboard load.
-     * Checks 3 rules:
-     * 1. Overdue_Advance: Kế hoạch tiền về có mục "Tạm ứng" đã quá hạn mà chưa nhận tiền
-     * 2. Overdue_Payment: Đã xuất HĐ VAT, quá hạn thanh toán (due_date), tiền về < doanh thu xuất HĐ
-     * 3. Completed: Tổng tiền về >= giá trị ký kết
+     * Only 1 rule: Completed — tổng giá trị sau thuế VAT invoices ≥ giá trị ký VÀ tiền về ≥ giá trị ký
+     * Also backfills completed_date for contracts already Completed but missing the date.
      */
     checkAutoStatusTransitions: async (): Promise<{ updated: number; details: string[] }> => {
         const logPrefix = '[AutoStatus]';
         console.log(`${logPrefix} Checking auto status transitions...`);
         const details: string[] = [];
         let updated = 0;
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
         try {
-            // Fetch active contracts with payments and payment_schedules
+            // Fetch active contracts with payments
             const { data: contracts, error } = await supabase
                 .from('contracts')
-                .select('id, value, status, payment_schedules, payments(amount, paid_amount, status, payment_type, due_date)')
-                .in('status', ['Processing', 'Handover', 'Acceptance', 'Overdue_Advance', 'Overdue_Payment']);
+                .select('id, value, status, payments(amount, paid_amount, status, payment_type, due_date, voucher_type, vat_invoice_items, payment_date)')
+                .in('status', ['Processing', 'Handover', 'Acceptance']);
 
             if (error || !contracts) {
                 console.error(`${logPrefix} Query error:`, error);
@@ -976,54 +1003,68 @@ export const ContractService = {
 
             for (const contract of contracts) {
                 const contractValue = contract.value || 0;
+                if (contractValue <= 0) continue;
+
                 const payments = contract.payments || [];
                 const totalCash = calculateCashReceived(payments);
                 const totalInvoiced = calculateInvoicedFromPayments(payments);
-                const paymentSchedules = (contract.payment_schedules as any)?.schedules || contract.payment_schedules || [];
 
-                let newStatus: string | null = null;
+                // Completed: tổng VAT invoice (after tax) ≥ value VÀ tiền về ≥ value
+                if (totalInvoiced >= contractValue && totalCash >= contractValue && contract.status !== 'Completed') {
+                    // Calculate completed_date = max(last VAT invoice date, last receipt date)
+                    const vatDates = payments
+                        .filter((p: any) => p.voucher_type === 'VAT_INVOICE' && ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về'].includes(p.status))
+                        .map((p: any) => p.payment_date || p.due_date)
+                        .filter(Boolean);
+                    const receiptDates = payments
+                        .filter((p: any) => p.voucher_type === 'RECEIPT' && ['Tạm ứng', 'Tiền về'].includes(p.status))
+                        .map((p: any) => p.payment_date)
+                        .filter(Boolean);
+                    const allDates = [...vatDates, ...receiptDates].sort();
+                    const completedDate = allDates.length > 0 ? allDates[allDates.length - 1] : new Date().toISOString().split('T')[0];
 
-                // Rule 1: Completed — tiền về >= giá trị ký kết
-                if (contractValue > 0 && totalCash >= contractValue && contract.status !== 'Completed') {
-                    newStatus = 'Completed';
-                    details.push(`${contract.id}: → Hoàn thành (tiền về ${totalCash} >= giá trị ${contractValue})`);
-                }
-
-                // Rule 2: Overdue_Payment — đã xuất HĐ, quá hạn, tiền chưa về đủ
-                if (!newStatus && totalInvoiced > 0 && totalCash < totalInvoiced) {
-                    const overdueInvoice = payments.find((p: any) =>
-                        ['Đã xuất HĐ', 'Tiền về', 'Paid'].includes(p.status) &&
-                        p.payment_type === 'INVOICE' &&
-                        p.due_date && p.due_date < today
-                    );
-                    if (overdueInvoice && contract.status !== 'Overdue_Payment') {
-                        newStatus = 'Overdue_Payment';
-                        details.push(`${contract.id}: → QH thanh toán (HĐ quá hạn ${overdueInvoice.due_date})`);
-                    }
-                }
-
-                // Rule 3: Overdue_Advance — có kế hoạch tạm ứng quá hạn mà chưa nhận
-                if (!newStatus && Array.isArray(paymentSchedules)) {
-                    const advanceEntry = paymentSchedules.find((s: any) =>
-                        s.description && s.description.toLowerCase().includes('tạm ứng') &&
-                        s.date && s.date < today &&
-                        s.amount > 0
-                    );
-                    if (advanceEntry && totalCash === 0 && contract.status !== 'Overdue_Advance') {
-                        newStatus = 'Overdue_Advance';
-                        details.push(`${contract.id}: → QH tạm ứng (hạn ${advanceEntry.date}, chưa nhận tiền)`);
-                    }
-                }
-
-                // Apply status change
-                if (newStatus) {
                     const { error: updateError } = await supabase
                         .from('contracts')
-                        .update({ status: newStatus })
+                        .update({ status: 'Completed', completed_date: completedDate })
                         .eq('id', contract.id);
                     if (!updateError) {
                         updated++;
-                        console.log(`${logPrefix} ${contract.id}: ${contract.status} → ${newStatus}`);
+                        details.push(`${contract.id}: → Hoàn thành (VAT ${totalInvoiced} ≥ ${contractValue}, tiền về ${totalCash} ≥ ${contractValue}, ngày ${completedDate})`);
+                        console.log(`${logPrefix} ${contract.id}: ${contract.status} → Completed (date: ${completedDate})`);
+                    }
+                }
+            }
+
+            // === BACKFILL: Fix Completed contracts missing completed_date ===
+            const { data: missingDateContracts, error: missingError } = await supabase
+                .from('contracts')
+                .select('id, value, status, completed_date, payments(amount, paid_amount, status, payment_type, due_date, voucher_type, vat_invoice_items, payment_date)')
+                .eq('status', 'Completed')
+                .is('completed_date', null);
+
+            if (!missingError && missingDateContracts && missingDateContracts.length > 0) {
+                console.log(`${logPrefix} Found ${missingDateContracts.length} Completed contracts missing completed_date, backfilling...`);
+                for (const contract of missingDateContracts) {
+                    const payments = contract.payments || [];
+                    const vatDates = payments
+                        .filter((p: any) => p.voucher_type === 'VAT_INVOICE' && ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về'].includes(p.status))
+                        .map((p: any) => p.payment_date || p.due_date)
+                        .filter(Boolean);
+                    const receiptDates = payments
+                        .filter((p: any) => p.voucher_type === 'RECEIPT' && ['Tạm ứng', 'Tiền về'].includes(p.status))
+                        .map((p: any) => p.payment_date)
+                        .filter(Boolean);
+                    const allDates = [...vatDates, ...receiptDates].sort();
+                    const completedDate = allDates.length > 0 ? allDates[allDates.length - 1] : new Date().toISOString().split('T')[0];
+
+                    const { error: updateErr } = await supabase
+                        .from('contracts')
+                        .update({ completed_date: completedDate })
+                        .eq('id', contract.id);
+                    if (!updateErr) {
+                        updated++;
+                        details.push(`${contract.id}: Backfill completed_date = ${completedDate}`);
+                        console.log(`${logPrefix} ${contract.id}: Backfilled completed_date = ${completedDate}`);
                     }
                 }
             }

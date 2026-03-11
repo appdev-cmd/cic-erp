@@ -81,6 +81,7 @@ function translateStatus(status: string): string {
         'Pending_Sign': 'Chờ ký',
         'Processing': 'Đang thực hiện',
         'Suspended': 'Tạm dừng',
+        'Handover': 'Bàn giao',
         'Acceptance': 'Nghiệm thu',
         'Liquidated': 'Thanh lý',
         'Completed': 'Hoàn thành',

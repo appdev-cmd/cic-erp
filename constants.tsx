@@ -52,12 +52,9 @@ export const PRODUCT_CATEGORIES = [
 export const CONTRACT_STATUS_LABELS: Record<string, string> = {
   'Processing': 'Đang thực hiện',
   'Suspended': 'Tạm dừng/Huỷ',
-  'Overdue_Advance': 'QH tạm ứng',
   'Handover': 'Bàn giao',
   'Acceptance': 'Nghiệm thu/TL',
-  'Overdue_Payment': 'QH thanh toán',
   'Completed': 'Hoàn thành',
-  'Liquidated': 'Nghiệm thu/TL',
   // Legacy statuses (for backward compatibility with old data)
   'Active': 'Đang thực hiện',
   'Pending': 'Đang thực hiện',
@@ -66,6 +63,9 @@ export const CONTRACT_STATUS_LABELS: Record<string, string> = {
   'Draft': 'Đang thực hiện',
   'Terminated': 'Hoàn thành',
   'Cancelled': 'Hoàn thành',
+  'Liquidated': 'Nghiệm thu/TL',
+  'Overdue_Advance': 'Đang thực hiện',
+  'Overdue_Payment': 'Đang thực hiện',
 };
 
 export const NAV_ITEMS = [

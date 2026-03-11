@@ -292,28 +292,27 @@ const ContractFormInSlidePanel: React.FC<{ contractId?: string; cloneFrom?: any 
     };
 
     return (
-        <div className="p-4 md:p-6 lg:p-8">
-            <ContractForm
-                contract={contract || undefined}
-                isCloning={!!cloneFrom}
-                onDirtyChange={handleDirtyChange}
-                onSave={async (data) => {
-                    try {
-                        if (contractId && !cloneFrom) {
-                            await ContractService.update(contractId, data);
-                            toast.success('Cập nhật hợp đồng thành công!');
-                        } else {
-                            await ContractService.create(data);
-                            toast.success(cloneFrom ? 'Nhân bản hợp đồng thành công!' : 'Tạo hợp đồng thành công!');
-                        }
-                        handleClose();
-                    } catch (e: any) {
-                        toast.error('Lỗi: ' + (e.message || e));
+        <ContractForm
+            contract={contract || undefined}
+            isCloning={!!cloneFrom}
+            isInsidePanel={true}
+            onDirtyChange={handleDirtyChange}
+            onSave={async (data) => {
+                try {
+                    if (contractId && !cloneFrom) {
+                        await ContractService.update(contractId, data);
+                        toast.success('Cập nhật hợp đồng thành công!');
+                    } else {
+                        await ContractService.create(data);
+                        toast.success(cloneFrom ? 'Nhân bản hợp đồng thành công!' : 'Tạo hợp đồng thành công!');
                     }
-                }}
-                onCancel={handleCancel}
-            />
-        </div>
+                    handleClose();
+                } catch (e: any) {
+                    toast.error('Lỗi: ' + (e.message || e));
+                }
+            }}
+            onCancel={handleCancel}
+        />
     );
 };
 

@@ -133,32 +133,31 @@ const ContractFormInPanel: React.FC<{ contractId?: string; cloneFrom?: any; onSu
     }
 
     return (
-        <div className="p-4 md:p-6 lg:p-8">
-            <ContractFormComponent
-                contract={contract}
-                isCloning={!!cloneFrom}
-                onSave={async (data) => {
-                    try {
-                        let savedContract;
-                        if (contractId && !cloneFrom) {
-                            savedContract = await ContractService.update(contractId, data);
-                            toast.success('Cập nhật hợp đồng thành công!');
-                        } else {
-                            savedContract = await ContractService.create(data);
-                            toast.success(cloneFrom ? 'Nhân bản hợp đồng thành công!' : 'Tạo hợp đồng thành công!');
-                        }
-                        if (onSuccess && savedContract) {
-                            onSuccess(savedContract);
-                        }
-                        // Event dispatch now handled inside ContractService.update
-                        closePanel();
-                    } catch (e: any) {
-                        toast.error('Lỗi: ' + (e.message || e));
+        <ContractFormComponent
+            contract={contract}
+            isCloning={!!cloneFrom}
+            isInsidePanel={true}
+            onSave={async (data) => {
+                try {
+                    let savedContract;
+                    if (contractId && !cloneFrom) {
+                        savedContract = await ContractService.update(contractId, data);
+                        toast.success('Cập nhật hợp đồng thành công!');
+                    } else {
+                        savedContract = await ContractService.create(data);
+                        toast.success(cloneFrom ? 'Nhân bản hợp đồng thành công!' : 'Tạo hợp đồng thành công!');
                     }
-                }}
-                onCancel={() => closePanel()}
-            />
-        </div>
+                    if (onSuccess && savedContract) {
+                        onSuccess(savedContract);
+                    }
+                    // Event dispatch now handled inside ContractService.update
+                    closePanel();
+                } catch (e: any) {
+                    toast.error('Lỗi: ' + (e.message || e));
+                }
+            }}
+            onCancel={() => closePanel()}
+        />
     );
 };
 
@@ -181,15 +180,13 @@ export const ContractDetailPage: React.FC = () => {
                 openPanel({
                     title: `Chỉnh sửa ${contract.contractCode}`,
                     component: (
-                        <div className="p-4 md:p-6 lg:p-8">
-                            <ContractFormInPanel
-                                contractId={contract.id}
-                                onSuccess={(savedContract) => {
-                                    setLatestContract(savedContract);
-                                    setTimeout(() => setRefreshKey(prev => prev + 1), 0);
-                                }}
-                            />
-                        </div>
+                        <ContractFormInPanel
+                            contractId={contract.id}
+                            onSuccess={(savedContract) => {
+                                setLatestContract(savedContract);
+                                setTimeout(() => setRefreshKey(prev => prev + 1), 0);
+                            }}
+                        />
                     ),
                 });
             }}

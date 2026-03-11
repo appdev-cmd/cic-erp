@@ -1,17 +1,19 @@
 
 export type ContractStatus =
-  | 'Draft'           // Mới tạo, chưa gửi duyệt
-  | 'Pending_Review'  // Đang chờ Pháp lý + Tài chính duyệt song song
-  | 'Both_Approved'   // Cả hai bên đã duyệt
-  | 'Pending_Sign'    // Chờ lãnh đạo ký
   | 'Processing'      // Đang thực hiện (sau khi ký)
   | 'Suspended'       // Tạm dừng/Huỷ
-  | 'Overdue_Advance' // Quá hạn tạm ứng (tự động)
   | 'Handover'        // Bàn giao
   | 'Acceptance'      // Nghiệm thu/Thanh lý
-  | 'Overdue_Payment' // Quá hạn thanh toán (tự động)
-  | 'Liquidated'      // Legacy: gộp vào Acceptance
-  | 'Completed';      // Hoàn thành (tự động khi tiền về = giá trị ký)
+  | 'Completed';      // Hoàn thành (tự động khi VAT ≥ value + tiền về ≥ value)
+
+/**
+ * Contract warning flags (not statuses — displayed as badges/banners)
+ */
+export interface ContractWarnings {
+  isOverdueAdvance: boolean;    // QH tạm ứng: kế hoạch tạm ứng quá hạn + chưa nhận tiền
+  isOverduePayment: boolean;    // QH thanh toán: đã xuất HĐ VAT + quá hạn + tiền chưa về đủ
+  isAcceptedNoInvoice: boolean; // Nghiệm thu chưa xuất HĐ VAT
+}
 export type ImplementationStage = 'Signed' | 'Advanced' | 'Guaranteed' | 'InputOrdered' | 'Implementation' | 'Completed' | 'Invoiced';
 export type ContractType = 'HĐ' | 'VV';
 
@@ -266,9 +268,16 @@ export interface Contract {
   paymentPhases?: PaymentPhase[];
   documents?: ContractDocument[];
   draft_url?: string; // URL to draft contract document (Google Doc) for legal review
-  // Parallel approval workflow fields
-  legal_approved?: boolean; // Whether Legal has approved (for parallel review)
-  finance_approved?: boolean; // Whether Finance has approved (for parallel review)
+  // Status transition dates (mốc ngày chuyển trạng thái)
+  suspendedDate?: string;   // Ngày tạm dừng/huỷ
+  handoverDate?: string;    // Ngày bàn giao
+  acceptanceDate?: string;  // Ngày nghiệm thu/thanh lý
+  completedDate?: string;   // Ngày hoàn thành (auto = max ngày HĐ VAT cuối, ngày phiếu thu cuối)
+  // Warning flags (computed, not stored in DB)
+  warnings?: ContractWarnings;
+  // Legacy parallel approval workflow fields (kept for backward compat)
+  legal_approved?: boolean;
+  finance_approved?: boolean;
 }
 
 export interface ContractDocument {
