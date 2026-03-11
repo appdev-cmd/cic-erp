@@ -103,12 +103,12 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                             }
 
                                             let supplierName = item.supplier || '';
+                                            let supplierId: string | undefined;
                                             if (item.supplier?.trim()) {
                                                 try {
                                                     const supplier = await CustomerService.findOrCreateSupplier(item.supplier);
                                                     supplierName = supplier.name;
-                                                    const allSuppliers = await CustomerService.getAll({ pageSize: 200 });
-                                                    setSuppliers(allSuppliers.data?.filter(c => c.type === 'Supplier' || c.type === 'Both') || []);
+                                                    supplierId = supplier.id;
                                                 } catch (e) {
                                                     console.warn('[PAKD Import] Could not create supplier:', e);
                                                 }
@@ -119,6 +119,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                 id: `imported-${Date.now()}-${i}`,
                                                 name: productName,
                                                 supplier: supplierName,
+                                                supplierId: supplierId,
                                                 quantity: item.quantity,
                                                 inputPrice: item.unitCost,
                                                 outputPrice: item.unitPrice,
@@ -137,14 +138,16 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                             });
                                         }
 
-                                        setLineItems(processedItems);
-
+                                        // Refresh suppliers BEFORE setting lineItems
+                                        // so SearchableSelect can match supplier names on first render
                                         try {
                                             const finalSuppliers = await CustomerService.getAll({ pageSize: 200 });
                                             setSuppliers(finalSuppliers.data?.filter(c => c.type === 'Supplier' || c.type === 'Both') || []);
                                         } catch (e) {
                                             console.warn('[PAKD Import] Could not refresh suppliers:', e);
                                         }
+
+                                        setLineItems(processedItems);
 
 
 
@@ -250,7 +253,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                             </td>
                                             <td className="px-4 py-3">
                                                 <SearchableSelect
-                                                    value={suppliers.find(s => s.name === item.supplier || s.shortName === item.supplier)?.id || null}
+                                                    value={item.supplierId || suppliers.find(s => s.name === item.supplier || s.shortName === item.supplier)?.id || null}
                                                     placeholder="Gõ để tìm NCC..."
                                                     getDisplayValue={(id) => {
                                                         const sup = suppliers.find(s => s.id === id);
@@ -260,12 +263,14 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         const newList = [...lineItems];
                                                         if (sId && option) {
                                                             newList[index].supplier = option.name;
+                                                            newList[index].supplierId = sId;
                                                             // Add to suppliers list if not already present so value match works on re-render
                                                             if (!suppliers.find(s => s.id === sId)) {
                                                                 setSuppliers([...suppliers, { id: sId, name: option.name, shortName: option.name, type: 'Supplier', industry: [], contactPerson: '', phone: '', email: '', address: '', rating: 'Standard' } as Customer]);
                                                             }
                                                         } else {
                                                             newList[index].supplier = '';
+                                                            newList[index].supplierId = undefined;
                                                         }
                                                         setLineItems(newList);
                                                     }}

@@ -144,6 +144,7 @@ export interface LineItem {
   name: string;
   quantity: number;
   supplier: string;
+  supplierId?: string; // ID for reliable SearchableSelect matching
   inputPrice: number;
   outputPrice: number;
   directCosts: number;

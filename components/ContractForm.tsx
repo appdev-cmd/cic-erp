@@ -128,6 +128,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       setSignedDate(contract.signedDate || new Date().toISOString().split('T')[0]);
       setHasVat(contract.hasVat !== false);
       setVatRate(contract.vatRate ?? 0);
+      // Sync customer contract number
+      setHasCustomerContractNumber(!!contract.customerContractNumber);
+      setCustomerContractNumber(contract.customerContractNumber || '');
       if (contract.contacts && contract.contacts.length > 0) setContacts(contract.contacts);
       if (contract.lineItems && contract.lineItems.length > 0) {
         const contractVat = contract.vatRate ?? 0;
