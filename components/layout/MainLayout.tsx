@@ -116,8 +116,10 @@ const MainLayout: React.FC = () => {
         return 'dashboard';
     };
 
-    // Dev bypass auth mode
-    const isDevBypass = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+    // Dev bypass auth mode — ONLY on localhost
+    const isDevBypass = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true'
+        && typeof window !== 'undefined'
+        && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
     // Loading state (skip if dev bypass)
     if (!isDevBypass && isLoadingSession) {

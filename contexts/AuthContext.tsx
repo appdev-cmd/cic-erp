@@ -28,8 +28,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [onlineUsers, setOnlineUsers] = useState<{ id: string, fullName: string, avatarUrl?: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Dev bypass: inject mock Admin profile when no real auth session
-    const isDevBypass = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+    // Dev bypass: ONLY on localhost + env flag. Never on production domains.
+    const isDevBypass = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true'
+        && typeof window !== 'undefined'
+        && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
     useEffect(() => {
         if (isDevBypass) {
