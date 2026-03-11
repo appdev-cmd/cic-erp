@@ -272,6 +272,7 @@ export interface Contract {
   suspendedDate?: string;   // Ngày tạm dừng/huỷ
   handoverDate?: string;    // Ngày bàn giao
   acceptanceDate?: string;  // Ngày nghiệm thu/thanh lý
+  acceptanceValue?: number; // Giá trị nghiệm thu (mặc định = giá trị ký kết)
   completedDate?: string;   // Ngày hoàn thành (auto = max ngày HĐ VAT cuối, ngày phiếu thu cuối)
   // Warning flags (computed, not stored in DB)
   warnings?: ContractWarnings;

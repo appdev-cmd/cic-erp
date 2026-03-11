@@ -126,6 +126,7 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
         suspendedDate: 'suspended_date',
         handoverDate: 'handover_date',
         acceptanceDate: 'acceptance_date',
+        acceptanceValue: 'acceptance_value',
         completedDate: 'completed_date',
     };
 
@@ -464,6 +465,7 @@ const mapContract = (c: any): Contract => {
         suspendedDate: c.suspended_date || undefined,
         handoverDate: c.handover_date || undefined,
         acceptanceDate: c.acceptance_date || undefined,
+        acceptanceValue: c.acceptance_value != null ? Number(c.acceptance_value) : undefined,
         completedDate: c.completed_date || undefined,
         // Revenue & Cash & Profit
         actualRevenue: actualRevenue,

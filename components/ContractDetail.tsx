@@ -53,6 +53,7 @@ import { formatVND, getStatusColor, getWarningBadges } from '../utils/contractHe
 import { formatDate } from '../utils/formatters';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
 import CustomerDetail from './CustomerDetail';
+import AcceptanceDialog from './ui/AcceptanceDialog';
 
 interface ContractDetailProps {
   contract?: Contract;
@@ -69,6 +70,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'pakd'>('overview');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showAcceptanceDialog, setShowAcceptanceDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
@@ -487,6 +489,9 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                   <div className="flex items-center gap-1.5 text-xs font-medium">
                     <CheckCircle2 size={14} className="text-blue-500" />
                     <span className="text-slate-500 dark:text-slate-400">Nghiệm thu: <b className="text-blue-600 dark:text-blue-400">{formatDate(contract.acceptanceDate)}</b></span>
+                    {contract.acceptanceValue != null && (
+                      <span className="text-slate-500 dark:text-slate-400">— GT: <b className="text-blue-600 dark:text-blue-400">{formatVND(contract.acceptanceValue)}</b></span>
+                    )}
                   </div>
                 )}
                 {contract.completedDate && (
@@ -595,12 +600,17 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                     Handover: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400 hover:bg-cyan-200 dark:hover:bg-cyan-900/50 border-cyan-200 dark:border-cyan-800',
                     Acceptance: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 border-blue-200 dark:border-blue-800',
                   };
-                  const datePromptMap: Record<string, string> = { Handover: 'Nhập ngày bàn giao (dd/mm/yyyy):', Acceptance: 'Nhập ngày nghiệm thu/thanh lý (dd/mm/yyyy):', Suspended: 'Nhập ngày tạm dừng (dd/mm/yyyy):' };
-                  const dateFieldMap: Record<string, string> = { Handover: 'handoverDate', Acceptance: 'acceptanceDate', Suspended: 'suspendedDate' };
+                  const datePromptMap: Record<string, string> = { Handover: 'Nhập ngày bàn giao (dd/mm/yyyy):', Suspended: 'Nhập ngày tạm dừng (dd/mm/yyyy):' };
+                  const dateFieldMap: Record<string, string> = { Handover: 'handoverDate', Suspended: 'suspendedDate' };
                   return (
                     <button
                       key={targetStatus}
                       onClick={async () => {
+                        // Acceptance: mở dialog thay vì prompt
+                        if (targetStatus === 'Acceptance') {
+                          setShowAcceptanceDialog(true);
+                          return;
+                        }
                         let updateData: Record<string, any> = { status: targetStatus };
                         if (datePromptMap[targetStatus]) {
                           const today = new Date();
@@ -756,6 +766,29 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
             </div>
           </div>
         </div>
+      )}
+      {/* Acceptance Dialog */}
+      {contract && (
+        <AcceptanceDialog
+          isOpen={showAcceptanceDialog}
+          onClose={() => setShowAcceptanceDialog(false)}
+          defaultValue={contract.value || 0}
+          onConfirm={async ({ date, value }) => {
+            setShowAcceptanceDialog(false);
+            const updateData: Record<string, any> = {
+              status: 'Acceptance',
+              acceptanceDate: date,
+              acceptanceValue: value,
+            };
+            try {
+              await ContractService.update(contract.id, updateData as any);
+              setContract(prev => prev ? { ...prev, ...updateData } as any : prev);
+              toast.success('Đã chuyển trạng thái → Nghiệm thu/TL');
+            } catch (err: any) {
+              toast.error('Lỗi: ' + (err.message || err));
+            }
+          }}
+        />
       )}
     </ErrorBoundary>
   );

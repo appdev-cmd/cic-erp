@@ -16,6 +16,7 @@ import { formatVND as formatCurrency, getStatusColor, getWarningBadges } from '.
 import { formatDate } from '../utils/formatters';
 import { useLayoutContext } from './layout/MainLayout';
 import DateInput from './ui/DateInput';
+import AcceptanceDialog from './ui/AcceptanceDialog';
 
 // Inline debounce hook if not exists, but better to check. 
 // For now, I'll use a simple useEffect debounce logic.
@@ -80,6 +81,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   // Quick status change state
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
   const [changingStatusId, setChangingStatusId] = useState<string | null>(null);
+  const [acceptancePendingId, setAcceptancePendingId] = useState<string | null>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   const ACTIVE_STATUSES = [
@@ -109,17 +111,21 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       return;
     }
 
-    // For statuses that require a date, prompt user
     const datePromptMap: Record<string, string> = {
       'Handover': 'Nhập ngày bàn giao (dd/mm/yyyy):',
-      'Acceptance': 'Nhập ngày nghiệm thu/thanh lý (dd/mm/yyyy):',
       'Suspended': 'Nhập ngày tạm dừng/huỷ (dd/mm/yyyy):',
     };
     const dateFieldMap: Record<string, string> = {
       'Handover': 'handoverDate',
-      'Acceptance': 'acceptanceDate',
       'Suspended': 'suspendedDate',
     };
+
+    // Acceptance: mở dialog thay vì prompt
+    if (newStatus === 'Acceptance') {
+      setAcceptancePendingId(contractId);
+      setStatusDropdownId(null);
+      return;
+    }
 
     let updateData: Record<string, any> = { status: newStatus as any };
 
@@ -715,11 +721,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           {/* Colgroup: controls column widths proportionally */}
           <colgroup>
             <col style={{ width: '2%' }} />     {/* STT */}
-            <col style={{ width: '9%' }} />     {/* Số HĐ */}
+            <col style={{ width: '13.5%' }} />  {/* Số HĐ */}
             <col />                              {/* Nội dung HĐ — auto fills remaining */}
             <col style={{ width: '6.5%' }} />   {/* Ký kết */}
-            <col style={{ width: '5.8%' }} />   {/* Doanh thu TT */}
-            <col style={{ width: '5.8%' }} />   {/* Tiền về TT */}
+            <col style={{ width: '5.8%' }} />   {/* Doanh thu */}
+            <col style={{ width: '5.8%' }} />   {/* Tiền về */}
             <col style={{ width: '6.5%' }} />   {/* LNG quản trị */}
             <col style={{ width: '5.8%' }} />   {/* LNG theo DT */}
             <col style={{ width: '3%' }} />     {/* Tỷ suất */}
@@ -733,8 +739,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 { label: 'Số HĐ', align: 'center', sortKey: 'signedDate' },
                 { label: 'Nội dung hợp đồng', align: 'center', sortKey: 'title' },
                 { label: 'Ký kết', align: 'center', sortKey: 'value' },
-                { label: 'Doanh thu TT', align: 'center', sortKey: 'actualRevenue' },
-                { label: 'Tiền về TT', align: 'center' },
+                { label: 'Doanh thu', align: 'center', sortKey: 'actualRevenue' },
+                { label: 'Tiền về', align: 'center' },
                 { label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit' },
                 { label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit' },
                 { label: 'Tỷ suất', align: 'center' },
@@ -1112,6 +1118,31 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         onSuccess={() => {
           resetInfiniteScroll();
           setIsImportModalOpen(false);
+        }}
+      />
+      {/* Acceptance Dialog */}
+      <AcceptanceDialog
+        isOpen={!!acceptancePendingId}
+        onClose={() => setAcceptancePendingId(null)}
+        defaultValue={contracts.find(c => c.id === acceptancePendingId)?.value || 0}
+        onConfirm={async ({ date, value }) => {
+          const contractId = acceptancePendingId!;
+          setAcceptancePendingId(null);
+          setChangingStatusId(contractId);
+          const updateData: Record<string, any> = {
+            status: 'Acceptance',
+            acceptanceDate: date,
+            acceptanceValue: value,
+          };
+          try {
+            await ContractService.update(contractId, updateData as any);
+            setContracts(prev => prev.map(c => c.id === contractId ? { ...c, ...updateData } as any : c));
+            toast.success('Đã chuyển trạng thái → Nghiệm thu/TL');
+          } catch (err: any) {
+            toast.error('Lỗi cập nhật trạng thái: ' + (err.message || err));
+          } finally {
+            setChangingStatusId(null);
+          }
         }}
       />
     </div>
