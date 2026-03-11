@@ -481,7 +481,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       lineItems,
       executionCosts,
       revenueSchedules,
-      customerContractNumber: hasCustomerContractNumber ? customerContractNumber : null,
+      customerContractNumber: customerContractNumber?.trim() || null,
     };
     onSave(payload);
   };
