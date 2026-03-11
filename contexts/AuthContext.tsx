@@ -132,6 +132,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userId = user?.id || (isDevBypass ? profile?.id : null);
         if (!userId || !profile) return;
 
+        // SECURITY: Don't broadcast presence in dev bypass mode
+        // This prevents "Dev Admin" ghost user from appearing in online users for production users
+        if (isDevBypass) {
+            console.log('[AuthContext] Dev bypass active – skipping presence broadcast');
+            return;
+        }
+
         console.log('[AuthContext] Initializing presence for user:', userId);
 
         const channel = supabase.channel('online_users', {

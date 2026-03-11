@@ -69,17 +69,31 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
         setExecutionCostTypes(executionCostTypesRes);
 
         if (!isEditing && !unitId && unitsData.length > 0) {
+          const operationalUnits = unitsData.filter(u => u.id !== 'all' && u.type !== 'Company' && u.type !== 'BackOffice');
           if (profile?.unitId) {
-            setUnitId(profile.unitId);
+            // Nếu profile.unitId là operational unit thì dùng, nếu không thì fallback
+            const profileUnit = unitsData.find(u => u.id === profile.unitId);
+            const isOperational = profileUnit && profileUnit.id !== 'all' && profileUnit.type !== 'Company' && profileUnit.type !== 'BackOffice';
+            if (isOperational) {
+              setUnitId(profile.unitId);
+            } else if (operationalUnits.length > 0) {
+              setUnitId(operationalUnits[0].id);
+            }
           } else {
-            const operationalUnits = unitsData.filter(u => u.id !== 'all' && u.type !== 'Company' && u.type !== 'BackOffice');
             if (operationalUnits.length > 0) setUnitId(operationalUnits[0].id);
           }
+          // Khởi tạo employeeAllocations: nếu profile match employee thì set luôn, nếu không thì tạo row rỗng
           if (profile?.id) {
             const isEmployee = peopleData.some(p => p.id === profile.id);
             if (isEmployee) {
               setSalespersonId(profile.id);
+              setEmployeeAllocations([{ employeeId: profile.id, percent: 100, role: 'lead' }]);
+            } else {
+              // Admin/Leadership: tạo row rỗng để dropdown hiện danh sách
+              setEmployeeAllocations([{ employeeId: '', percent: 100, role: 'lead' }]);
             }
+          } else {
+            setEmployeeAllocations([{ employeeId: '', percent: 100, role: 'lead' }]);
           }
         }
       } catch (error) {
@@ -479,7 +493,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     <div className={outerClasses}>
 
       {/* HEADER + STEPPER (merged) */}
-      <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800">
+      <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800">
         {/* Left: Title */}
         <div className="flex items-center gap-4 shrink-0">
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100 dark:shadow-none">
@@ -494,7 +508,6 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 <Hash size={9} /> {formContractId}
               </div>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Nghiệp vụ Quản trị & Theo dõi KPI mục tiêu</p>
           </div>
         </div>
 
@@ -552,7 +565,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       ) : null}
 
       {/* BODY */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-10 pb-10 pt-2 custom-scrollbar space-y-8 scroll-smooth">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 pb-6 pt-2 custom-scrollbar space-y-8 scroll-smooth">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           <div className="col-span-12 space-y-12">
 
@@ -639,7 +652,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       />
 
       {/* FOOTER */}
-      <div className="px-10 py-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800 flex justify-between items-center">
+      <div className="px-8 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800 flex justify-between items-center">
         <div className="flex items-center gap-6">
           <button onClick={() => { localStorage.removeItem('contract_form_draft'); onCancel(); }} className="px-6 py-3 text-slate-400 hover:text-rose-500 font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2">
             <X size={14} /> Hủy bỏ

@@ -953,6 +953,19 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                         {formatCurrency(0)}
                       </span>
                     )}
+                    {/* Còn thiếu = Tổng giá trị xuất HĐ sau VAT - Tổng tiền về */}
+                    {(() => {
+                      const invoiced = contract.invoicedAmount || 0;
+                      const outstanding = invoiced - cashReceived;
+                      if (invoiced > 0 && outstanding > 0) {
+                        return (
+                          <p className="text-[9px] font-bold text-rose-600 dark:text-rose-400 mt-0.5" title={`Còn thiếu: ${formatCurrency(outstanding)} = Đã xuất HĐ ${formatCurrency(invoiced)} − Tiền về ${formatCurrency(cashReceived)}`}>
+                            −{formatCurrency(outstanding)}
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
                   </td>
                   {/* LNG Quản trị */}
                   <td className="px-1.5 py-2 text-right whitespace-nowrap">

@@ -82,11 +82,11 @@ const SectionCard: React.FC<{ icon: React.ReactNode; title: string; children: Re
     icon, title, children, delay = 0, accentColor = 'indigo'
 }) => (
     <section
-        className="bg-slate-50/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700 p-5 space-y-4 animate-in slide-in-from-bottom-4 duration-500"
+        className="bg-slate-50/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700 p-4 space-y-3 animate-in slide-in-from-bottom-4 duration-500"
         style={{ animationDelay: `${delay}ms` }}
     >
         <div className="flex items-center gap-2.5">
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${accentClasses[accentColor || 'indigo']}`}>
+            <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${accentClasses[accentColor || 'indigo']}`}>
                 {icon}
             </div>
             <h3 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">{title}</h3>
@@ -97,7 +97,7 @@ const SectionCard: React.FC<{ icon: React.ReactNode; title: string; children: Re
 
 // --- Field Label ---
 const FieldLabel: React.FC<{ icon?: React.ReactNode; children: React.ReactNode; required?: boolean }> = ({ icon, children, required }) => (
-    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase ml-0.5 flex items-center gap-1 mb-1.5">
+    <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase ml-0.5 flex items-center gap-1 mb-1">
         {icon}
         {children}
         {required && <span className="text-rose-400 ml-0.5">*</span>}
@@ -134,7 +134,7 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
     const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-3">
 
             {/* ================================================================
                 CARD 1: THÔNG TIN HỢP ĐỒNG (Contract Identity)
@@ -153,7 +153,7 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600'
                                     }`}
                             >
-                                <FileText size={11} className="inline mr-1 -mt-0.5" />HĐ
+                                <FileText size={11} className="inline mr-1 -mt-0.5" />Hợp đồng
                             </button>
                             <button
                                 type="button"
@@ -163,14 +163,14 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600'
                                     }`}
                             >
-                                <FileSignature size={11} className="inline mr-1 -mt-0.5" />VV
+                                <FileSignature size={11} className="inline mr-1 -mt-0.5" />Vụ việc
                             </button>
                         </div>
                     </div>
 
-                    {/* Mã hợp đồng */}
-                    <div className="flex-1 min-w-[200px]">
-                        <FieldLabel icon={<Hash size={10} />}>Mã hợp đồng</FieldLabel>
+                    {/* Số Hợp đồng */}
+                    <div className="flex-1 min-w-[180px]">
+                        <FieldLabel icon={<Hash size={10} />}>Số hiệu HĐ theo CIC</FieldLabel>
                         <input
                             value={formContractId}
                             onChange={(e) => { setFormContractId(e.target.value); setIsIdTouched(true); }}
@@ -189,28 +189,15 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                         />
                     </div>
 
-                    {/* Số HĐ KH — inline on same row */}
-                    <div className="flex items-end pb-0.5">
-                        {hasCustomerContractNumber ? (
-                            <div className="space-y-1 animate-in slide-in-from-left-2 duration-200">
-                                <FieldLabel>Số HĐ KH</FieldLabel>
-                                <div className="flex items-center gap-1.5">
-                                    <input
-                                        value={customerContractNumber}
-                                        onChange={(e) => setCustomerContractNumber(e.target.value)}
-                                        placeholder="Nhập..."
-                                        className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:border-indigo-500 w-[140px]"
-                                    />
-                                    <button onClick={() => { setHasCustomerContractNumber(false); setCustomerContractNumber(''); }} className="text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors p-1">
-                                        <Trash2 size={12} />
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <button onClick={() => setHasCustomerContractNumber(true)} className="text-indigo-500 dark:text-indigo-400 text-[10px] font-bold hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center gap-1 pb-2.5 whitespace-nowrap">
-                                <Plus size={10} /> Số HĐ KH
-                            </button>
-                        )}
+                    {/* Số HĐ KH — luôn hiện, cùng flex-1 với Số Hợp đồng */}
+                    <div className="flex-1 min-w-[180px]">
+                        <FieldLabel>Số hiệu HĐ theo Khách hàng (nếu khác)</FieldLabel>
+                        <input
+                            value={customerContractNumber}
+                            onChange={(e) => setCustomerContractNumber(e.target.value)}
+                            placeholder="Nhập..."
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-700 dark:text-slate-300 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                        />
                     </div>
                 </div>
             </SectionCard>
@@ -219,14 +206,14 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                 CARD 2: TỔ CHỨC THỰC HIỆN (Organization)
             ================================================================ */}
             <SectionCard icon={<UserCheck size={14} />} title="Tổ chức thực hiện" delay={80} accentColor="violet">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                     {/* Đơn vị thực hiện — 4 cols */}
                     <div className="md:col-span-4 space-y-1">
                         <FieldLabel icon={<MapPin size={10} />} required>Đơn vị thực hiện</FieldLabel>
                         <select
                             value={unitId}
                             onChange={(e) => { setUnitId(e.target.value); setSalespersonId(''); setEmployeeAllocations([]); }}
-                            className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all cursor-pointer"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all cursor-pointer"
                         >
                             {units
                                 .filter(u => {
@@ -393,7 +380,7 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
             ================================================================ */}
             <SectionCard icon={<Building2 size={14} />} title="Khách hàng & Nội dung" delay={160} accentColor="emerald">
                 {/* 2-column: Customer on left, Content on right */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Left: Customer */}
                     <div className="space-y-3">
                         <SearchableSelect
@@ -472,20 +459,20 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                             placeholder="VD: Tư vấn giải pháp BIM, Đào tạo chuyên sâu phần mềm Plaxis 3D..."
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none h-[120px] resize-none transition-all"
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 outline-none h-[90px] resize-none transition-all"
                         />
                     </div>
                 </div>
 
                 {/* Contacts — full width */}
                 <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700">
-                    <div className="flex justify-between items-center mb-3">
+                    <div className="flex justify-between items-center mb-2">
                         <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Đầu mối liên hệ phía khách hàng</label>
                         <button onClick={addContact} className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-black text-[10px] uppercase hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
                             <Plus size={12} /> Thêm đầu mối
                         </button>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                         {contacts.map((contact) => (
                             <div key={contact.id} className="grid grid-cols-12 gap-3 items-center animate-in slide-in-from-left-2 duration-300">
                                 <div className="col-span-5">
