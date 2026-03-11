@@ -35,7 +35,7 @@ interface ParsedRow extends ImportRow {
     salespersonId?: string;
 }
 
-const VALID_STATUSES = ['Processing', 'Suspended', 'Acceptance', 'Liquidated', 'Completed'];
+const VALID_STATUSES = ['Processing', 'Suspended', 'Handover', 'Acceptance', 'Completed'];
 
 const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClose, onSuccess }) => {
     const [parsedData, setParsedData] = useState<ParsedRow[]>([]);

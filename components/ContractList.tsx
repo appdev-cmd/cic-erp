@@ -12,10 +12,11 @@ import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
-import { formatVND as formatCurrency, getStatusColor } from '../utils/contractHelpers';
+import { formatVND as formatCurrency, getStatusColor, getWarningBadges } from '../utils/contractHelpers';
 import { formatDate } from '../utils/formatters';
 import { useLayoutContext } from './layout/MainLayout';
 import DateInput from './ui/DateInput';
+import AcceptanceDialog from './ui/AcceptanceDialog';
 
 // Inline debounce hook if not exists, but better to check. 
 // For now, I'll use a simple useEffect debounce logic.
@@ -50,13 +51,21 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
+  // Sync: when user picks a specific year in Header, clear the date range
+  useEffect(() => {
+    if (yearFilter && yearFilter !== 'All') {
+      setDateFrom('');
+      setDateTo('');
+    }
+  }, [yearFilter]);
+
   // Infinite scroll batch size
   const PAGE_SIZE = 20;
 
   // Data state
   const [salespeople, setSalespeople] = useState<Employee[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
-  const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalRevenueProfit: 0, totalCash: 0, processingCount: 0, suspendedCount: 0, overdueAdvanceCount: 0, handoverCount: 0, acceptanceCount: 0, overduePaymentCount: 0, completedCount: 0 });
+  const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalRevenueProfit: 0, totalCash: 0, processingCount: 0, suspendedCount: 0, handoverCount: 0, acceptanceCount: 0, completedCount: 0 });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [customerShortNames, setCustomerShortNames] = useState<Map<string, string>>(new Map());
   const [invoiceMap, setInvoiceMap] = useState<Map<string, string[]>>(new Map());
@@ -72,15 +81,14 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   // Quick status change state
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
   const [changingStatusId, setChangingStatusId] = useState<string | null>(null);
+  const [acceptancePendingId, setAcceptancePendingId] = useState<string | null>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   const ACTIVE_STATUSES = [
     { value: 'Processing', label: 'Đang thực hiện', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800' },
     { value: 'Suspended', label: 'Tạm dừng/Huỷ', color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' },
-    { value: 'Overdue_Advance', label: 'QH tạm ứng', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' },
     { value: 'Handover', label: 'Bàn giao', color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800' },
     { value: 'Acceptance', label: 'Nghiệm thu/TL', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
-    { value: 'Overdue_Payment', label: 'QH thanh toán', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800' },
     { value: 'Completed', label: 'Hoàn thành', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
   ];
 
@@ -102,12 +110,46 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       setStatusDropdownId(null);
       return;
     }
+
+    const datePromptMap: Record<string, string> = {
+      'Handover': 'Nhập ngày bàn giao (dd/mm/yyyy):',
+      'Suspended': 'Nhập ngày tạm dừng/huỷ (dd/mm/yyyy):',
+    };
+    const dateFieldMap: Record<string, string> = {
+      'Handover': 'handoverDate',
+      'Suspended': 'suspendedDate',
+    };
+
+    // Acceptance: mở dialog thay vì prompt
+    if (newStatus === 'Acceptance') {
+      setAcceptancePendingId(contractId);
+      setStatusDropdownId(null);
+      return;
+    }
+
+    let updateData: Record<string, any> = { status: newStatus as any };
+
+    if (datePromptMap[newStatus]) {
+      const today = new Date();
+      const defaultDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+      const inputDate = prompt(datePromptMap[newStatus], defaultDate);
+      if (!inputDate) {
+        setStatusDropdownId(null);
+        return; // User cancelled
+      }
+      // Parse dd/mm/yyyy -> yyyy-mm-dd
+      const parts = inputDate.split('/');
+      if (parts.length === 3) {
+        const isoDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        (updateData as any)[dateFieldMap[newStatus]] = isoDate;
+      }
+    }
+
     setChangingStatusId(contractId);
     setStatusDropdownId(null);
     try {
-      await ContractService.update(contractId, { status: newStatus as any });
-      // Update inline without refetching entire list
-      setContracts(prev => prev.map(c => c.id === contractId ? { ...c, status: newStatus as any } : c));
+      await ContractService.update(contractId, updateData as any);
+      setContracts(prev => prev.map(c => c.id === contractId ? { ...c, ...updateData } as any : c));
       toast.success(`Đã chuyển trạng thái → ${CONTRACT_STATUS_LABELS[newStatus]}`);
     } catch (err: any) {
       toast.error('Lỗi cập nhật trạng thái: ' + (err.message || err));
@@ -572,14 +614,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         const statusCards: { status: ContractStatus; label: string; count: number; icon: React.ReactNode; color: string; bgColor: string }[] = [
           { status: 'Processing', label: 'Đang thực hiện', count: metrics.processingCount, icon: <Clock size={16} />, color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-900/25 border border-orange-100 dark:border-orange-800/40' },
           { status: 'Suspended', label: 'Tạm dừng/Huỷ', count: metrics.suspendedCount, icon: <AlertCircle size={16} />, color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/25 border border-red-100 dark:border-red-800/40' },
-          { status: 'Overdue_Advance', label: 'QH tạm ứng', count: metrics.overdueAdvanceCount, icon: <AlertCircle size={16} />, color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-900/25 border border-amber-100 dark:border-amber-800/40' },
           { status: 'Handover', label: 'Bàn giao', count: metrics.handoverCount, icon: <PackageCheck size={16} />, color: 'text-cyan-600 dark:text-cyan-400', bgColor: 'bg-cyan-50 dark:bg-cyan-900/25 border border-cyan-100 dark:border-cyan-800/40' },
           { status: 'Acceptance', label: 'Nghiệm thu/TL', count: metrics.acceptanceCount, icon: <FileText size={16} />, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/25 border border-blue-100 dark:border-blue-800/40' },
-          { status: 'Overdue_Payment', label: 'QH thanh toán', count: metrics.overduePaymentCount, icon: <AlertCircle size={16} />, color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/25 border border-red-100 dark:border-red-800/40' },
           { status: 'Completed', label: 'Hoàn thành', count: metrics.completedCount, icon: <CheckCircle size={16} />, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-50 dark:bg-emerald-900/25 border border-emerald-100 dark:border-emerald-800/40' },
         ];
         return (
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {statusCards.map(sc => (
               <button
                 key={sc.status}
@@ -624,10 +664,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
             <option value="All">Tất cả trạng thái</option>
             <option value="Processing">Đang thực hiện</option>
             <option value="Suspended">Tạm dừng/Huỷ</option>
-            <option value="Overdue_Advance">QH tạm ứng</option>
             <option value="Handover">Bàn giao</option>
             <option value="Acceptance">Nghiệm thu/TL</option>
-            <option value="Overdue_Payment">QH thanh toán</option>
             <option value="Completed">Hoàn thành</option>
           </select>
         </div>
@@ -678,29 +716,42 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       </div>
 
       {/* TABLE */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]">
+      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-hidden overflow-y-auto max-h-[calc(100vh-200px)]">
         <table className="w-full text-left" style={{ tableLayout: 'fixed' }}>
+          {/* Colgroup: controls column widths proportionally */}
+          <colgroup>
+            <col style={{ width: '2%' }} />     {/* STT */}
+            <col style={{ width: '13.5%' }} />  {/* Số HĐ */}
+            <col />                              {/* Nội dung HĐ — auto fills remaining */}
+            <col style={{ width: '6.5%' }} />   {/* Ký kết */}
+            <col style={{ width: '5.8%' }} />   {/* Doanh thu */}
+            <col style={{ width: '5.8%' }} />   {/* Tiền về */}
+            <col style={{ width: '6.5%' }} />   {/* LNG quản trị */}
+            <col style={{ width: '5.8%' }} />   {/* LNG theo DT */}
+            <col style={{ width: '3%' }} />     {/* Tỷ suất */}
+            <col style={{ width: '9%' }} />     {/* Trạng thái */}
+            <col style={{ width: '3%' }} />     {/* Actions */}
+          </colgroup>
           <thead>
             <tr className="z-20">
               {[
-                { label: 'STT', align: 'center', width: 'w-[3%]' },
-                { label: 'Số HĐ', align: 'center', sortKey: 'signedDate', width: 'w-[12%]', dataAlign: 'left' },
-                { label: 'Nội dung hợp đồng', align: 'center', sortKey: 'title', dataAlign: 'left' },
-                { label: 'Ký kết', align: 'center', sortKey: 'value', width: 'w-[9%]', dataAlign: 'right' },
-                { label: 'Doanh thu TT', align: 'center', sortKey: 'actualRevenue', width: 'w-[9%]', dataAlign: 'right' },
-                { label: 'Tiền về TT', align: 'center', width: 'w-[9%]', dataAlign: 'right' },
-                { label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit', width: 'w-[9%]', dataAlign: 'right' },
-                { label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit', width: 'w-[9%]', dataAlign: 'right' },
-                { label: 'Tỷ suất LN/DT', align: 'center', width: 'w-[5%]', dataAlign: 'right' },
-                { label: 'Trạng thái', align: 'center', sortKey: 'status', width: 'w-[10%]', dataAlign: 'left' },
-                { label: '', align: 'center', width: 'w-[3%]' },
+                { label: 'STT', align: 'center' },
+                { label: 'Số HĐ', align: 'center', sortKey: 'signedDate' },
+                { label: 'Nội dung hợp đồng', align: 'center', sortKey: 'title' },
+                { label: 'Ký kết', align: 'center', sortKey: 'value' },
+                { label: 'Doanh thu', align: 'center', sortKey: 'actualRevenue' },
+                { label: 'Tiền về', align: 'center' },
+                { label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit' },
+                { label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit' },
+                { label: 'Tỷ suất', align: 'center' },
+                { label: 'Trạng thái', align: 'center', sortKey: 'status' },
+                { label: '', align: 'center' },
               ].map((col, idx) => (
                 <th
                   key={idx}
-                  className={`sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-3 py-4 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700
+                  className={`sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-1.5 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700
                     ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}
                     ${col.color || 'text-slate-700 dark:text-slate-300'}
-                    ${col.width || ''}
                     ${col.sortKey ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 select-none transition-colors' : ''}`}
                   onClick={() => {
                     if (!col.sortKey) return;
@@ -789,7 +840,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${isCollaborative ? 'bg-blue-50/40 dark:bg-blue-900/10' : index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-transparent dark:bg-transparent'}`}
                   title={isCollaborative ? `HĐ phối hợp — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * (allocationPct || 100) / 100))}` : allocationRole === 'lead' && allocationPct !== undefined && allocationPct < 100 ? `HĐ chủ trì — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * allocationPct / 100))}` : undefined}
                 >
-                  <td className="px-3 py-2 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                  <td className="px-1.5 py-2 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
                     {stt.toString().padStart(2, '0')}
                   </td>
                   {/* Số HĐ + Phụ trách KD */}
@@ -851,7 +902,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     </div>
                   </td>
                   {/* Ký kết — hiển thị giá trị phân bổ, hover xem giá trị ký kết gốc */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-1.5 py-2 text-right whitespace-nowrap">
                     {(() => {
                       const fullValue = contract.value || 0;
                       const allocatedValue = allocationPct !== undefined && allocationPct < 100
@@ -869,7 +920,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     })()}
                   </td>
                   {/* Doanh thu */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-1.5 py-2 text-right whitespace-nowrap">
                     <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100" title={formatCurrency(revenue)}>
                       {formatCurrency(revenue)}
                     </span>
@@ -880,7 +931,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     )}
                   </td>
                   {/* Tiền về */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-1.5 py-2 text-right whitespace-nowrap">
                     {cashReceived > 0 ? (
                       advanceAmount > 0 && advanceAmount >= cashReceived ? (
                         // All cash is from advance payments
@@ -908,94 +959,121 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                         {formatCurrency(0)}
                       </span>
                     )}
+                    {/* Còn thiếu = Tổng giá trị xuất HĐ sau VAT - Tổng tiền về */}
+                    {(() => {
+                      const invoiced = contract.invoicedAmount || 0;
+                      const outstanding = invoiced - cashReceived;
+                      if (invoiced > 0 && outstanding > 0) {
+                        return (
+                          <p className="text-[9px] font-bold text-rose-600 dark:text-rose-400 mt-0.5" title={`Còn thiếu: ${formatCurrency(outstanding)} = Đã xuất HĐ ${formatCurrency(invoiced)} − Tiền về ${formatCurrency(cashReceived)}`}>
+                            −{formatCurrency(outstanding)}
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
                   </td>
                   {/* LNG Quản trị */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-1.5 py-2 text-right whitespace-nowrap">
                     <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400" title={formatCurrency(contract.adminProfit || 0)}>
                       {formatCurrency(contract.adminProfit || 0)}
                     </span>
                   </td>
                   {/* LNG theo DT */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-1.5 py-2 text-right whitespace-nowrap">
                     <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400" title={formatCurrency(contract.revProfit || 0)}>
                       {formatCurrency(contract.revProfit || 0)}
                     </span>
                   </td>
                   {/* Tỷ suất LN/DT */}
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-1.5 py-2 text-right">
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${margin > 50 ? 'bg-emerald-100/50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
                       {margin.toFixed(0)}%
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-left">
-                    <div className="relative inline-block" ref={statusDropdownId === contract.id ? statusDropdownRef : undefined}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setStatusDropdownId(statusDropdownId === contract.id ? null : contract.id);
-                        }}
-                        disabled={changingStatusId === contract.id}
-                        className={`group/status w-full flex items-center justify-start gap-1.5 px-2 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold shadow-sm transition-all focus:ring-2 focus:ring-orange-500 cursor-pointer ${contract.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/20' :
-                          contract.status === 'Processing' ? 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 hover:bg-orange-500/20' :
-                            contract.status === 'Suspended' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 hover:bg-rose-500/20' :
-                              contract.status === 'Overdue_Advance' ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 hover:bg-amber-500/20' :
-                                contract.status === 'Handover' ? 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 hover:bg-cyan-500/20' :
-                                  contract.status === 'Acceptance' || contract.status === 'Liquidated' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 hover:bg-blue-500/20' :
-                                    contract.status === 'Overdue_Payment' ? 'bg-red-500/10 text-red-600 dark:bg-red-500/20 dark:text-red-400 hover:bg-red-500/20' :
+                  <td className="px-1.5 py-2 text-left">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1">
+                        <div className="relative inline-block" ref={statusDropdownId === contract.id ? statusDropdownRef : undefined}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setStatusDropdownId(statusDropdownId === contract.id ? null : contract.id);
+                            }}
+                            disabled={changingStatusId === contract.id}
+                            className={`group/status flex items-center justify-start gap-1 px-2 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold shadow-sm transition-all focus:ring-2 focus:ring-orange-500 cursor-pointer whitespace-nowrap ${contract.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/20' :
+                              contract.status === 'Processing' ? 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 hover:bg-orange-500/20' :
+                                contract.status === 'Suspended' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 hover:bg-rose-500/20' :
+                                  contract.status === 'Handover' ? 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 hover:bg-cyan-500/20' :
+                                    contract.status === 'Acceptance' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 hover:bg-blue-500/20' :
                                       'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                          }`}
-                        title="Click để đổi trạng thái"
-                      >
-                        {changingStatusId === contract.id ? (
-                          <Loader2 size={12} className="animate-spin shrink-0" />
-                        ) : (
-                          <>
-                            <span className="truncate">{CONTRACT_STATUS_LABELS[contract.status] || contract.status}</span>
-                            <ChevronDown size={12} className="opacity-0 group-hover/status:opacity-50 transition-opacity shrink-0" />
-                          </>
-                        )}
-                      </button>
-                      {statusDropdownId === contract.id && (
-                        <div className="absolute z-50 top-full mt-1 right-0 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                          <div className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Chuyển trạng thái</div>
-                          {ACTIVE_STATUSES.map(s => (
-                            <button
-                              key={s.value}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleQuickStatusChange(contract.id, s.value, contract.status);
-                              }}
-                              className={`w-full text-left px-3 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${contract.status === s.value
-                                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-                                }`}
+                              }`}
+                            title="Click để đổi trạng thái"
+                          >
+                            {changingStatusId === contract.id ? (
+                              <Loader2 size={12} className="animate-spin shrink-0" />
+                            ) : (
+                              <>
+                                <span className="truncate">{CONTRACT_STATUS_LABELS[contract.status] || contract.status}</span>
+                                <ChevronDown size={12} className="opacity-0 group-hover/status:opacity-50 transition-opacity shrink-0" />
+                              </>
+                            )}
+                          </button>
+                          {statusDropdownId === contract.id && (
+                            <div className="absolute z-50 top-full mt-1 right-0 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                              <div className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Chuyển trạng thái</div>
+                              {ACTIVE_STATUSES.map(s => (
+                                <button
+                                  key={s.value}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleQuickStatusChange(contract.id, s.value, contract.status);
+                                  }}
+                                  className={`w-full text-left px-3 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${contract.status === s.value
+                                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                    }`}
+                                >
+                                  <span className={`w-2 h-2 rounded-full ${s.value === 'Processing' ? 'bg-orange-500' :
+                                    s.value === 'Suspended' ? 'bg-rose-500' :
+                                      s.value === 'Handover' ? 'bg-cyan-500' :
+                                        s.value === 'Acceptance' ? 'bg-blue-500' : 'bg-emerald-500'
+                                    }`} />
+                                  {s.label}
+                                  {contract.status === s.value && <Check size={14} className="ml-auto text-indigo-500" />}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Warning badges — shown below status for visibility */}
+                      {getWarningBadges(contract.warnings).length > 0 && (
+                        <div className="flex flex-wrap gap-0.5">
+                          {getWarningBadges(contract.warnings).map((badge, i) => (
+                            <span
+                              key={i}
+                              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold whitespace-nowrap ${badge.color}`}
+                              title={badge.label}
                             >
-                              <span className={`w-2 h-2 rounded-full ${s.value === 'Processing' ? 'bg-orange-500' :
-                                s.value === 'Suspended' ? 'bg-rose-500' :
-                                  s.value === 'Overdue_Advance' ? 'bg-amber-500' :
-                                    s.value === 'Handover' ? 'bg-cyan-500' :
-                                      s.value === 'Acceptance' ? 'bg-blue-500' :
-                                        s.value === 'Overdue_Payment' ? 'bg-red-500' : 'bg-emerald-500'
-                                }`} />
-                              {s.label}
-                              {contract.status === s.value && <Check size={14} className="ml-auto text-indigo-500" />}
-                            </button>
+                              {badge.icon} {badge.label}
+                            </span>
                           ))}
                         </div>
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-1 py-2 text-center">
                     {(onClone && (isGlobalScope || contract.unitId === profile?.unitId)) && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onClone(contract);
                         }}
-                        className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                        className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                         title="Nhân bản hợp đồng"
                       >
-                        <Copy size={18} />
+                        <Copy size={15} />
                       </button>
                     )}
                   </td>
@@ -1040,6 +1118,31 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         onSuccess={() => {
           resetInfiniteScroll();
           setIsImportModalOpen(false);
+        }}
+      />
+      {/* Acceptance Dialog */}
+      <AcceptanceDialog
+        isOpen={!!acceptancePendingId}
+        onClose={() => setAcceptancePendingId(null)}
+        defaultValue={contracts.find(c => c.id === acceptancePendingId)?.value || 0}
+        onConfirm={async ({ date, value }) => {
+          const contractId = acceptancePendingId!;
+          setAcceptancePendingId(null);
+          setChangingStatusId(contractId);
+          const updateData: Record<string, any> = {
+            status: 'Acceptance',
+            acceptanceDate: date,
+            acceptanceValue: value,
+          };
+          try {
+            await ContractService.update(contractId, updateData as any);
+            setContracts(prev => prev.map(c => c.id === contractId ? { ...c, ...updateData } as any : c));
+            toast.success('Đã chuyển trạng thái → Nghiệm thu/TL');
+          } catch (err: any) {
+            toast.error('Lỗi cập nhật trạng thái: ' + (err.message || err));
+          } finally {
+            setChangingStatusId(null);
+          }
         }}
       />
     </div>

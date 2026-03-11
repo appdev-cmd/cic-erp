@@ -109,7 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   // Dashboard Metrics
   const [stats, setStats] = useState({
     actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
-    statusCounts: { processing: 0, suspended: 0, overdueAdvance: 0, handover: 0, acceptance: 0, overduePayment: 0, completed: 0 }
+    statusCounts: { processing: 0, suspended: 0, handover: 0, acceptance: 0, completed: 0 }
   });
 
   // Chart Data
@@ -186,10 +186,8 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
             statusCounts: {
               processing: Number((statsData as any)?.processingCount) || 0,
               suspended: Number((statsData as any)?.suspendedCount) || 0,
-              overdueAdvance: Number((statsData as any)?.overdueAdvanceCount) || 0,
               handover: Number((statsData as any)?.handoverCount) || 0,
               acceptance: Number((statsData as any)?.acceptanceCount) || 0,
-              overduePayment: Number((statsData as any)?.overduePaymentCount) || 0,
               completed: Number((statsData as any)?.completedCount) || 0
             }
           });
@@ -285,7 +283,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         if (!isCancelled) {
           setStats({
             actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
-            statusCounts: { processing: 0, suspended: 0, overdueAdvance: 0, handover: 0, acceptance: 0, overduePayment: 0, completed: 0 }
+            statusCounts: { processing: 0, suspended: 0, handover: 0, acceptance: 0, completed: 0 }
           });
         }
       } finally {
@@ -545,14 +543,12 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={displayTarget} yoy={{ value: '0', isUp: true, lastYearTotal: 0 }} color="cyan" icon={<Wallet size={20} />} />
         </div>
 
-        {/* Status Highlights — All 7 contract statuses */}
-        <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
+        {/* Status Highlights — 5 contract statuses */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <StatusCard label="Đang thực hiện" count={stats.statusCounts.processing} icon={<Clock size={18} className="text-orange-600 dark:text-orange-400" />} color="orange" />
           <StatusCard label="Tạm dừng/Huỷ" count={stats.statusCounts.suspended} icon={<AlertCircle size={18} className="text-rose-600 dark:text-rose-400" />} color="rose" />
-          <StatusCard label="QH tạm ứng" count={stats.statusCounts.overdueAdvance} icon={<AlertCircle size={18} className="text-amber-600 dark:text-amber-400" />} color="amber" />
           <StatusCard label="Bàn giao" count={stats.statusCounts.handover} icon={<PackageCheck size={18} className="text-cyan-600 dark:text-cyan-400" />} color="cyan" />
           <StatusCard label="Nghiệm thu/TL" count={stats.statusCounts.acceptance} icon={<ClipboardList size={18} className="text-blue-600 dark:text-blue-400" />} color="blue" />
-          <StatusCard label="QH thanh toán" count={stats.statusCounts.overduePayment} icon={<AlertCircle size={18} className="text-red-600 dark:text-red-400" />} color="red" />
           <StatusCard label="Hoàn thành" count={stats.statusCounts.completed} icon={<CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400" />} color="emerald" />
         </div>
 

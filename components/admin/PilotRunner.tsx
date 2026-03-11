@@ -130,7 +130,7 @@ const PilotRunner = () => {
             // Simulate Wizard Step 2 & 3: Updating details
             log("🔄 Cập nhật chi tiết Hợp đồng...");
             await ContractService.update(createdContract.id, {
-                status: 'Active',
+                status: 'Processing',
                 paymentPhases: [
                     { id: 'p1', name: "Đợt 1: Tạm ứng", percentage: 50, amount: 25000000, dueDate: new Date().toISOString(), status: 'Pending' },
                     { id: 'p2', name: "Đợt 2: Nghiệm thu", percentage: 50, amount: 25000000, dueDate: new Date().toISOString(), status: 'Pending' }

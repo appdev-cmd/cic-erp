@@ -28,8 +28,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [onlineUsers, setOnlineUsers] = useState<{ id: string, fullName: string, avatarUrl?: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Dev bypass: inject mock Admin profile when no real auth session
-    const isDevBypass = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+    // Dev bypass: ONLY on localhost + env flag. Never on production domains.
+    const isDevBypass = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true'
+        && typeof window !== 'undefined'
+        && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
     useEffect(() => {
         if (isDevBypass) {
@@ -131,6 +133,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // In dev bypass, we might not have a Supabase user, but we have a profile
         const userId = user?.id || (isDevBypass ? profile?.id : null);
         if (!userId || !profile) return;
+
+        // SECURITY: Don't broadcast presence in dev bypass mode
+        // This prevents "Dev Admin" ghost user from appearing in online users for production users
+        if (isDevBypass) {
+            console.log('[AuthContext] Dev bypass active – skipping presence broadcast');
+            return;
+        }
 
         console.log('[AuthContext] Initializing presence for user:', userId);
 

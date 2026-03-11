@@ -49,10 +49,11 @@ import { SubmitLegalDialog } from './workflow/SubmitLegalDialog';
 import { AddDocumentLinkDialog } from './workflow/AddDocumentLinkDialog';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useFinancialCalculations } from '../hooks/useFinancialCalculations';
-import { formatVND, getStatusColor } from '../utils/contractHelpers';
+import { formatVND, getStatusColor, getWarningBadges } from '../utils/contractHelpers';
 import { formatDate } from '../utils/formatters';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
 import CustomerDetail from './CustomerDetail';
+import AcceptanceDialog from './ui/AcceptanceDialog';
 
 interface ContractDetailProps {
   contract?: Contract;
@@ -69,6 +70,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'pakd'>('overview');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showAcceptanceDialog, setShowAcceptanceDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
@@ -476,16 +478,32 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                     <span className="text-slate-500 dark:text-slate-400">Ngày ký: <b className="text-emerald-600 dark:text-emerald-400">{formatDate(contract.signedDate)}</b></span>
                   </div>
                 )}
-                {contract.startDate && (
+                {/* Status transition dates */}
+                {contract.handoverDate && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
-                    <Calendar size={14} className="text-blue-500" />
-                    <span className="text-slate-500 dark:text-slate-400">Bắt đầu: <b className="text-blue-600 dark:text-blue-400">{formatDate(contract.startDate)}</b></span>
+                    <PackageCheck size={14} className="text-cyan-500" />
+                    <span className="text-slate-500 dark:text-slate-400">Bàn giao: <b className="text-cyan-600 dark:text-cyan-400">{formatDate(contract.handoverDate)}</b></span>
                   </div>
                 )}
-                {contract.endDate && (
+                {contract.acceptanceDate && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
-                    <Calendar size={14} className="text-rose-500" />
-                    <span className="text-slate-500 dark:text-slate-400">Kết thúc: <b className="text-rose-600 dark:text-rose-400">{formatDate(contract.endDate)}</b></span>
+                    <CheckCircle2 size={14} className="text-blue-500" />
+                    <span className="text-slate-500 dark:text-slate-400">Nghiệm thu: <b className="text-blue-600 dark:text-blue-400">{formatDate(contract.acceptanceDate)}</b></span>
+                    {contract.acceptanceValue != null && (
+                      <span className="text-slate-500 dark:text-slate-400">— GT: <b className="text-blue-600 dark:text-blue-400">{formatVND(contract.acceptanceValue)}</b></span>
+                    )}
+                  </div>
+                )}
+                {contract.completedDate && (
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <CheckCircle2 size={14} className="text-emerald-500" />
+                    <span className="text-slate-500 dark:text-slate-400">Hoàn thành: <b className="text-emerald-600 dark:text-emerald-400">{formatDate(contract.completedDate)}</b></span>
+                  </div>
+                )}
+                {contract.suspendedDate && (
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <AlertCircle size={14} className="text-rose-500" />
+                    <span className="text-slate-500 dark:text-slate-400">Tạm dừng: <b className="text-rose-600 dark:text-rose-400">{formatDate(contract.suspendedDate)}</b></span>
                   </div>
                 )}
               </div>
@@ -542,6 +560,86 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
             </button>
           </div>
         </div>
+
+        {/* WARNING BANNERS */}
+        {contract.warnings && (contract.warnings.isOverdueAdvance || contract.warnings.isOverduePayment || contract.warnings.isAcceptedNoInvoice) && (
+          <div className="flex flex-col gap-2">
+            {contract.warnings.isOverdueAdvance && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <AlertCircle size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="text-sm font-bold text-amber-700 dark:text-amber-400">⚠️ Quá hạn tạm ứng — Kế hoạch tạm ứng đã quá hạn và chưa nhận được tiền</span>
+              </div>
+            )}
+            {contract.warnings.isOverduePayment && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                <AlertCircle size={18} className="text-red-600 dark:text-red-400 shrink-0" />
+                <span className="text-sm font-bold text-red-700 dark:text-red-400">🔴 Quá hạn thanh toán — Đã xuất HĐ VAT nhưng tiền chưa về đủ và đã quá hạn due_date</span>
+              </div>
+            )}
+            {contract.warnings.isAcceptedNoInvoice && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                <AlertCircle size={18} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                <span className="text-sm font-bold text-purple-700 dark:text-purple-400">📋 Đã nghiệm thu nhưng chưa xuất hóa đơn VAT — Cần xuất HĐ doanh thu theo ngày nghiệm thu</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* STATUS CHANGE SECTION */}
+        {canOnContract('update', { unitId: contract?.unitId, salespersonId: contract?.salespersonId }) && contract.status !== 'Completed' && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Chuyển trạng thái:</span>
+            <div className="flex gap-2 flex-wrap">
+              {(['Processing', 'Suspended', 'Handover', 'Acceptance'] as const)
+                .filter(s => s !== contract.status)
+                .map(targetStatus => {
+                  const labels: Record<string, string> = { Processing: 'Đang thực hiện', Suspended: 'Tạm dừng', Handover: 'Bàn giao', Acceptance: 'Nghiệm thu/TL' };
+                  const colors: Record<string, string> = {
+                    Processing: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50 border-orange-200 dark:border-orange-800',
+                    Suspended: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 border-rose-200 dark:border-rose-800',
+                    Handover: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400 hover:bg-cyan-200 dark:hover:bg-cyan-900/50 border-cyan-200 dark:border-cyan-800',
+                    Acceptance: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 border-blue-200 dark:border-blue-800',
+                  };
+                  const datePromptMap: Record<string, string> = { Handover: 'Nhập ngày bàn giao (dd/mm/yyyy):', Suspended: 'Nhập ngày tạm dừng (dd/mm/yyyy):' };
+                  const dateFieldMap: Record<string, string> = { Handover: 'handoverDate', Suspended: 'suspendedDate' };
+                  return (
+                    <button
+                      key={targetStatus}
+                      onClick={async () => {
+                        // Acceptance: mở dialog thay vì prompt
+                        if (targetStatus === 'Acceptance') {
+                          setShowAcceptanceDialog(true);
+                          return;
+                        }
+                        let updateData: Record<string, any> = { status: targetStatus };
+                        if (datePromptMap[targetStatus]) {
+                          const today = new Date();
+                          const defaultDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+                          const inputDate = prompt(datePromptMap[targetStatus], defaultDate);
+                          if (!inputDate) return;
+                          const parts = inputDate.split('/');
+                          if (parts.length === 3) {
+                            const isoDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                            updateData[dateFieldMap[targetStatus]] = isoDate;
+                          }
+                        }
+                        try {
+                          await ContractService.update(contract.id, updateData as any);
+                          setContract(prev => prev ? { ...prev, ...updateData } as any : prev);
+                          toast.success(`Đã chuyển trạng thái → ${labels[targetStatus]}`);
+                        } catch (err: any) {
+                          toast.error('Lỗi: ' + (err.message || err));
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${colors[targetStatus]}`}
+                    >
+                      {labels[targetStatus]}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        )}
 
         {/* CRM: Contract approval panel hidden — will be re-enabled in CRM module */}
 
@@ -668,6 +766,29 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
             </div>
           </div>
         </div>
+      )}
+      {/* Acceptance Dialog */}
+      {contract && (
+        <AcceptanceDialog
+          isOpen={showAcceptanceDialog}
+          onClose={() => setShowAcceptanceDialog(false)}
+          defaultValue={contract.value || 0}
+          onConfirm={async ({ date, value }) => {
+            setShowAcceptanceDialog(false);
+            const updateData: Record<string, any> = {
+              status: 'Acceptance',
+              acceptanceDate: date,
+              acceptanceValue: value,
+            };
+            try {
+              await ContractService.update(contract.id, updateData as any);
+              setContract(prev => prev ? { ...prev, ...updateData } as any : prev);
+              toast.success('Đã chuyển trạng thái → Nghiệm thu/TL');
+            } catch (err: any) {
+              toast.error('Lỗi: ' + (err.message || err));
+            }
+          }}
+        />
       )}
     </ErrorBoundary>
   );
