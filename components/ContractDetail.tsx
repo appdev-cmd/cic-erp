@@ -162,10 +162,12 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
           }
         }
 
-        // Employee/Salesperson
-        if (contract.salespersonId) {
-          console.log('[DEBUG ContractDetail] salespersonId:', contract.salespersonId);
-          const emp = await EmployeeService.getById(contract.salespersonId);
+        // Employee/Salesperson — prioritize lead from employee_allocations
+        const leadAlloc = contract.employeeAllocations?.find((a: any) => a.role === 'lead') || contract.employeeAllocations?.[0];
+        const picId = leadAlloc?.employeeId || contract.salespersonId;
+        if (picId) {
+          console.log('[DEBUG ContractDetail] PIC id:', picId, '(from', leadAlloc ? 'allocations' : 'salespersonId', ')');
+          const emp = await EmployeeService.getById(picId);
           setSalesName(emp?.name || 'Unknown');
         }
 

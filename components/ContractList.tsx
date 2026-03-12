@@ -847,7 +847,9 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               // Tỷ suất LN = LNG Quản trị / Doanh thu dự kiến (Sum outputPrice * quantity)
               const expectedRevenue = (contract.lineItems || []).reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0);
               const margin = expectedRevenue > 0 ? (adminProfit / expectedRevenue) * 100 : 0;
-              const salesperson = salespeople.find(s => s.id === contract.salespersonId);
+              const leadAllocEmp = contract.employeeAllocations?.find((a: any) => a.role === 'lead') || contract.employeeAllocations?.[0];
+              const picEmployeeId = leadAllocEmp?.employeeId || contract.salespersonId;
+              const salesperson = salespeople.find(s => s.id === picEmployeeId);
 
               // Allocation info (tagged by ContractService.list for collaborative contracts)
               const allocationRole = (contract as any)._allocationRole as 'lead' | 'support' | undefined;
