@@ -437,7 +437,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   // ==================== HANDLERS ====================
   const addContact = () => setContacts([...contacts, { id: Date.now().toString(), name: '', role: '' }]);
   const removeContact = (id: string) => setContacts(contacts.filter(c => c.id !== id));
-  const addLineItem = () => setLineItems([...lineItems, { id: Date.now().toString(), name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 0 }]);
+  const addLineItem = () => setLineItems([...lineItems, { id: Date.now().toString(), name: '', quantity: 1, supplier: '', manufacturer: '', manufacturerId: undefined, inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 0 }]);
   const removeLineItem = (id: string) => setLineItems(lineItems.filter(i => i.id !== id));
 
   const handleSave = () => {

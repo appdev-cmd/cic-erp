@@ -216,37 +216,43 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         <span className="flex-shrink-0 w-5 h-5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[9px] font-black">
                                                             {index + 1}
                                                         </span>
-                                                        <div className="flex-1 min-w-0">
-                                                            <SearchableSelect
-                                                                value={products.find(p => p.name === item.name)?.id || null}
-                                                                placeholder="Gõ để tìm sản phẩm/dịch vụ..."
-                                                                getDisplayValue={(id) => {
-                                                                    const prod = products.find(p => p.id === id);
-                                                                    return prod?.name || item.name || undefined;
-                                                                }}
-                                                                onChange={(pId) => {
-                                                                    const prod = pId ? products.find(p => p.id === pId) : null;
+                                                        <div className="flex-1 min-w-0 relative">
+                                                            <input
+                                                                type="text"
+                                                                value={item.name}
+                                                                placeholder="Nhập hoặc paste tên sản phẩm/dịch vụ..."
+                                                                onChange={(e) => {
                                                                     const newList = [...lineItems];
-                                                                    if (prod) {
-                                                                        newList[index].name = prod.name;
-                                                                        newList[index].inputPrice = prod.costPrice || 0;
-                                                                        newList[index].outputPrice = prod.basePrice;
-                                                                    } else {
-                                                                        newList[index].name = '';
-                                                                    }
+                                                                    newList[index].name = e.target.value;
                                                                     setLineItems(newList);
                                                                 }}
-                                                                onSearch={async (query) => {
-                                                                    const results = await ProductService.search(query, 20);
-                                                                    return results.map(p => ({ id: p.id, name: p.name, subText: p.category }));
+                                                                onBlur={(e) => {
+                                                                    // Auto-fill prices if name matches a known product
+                                                                    const val = e.target.value.trim();
+                                                                    if (val) {
+                                                                        const matched = products.find(p => p.name.toLowerCase() === val.toLowerCase());
+                                                                        if (matched) {
+                                                                            const newList = [...lineItems];
+                                                                            newList[index].name = matched.name;
+                                                                            if (!newList[index].inputPrice) newList[index].inputPrice = matched.costPrice || 0;
+                                                                            if (!newList[index].outputPrice) newList[index].outputPrice = matched.basePrice;
+                                                                            setLineItems(newList);
+                                                                        } else {
+                                                                            // Auto-create product in background
+                                                                            ProductService.findOrCreate(val, 0, 0).then(() => {
+                                                                                ProductService.getAll().then(setProducts);
+                                                                            }).catch(() => {});
+                                                                        }
+                                                                    }
                                                                 }}
-                                                                onAddNew={() => {
-                                                                    setAddProductForIndex(index);
-                                                                    setShowAddProductDialog(true);
-                                                                }}
-                                                                addNewLabel="Thêm sản phẩm mới"
-                                                                dropdownMinWidth={400}
+                                                                list={`product-suggestions-${index}`}
+                                                                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/30 transition-colors"
                                                             />
+                                                            <datalist id={`product-suggestions-${index}`}>
+                                                                {products.map(p => (
+                                                                    <option key={p.id} value={p.name} />
+                                                                ))}
+                                                            </datalist>
                                                         </div>
                                                         {lineItems.length > 1 && (
                                                             <button onClick={() => removeLineItem(item.id)} className="flex-shrink-0 text-slate-300 hover:text-rose-500 transition-colors p-1">
@@ -260,7 +266,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                             <tr className={`${rowBg} group transition-colors hover:bg-indigo-50/60 dark:hover:bg-slate-700/60 border-b border-slate-100 dark:border-slate-700/50`}>
                                                 <td className="px-2 pb-2 pt-1">
                                                     <SearchableSelect
-                                                        value={item.supplierId || suppliers.find(s => s.name === item.supplier || s.shortName === item.supplier)?.id || null}
+                                                        value={item.supplierId || (item.supplier ? suppliers.find(s => s.name === item.supplier || s.shortName === item.supplier)?.id : null) || null}
                                                         placeholder="NCC..."
                                                         getDisplayValue={(id) => {
                                                             const sup = suppliers.find(s => s.id === id);
@@ -295,7 +301,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                 </td>
                                                 <td className="px-2 pb-2 pt-1">
                                                     <SearchableSelect
-                                                        value={item.manufacturerId || suppliers.find(s => s.name === item.manufacturer || s.shortName === item.manufacturer)?.id || null}
+                                                        value={item.manufacturerId || (item.manufacturer ? suppliers.find(s => s.name === item.manufacturer || s.shortName === item.manufacturer)?.id : null) || null}
                                                         placeholder="Hãng SX..."
                                                         getDisplayValue={(id) => {
                                                             const mfr = suppliers.find(s => s.id === id);

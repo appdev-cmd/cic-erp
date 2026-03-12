@@ -25,6 +25,7 @@ export function useLineItems(initialItems: LineItem[] = []) {
             name: '', quantity: 1,
             inputPrice: 0, outputPrice: 0, directCosts: 0,
             directCostDetails: [], supplier: '',
+            manufacturer: '', manufacturerId: undefined,
             vatRate: 0
         }]);
     }, []);
