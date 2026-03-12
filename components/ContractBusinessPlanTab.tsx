@@ -758,6 +758,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                         setTempCostDetails={setTempCostDetails}
                         onSave={saveCostModal}
                         formatVND={fmtVND}
+                        inputTotal={(lineItems[activeCostModalIndex]?.quantity || 0) * (lineItems[activeCostModalIndex]?.inputPrice || 0)}
                     />
                 )}
             </div>

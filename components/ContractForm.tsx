@@ -654,6 +654,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
         setTempCostDetails={setTempCostDetails}
         onSave={saveCostModal}
         formatVND={formatVND}
+        inputTotal={activeCostModalIndex !== null ? (lineItems[activeCostModalIndex]?.quantity || 0) * (lineItems[activeCostModalIndex]?.inputPrice || 0) : 0}
       />
 
       {/* FOOTER */}

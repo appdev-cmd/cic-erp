@@ -183,7 +183,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                     </div>
 
                     {/* LINE ITEMS TABLE */}
-                        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <div className="overflow-visible rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
                         <table className="w-full text-left text-xs" style={{ minWidth: '1100px' }}>
                             <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
                                 <tr>
@@ -410,7 +410,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                             className="w-full bg-transparent font-bold text-rose-500 text-right outline-none cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-1"
                                                         />
                                                         {item.directCostDetails && item.directCostDetails.length > 0 && (
-                                                            <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-slate-900 text-white text-[10px] rounded-lg shadow-xl z-50 opacity-0 group-hover/costs:opacity-100 transition-opacity pointer-events-none">
+                                                            <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] rounded-lg shadow-xl z-50 opacity-0 group-hover/costs:opacity-100 transition-opacity pointer-events-none">
                                                                 <div className="space-y-1">
                                                                     {item.directCostDetails.map((detail, i) => (
                                                                         <div key={i} className="flex justify-between items-center border-b border-slate-700 pb-1 last:border-0 last:pb-0">

@@ -1,7 +1,9 @@
 // Direct Cost Modal component - extracted from ContractForm
-import React from 'react';
-import { Plus, Trash2, Save } from 'lucide-react';
+// Includes auto-calculation toggles for Thuế nhà thầu & Phí chuyển tiền
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Trash2, Save, Calculator, ToggleLeft, ToggleRight } from 'lucide-react';
 import { DirectCostDetail, LineItem } from '../../types';
+import { ExchangeRateService } from '../../services/exchangeRateService';
 import Modal from '../ui/Modal';
 
 interface DirectCostModalProps {
@@ -12,7 +14,14 @@ interface DirectCostModalProps {
     setTempCostDetails: (details: DirectCostDetail[]) => void;
     onSave: () => void;
     formatVND: (val: number) => string;
+    inputTotal?: number; // quantity * inputPrice — for auto-calc
 }
+
+// Auto-cost IDs (so we can identify and update them)
+const AUTO_TAX_ID = '__auto_contractor_tax__';
+const AUTO_TRANSFER_ID = '__auto_transfer_fee__';
+
+type TransferFeeType = 'none' | 'domestic' | 'international';
 
 const DirectCostModal: React.FC<DirectCostModalProps> = ({
     isOpen,
@@ -22,7 +31,145 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
     setTempCostDetails,
     onSave,
     formatVND,
+    inputTotal = 0,
 }) => {
+    // Auto-cost toggles
+    const [contractorTax, setContractorTax] = useState(false);
+    const [transferFeeType, setTransferFeeType] = useState<TransferFeeType>('none');
+    const [usdRate, setUsdRate] = useState(0);
+    const [loadingRate, setLoadingRate] = useState(false);
+
+    // Name patterns to detect manual entries that match auto costs
+    const TAX_NAMES = ['thuế nhà thầu', 'thue nha thau'];
+    const TRANSFER_NAMES = ['phí chuyển tiền', 'phi chuyen tien'];
+    const isAutoTaxEntry = (d: DirectCostDetail) => d.id === AUTO_TAX_ID || TAX_NAMES.some(n => d.name.toLowerCase().includes(n));
+    const isAutoTransferEntry = (d: DirectCostDetail) => d.id === AUTO_TRANSFER_ID || TRANSFER_NAMES.some(n => d.name.toLowerCase().includes(n));
+
+    // Initialize toggles from existing details (by ID or by name)
+    useEffect(() => {
+        if (isOpen) {
+            const hasTax = tempCostDetails.some(d => isAutoTaxEntry(d));
+            const transferEntry = tempCostDetails.find(d => isAutoTransferEntry(d));
+            setContractorTax(hasTax);
+            if (transferEntry) {
+                setTransferFeeType(transferEntry.name.includes('nước ngoài') || transferEntry.name.includes('international') ? 'international' : 'domestic');
+            } else {
+                setTransferFeeType('none');
+            }
+
+            // Migrate old manual entries to auto IDs (remove old, auto recalc will add new)
+            const hasOldManualTax = tempCostDetails.some(d => d.id !== AUTO_TAX_ID && TAX_NAMES.some(n => d.name.toLowerCase().includes(n)));
+            const hasOldManualTransfer = tempCostDetails.some(d => d.id !== AUTO_TRANSFER_ID && TRANSFER_NAMES.some(n => d.name.toLowerCase().includes(n)));
+            if (hasOldManualTax || hasOldManualTransfer) {
+                // Clean up old manual entries, updateAutoCosts will re-add with auto IDs
+                let cleaned = tempCostDetails.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
+                const detectedTransferType = transferEntry
+                    ? (transferEntry.name.includes('nước ngoài') || transferEntry.name.includes('international') ? 'international' as TransferFeeType : 'domestic' as TransferFeeType)
+                    : 'none' as TransferFeeType;
+                const updated = updateAutoCosts(cleaned, hasTax, detectedTransferType, inputTotal, usdRate);
+                setTempCostDetails(updated);
+            }
+        }
+    }, [isOpen]);
+
+    // Fetch USD rate for international transfer
+    useEffect(() => {
+        if (transferFeeType === 'international' && usdRate === 0) {
+            setLoadingRate(true);
+            ExchangeRateService.getRate('USD').then(rate => {
+                setUsdRate(rate);
+                setLoadingRate(false);
+            }).catch(() => setLoadingRate(false));
+        }
+    }, [transferFeeType]);
+
+    // Calculate auto costs
+    const calcContractorTax = useCallback((total: number) => {
+        // Thuế nhà thầu = Thành tiền giá đầu vào / 0.9 * 0.1
+        return Math.round(total / 0.9 * 0.1);
+    }, []);
+
+    const calcTransferFee = useCallback((total: number, type: TransferFeeType, rate: number) => {
+        if (type === 'domestic') {
+            // Trong nước: total * 0.07%, min 22,000
+            return Math.max(Math.round(total * 0.0007), 22000);
+        }
+        if (type === 'international') {
+            // Nước ngoài: (total * 0.5%) + (10 * tỷ giá USD)
+            return Math.round(total * 0.005 + 10 * rate);
+        }
+        return 0;
+    }, []);
+
+    // Update auto-cost entries when toggles or inputTotal change
+    const updateAutoCosts = useCallback((
+        details: DirectCostDetail[],
+        tax: boolean,
+        transfer: TransferFeeType,
+        total: number,
+        rate: number
+    ) => {
+        // Filter out ALL auto entries — both by ID and by name patterns
+        let newDetails = details.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
+
+        if (tax) {
+            newDetails = [
+                { id: AUTO_TAX_ID, name: 'Thuế nhà thầu', amount: calcContractorTax(total) },
+                ...newDetails,
+            ];
+        }
+
+        if (transfer !== 'none') {
+            const fee = calcTransferFee(total, transfer, rate);
+            const label = transfer === 'domestic'
+                ? 'Phí chuyển tiền trong nước'
+                : 'Phí chuyển tiền nước ngoài';
+            // Insert after tax if present, else at start
+            const insertIdx = newDetails.findIndex(d => d.id === AUTO_TAX_ID);
+            const transferEntry = { id: AUTO_TRANSFER_ID, name: label, amount: fee };
+            if (insertIdx >= 0) {
+                newDetails.splice(insertIdx + 1, 0, transferEntry);
+            } else {
+                newDetails = [transferEntry, ...newDetails];
+            }
+        }
+
+        return newDetails;
+    }, [calcContractorTax, calcTransferFee]);
+
+    // Toggle contractor tax
+    const handleToggleTax = () => {
+        const newVal = !contractorTax;
+        setContractorTax(newVal);
+        const updated = updateAutoCosts(tempCostDetails, newVal, transferFeeType, inputTotal, usdRate);
+        setTempCostDetails(updated);
+    };
+
+    // Change transfer fee type
+    const handleTransferChange = (type: TransferFeeType) => {
+        setTransferFeeType(type);
+        const updated = updateAutoCosts(tempCostDetails, contractorTax, type, inputTotal, usdRate);
+        setTempCostDetails(updated);
+    };
+
+    // Recalculate auto costs when inputTotal changes
+    useEffect(() => {
+        if (!isOpen) return;
+        if (!contractorTax && transferFeeType === 'none') return;
+        const updated = updateAutoCosts(tempCostDetails, contractorTax, transferFeeType, inputTotal, usdRate);
+        // Only update if amounts differ to avoid infinite loop
+        const oldAutoAmounts = tempCostDetails.filter(d => d.id === AUTO_TAX_ID || d.id === AUTO_TRANSFER_ID).map(d => d.amount).join(',');
+        const newAutoAmounts = updated.filter(d => d.id === AUTO_TAX_ID || d.id === AUTO_TRANSFER_ID).map(d => d.amount).join(',');
+        if (oldAutoAmounts !== newAutoAmounts) {
+            setTempCostDetails(updated);
+        }
+    }, [inputTotal, usdRate]);
+
+    // Manual (non-auto) details
+    const manualDetails = tempCostDetails.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
+    const autoDetails = tempCostDetails.filter(d => d.id === AUTO_TAX_ID || d.id === AUTO_TRANSFER_ID);
+    const totalCost = tempCostDetails.reduce((acc, item) => acc + item.amount, 0);
+
     return (
         <Modal
             isOpen={isOpen}
@@ -31,56 +178,146 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
             size="lg"
         >
             <div className="space-y-4">
+                {/* Product info */}
                 <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
-                    <h4 className="text-sm font-bold text-indigo-600 mb-2">
+                    <h4 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 mb-1">
                         {lineItem?.name
                             ? `Sản phẩm: ${lineItem.name}`
                             : 'Chi tiết chi phí'}
                     </h4>
-                    <p className="text-xs text-slate-500">Thêm các khoản chi phí trực tiếp liên quan đến sản phẩm/dịch vụ này.</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Thành tiền đầu vào: <span className="font-black text-cyan-600 dark:text-cyan-400">{formatVND(inputTotal)}</span>
+                    </p>
                 </div>
 
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                    {tempCostDetails.map((detail, index) => (
-                        <div key={index} className="flex items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
-                            <input
-                                type="text"
-                                placeholder="Tên chi phí (VD: Tiếp khách, Vận chuyển...)"
-                                value={detail.name}
-                                onChange={(e) => {
-                                    const newDetails = [...tempCostDetails];
-                                    newDetails[index].name = e.target.value;
-                                    setTempCostDetails(newDetails);
-                                }}
-                                className="flex-1 bg-transparent px-3 py-2 text-sm font-medium outline-none border-b border-transparent focus:border-indigo-500 transition-colors"
-                                autoFocus
-                            />
-                            <div className="w-32 relative">
-                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">₫</span>
+                {/* ── Auto-calculation toggles ── */}
+                <div className="bg-amber-50/60 dark:bg-amber-900/10 p-4 rounded-lg border border-amber-200/60 dark:border-amber-800/40 space-y-3">
+                    <h5 className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Calculator size={12} /> Chi phí tính tự động
+                    </h5>
+
+                    {/* Thuế nhà thầu */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                            <button
+                                onClick={handleToggleTax}
+                                className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                            >
+                                {contractorTax
+                                    ? <ToggleRight size={20} className="text-indigo-600 dark:text-indigo-400" />
+                                    : <ToggleLeft size={20} className="text-slate-300 dark:text-slate-600" />
+                                }
+                                Thuế nhà thầu
+                            </button>
+                            <p className="text-[10px] text-slate-400 ml-7 mt-0.5">
+                                = TT giá vào ÷ 0.9 × 0.1
+                            </p>
+                        </div>
+                        {contractorTax && (
+                            <span className="text-sm font-black text-rose-500">
+                                {formatVND(calcContractorTax(inputTotal))}
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Phí chuyển tiền */}
+                    <div className="border-t border-amber-200/50 dark:border-amber-800/30 pt-3">
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2">Phí chuyển tiền</p>
+                        <div className="flex flex-wrap gap-2">
+                            {([
+                                { value: 'none' as TransferFeeType, label: 'Không có' },
+                                { value: 'domestic' as TransferFeeType, label: '🇻🇳 Trong nước' },
+                                { value: 'international' as TransferFeeType, label: '🌍 Nước ngoài' },
+                            ]).map(opt => (
+                                <button
+                                    key={opt.value}
+                                    onClick={() => handleTransferChange(opt.value)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                        transferFeeType === opt.value
+                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200 dark:shadow-none'
+                                            : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-400'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                        {transferFeeType !== 'none' && (
+                            <div className="mt-2 flex items-center justify-between">
+                                <p className="text-[10px] text-slate-400 leading-relaxed">
+                                    {transferFeeType === 'domestic'
+                                        ? '= TT giá vào × 0.07% (tối thiểu 22.000₫)'
+                                        : <>= (TT giá vào × 0.5%) + (10 × tỷ giá USD)
+                                            {usdRate > 0 && <span className="ml-1 text-amber-500">({formatVND(usdRate)})</span>}
+                                            {loadingRate && <span className="ml-1 text-slate-400 animate-pulse">đang tải tỷ giá...</span>}
+                                        </>
+                                    }
+                                </p>
+                                <span className="text-sm font-black text-rose-500">
+                                    {formatVND(calcTransferFee(inputTotal, transferFeeType, usdRate))}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── Auto-generated entries (read-only display) ── */}
+                {autoDetails.length > 0 && (
+                    <div className="space-y-1.5">
+                        {autoDetails.map(detail => (
+                            <div key={detail.id} className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg border border-indigo-100 dark:border-indigo-800/40">
+                                <Calculator size={14} className="text-indigo-400 flex-shrink-0" />
+                                <span className="flex-1 text-xs font-bold text-indigo-700 dark:text-indigo-300">{detail.name}</span>
+                                <span className="text-sm font-black text-rose-500">{formatVND(detail.amount)}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* ── Manual cost entries ── */}
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                    {manualDetails.map((detail) => {
+                        const realIndex = tempCostDetails.findIndex(d => d.id === detail.id);
+                        return (
+                            <div key={detail.id} className="flex items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
                                 <input
                                     type="text"
-                                    value={detail.amount ? formatVND(detail.amount) : '0'}
+                                    placeholder="Tên chi phí (VD: Tiếp khách, Vận chuyển...)"
+                                    value={detail.name}
                                     onChange={(e) => {
-                                        const raw = e.target.value.replace(/\./g, '');
-                                        if (!/^\d*$/.test(raw)) return;
                                         const newDetails = [...tempCostDetails];
-                                        newDetails[index].amount = Number(raw);
+                                        newDetails[realIndex].name = e.target.value;
                                         setTempCostDetails(newDetails);
                                     }}
-                                    className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg px-3 pl-6 py-2 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500"
+                                    className="flex-1 bg-transparent px-3 py-2 text-sm font-medium outline-none border-b border-transparent focus:border-indigo-500 transition-colors text-slate-700 dark:text-slate-200"
                                 />
+                                <div className="w-32 relative">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">₫</span>
+                                    <input
+                                        type="text"
+                                        value={detail.amount ? formatVND(detail.amount) : '0'}
+                                        onChange={(e) => {
+                                            const raw = e.target.value.replace(/\./g, '');
+                                            if (!/^\d*$/.test(raw)) return;
+                                            const newDetails = [...tempCostDetails];
+                                            newDetails[realIndex].amount = Number(raw);
+                                            setTempCostDetails(newDetails);
+                                        }}
+                                        className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg px-3 pl-6 py-2 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700 dark:text-slate-200"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        const newDetails = tempCostDetails.filter(d => d.id !== detail.id);
+                                        setTempCostDetails(newDetails);
+                                    }}
+                                    className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
                             </div>
-                            <button
-                                onClick={() => {
-                                    const newDetails = tempCostDetails.filter((_, i) => i !== index);
-                                    setTempCostDetails(newDetails);
-                                }}
-                                className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <button
@@ -89,14 +326,15 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                     }}
                     className="w-full py-3 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg text-slate-400 font-bold text-sm hover:border-indigo-500 hover:text-indigo-500 transition-all flex items-center justify-center gap-2"
                 >
-                    <Plus size={16} /> Thêm khoản chi phí
+                    <Plus size={16} /> Thêm khoản chi phí khác
                 </button>
 
+                {/* Footer */}
                 <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
                     <div className="text-right">
                         <p className="text-xs text-slate-400 uppercase font-bold">Tổng chi phí</p>
                         <p className="text-xl font-black text-rose-500">
-                            {formatVND(tempCostDetails.reduce((acc, item) => acc + item.amount, 0))}
+                            {formatVND(totalCost)}
                         </p>
                     </div>
                     <div className="flex gap-3">
