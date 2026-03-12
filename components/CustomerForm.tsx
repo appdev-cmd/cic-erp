@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Save, Loader2, ChevronDown, X, Star } from 'lucide-react';
+import { Save, Loader2, ChevronDown, X, Star, Search } from 'lucide-react';
 import Modal from './ui/Modal';
 import { Customer } from '../types';
 import { INDUSTRIES } from '../constants';
 import AICustomerFill from './ui/AICustomerFill';
+import { TaxLookupService } from '../services/taxLookupService';
+import { CustomerService } from '../services/customerService';
 
 interface CustomerFormProps {
     isOpen: boolean;
@@ -17,6 +19,8 @@ interface CustomerFormProps {
 const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, customer, defaultType = 'Customer' }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
+    const [isLookingUp, setIsLookingUp] = useState(false);
+    const [duplicateError, setDuplicateError] = useState<string | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [formData, setFormData] = useState({
         name: '',
@@ -112,10 +116,58 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
         }));
     }, []);
 
+    // ─── Tax Code Lookup via VietQR ──────────────────────
+    const handleTaxLookup = useCallback(async () => {
+        const code = formData.taxCode.trim();
+        if (!code || code.length < 10) {
+            toast.error('Vui lòng nhập mã số DN hợp lệ (≥ 10 ký tự)');
+            return;
+        }
+        setIsLookingUp(true);
+        try {
+            const result = await TaxLookupService.lookup(code);
+            if (!result) {
+                toast.error('Không tìm thấy doanh nghiệp với mã số này');
+                return;
+            }
+            // Auto-fill form fields from lookup
+            setFormData(prev => ({
+                ...prev,
+                ...(result.name ? { name: result.name } : {}),
+                ...(result.address ? { address: result.address } : {}),
+            }));
+            toast.success(`Đã tìm thấy: ${result.name}`);
+        } catch (err: any) {
+            toast.error(err.message || 'Lỗi khi tra cứu mã số DN');
+        } finally {
+            setIsLookingUp(false);
+        }
+    }, [formData.taxCode]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setDuplicateError(null);
+
+        // Validate tax code required for Customer type
+        if ((formData.type === 'Customer' || formData.type === 'Both') && !formData.taxCode.trim()) {
+            toast.error('Mã số Doanh nghiệp là bắt buộc khi đối tác là Khách hàng');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
+            // Duplicate check by tax code
+            if (formData.taxCode.trim()) {
+                const existing = await CustomerService.findByTaxCode(formData.taxCode.trim());
+                if (existing && existing.id !== customer?.id) {
+                    const msg = `Mã số DN "${formData.taxCode}" đã tồn tại — Đối tác: ${existing.name} (${existing.shortName})`;
+                    setDuplicateError(msg);
+                    toast.error(msg);
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
+
             if (customer) {
                 await onSave({ ...formData, id: customer.id });
             } else {
@@ -254,14 +306,34 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
                         )}
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Mã số thuế</label>
-                        <input
-                            type="text"
-                            value={formData.taxCode}
-                            onChange={e => setFormData(prev => ({ ...prev, taxCode: e.target.value }))}
-                            placeholder="VD: 0101234567"
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                        />
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Mã số Doanh nghiệp {(formData.type === 'Customer' || formData.type === 'Both') && <span className="text-rose-500">*</span>}
+                        </label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                required={formData.type === 'Customer' || formData.type === 'Both'}
+                                value={formData.taxCode}
+                                onChange={e => { setFormData(prev => ({ ...prev, taxCode: e.target.value })); setDuplicateError(null); }}
+                                placeholder="VD: 0101234567"
+                                className={`flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm ${
+                                    duplicateError ? 'border-rose-400 dark:border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                                }`}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleTaxLookup}
+                                disabled={isLookingUp || !formData.taxCode.trim()}
+                                className="px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                                title="Tra cứu thông tin DN từ mã số thuế"
+                            >
+                                {isLookingUp ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                                Tra cứu
+                            </button>
+                        </div>
+                        {duplicateError && (
+                            <p className="mt-1 text-xs text-rose-500 dark:text-rose-400">{duplicateError}</p>
+                        )}
                     </div>
                 </div>
 
