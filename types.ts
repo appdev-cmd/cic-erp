@@ -274,6 +274,7 @@ export interface Contract {
   paymentPhases?: PaymentPhase[];
   documents?: ContractDocument[];
   draft_url?: string; // URL to draft contract document (Google Doc) for legal review
+  notes?: string; // Ghi chú hợp đồng (điều khoản thanh toán, giao hàng theo đợt...)
   // Status transition dates (mốc ngày chuyển trạng thái)
   suspendedDate?: string;   // Ngày tạm dừng/huỷ
   handoverDate?: string;    // Ngày bàn giao

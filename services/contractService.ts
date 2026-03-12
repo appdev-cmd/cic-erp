@@ -128,6 +128,7 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
         acceptanceDate: 'acceptance_date',
         acceptanceValue: 'acceptance_value',
         completedDate: 'completed_date',
+        notes: 'notes',
     };
 
     Object.entries(fieldMap).forEach(([key, dbKey]) => {
@@ -461,6 +462,7 @@ const mapContract = (c: any): Contract => {
         revenueSchedules: c.details?.revenueSchedules || [],
         documents: c.documents || [],
         draft_url: c.draft_url || undefined,
+        notes: c.notes || '',
         // Status transition dates
         suspendedDate: c.suspended_date || undefined,
         handoverDate: c.handover_date || undefined,

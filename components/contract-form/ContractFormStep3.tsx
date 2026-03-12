@@ -1,6 +1,6 @@
 // ContractForm Step 3: Kế hoạch Tài chính (Revenue, Payment, Supplier Schedules)
 import React from 'react';
-import { DollarSign, Calculator, X, Receipt, CreditCard } from 'lucide-react';
+import { DollarSign, Calculator, X, Receipt, CreditCard, StickyNote } from 'lucide-react';
 import { PaymentSchedule, RevenueSchedule } from '../../types';
 import DateInput from '../ui/DateInput';
 
@@ -13,6 +13,8 @@ interface ContractFormStep3Props {
     setSupplierSchedules: (v: PaymentSchedule[]) => void;
     generateSupplierSchedules: () => void;
     formatVND: (val: number) => string;
+    notes?: string;
+    setNotes?: (v: string) => void;
 }
 
 const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
@@ -21,6 +23,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
     supplierSchedules, setSupplierSchedules,
     generateSupplierSchedules,
     formatVND,
+    notes, setNotes,
 }) => {
     return (
         <section className="space-y-8 animate-in slide-in-from-right-8 duration-500">
@@ -237,6 +240,21 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                         </div>
                     ))}
                 </div>
+            </div>
+
+            {/* Contract Notes */}
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                <div className="flex items-center gap-2 mb-3">
+                    <StickyNote size={16} className="text-amber-500" />
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Ghi chú hợp đồng</p>
+                </div>
+                <textarea
+                    value={notes || ''}
+                    onChange={(e) => setNotes?.(e.target.value)}
+                    placeholder="VD: Điều khoản thanh toán theo đợt, giao hàng theo lô, điều kiện nghiệm thu đặc biệt..."
+                    rows={4}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-400 dark:focus:border-amber-500 transition-all resize-y"
+                />
             </div>
         </section>
     );

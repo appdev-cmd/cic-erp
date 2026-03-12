@@ -5,7 +5,7 @@ import {
     Calendar, DollarSign, FileText, Paperclip, ShieldCheck, AlertCircle,
     CheckCircle2, Clock, TrendingUp, ReceiptText, ShieldAlert, Wallet,
     Trash2, Plus, Loader2, ExternalLink, HardDrive,
-    History as HistoryIcon, ArrowDownCircle, ArrowUpCircle
+    History as HistoryIcon, ArrowDownCircle, ArrowUpCircle, StickyNote
 } from 'lucide-react';
 import { Contract, PaymentPhase, ContractDocument, Payment, VoucherType } from '../../types';
 import { AuditLogService, AuditLog, PaymentService } from '../../services';
@@ -133,7 +133,16 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
     const receipts = vouchers.filter(v => v.voucherType === 'RECEIPT');
     const expenses = vouchers.filter(v => v.voucherType === 'EXPENSE');
 
-
+    // === Financial limits for validation ===
+    const contractLimit = contract.acceptanceValue || contract.value || 0;
+    const totalInvoicedAll = vatInvoices.reduce((sum, v) => sum + (v.amount || 0), 0);
+    const totalReceiptCash = receipts
+        .filter(v => v.status === 'Tiền về')
+        .reduce((sum, v) => sum + (v.amount || 0), 0);
+    const remainingInvoice = contractLimit - totalInvoicedAll;
+    const remainingReceipt = contractLimit - totalReceiptCash;
+    const invoiceLimitReached = remainingInvoice <= 0;
+    const receiptLimitReached = remainingReceipt <= 0;
 
     return (
         <>
@@ -223,11 +232,17 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                                 <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1">
                                                     <FileText size={12} /> Đã xuất Hóa đơn
                                                 </p>
-                                                <p className="text-xl font-black text-blue-600 dark:text-blue-400">
+                                                <p className={`text-xl font-black ${totalInvoicedAll > contractLimit ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
                                                     {formatVND(totalInvoiced)}
                                                 </p>
                                                 <p className="text-[10px] text-slate-400">
-                                                    {totalInvoiced > 0 ? `${(totalInvoiced / (contract.value || 1) * 100).toFixed(1)}% giá trị HĐ` : 'Chưa xuất'}
+                                                    {(() => {
+                                                        const pct = totalInvoiced > 0 ? (totalInvoiced / (contract.value || 1) * 100).toFixed(1) : null;
+                                                        if (!pct) return 'Chưa xuất';
+                                                        return totalInvoicedAll > contractLimit
+                                                            ? <span className="text-red-500 font-bold">⚠ {pct}% giá trị HĐ — Vượt giới hạn!</span>
+                                                            : `${pct}% giá trị HĐ`;
+                                                    })()}
                                                 </p>
                                             </div>
                                             <div className="space-y-1">
@@ -246,11 +261,11 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                                     <DollarSign size={12} /> Tiền về (Đã thu)
                                                 </p>
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                                                    <p className={`text-xl font-black ${totalCashReceived > contractLimit ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                                         {formatVND(totalCashReceived)}
                                                     </p>
                                                     {totalCashReceived > 0 && (
-                                                        <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded font-bold">
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${totalCashReceived > contractLimit ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>
                                                             {(totalCashReceived / (contract.value || 1) * 100).toFixed(1)}%
                                                         </span>
                                                     )}
@@ -282,10 +297,28 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                 </h3>
                                 {canCreatePayment && (
                                     <div className="flex gap-2">
-                                        <button onClick={() => handleAddVoucher('VAT_INVOICE')} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 hover:bg-blue-700 transition-colors">
+                                        <button
+                                            onClick={() => !invoiceLimitReached && handleAddVoucher('VAT_INVOICE')}
+                                            disabled={invoiceLimitReached}
+                                            title={invoiceLimitReached ? `Đã xuất HĐ đủ giá trị thanh lý (${formatVND(contractLimit)})` : 'Thêm phiếu xuất HĐ VAT'}
+                                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
+                                                invoiceLimitReached
+                                                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                                            }`}
+                                        >
                                             <Plus size={13} /> HĐ VAT
                                         </button>
-                                        <button onClick={() => handleAddVoucher('RECEIPT')} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 hover:bg-emerald-700 transition-colors">
+                                        <button
+                                            onClick={() => !receiptLimitReached && handleAddVoucher('RECEIPT')}
+                                            disabled={receiptLimitReached}
+                                            title={receiptLimitReached ? `Đã thu đủ giá trị thanh lý (${formatVND(contractLimit)})` : 'Thêm phiếu thu'}
+                                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
+                                                receiptLimitReached
+                                                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                            }`}
+                                        >
                                             <Plus size={13} /> Thu
                                         </button>
                                         <button onClick={() => handleAddVoucher('EXPENSE')} className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-[11px] font-bold flex items-center gap-1.5 hover:bg-rose-700 transition-colors">
@@ -567,6 +600,19 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                         )}
                     </div>
 
+                    {/* Contract Notes */}
+                    {contract.notes && contract.notes.trim() && (
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-amber-200 dark:border-amber-800/50 shadow-sm p-6">
+                            <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                                <StickyNote size={18} className="text-amber-500" />
+                                Ghi chú hợp đồng
+                            </h4>
+                            <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap bg-amber-50/50 dark:bg-amber-900/10 rounded-lg p-4 border border-amber-100 dark:border-amber-800/30">
+                                {contract.notes}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Documents */}
                     <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6">
                         <div className="flex justify-between items-center mb-4">
@@ -693,6 +739,10 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                     initialCustomerId={contract.customerId}
                     onSave={handleSaveVoucher}
                     onCancel={() => { setShowVoucherForm(false); setEditingVoucher(undefined); }}
+                    contractValue={contractLimit}
+                    existingInvoiceTotal={totalInvoicedAll}
+                    existingReceiptTotal={totalReceiptCash}
+                    editingVoucherAmount={editingVoucher?.amount || 0}
                 />
             )}
         </>

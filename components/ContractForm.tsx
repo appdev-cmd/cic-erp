@@ -147,6 +147,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       // Sync customer contract number
       setHasCustomerContractNumber(!!contract.customerContractNumber);
       setCustomerContractNumber(contract.customerContractNumber || '');
+      setNotes(contract.notes || '');
       if (contract.contacts && contract.contacts.length > 0) setContacts(contract.contacts);
       if (contract.lineItems && contract.lineItems.length > 0) {
         const contractVat = contract.vatRate ?? 0;
@@ -224,10 +225,11 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     setActiveCostModalIndex(null);
   };
 
-  // ==================== STEP 3: SCHEDULES ====================
+  // ==================== STEP 3: SCHEDULES & NOTES ====================
   const [revenueSchedules, setRevenueSchedules] = useState<RevenueSchedule[]>(contract?.revenueSchedules || [{ id: '1', date: '', amount: 0, description: 'Đợt 1' }]);
   const [paymentSchedules, setPaymentSchedules] = useState<PaymentSchedule[]>([{ id: '1', date: '', amount: 0, description: 'Tạm ứng', type: 'Revenue' }]);
   const [supplierSchedules, setSupplierSchedules] = useState<PaymentSchedule[]>([{ id: '1', date: '', amount: 0, description: 'Thanh toán đợt 1', type: 'Expense' }]);
+  const [notes, setNotes] = useState(contract?.notes || '');
 
   useEffect(() => {
     if (contract?.paymentPhases && Array.isArray(contract.paymentPhases)) {
@@ -334,14 +336,14 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     endUserId, endUserName, contacts, lineItems, executionCosts,
     revenueSchedules, paymentSchedules, supplierSchedules,
     employeeAllocations, unitAllocations, formContractId,
-    customerContractNumber, hasCustomerContractNumber,
+    customerContractNumber, hasCustomerContractNumber, notes,
   }), [
     contractType, unitId, coordinatingUnitId, salespersonId, customerId,
     title, clientName, signedDate, hasVat, vatRate, isDealerSale,
     endUserId, endUserName, contacts, lineItems, executionCosts,
     revenueSchedules, paymentSchedules, supplierSchedules,
     employeeAllocations, unitAllocations, formContractId,
-    customerContractNumber, hasCustomerContractNumber,
+    customerContractNumber, hasCustomerContractNumber, notes,
   ]);
 
   // Capture initial snapshot after first render (delay to let sync effects settle)
@@ -484,6 +486,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       executionCosts,
       revenueSchedules,
       customerContractNumber: customerContractNumber?.trim() || null,
+      notes: notes?.trim() || null,
     };
     onSave(payload);
   };
@@ -638,6 +641,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 supplierSchedules={supplierSchedules} setSupplierSchedules={setSupplierSchedules}
                 generateSupplierSchedules={generateSupplierSchedules}
                 formatVND={formatVND}
+                notes={notes} setNotes={setNotes}
               />
             ) : null}
 

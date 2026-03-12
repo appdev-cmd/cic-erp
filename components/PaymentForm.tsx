@@ -12,7 +12,8 @@ import {
     ArrowDownCircle,
     ArrowUpCircle,
     Percent,
-    Package
+    Package,
+    AlertTriangle
 } from 'lucide-react';
 import { Payment, PaymentStatus, PaymentMethod, VoucherType, ExpenseCategory, VATInvoiceLineItem, Contract } from '../types';
 import { ContractService, CustomerService } from '../services';
@@ -29,6 +30,11 @@ interface PaymentFormProps {
     initialCustomerId?: string;
     onSave: (payment: Omit<Payment, 'id'> | Payment) => void;
     onCancel: () => void;
+    // Financial validation limits
+    contractValue?: number;           // Giá trị thanh lý HĐ (acceptanceValue || value)
+    existingInvoiceTotal?: number;    // Tổng HĐ VAT đã xuất
+    existingReceiptTotal?: number;    // Tổng tiền đã thu (Tiền về)
+    editingVoucherAmount?: number;    // Giá trị phiếu đang sửa (exclude from total)
 }
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Đặt hàng NCC', 'Công tác phí', 'Lắp đặt', 'Cài đặt', 'Đào tạo', 'Chuyển giao', 'Khác'];
@@ -57,7 +63,7 @@ const VOUCHER_CONFIG: Record<VoucherType, { label: string; icon: React.ReactNode
     },
 };
 
-const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType = 'RECEIPT', initialContractId, initialCustomerId, onSave, onCancel }) => {
+const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType = 'RECEIPT', initialContractId, initialCustomerId, onSave, onCancel, contractValue, existingInvoiceTotal, existingReceiptTotal, editingVoucherAmount }) => {
     // Voucher type
     const [voucherType, setVoucherType] = useState<VoucherType>(payment?.voucherType || initialVoucherType);
 
@@ -388,6 +394,24 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
 
     const config = VOUCHER_CONFIG[voucherType];
 
+    // === Financial validation: remaining capacity ===
+    const financialLimit = useMemo(() => {
+        if (contractValue === undefined || contractValue <= 0) return null;
+        if (voucherType === 'VAT_INVOICE') {
+            const existing = (existingInvoiceTotal || 0) - (editingVoucherAmount || 0);
+            const remaining = contractValue - existing;
+            return { existing, remaining, label: 'Đã xuất HĐ', remainLabel: 'Còn xuất được' };
+        }
+        if (voucherType === 'RECEIPT') {
+            const existing = (existingReceiptTotal || 0) - (editingVoucherAmount || 0);
+            const remaining = contractValue - existing;
+            return { existing, remaining, label: 'Đã thu', remainLabel: 'Còn thu được' };
+        }
+        return null; // EXPENSE không giới hạn
+    }, [contractValue, existingInvoiceTotal, existingReceiptTotal, editingVoucherAmount, voucherType]);
+
+    const isExceedingLimit = financialLimit ? amount > financialLimit.remaining : false;
+
     return (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-300">
@@ -408,6 +432,29 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                         <X size={20} className="text-slate-500" />
                     </button>
                 </div>
+
+                {/* Financial Limit Banner */}
+                {financialLimit && (
+                    <div className={`mx-6 mt-4 px-4 py-3 rounded-lg border flex items-center gap-3 text-xs transition-colors ${
+                        financialLimit.remaining <= 0
+                            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+                            : isExceedingLimit
+                                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400'
+                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                    }`}>
+                        {(isExceedingLimit || financialLimit.remaining <= 0) && <AlertTriangle size={16} className="flex-shrink-0" />}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 flex-1">
+                            <span>Giá trị thanh lý: <b className="text-slate-900 dark:text-slate-100">{formatCurrency(contractValue || 0)}</b></span>
+                            <span>{financialLimit.label}: <b>{formatCurrency(financialLimit.existing)}</b></span>
+                            <span className={financialLimit.remaining <= 0 ? 'text-red-600 dark:text-red-400 font-black' : isExceedingLimit ? 'text-amber-600 dark:text-amber-400 font-black' : 'font-bold'}>
+                                {financialLimit.remainLabel}: {formatCurrency(Math.max(0, financialLimit.remaining))}
+                            </span>
+                        </div>
+                        {financialLimit.remaining <= 0 && (
+                            <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-1 rounded font-black uppercase whitespace-nowrap">Đã đủ</span>
+                        )}
+                    </div>
+                )}
 
                 {/* Form */}
                 <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(92vh-180px)]">
@@ -884,7 +931,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                             Hủy
                         </button>
                         <button
-                            className={`px-8 py-2.5 font-bold text-sm rounded-lg transition-colors flex items-center gap-2 ${(!contractId || !amount)
+                            className={`px-8 py-2.5 font-bold text-sm rounded-lg transition-colors flex items-center gap-2 ${(!contractId || !amount || isExceedingLimit)
                                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-600'
                                 : voucherType === 'VAT_INVOICE' ? 'bg-blue-600 text-white hover:bg-blue-700'
                                     : voucherType === 'RECEIPT' ? 'bg-emerald-600 text-white hover:bg-emerald-700'
@@ -899,11 +946,21 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                                     });
                                     return;
                                 }
+                                if (isExceedingLimit && financialLimit) {
+                                    e.preventDefault();
+                                    import('sonner').then(({ toast }) => {
+                                        toast.error(
+                                            `Vượt giới hạn! ${financialLimit.remainLabel}: ${formatCurrency(Math.max(0, financialLimit.remaining))} VND. Số tiền nhập: ${formatCurrency(amount)} VND.`,
+                                            { duration: 5000 }
+                                        );
+                                    });
+                                    return;
+                                }
                                 handleSubmit();
                             }}
                         >
-                            <Save size={16} />
-                            {payment ? 'Cập nhật' : 'Thêm mới'}
+                            {isExceedingLimit ? <AlertTriangle size={16} /> : <Save size={16} />}
+                            {isExceedingLimit ? 'Vượt giới hạn' : payment ? 'Cập nhật' : 'Thêm mới'}
                         </button>
                     </div>
                 </div>
