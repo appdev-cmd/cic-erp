@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
     Loader2,
@@ -18,7 +18,8 @@ import {
     ArrowUpCircle,
     Receipt,
     AlertTriangle,
-    TrendingUp
+    TrendingUp,
+    RotateCcw
 } from 'lucide-react';
 import { Payment, PaymentStatus, Customer, Unit, VoucherType } from '../types';
 import { PaymentService, ContractService, CustomerService, UnitService } from '../services';
@@ -32,6 +33,7 @@ import { usePermissionCheck } from '../hooks/usePermissions';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import { formatNumber } from '../lib/utils';
 import { formatDate } from '../utils/formatters';
+import { useColumnResize } from '../hooks/useColumnResize';
 
 interface PaymentListProps {
     onSelectContract?: (id: string) => void;
@@ -67,6 +69,24 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
     const { can } = usePermissionCheck();
     const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
+
+    // === Resizable columns ===
+    const PAYMENT_TABLE_COLUMNS = useMemo(() => [
+        { key: 'stt', defaultWidth: 45, minWidth: 35 },
+        { key: 'extra', defaultWidth: 130, minWidth: 70 },
+        { key: 'customer', defaultWidth: 200, minWidth: 100 },
+        { key: 'contract', defaultWidth: 160, minWidth: 80 },
+        { key: 'date', defaultWidth: 110, minWidth: 70 },
+        { key: 'amount', defaultWidth: 140, minWidth: 80 },
+        { key: 'status', defaultWidth: 120, minWidth: 70 },
+        { key: 'actions', defaultWidth: 45, minWidth: 35 },
+    ], []);
+
+    const { columnWidths, onResizeStart, isResizing, resetWidths } = useColumnResize({
+        tableId: 'payment-list',
+        userId: realProfile?.id,
+        columns: PAYMENT_TABLE_COLUMNS,
+    });
 
     const { selectedUnit, yearFilter } = useLayoutContext();
     const unitFilter = selectedUnit?.id || 'all';
@@ -364,18 +384,38 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
             {/* Table */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-420px)]">
-                    <table className="w-full">
+                <div className={`overflow-x-auto overflow-y-auto max-h-[calc(100vh-420px)] ${isResizing ? 'select-none' : ''}`}>
+                    <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
+                        <colgroup>
+                            {PAYMENT_TABLE_COLUMNS.map(c => (
+                                <col key={c.key} style={{ width: columnWidths[c.key] }} />
+                            ))}
+                        </colgroup>
                         <thead>
                             <tr>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-3 px-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase w-10">STT</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase">{getExtraColumnHeader()}</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase hidden lg:table-cell">Khách hàng</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase hidden md:table-cell">Hợp đồng</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase hidden sm:table-cell">Ngày</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-right py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase">Số tiền</th>
-                                <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-center py-3 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase">Trạng thái</th>
-                                {canDelete && <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 w-10"></th>}
+                                {[
+                                    { key: 'stt', label: 'STT', align: 'center' },
+                                    { key: 'extra', label: getExtraColumnHeader(), align: 'left' },
+                                    { key: 'customer', label: 'Khách hàng', align: 'left' },
+                                    { key: 'contract', label: 'Hợp đồng', align: 'left' },
+                                    { key: 'date', label: 'Ngày', align: 'left' },
+                                    { key: 'amount', label: 'Số tiền', align: 'right' },
+                                    { key: 'status', label: 'Trạng thái', align: 'center' },
+                                    ...(canDelete ? [{ key: 'actions', label: '', align: 'center' }] : []),
+                                ].map((col, idx, arr) => (
+                                    <th key={col.key} className={`sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 py-3 px-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase relative group/th ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                                        {col.label}
+                                        {idx < arr.length - 1 && (
+                                            <div
+                                                className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize z-30 flex items-center justify-center"
+                                                onMouseDown={(e) => onResizeStart(col.key, e)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <div className="w-[2px] h-4 bg-slate-300 dark:bg-slate-600 rounded-full opacity-0 group-hover/th:opacity-100 transition-opacity" />
+                                            </div>
+                                        )}
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody>
@@ -478,6 +518,13 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
                             Hiển thị {payments.length} / {totalCount} kết quả
                         </div>
+                        <button
+                            onClick={resetWidths}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+                            title="Đặt lại kích thước cột mặc định"
+                        >
+                            <RotateCcw size={13} /> Reset cột
+                        </button>
                     </div>
                 </div>
 

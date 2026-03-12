@@ -184,21 +184,19 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
 
                     {/* LINE ITEMS TABLE */}
                         <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-                        <table className="w-full text-left text-xs" style={{ minWidth: '1200px' }}>
+                        <table className="w-full text-left text-xs" style={{ minWidth: '1100px' }}>
                             <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
                                 <tr>
-                                    <th className="px-3 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[280px]">Sản phẩm/Dịch vụ</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[160px]">Nhà cung cấp</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[160px]">Hãng SX</th>
                                     <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-12">SL</th>
-                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[140px]">Nhà cung cấp</th>
-                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[140px]">Hãng SX</th>
-                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right w-[130px] whitespace-nowrap">Giá Đầu vào</th>
-                                    <th className="px-2 py-3 font-black text-cyan-500 uppercase tracking-tighter text-[10px] text-right w-[130px] whitespace-nowrap">TT Đầu vào</th>
-                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right w-[130px] whitespace-nowrap">Giá Đầu ra</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">Giá Đầu vào</th>
+                                    <th className="px-2 py-3 font-black text-cyan-500 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">TT Đầu vào</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">Giá Đầu ra</th>
                                     <th className="px-2 py-3 font-black text-emerald-500 uppercase tracking-tighter text-[10px] text-center w-16 whitespace-nowrap">VAT</th>
-                                    <th className="px-2 py-3 font-black text-indigo-400 uppercase tracking-tighter text-[10px] text-right w-[130px] whitespace-nowrap">TT Đầu ra</th>
-                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right w-[120px] whitespace-nowrap">CP Trực tiếp</th>
-                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right w-[120px] whitespace-nowrap">Chênh lệch</th>
-                                    <th className="px-2 py-3 w-8"></th>
+                                    <th className="px-2 py-3 font-black text-indigo-400 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">TT Đầu ra</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">CP Trực tiếp</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">Chênh lệch</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -207,231 +205,243 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                     const outputTotal = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 0) / 100);
                                     const lineMargin = outputTotal - inputTotal - item.directCosts;
                                     const lineMarginRate = outputTotal > 0 ? (lineMargin / outputTotal) * 100 : 0;
+                                    const rowBg = index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/80 dark:bg-slate-800/80';
 
                                     return (
-                                        <tr key={item.id} className={`group transition-colors border-b border-slate-100 dark:border-slate-700/50 ${index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/80 dark:bg-slate-800/80'} hover:bg-indigo-50/60 dark:hover:bg-slate-700/60`}>
-                                            <td className="px-3 py-2">
-                                                <SearchableSelect
-                                                    value={products.find(p => p.name === item.name)?.id || null}
-                                                    placeholder="Gõ để tìm SP..."
-                                                    getDisplayValue={(id) => {
-                                                        const prod = products.find(p => p.id === id);
-                                                        return prod?.name || item.name || undefined;
-                                                    }}
-                                                    onChange={(pId) => {
-                                                        const prod = pId ? products.find(p => p.id === pId) : null;
-                                                        const newList = [...lineItems];
-                                                        if (prod) {
-                                                            newList[index].name = prod.name;
-                                                            newList[index].inputPrice = prod.costPrice || 0;
-                                                            newList[index].outputPrice = prod.basePrice;
-                                                        } else {
-                                                            newList[index].name = '';
-                                                        }
-                                                        setLineItems(newList);
-                                                    }}
-                                                    onSearch={async (query) => {
-                                                        const results = await ProductService.search(query, 20);
-                                                        return results.map(p => ({ id: p.id, name: p.name, subText: p.category }));
-                                                    }}
-                                                    onAddNew={() => {
-                                                        setAddProductForIndex(index);
-                                                        setShowAddProductDialog(true);
-                                                    }}
-                                                    addNewLabel="Thêm sản phẩm mới"
-                                                />
-                                            </td>
-                                            <td className="px-2 py-2">
-                                                <input
-                                                    type="number"
-                                                    value={item.quantity}
-                                                    onChange={(e) => {
-                                                        const newList = [...lineItems];
-                                                        newList[index].quantity = Number(e.target.value);
-                                                        setLineItems(newList);
-                                                    }}
-                                                    className="w-full min-w-[48px] px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md font-black outline-none text-slate-800 dark:text-slate-200 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/30 transition-colors"
-                                                />
-                                            </td>
-                                            <td className="px-2 py-2">
-                                                <SearchableSelect
-                                                    value={item.supplierId || suppliers.find(s => s.name === item.supplier || s.shortName === item.supplier)?.id || null}
-                                                    placeholder="Gõ để tìm NCC..."
-                                                    getDisplayValue={(id) => {
-                                                        const sup = suppliers.find(s => s.id === id);
-                                                        return sup ? (sup.shortName || sup.name) : item.supplier || undefined;
-                                                    }}
-                                                    onChange={(sId, option) => {
-                                                        const newList = [...lineItems];
-                                                        if (sId && option) {
-                                                            newList[index].supplier = option.name;
-                                                            newList[index].supplierId = sId;
-                                                            // Add to suppliers list if not already present so value match works on re-render
-                                                            if (!suppliers.find(s => s.id === sId)) {
-                                                                setSuppliers([...suppliers, { id: sId, name: option.name, shortName: option.name, type: 'Supplier', industry: [], contactPerson: '', phone: '', email: '', address: '', rating: 'Standard' } as Customer]);
+                                        <React.Fragment key={item.id}>
+                                            {/* ── Row 1: Tên SP/DV ── */}
+                                            <tr className={`${rowBg} border-t border-slate-200 dark:border-slate-700`}>
+                                                <td colSpan={10} className="px-3 pt-2 pb-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[9px] font-black">
+                                                            {index + 1}
+                                                        </span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <SearchableSelect
+                                                                value={products.find(p => p.name === item.name)?.id || null}
+                                                                placeholder="Gõ để tìm sản phẩm/dịch vụ..."
+                                                                getDisplayValue={(id) => {
+                                                                    const prod = products.find(p => p.id === id);
+                                                                    return prod?.name || item.name || undefined;
+                                                                }}
+                                                                onChange={(pId) => {
+                                                                    const prod = pId ? products.find(p => p.id === pId) : null;
+                                                                    const newList = [...lineItems];
+                                                                    if (prod) {
+                                                                        newList[index].name = prod.name;
+                                                                        newList[index].inputPrice = prod.costPrice || 0;
+                                                                        newList[index].outputPrice = prod.basePrice;
+                                                                    } else {
+                                                                        newList[index].name = '';
+                                                                    }
+                                                                    setLineItems(newList);
+                                                                }}
+                                                                onSearch={async (query) => {
+                                                                    const results = await ProductService.search(query, 20);
+                                                                    return results.map(p => ({ id: p.id, name: p.name, subText: p.category }));
+                                                                }}
+                                                                onAddNew={() => {
+                                                                    setAddProductForIndex(index);
+                                                                    setShowAddProductDialog(true);
+                                                                }}
+                                                                addNewLabel="Thêm sản phẩm mới"
+                                                                dropdownMinWidth={400}
+                                                            />
+                                                        </div>
+                                                        {lineItems.length > 1 && (
+                                                            <button onClick={() => removeLineItem(item.id)} className="flex-shrink-0 text-slate-300 hover:text-rose-500 transition-colors p-1">
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {/* ── Row 2: NCC, Hãng SX, SL, Giá, VAT, CP, Chênh lệch ── */}
+                                            <tr className={`${rowBg} group transition-colors hover:bg-indigo-50/60 dark:hover:bg-slate-700/60 border-b border-slate-100 dark:border-slate-700/50`}>
+                                                <td className="px-2 pb-2 pt-1">
+                                                    <SearchableSelect
+                                                        value={item.supplierId || suppliers.find(s => s.name === item.supplier || s.shortName === item.supplier)?.id || null}
+                                                        placeholder="NCC..."
+                                                        getDisplayValue={(id) => {
+                                                            const sup = suppliers.find(s => s.id === id);
+                                                            return sup ? (sup.shortName || sup.name) : item.supplier || undefined;
+                                                        }}
+                                                        onChange={(sId, option) => {
+                                                            const newList = [...lineItems];
+                                                            if (sId && option) {
+                                                                newList[index].supplier = option.name;
+                                                                newList[index].supplierId = sId;
+                                                                if (!suppliers.find(s => s.id === sId)) {
+                                                                    setSuppliers([...suppliers, { id: sId, name: option.name, shortName: option.name, type: 'Supplier', industry: [], contactPerson: '', phone: '', email: '', address: '', rating: 'Standard' } as Customer]);
+                                                                }
+                                                            } else {
+                                                                newList[index].supplier = '';
+                                                                newList[index].supplierId = undefined;
                                                             }
-                                                        } else {
-                                                            newList[index].supplier = '';
-                                                            newList[index].supplierId = undefined;
-                                                        }
-                                                        setLineItems(newList);
-                                                    }}
-                                                    onSearch={async (query) => {
-                                                        const results = await CustomerService.search(query, 20);
-                                                        return results
-                                                            .filter(c => c.type === 'Supplier' || c.type === 'Both')
-                                                            .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry?.join(', ') || undefined }));
-                                                    }}
-                                                    onAddNew={() => {
-                                                        setAddSupplierForIndex(index);
-                                                        setShowAddSupplierDialog(true);
-                                                    }}
-                                                    addNewLabel="Thêm NCC mới"
-                                                />
-                                            </td>
-                                            <td className="px-2 py-2">
-                                                <SearchableSelect
-                                                    value={item.manufacturerId || suppliers.find(s => s.name === item.manufacturer || s.shortName === item.manufacturer)?.id || null}
-                                                    placeholder="Hãng SX..."
-                                                    getDisplayValue={(id) => {
-                                                        const mfr = suppliers.find(s => s.id === id);
-                                                        return mfr ? (mfr.shortName || mfr.name) : item.manufacturer || undefined;
-                                                    }}
-                                                    onChange={(mId, option) => {
-                                                        const newList = [...lineItems];
-                                                        if (mId && option) {
-                                                            newList[index].manufacturer = option.name;
-                                                            newList[index].manufacturerId = mId;
-                                                        } else {
-                                                            newList[index].manufacturer = '';
-                                                            newList[index].manufacturerId = undefined;
-                                                        }
-                                                        setLineItems(newList);
-                                                    }}
-                                                    onSearch={async (query) => {
-                                                        const results = await CustomerService.search(query, 20);
-                                                        return results
-                                                            .filter(c => c.type === 'Supplier' || c.type === 'Both')
-                                                            .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry?.join(', ') || undefined }));
-                                                    }}
-                                                    onAddNew={() => {
-                                                        setAddSupplierForIndex(index);
-                                                        setShowAddSupplierDialog(true);
-                                                    }}
-                                                    addNewLabel="Thêm hãng SX mới"
-                                                />
-                                            </td>
-                                            <td className="px-2 py-2">
-                                                <CurrencyCalculator
-                                                    value={item.inputPrice}
-                                                    onChange={(vnd) => {
-                                                        const newList = [...lineItems];
-                                                        newList[index].inputPrice = vnd;
-                                                        setLineItems(newList);
-                                                    }}
-                                                    onForeignCurrencyChange={(info) => {
-                                                        const newList = [...lineItems];
-                                                        newList[index].foreignCurrency = info;
-                                                        setLineItems(newList);
-                                                    }}
-                                                    foreignCurrency={item.foreignCurrency}
-                                                    formula={item.inputPriceFormula}
-                                                    onFormulaChange={(f) => {
-                                                        const newList = [...lineItems];
-                                                        newList[index].inputPriceFormula = f;
-                                                        setLineItems(newList);
-                                                    }}
-                                                    formatVND={formatVND}
-                                                    textColorClass="text-slate-600 dark:text-slate-300"
-                                                />
-                                            </td>
-                                            <td className="px-2 py-2 text-right">
-                                                <span className="font-bold text-cyan-600 dark:text-cyan-400">{formatVND(inputTotal)}</span>
-                                            </td>
-                                            <td className="px-2 py-2">
-                                                <CurrencyCalculator
-                                                    value={item.outputPrice}
-                                                    onChange={(vnd) => {
-                                                        const newList = [...lineItems];
-                                                        newList[index].outputPrice = vnd;
-                                                        setLineItems(newList);
-                                                    }}
-                                                    formula={item.outputPriceFormula}
-                                                    onFormulaChange={(f) => {
-                                                        const newList = [...lineItems];
-                                                        newList[index].outputPriceFormula = f;
-                                                        setLineItems(newList);
-                                                    }}
-                                                    formatVND={formatVND}
-                                                    textColorClass="text-indigo-600 dark:text-indigo-400"
-                                                />
-                                            </td>
-                                            <td className="px-2 py-2 text-center">
-                                                <select
-                                                    value={item.vatRate ?? 0}
-                                                    onChange={(e) => {
-                                                        const newList = [...lineItems];
-                                                        newList[index].vatRate = Number(e.target.value);
-                                                        setLineItems(newList);
-                                                    }}
-                                                    className="w-full px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-center font-bold text-emerald-600 dark:text-emerald-400 text-[11px] outline-none cursor-pointer hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-400/30 transition-colors appearance-none"
-                                                >
-                                                    <option value={0}>0%</option>
-                                                    <option value={8}>8%</option>
-                                                    <option value={10}>10%</option>
-                                                </select>
-                                            </td>
-                                            <td className="px-2 py-2 text-right">
-                                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatVND(outputTotal)}</span>
-                                            </td>
-                                            <td className="px-2 py-2 text-right">
-                                                <div className="relative group/costs">
-                                                    <input
-                                                        type="text"
-                                                        readOnly
-                                                        onClick={() => openCostModal(index)}
-                                                        value={item.directCosts ? formatVND(item.directCosts) : '0'}
-                                                        className="w-full bg-transparent font-bold text-rose-500 text-right outline-none cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-1"
+                                                            setLineItems(newList);
+                                                        }}
+                                                        onSearch={async (query) => {
+                                                            const results = await CustomerService.search(query, 20);
+                                                            return results
+                                                                .filter(c => c.type === 'Supplier' || c.type === 'Both')
+                                                                .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry?.join(', ') || undefined }));
+                                                        }}
+                                                        onAddNew={() => {
+                                                            setAddSupplierForIndex(index);
+                                                            setShowAddSupplierDialog(true);
+                                                        }}
+                                                        addNewLabel="Thêm NCC mới"
                                                     />
-                                                    {item.directCostDetails && item.directCostDetails.length > 0 && (
-                                                        <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-slate-900 text-white text-[10px] rounded-lg shadow-xl z-50 opacity-0 group-hover/costs:opacity-100 transition-opacity pointer-events-none">
-                                                            <div className="space-y-1">
-                                                                {item.directCostDetails.map((detail, i) => (
-                                                                    <div key={i} className="flex justify-between items-center border-b border-slate-700 pb-1 last:border-0 last:pb-0">
-                                                                        <span className="font-medium">{detail.name}</span>
-                                                                        <span className="font-bold">{formatVND(detail.amount)}</span>
+                                                </td>
+                                                <td className="px-2 pb-2 pt-1">
+                                                    <SearchableSelect
+                                                        value={item.manufacturerId || suppliers.find(s => s.name === item.manufacturer || s.shortName === item.manufacturer)?.id || null}
+                                                        placeholder="Hãng SX..."
+                                                        getDisplayValue={(id) => {
+                                                            const mfr = suppliers.find(s => s.id === id);
+                                                            return mfr ? (mfr.shortName || mfr.name) : item.manufacturer || undefined;
+                                                        }}
+                                                        onChange={(mId, option) => {
+                                                            const newList = [...lineItems];
+                                                            if (mId && option) {
+                                                                newList[index].manufacturer = option.name;
+                                                                newList[index].manufacturerId = mId;
+                                                            } else {
+                                                                newList[index].manufacturer = '';
+                                                                newList[index].manufacturerId = undefined;
+                                                            }
+                                                            setLineItems(newList);
+                                                        }}
+                                                        onSearch={async (query) => {
+                                                            const results = await CustomerService.search(query, 20);
+                                                            return results
+                                                                .filter(c => c.type === 'Supplier' || c.type === 'Both')
+                                                                .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry?.join(', ') || undefined }));
+                                                        }}
+                                                        onAddNew={() => {
+                                                            setAddSupplierForIndex(index);
+                                                            setShowAddSupplierDialog(true);
+                                                        }}
+                                                        addNewLabel="Thêm hãng SX mới"
+                                                    />
+                                                </td>
+                                                <td className="px-2 pb-2 pt-1">
+                                                    <input
+                                                        type="number"
+                                                        value={item.quantity}
+                                                        onChange={(e) => {
+                                                            const newList = [...lineItems];
+                                                            newList[index].quantity = Number(e.target.value);
+                                                            setLineItems(newList);
+                                                        }}
+                                                        className="w-full min-w-[48px] px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md font-black outline-none text-slate-800 dark:text-slate-200 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/30 transition-colors"
+                                                    />
+                                                </td>
+                                                <td className="px-2 pb-2 pt-1">
+                                                    <CurrencyCalculator
+                                                        value={item.inputPrice}
+                                                        onChange={(vnd) => {
+                                                            const newList = [...lineItems];
+                                                            newList[index].inputPrice = vnd;
+                                                            setLineItems(newList);
+                                                        }}
+                                                        onForeignCurrencyChange={(info) => {
+                                                            const newList = [...lineItems];
+                                                            newList[index].foreignCurrency = info;
+                                                            setLineItems(newList);
+                                                        }}
+                                                        foreignCurrency={item.foreignCurrency}
+                                                        formula={item.inputPriceFormula}
+                                                        onFormulaChange={(f) => {
+                                                            const newList = [...lineItems];
+                                                            newList[index].inputPriceFormula = f;
+                                                            setLineItems(newList);
+                                                        }}
+                                                        formatVND={formatVND}
+                                                        textColorClass="text-slate-600 dark:text-slate-300"
+                                                    />
+                                                </td>
+                                                <td className="px-2 pb-2 pt-1 text-right">
+                                                    <span className="font-bold text-cyan-600 dark:text-cyan-400">{formatVND(inputTotal)}</span>
+                                                </td>
+                                                <td className="px-2 pb-2 pt-1">
+                                                    <CurrencyCalculator
+                                                        value={item.outputPrice}
+                                                        onChange={(vnd) => {
+                                                            const newList = [...lineItems];
+                                                            newList[index].outputPrice = vnd;
+                                                            setLineItems(newList);
+                                                        }}
+                                                        formula={item.outputPriceFormula}
+                                                        onFormulaChange={(f) => {
+                                                            const newList = [...lineItems];
+                                                            newList[index].outputPriceFormula = f;
+                                                            setLineItems(newList);
+                                                        }}
+                                                        formatVND={formatVND}
+                                                        textColorClass="text-indigo-600 dark:text-indigo-400"
+                                                    />
+                                                </td>
+                                                <td className="px-2 pb-2 pt-1 text-center">
+                                                    <select
+                                                        value={item.vatRate ?? 0}
+                                                        onChange={(e) => {
+                                                            const newList = [...lineItems];
+                                                            newList[index].vatRate = Number(e.target.value);
+                                                            setLineItems(newList);
+                                                        }}
+                                                        className="w-full px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-center font-bold text-emerald-600 dark:text-emerald-400 text-[11px] outline-none cursor-pointer hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-400/30 transition-colors appearance-none"
+                                                    >
+                                                        <option value={0}>0%</option>
+                                                        <option value={8}>8%</option>
+                                                        <option value={10}>10%</option>
+                                                    </select>
+                                                </td>
+                                                <td className="px-2 pb-2 pt-1 text-right">
+                                                    <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatVND(outputTotal)}</span>
+                                                </td>
+                                                <td className="px-2 pb-2 pt-1 text-right">
+                                                    <div className="relative group/costs">
+                                                        <input
+                                                            type="text"
+                                                            readOnly
+                                                            onClick={() => openCostModal(index)}
+                                                            value={item.directCosts ? formatVND(item.directCosts) : '0'}
+                                                            className="w-full bg-transparent font-bold text-rose-500 text-right outline-none cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-1"
+                                                        />
+                                                        {item.directCostDetails && item.directCostDetails.length > 0 && (
+                                                            <div className="absolute top-full right-0 mt-2 w-64 p-3 bg-slate-900 text-white text-[10px] rounded-lg shadow-xl z-50 opacity-0 group-hover/costs:opacity-100 transition-opacity pointer-events-none">
+                                                                <div className="space-y-1">
+                                                                    {item.directCostDetails.map((detail, i) => (
+                                                                        <div key={i} className="flex justify-between items-center border-b border-slate-700 pb-1 last:border-0 last:pb-0">
+                                                                            <span className="font-medium">{detail.name}</span>
+                                                                            <span className="font-bold">{formatVND(detail.amount)}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                    <div className="pt-2 mt-1 border-t border-slate-700 flex justify-between">
+                                                                        <span className="font-bold uppercase opacity-70">Tổng</span>
+                                                                        <span className="font-black text-emerald-400">{formatVND(item.directCosts)}</span>
                                                                     </div>
-                                                                ))}
-                                                                <div className="pt-2 mt-1 border-t border-slate-700 flex justify-between">
-                                                                    <span className="font-bold uppercase opacity-70">Tổng</span>
-                                                                    <span className="font-black text-emerald-400">{formatVND(item.directCosts)}</span>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-2 py-2 text-right">
-                                                <div className="flex flex-col items-end">
-                                                    <span className={`font-black ${lineMargin >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatVND(lineMargin)}</span>
-                                                    <span className="text-[9px] font-bold text-slate-400">{lineMarginRate.toFixed(1)}%</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-2 py-2 text-center">
-                                                {lineItems.length > 1 && (
-                                                    <button onClick={() => removeLineItem(item.id)} className="text-slate-300 hover:text-rose-500 transition-colors">
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-2 pb-2 pt-1 text-right">
+                                                    <div className="flex flex-col items-end">
+                                                        <span className={`font-black ${lineMargin >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatVND(lineMargin)}</span>
+                                                        <span className="text-[9px] font-bold text-slate-400">{lineMarginRate.toFixed(1)}%</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </React.Fragment>
                                     );
                                 })}
                             </tbody>
                             {/* TOTALS FOOTER */}
                             <tfoot className="bg-slate-100 dark:bg-slate-800 font-black text-slate-700 dark:text-slate-200 border-t-2 border-slate-300 dark:border-slate-600">
                                 <tr>
-                                    <td colSpan={4} className="px-4 py-4 text-left uppercase text-xs tracking-widest text-slate-500">
+                                    <td colSpan={3} className="px-4 py-4 text-left uppercase text-xs tracking-widest text-slate-500">
                                         Tổng cộng
                                     </td>
                                     <td className="px-4 py-4 text-right text-slate-600 dark:text-slate-400">
@@ -455,7 +465,6 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                             {formatVND(totals.signingValue - totals.totalInput - totals.totalDirectCosts)}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-4"></td>
                                 </tr>
                             </tfoot>
                         </table>

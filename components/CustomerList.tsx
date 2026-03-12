@@ -17,7 +17,8 @@ import {
     Star,
     Crown,
     ChevronDown,
-    Tag
+    Tag,
+    RotateCcw
 } from 'lucide-react';
 import { Customer } from '../types';
 import { CustomerService } from '../services';
@@ -29,6 +30,8 @@ import BrandDetail from './BrandDetail';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
+import { useColumnResize } from '../hooks/useColumnResize';
+import { useAuth } from '../contexts/AuthContext';
 
 interface CustomerListProps {
     onSelectCustomer?: (id: string) => void;
@@ -37,6 +40,7 @@ interface CustomerListProps {
 
 const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectProduct }) => {
     const { can } = usePermissionCheck();
+    const { profile: realProfile } = useAuth();
     const allowDelete = can('customers', 'delete');
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -97,6 +101,23 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
 
     const industries = ['all', ...INDUSTRIES];
     const RATINGS = ['all', 'VIP', 'Gold', 'Standard', 'Lead'];
+
+    // === Resizable columns ===
+    const CUSTOMER_TABLE_COLUMNS = useMemo(() => [
+        { key: 'stt', defaultWidth: 50, minWidth: 35 },
+        { key: 'name', defaultWidth: 350, minWidth: 150 },
+        { key: 'rating', defaultWidth: 80, minWidth: 50 },
+        { key: 'contact', defaultWidth: 220, minWidth: 100 },
+        { key: 'contracts', defaultWidth: 80, minWidth: 50 },
+        { key: 'value', defaultWidth: 150, minWidth: 80 },
+        { key: 'actions', defaultWidth: 55, minWidth: 40 },
+    ], []);
+
+    const { columnWidths, onResizeStart, isResizing, resetWidths } = useColumnResize({
+        tableId: 'customer-list',
+        userId: realProfile?.id,
+        columns: CUSTOMER_TABLE_COLUMNS,
+    });
 
     const formatCurrency = (val: number) => {
         return (val || 0).toLocaleString('vi-VN') + ' ₫';
@@ -380,17 +401,37 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
 
                     {/* Customer List */}
                     <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
-                        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
-                            <table className="w-full">
+                        <div className={`overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)] ${isResizing ? 'select-none' : ''}`}>
+                            <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
+                                <colgroup>
+                                    {CUSTOMER_TABLE_COLUMNS.map(c => (
+                                        <col key={c.key} style={{ width: columnWidths[c.key] }} />
+                                    ))}
+                                </colgroup>
                                 <thead>
                                     <tr className="z-20">
-                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-center py-4 px-3 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12">STT</th>
-                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Đối tác</th>
-                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-center py-4 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell w-20">Hạng</th>
-                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
-                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">HĐ</th>
-                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 text-right py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Giá trị</th>
-                                        <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 py-4 px-6"></th>
+                                        {[
+                                            { key: 'stt', label: 'STT', align: 'center' },
+                                            { key: 'name', label: 'Đối tác', align: 'left' },
+                                            { key: 'rating', label: 'Hạng', align: 'center' },
+                                            { key: 'contact', label: 'Liên hệ', align: 'left' },
+                                            { key: 'contracts', label: 'HĐ', align: 'right' },
+                                            { key: 'value', label: 'Giá trị', align: 'right' },
+                                            { key: 'actions', label: '', align: 'center' },
+                                        ].map((col, idx, arr) => (
+                                            <th key={col.key} className={`sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 py-4 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider relative group/th ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                                                {col.label}
+                                                {idx < arr.length - 1 && (
+                                                    <div
+                                                        className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize z-30 flex items-center justify-center"
+                                                        onMouseDown={(e) => onResizeStart(col.key, e)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <div className="w-[2px] h-4 bg-slate-300 dark:bg-slate-600 rounded-full opacity-0 group-hover/th:opacity-100 transition-opacity" />
+                                                    </div>
+                                                )}
+                                            </th>
+                                        ))}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -538,6 +579,13 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                                 <div className="text-sm font-bold text-slate-500">
                                     Hiển thị {customers.length} / {totalCount} đối tác
                                 </div>
+                                <button
+                                    onClick={resetWidths}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+                                    title="Đặt lại kích thước cột mặc định"
+                                >
+                                    <RotateCcw size={13} /> Reset cột
+                                </button>
                             </div>
                         </div>
 

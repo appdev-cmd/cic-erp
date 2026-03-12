@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Search, User, Building, ChevronDown, Loader2, Plus, Pencil, Trash2, MoreVertical, Phone, Mail, Calendar, GraduationCap, MapPin, CreditCard, Eye, Upload, Download, FileSpreadsheet } from 'lucide-react';
+import { Search, User, Building, ChevronDown, Loader2, Plus, Pencil, Trash2, MoreVertical, Phone, Mail, Calendar, GraduationCap, MapPin, CreditCard, Eye, Upload, Download, FileSpreadsheet, RotateCcw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { EmployeeService, UnitService } from '../services';
 import { Employee, Unit } from '../types';
@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import { formatDate } from '../utils/formatters';
+import { useColumnResize } from '../hooks/useColumnResize';
 
 interface PersonnelListProps {
     selectedUnit: Unit;
@@ -53,6 +54,22 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     // Delete confirmation state
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // === Resizable columns ===
+    const PERSONNEL_TABLE_COLUMNS = useMemo(() => [
+        { key: 'employee', defaultWidth: 280, minWidth: 150 },
+        { key: 'unit', defaultWidth: 120, minWidth: 60 },
+        { key: 'contact', defaultWidth: 220, minWidth: 100 },
+        { key: 'dob', defaultWidth: 120, minWidth: 70 },
+        { key: 'joined', defaultWidth: 120, minWidth: 70 },
+        { key: 'actions', defaultWidth: 55, minWidth: 40 },
+    ], []);
+
+    const { columnWidths, onResizeStart, isResizing, resetWidths } = useColumnResize({
+        tableId: 'personnel-list',
+        userId: realProfile?.id,
+        columns: PERSONNEL_TABLE_COLUMNS,
+    });
 
     // Fetch data
     useEffect(() => {
@@ -456,16 +473,36 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         <Loader2 size={32} className="animate-spin text-indigo-500" />
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
+                    <div className={`overflow-x-auto ${isResizing ? 'select-none' : ''}`}>
+                        <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
+                            <colgroup>
+                                {PERSONNEL_TABLE_COLUMNS.map(c => (
+                                    <col key={c.key} style={{ width: columnWidths[c.key] }} />
+                                ))}
+                            </colgroup>
                             <thead>
                                 <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nhân viên</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Đơn vị</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Liên hệ</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Ngày sinh</th>
-                                    <th className="text-left py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Ngày vào</th>
-                                    <th className="py-4 px-6"></th>
+                                    {[
+                                        { key: 'employee', label: 'Nhân viên', align: 'left' },
+                                        { key: 'unit', label: 'Đơn vị', align: 'left' },
+                                        { key: 'contact', label: 'Liên hệ', align: 'left' },
+                                        { key: 'dob', label: 'Ngày sinh', align: 'left' },
+                                        { key: 'joined', label: 'Ngày vào', align: 'left' },
+                                        { key: 'actions', label: '', align: 'center' },
+                                    ].map((col, idx, arr) => (
+                                        <th key={col.key} className={`py-4 px-6 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider relative group/th ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                                            {col.label}
+                                            {idx < arr.length - 1 && (
+                                                <div
+                                                    className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize z-30 flex items-center justify-center"
+                                                    onMouseDown={(e) => onResizeStart(col.key, e)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <div className="w-[2px] h-4 bg-slate-300 dark:bg-slate-600 rounded-full opacity-0 group-hover/th:opacity-100 transition-opacity" />
+                                                </div>
+                                            )}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody>
@@ -595,6 +632,13 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                             Hiển thị {((currentPage - 1) * pageSize) + 1}–{Math.min(currentPage * pageSize, totalCount)} trên tổng số {totalCount} nhân viên
                         </p>
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={resetWidths}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+                                title="Đặt lại kích thước cột mặc định"
+                            >
+                                <RotateCcw size={13} /> Reset cột
+                            </button>
                             <button
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}

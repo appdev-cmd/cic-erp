@@ -153,6 +153,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
         setLineItems(contract.lineItems.map(item => ({
           ...item,
           vatRate: item.vatRate ?? contractVat,
+          inputPriceFormula: item.inputPriceFormula || (item.inputPrice ? String(item.inputPrice) : undefined),
+          outputPriceFormula: item.outputPriceFormula || (item.outputPrice ? String(item.outputPrice) : undefined),
         })));
       }
 

@@ -18,7 +18,8 @@ import {
     ArrowUpDown,
     ArrowUp,
     ArrowDown,
-    Building2
+    Building2,
+    RotateCcw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { ProductService, UnitService, BrandService, CustomerService } from '../services';
@@ -32,6 +33,8 @@ import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import ConfirmDialog, { useConfirmDialog } from './ui/ConfirmDialog';
 import { toast } from 'sonner';
+import { useColumnResize } from '../hooks/useColumnResize';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ProductListProps {
     onSelectProduct?: (id: string) => void;
@@ -39,6 +42,7 @@ interface ProductListProps {
 
 const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
     const { can } = usePermissionCheck();
+    const { profile: realProfile } = useAuth();
     const allowDelete = can('products', 'delete');
     const allowCreate = can('products', 'create');
     const allowUpdate = can('products', 'update');
@@ -174,6 +178,27 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
 
         return { active, totalBasePrice, avgMargin };
     }, [filteredProducts]);
+
+    // === Resizable columns ===
+    const PRODUCT_TABLE_COLUMNS = useMemo(() => [
+        { key: 'stt', defaultWidth: 45, minWidth: 35 },
+        { key: 'code', defaultWidth: 100, minWidth: 60 },
+        { key: 'name', defaultWidth: 250, minWidth: 120 },
+        { key: 'category', defaultWidth: 100, minWidth: 60 },
+        { key: 'unit', defaultWidth: 120, minWidth: 60 },
+        { key: 'price', defaultWidth: 130, minWidth: 80 },
+        { key: 'margin', defaultWidth: 80, minWidth: 50 },
+        { key: 'status', defaultWidth: 100, minWidth: 60 },
+        { key: 'brand', defaultWidth: 100, minWidth: 60 },
+        { key: 'supplier', defaultWidth: 120, minWidth: 60 },
+        { key: 'actions', defaultWidth: 45, minWidth: 35 },
+    ], []);
+
+    const { columnWidths, onResizeStart, isResizing, resetWidths } = useColumnResize({
+        tableId: 'product-list',
+        userId: realProfile?.id,
+        columns: PRODUCT_TABLE_COLUMNS,
+    });
 
     const selectedCategoryLabel = categoryFilter === 'all' ? 'Tất cả danh mục' : categoryFilter;
 
@@ -564,29 +589,48 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                         <Loader2 size={28} className="animate-spin text-indigo-500" />
                     </div>
                 ) : (
-                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-340px)]">
-                        <table className="w-full">
+                    <div className={`overflow-x-auto overflow-y-auto max-h-[calc(100vh-340px)] ${isResizing ? 'select-none' : ''}`}>
+                        <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
+                            <colgroup>
+                                {PRODUCT_TABLE_COLUMNS.map(c => (
+                                    <col key={c.key} style={{ width: columnWidths[c.key] }} />
+                                ))}
+                            </colgroup>
                             <thead>
                                 <tr className="z-20">
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center py-2.5 px-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider w-10">STT</th>
-                                    <th onClick={() => handleSort('code')} className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors select-none">
-                                        <span className="flex items-center gap-1">Mã SP <SortIcon column="code" /></span>
-                                    </th>
-                                    <th onClick={() => handleSort('name')} className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors select-none">
-                                        <span className="flex items-center gap-1">Tên sản phẩm <SortIcon column="name" /></span>
-                                    </th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Danh mục</th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Đơn vị</th>
-                                    <th onClick={() => handleSort('base_price')} className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-right py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors select-none">
-                                        <span className="flex items-center gap-1 justify-end">Đơn giá <SortIcon column="base_price" /></span>
-                                    </th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-right py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Biên LN</th>
-                                    <th onClick={() => handleSort('is_active')} className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors select-none">
-                                        <span className="flex items-center gap-1 justify-center">Trạng thái <SortIcon column="is_active" /></span>
-                                    </th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">Hãng</th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden xl:table-cell">NCC</th>
-                                    <th className="sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-2.5 px-2 w-10"></th>
+                                    {[
+                                        { key: 'stt', label: 'STT', align: 'center', sortable: false },
+                                        { key: 'code', label: 'Mã SP', align: 'left', sortable: true, sortKey: 'code' },
+                                        { key: 'name', label: 'Tên sản phẩm', align: 'left', sortable: true, sortKey: 'name' },
+                                        { key: 'category', label: 'Danh mục', align: 'left', sortable: false },
+                                        { key: 'unit', label: 'Đơn vị', align: 'left', sortable: false },
+                                        { key: 'price', label: 'Đơn giá', align: 'right', sortable: true, sortKey: 'base_price' },
+                                        { key: 'margin', label: 'Biên LN', align: 'right', sortable: false },
+                                        { key: 'status', label: 'Trạng thái', align: 'center', sortable: true, sortKey: 'is_active' },
+                                        { key: 'brand', label: 'Hãng', align: 'left', sortable: false },
+                                        { key: 'supplier', label: 'NCC', align: 'left', sortable: false },
+                                        { key: 'actions', label: '', align: 'center', sortable: false },
+                                    ].map((col, idx, arr) => (
+                                        <th
+                                            key={col.key}
+                                            onClick={col.sortable ? () => handleSort(col.sortKey!) : undefined}
+                                            className={`sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider relative group/th ${col.sortable ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 select-none' : ''} ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}`}
+                                        >
+                                            <span className={`flex items-center gap-1 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : ''}`}>
+                                                {col.label}
+                                                {col.sortable && <SortIcon column={col.sortKey!} />}
+                                            </span>
+                                            {idx < arr.length - 1 && (
+                                                <div
+                                                    className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize z-30 flex items-center justify-center"
+                                                    onMouseDown={(e) => { e.stopPropagation(); onResizeStart(col.key, e); }}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <div className="w-[2px] h-4 bg-slate-300 dark:bg-slate-600 rounded-full opacity-0 group-hover/th:opacity-100 transition-opacity" />
+                                                </div>
+                                            )}
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody>
@@ -755,6 +799,13 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                         <div className="text-sm font-bold text-slate-500">
                             Hiển thị {filteredProducts.length} / {totalCount} sản phẩm
                         </div>
+                        <button
+                            onClick={resetWidths}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+                            title="Đặt lại kích thước cột mặc định"
+                        >
+                            <RotateCcw size={13} /> Reset cột
+                        </button>
                     </div>
                 </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X, Loader2, ChevronDown, Plus } from 'lucide-react';
 
 interface Option {
@@ -19,11 +20,13 @@ interface SearchableSelectProps {
     onAddNew?: () => void;
     addNewLabel?: string;
     size?: 'sm' | 'md';
+    /** Minimum width for dropdown (default: 280px) */
+    dropdownMinWidth?: number;
 }
 
 /**
  * Async searchable select with debounce.
- * Use for large datasets (customers, products, employees).
+ * Dropdown rendered via Portal to avoid clipping by overflow containers.
  */
 const SearchableSelect: React.FC<SearchableSelectProps> = ({
     value,
@@ -37,6 +40,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     onAddNew,
     addNewLabel = 'Thêm mới',
     size = 'md',
+    dropdownMinWidth = 280,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
@@ -44,8 +48,10 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [displayValue, setDisplayValue] = useState<string>('');
     const containerRef = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const debounceRef = useRef<any>(null);
+    const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 280 });
 
     // Update display value when value changes
     useEffect(() => {
@@ -61,16 +67,60 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
         }
     }, [value, options, getDisplayValue]);
 
+    // Calculate dropdown position
+    const updatePosition = useCallback(() => {
+        if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            const width = Math.max(rect.width, dropdownMinWidth);
+            const viewportW = window.innerWidth;
+            const viewportH = window.innerHeight;
+            const dropdownHeight = 350; // estimated max height
+            const gap = 4;
+
+            // Prefer below, flip above if needed
+            let top: number;
+            if (rect.bottom + gap + dropdownHeight > viewportH && rect.top - gap - dropdownHeight > 0) {
+                top = rect.top - gap - dropdownHeight;
+            } else {
+                top = rect.bottom + gap;
+            }
+
+            // Align left with trigger, clamp to viewport
+            let left = rect.left;
+            if (left + width > viewportW - 8) {
+                left = viewportW - width - 8;
+            }
+            left = Math.max(8, left);
+
+            setDropdownPos({ top, left, width });
+        }
+    }, [dropdownMinWidth]);
+
+    useEffect(() => {
+        if (isOpen) {
+            updatePosition();
+            window.addEventListener('scroll', updatePosition, true);
+            window.addEventListener('resize', updatePosition);
+            return () => {
+                window.removeEventListener('scroll', updatePosition, true);
+                window.removeEventListener('resize', updatePosition);
+            };
+        }
+    }, [isOpen, updatePosition]);
+
     // Close on outside click
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node) &&
+                dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
                 setIsOpen(false);
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [isOpen]);
 
     // Debounced search
     const handleQueryChange = useCallback((newQuery: string) => {
@@ -150,9 +200,19 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 </div>
             </button>
 
-            {/* Dropdown */}
-            {isOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Dropdown via Portal */}
+            {isOpen && createPortal(
+                <div
+                    ref={dropdownRef}
+                    style={{
+                        position: 'fixed',
+                        top: dropdownPos.top,
+                        left: dropdownPos.left,
+                        width: dropdownPos.width,
+                        zIndex: 9999,
+                    }}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+                >
                     {/* Search Input */}
                     <div className="p-3 border-b border-slate-100 dark:border-slate-800">
                         <div className="relative">
@@ -163,7 +223,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                 value={query}
                                 onChange={(e) => handleQueryChange(e.target.value)}
                                 placeholder="Gõ ít nhất 2 ký tự..."
-                                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:border-indigo-500 focus:outline-none transition-colors"
+                                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:border-indigo-500 focus:outline-none transition-colors"
                             />
                             {isLoading && (
                                 <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-500 animate-spin" />
@@ -213,7 +273,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                             </button>
                         </div>
                     )}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

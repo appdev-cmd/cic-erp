@@ -110,13 +110,21 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
 
     // Sync from contract when contract changes
     useEffect(() => {
-        setLineItems(contract.lineItems || []);
+        setLineItems((contract.lineItems || []).map(item => ({
+            ...item,
+            inputPriceFormula: item.inputPriceFormula || (item.inputPrice ? String(item.inputPrice) : undefined),
+            outputPriceFormula: item.outputPriceFormula || (item.outputPrice ? String(item.outputPrice) : undefined),
+        })));
         setExecutionCosts(contract.executionCosts || []);
     }, [contract.id, setLineItems, setExecutionCosts]);
 
     // Reset to original contract data
     const resetToOriginal = () => {
-        setLineItems(contract.lineItems || []);
+        setLineItems((contract.lineItems || []).map(item => ({
+            ...item,
+            inputPriceFormula: item.inputPriceFormula || (item.inputPrice ? String(item.inputPrice) : undefined),
+            outputPriceFormula: item.outputPriceFormula || (item.outputPrice ? String(item.outputPrice) : undefined),
+        })));
         setExecutionCosts(contract.executionCosts || []);
         toast.info('Đã khôi phục dữ liệu từ Hợp đồng gốc');
     };
