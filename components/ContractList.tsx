@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Check, Clock, AlertCircle, FileText, CheckCircle, PackageCheck, X } from 'lucide-react';
+import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, Check, Clock, AlertCircle, FileText, CheckCircle, PackageCheck, X, RotateCcw } from 'lucide-react';
 import { ContractService, EmployeeService, UnitService } from '../services';
 import { ContractStatus, Unit, Contract, Employee, UserRole } from '../types';
 import { CONTRACT_STATUS_LABELS } from '../constants';
@@ -17,6 +17,7 @@ import { formatDate, removeDiacritics } from '../utils/formatters';
 import { useLayoutContext } from './layout/MainLayout';
 import DateInput from './ui/DateInput';
 import AcceptanceDialog from './ui/AcceptanceDialog';
+import { useColumnResize } from '../hooks/useColumnResize';
 
 // Inline debounce hook if not exists, but better to check. 
 // For now, I'll use a simple useEffect debounce logic.
@@ -83,6 +84,27 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [changingStatusId, setChangingStatusId] = useState<string | null>(null);
   const [acceptancePendingId, setAcceptancePendingId] = useState<string | null>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  // === Resizable columns ===
+  const CONTRACT_TABLE_COLUMNS = useMemo(() => [
+    { key: 'stt', defaultWidth: 36, minWidth: 30 },
+    { key: 'contractCode', defaultWidth: 140, minWidth: 80 },
+    { key: 'title', defaultWidth: 380, minWidth: 150 },
+    { key: 'value', defaultWidth: 115, minWidth: 70 },
+    { key: 'revenue', defaultWidth: 115, minWidth: 70 },
+    { key: 'cash', defaultWidth: 115, minWidth: 70 },
+    { key: 'adminProfit', defaultWidth: 115, minWidth: 70 },
+    { key: 'revProfit', defaultWidth: 115, minWidth: 70 },
+    { key: 'margin', defaultWidth: 52, minWidth: 40 },
+    { key: 'status', defaultWidth: 130, minWidth: 80 },
+    { key: 'actions', defaultWidth: 42, minWidth: 32 },
+  ], []);
+
+  const { columnWidths, onResizeStart, isResizing, resetWidths } = useColumnResize({
+    tableId: 'contract-list',
+    userId: realProfile?.id,
+    columns: CONTRACT_TABLE_COLUMNS,
+  });
 
   const ACTIVE_STATUSES = [
     { value: 'Processing', label: 'Đang thực hiện', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800' },
@@ -716,40 +738,32 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       </div>
 
       {/* TABLE */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-hidden overflow-y-auto max-h-[calc(100vh-200px)]">
-        <table className="w-full text-left" style={{ tableLayout: 'fixed' }}>
-          {/* Colgroup: controls column widths proportionally */}
+      <div className={`bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)] ${isResizing ? 'select-none' : ''}`}>
+        <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
+          {/* Colgroup: dynamic widths from useColumnResize */}
           <colgroup>
-            <col style={{ width: '2%' }} />     {/* STT */}
-            <col style={{ width: '9%' }} />     {/* Số HĐ */}
-            <col />                              {/* Nội dung HĐ — auto fills remaining */}
-            <col style={{ width: '8%' }} />     {/* Ký kết */}
-            <col style={{ width: '7.5%' }} />   {/* Doanh thu */}
-            <col style={{ width: '7.5%' }} />   {/* Tiền về */}
-            <col style={{ width: '8%' }} />     {/* LNG quản trị */}
-            <col style={{ width: '7.5%' }} />   {/* LNG theo DT */}
-            <col style={{ width: '3%' }} />     {/* Tỷ suất */}
-            <col style={{ width: '9%' }} />     {/* Trạng thái */}
-            <col style={{ width: '3%' }} />     {/* Actions */}
+            {CONTRACT_TABLE_COLUMNS.map(c => (
+              <col key={c.key} style={{ width: columnWidths[c.key] }} />
+            ))}
           </colgroup>
           <thead>
             <tr className="z-20">
               {[
-                { label: 'STT', align: 'center' },
-                { label: 'Số HĐ', align: 'center', sortKey: 'signedDate' },
-                { label: 'Nội dung hợp đồng', align: 'center', sortKey: 'title' },
-                { label: 'Ký kết', align: 'center', sortKey: 'value' },
-                { label: 'Doanh thu', align: 'center', sortKey: 'actualRevenue' },
-                { label: 'Tiền về', align: 'center' },
-                { label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit' },
-                { label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit' },
-                { label: 'Tỷ suất', align: 'center' },
-                { label: 'Trạng thái', align: 'center', sortKey: 'status' },
-                { label: '', align: 'center' },
+                { key: 'stt', label: 'STT', align: 'center' },
+                { key: 'contractCode', label: 'Số HĐ', align: 'center', sortKey: 'signedDate' },
+                { key: 'title', label: 'Nội dung hợp đồng', align: 'center', sortKey: 'title' },
+                { key: 'value', label: 'Ký kết', align: 'center', sortKey: 'value' },
+                { key: 'revenue', label: 'Doanh thu', align: 'center', sortKey: 'actualRevenue' },
+                { key: 'cash', label: 'Tiền về', align: 'center' },
+                { key: 'adminProfit', label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit' },
+                { key: 'revProfit', label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit' },
+                { key: 'margin', label: 'Tỷ suất', align: 'center' },
+                { key: 'status', label: 'Trạng thái', align: 'center', sortKey: 'status' },
+                { key: 'actions', label: '', align: 'center' },
               ].map((col, idx) => (
                 <th
                   key={idx}
-                  className={`sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-1.5 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700
+                  className={`sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-1.5 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 relative group/th
                     ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}
                     ${col.color || 'text-slate-700 dark:text-slate-300'}
                     ${col.sortKey ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 select-none transition-colors' : ''}`}
@@ -779,6 +793,16 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       )
                     )}
                   </span>
+                  {/* Drag handle for column resize */}
+                  {idx < 10 && (
+                    <div
+                      className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize z-30 group/handle flex items-center justify-center"
+                      onMouseDown={(e) => onResizeStart(col.key, e)}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="w-[2px] h-4 bg-slate-300 dark:bg-slate-600 rounded-full opacity-0 group-hover/th:opacity-100 transition-opacity" />
+                    </div>
+                  )}
                 </th>
               ))}
             </tr>
@@ -1106,6 +1130,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           <div className="text-sm font-bold text-slate-500">
             Hiển thị {contracts.length} / {totalCount} kết quả
           </div>
+          <button
+            onClick={resetWidths}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
+            title="Đặt lại kích thước cột mặc định"
+          >
+            <RotateCcw size={13} /> Reset cột
+          </button>
         </div>
       </div>
 

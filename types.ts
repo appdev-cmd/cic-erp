@@ -136,9 +136,10 @@ export interface DirectCostDetail {
 }
 
 export interface ForeignCurrencyInfo {
-  amount: number;   // Đơn giá ngoại tệ (VD: 3136.5)
+  amount: number;   // Đơn giá ngoại tệ (VD: 3136.5) — kết quả tính từ formula
   rate: number;     // Tỷ giá (VD: 26500)
   currency: string; // "USD" | "EUR"
+  formula?: string; // Công thức gốc nếu có (VD: "22*(33+44)")
 }
 
 export interface LineItem {
@@ -147,12 +148,16 @@ export interface LineItem {
   quantity: number;
   supplier: string;
   supplierId?: string; // ID for reliable SearchableSelect matching
+  manufacturer?: string; // Hãng sản xuất
+  manufacturerId?: string; // ID of manufacturer in customers table
   inputPrice: number;
   outputPrice: number;
   directCosts: number;
   directCostDetails?: DirectCostDetail[];
   foreignCurrency?: ForeignCurrencyInfo; // Thông tin ngoại tệ (nếu có)
   vatRate: number;            // Thuế suất VAT (0, 8, 10) - mỗi SP có thể khác
+  inputPriceFormula?: string;  // Công thức gốc giá đầu vào (VD: "2000*(222+333)")
+  outputPriceFormula?: string; // Công thức gốc giá đầu ra
 }
 
 /**

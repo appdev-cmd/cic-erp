@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import {
-  X, Save, Plus, Users, Hash
+  X, Save, Plus, Users, Hash, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import {
   ContractType, LineItem, UnitAllocation, EmployeeAllocation,
@@ -496,7 +496,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     <div className={outerClasses}>
 
       {/* HEADER + STEPPER (merged) */}
-      <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800">
+      <div className="pl-14 pr-6 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800">
         {/* Left: Title */}
         <div className="flex items-center gap-4 shrink-0">
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100 dark:shadow-none">
@@ -665,9 +665,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           {currentStep > 1 ? (
             <button
               onClick={handleBack}
-              className="px-8 py-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-[20px] font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm"
+              className="px-8 py-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-[20px] font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm flex items-center gap-2"
             >
-              Quay lại
+              <ArrowLeft size={16} /> Quay lại
             </button>
           ) : null}
 
@@ -676,7 +676,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
               onClick={handleNext}
               className="px-10 py-3 bg-indigo-600 text-white rounded-[20px] font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none hover:scale-105 active:scale-95"
             >
-              Tiếp tục <Users size={16} />
+              Tiếp tục <ArrowRight size={16} />
             </button>
           ) : (
             <button

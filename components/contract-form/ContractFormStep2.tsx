@@ -9,6 +9,7 @@ import {
 import { ProductService, CustomerService, ExecutionCostService } from '../../services';
 import { ExecutionCostType } from '../../services/ExecutionCostService';
 import SearchableSelect from '../ui/SearchableSelect';
+import CurrencyCalculator from '../ui/CurrencyCalculator';
 import { PAKDImportButton } from './PAKDImportButton';
 import { FinancialTotals } from '../../hooks/useFinancialCalculations';
 
@@ -182,24 +183,25 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                     </div>
 
                     {/* LINE ITEMS TABLE */}
-                    <div className="overflow-visible rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-800">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 dark:bg-slate-800">
+                        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <table className="w-full text-left text-xs" style={{ minWidth: '1200px' }}>
+                            <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
                                 <tr>
-                                    <th className="px-4 py-4 font-black text-slate-400 uppercase tracking-tighter w-[320px]">Sản phẩm/Dịch vụ</th>
-                                    <th className="px-2 py-4 font-black text-slate-400 uppercase tracking-tighter w-16">SL</th>
-                                    <th className="px-4 py-4 font-black text-slate-400 uppercase tracking-tighter w-[180px]">Nhà cung cấp</th>
-                                    <th className="px-3 py-4 font-black text-slate-400 uppercase tracking-tighter text-right w-[120px] whitespace-nowrap">Giá Đầu vào</th>
-                                    <th className="px-3 py-4 font-black text-cyan-500 uppercase tracking-tighter text-right w-[120px] whitespace-nowrap">TT Đầu vào</th>
-                                    <th className="px-3 py-4 font-black text-slate-400 uppercase tracking-tighter text-right w-[120px] whitespace-nowrap">Giá Đầu ra</th>
-                                    <th className="px-2 py-4 font-black text-emerald-500 uppercase tracking-tighter text-center w-14 whitespace-nowrap">VAT</th>
-                                    <th className="px-3 py-4 font-black text-indigo-400 uppercase tracking-tighter text-right w-[120px] whitespace-nowrap">TT Đầu ra</th>
-                                    <th className="px-3 py-4 font-black text-slate-400 uppercase tracking-tighter text-right w-[110px] whitespace-nowrap">CP Trực tiếp</th>
-                                    <th className="px-3 py-4 font-black text-slate-400 uppercase tracking-tighter text-right w-[110px] whitespace-nowrap">Chênh lệch</th>
-                                    <th className="px-4 py-4 w-10"></th>
+                                    <th className="px-3 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[280px]">Sản phẩm/Dịch vụ</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-12">SL</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[140px]">Nhà cung cấp</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[140px]">Hãng SX</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right w-[130px] whitespace-nowrap">Giá Đầu vào</th>
+                                    <th className="px-2 py-3 font-black text-cyan-500 uppercase tracking-tighter text-[10px] text-right w-[130px] whitespace-nowrap">TT Đầu vào</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right w-[130px] whitespace-nowrap">Giá Đầu ra</th>
+                                    <th className="px-2 py-3 font-black text-emerald-500 uppercase tracking-tighter text-[10px] text-center w-16 whitespace-nowrap">VAT</th>
+                                    <th className="px-2 py-3 font-black text-indigo-400 uppercase tracking-tighter text-[10px] text-right w-[130px] whitespace-nowrap">TT Đầu ra</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right w-[120px] whitespace-nowrap">CP Trực tiếp</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right w-[120px] whitespace-nowrap">Chênh lệch</th>
+                                    <th className="px-2 py-3 w-8"></th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-800">
+                            <tbody>
                                 {lineItems.map((item, index) => {
                                     const inputTotal = item.quantity * item.inputPrice;
                                     const outputTotal = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 0) / 100);
@@ -207,8 +209,8 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                     const lineMarginRate = outputTotal > 0 ? (lineMargin / outputTotal) * 100 : 0;
 
                                     return (
-                                        <tr key={item.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                                            <td className="px-4 py-3">
+                                        <tr key={item.id} className={`group transition-colors border-b border-slate-100 dark:border-slate-700/50 ${index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/80 dark:bg-slate-800/80'} hover:bg-indigo-50/60 dark:hover:bg-slate-700/60`}>
+                                            <td className="px-3 py-2">
                                                 <SearchableSelect
                                                     value={products.find(p => p.name === item.name)?.id || null}
                                                     placeholder="Gõ để tìm SP..."
@@ -239,7 +241,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                     addNewLabel="Thêm sản phẩm mới"
                                                 />
                                             </td>
-                                            <td className="px-2 py-3">
+                                            <td className="px-2 py-2">
                                                 <input
                                                     type="number"
                                                     value={item.quantity}
@@ -248,10 +250,10 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         newList[index].quantity = Number(e.target.value);
                                                         setLineItems(newList);
                                                     }}
-                                                    className="w-full min-w-[48px] bg-transparent font-black outline-none text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+                                                    className="w-full min-w-[48px] px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md font-black outline-none text-slate-800 dark:text-slate-200 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/30 transition-colors"
                                                 />
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-2 py-2">
                                                 <SearchableSelect
                                                     value={item.supplierId || suppliers.find(s => s.name === item.supplier || s.shortName === item.supplier)?.id || null}
                                                     placeholder="Gõ để tìm NCC..."
@@ -287,58 +289,84 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                     addNewLabel="Thêm NCC mới"
                                                 />
                                             </td>
-                                            <td className="px-4 py-3 text-right">
-                                                <div className="relative group/currency">
-                                                    <input
-                                                        type="text"
-                                                        value={item.inputPrice ? formatVND(item.inputPrice) : '0'}
-                                                        onChange={(e) => {
-                                                            const raw = e.target.value.replace(/\./g, '');
-                                                            if (!/^\d*$/.test(raw)) return;
-                                                            const newList = [...lineItems];
-                                                            newList[index].inputPrice = Number(raw);
-                                                            setLineItems(newList);
-                                                        }}
-                                                        className="w-full bg-transparent font-bold text-slate-500 text-right outline-none"
-                                                    />
-                                                    {item.foreignCurrency && (
-                                                        <div className="absolute top-full right-0 mt-2 w-56 p-3 bg-slate-900 text-white text-[10px] rounded-lg shadow-xl z-50 opacity-0 group-hover/currency:opacity-100 transition-opacity pointer-events-none">
-                                                            <div className="space-y-1.5">
-                                                                <div className="flex justify-between items-center">
-                                                                    <span className="font-medium">💱 Đơn giá ngoại tệ</span>
-                                                                    <span className="font-bold text-cyan-400">
-                                                                        {new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(item.foreignCurrency.amount)} {item.foreignCurrency.currency}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center border-t border-slate-700 pt-1.5">
-                                                                    <span className="font-medium">📊 Tỷ giá</span>
-                                                                    <span className="font-bold text-amber-400">
-                                                                        {new Intl.NumberFormat('vi-VN').format(item.foreignCurrency.rate)}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-3 text-right">
-                                                <span className="font-bold text-cyan-600 dark:text-cyan-400">{formatVND(inputTotal)}</span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
-                                                <input
-                                                    type="text"
-                                                    value={item.outputPrice ? formatVND(item.outputPrice) : '0'}
-                                                    onChange={(e) => {
-                                                        const raw = e.target.value.replace(/\./g, '');
-                                                        if (!/^\d*$/.test(raw)) return;
+                                            <td className="px-2 py-2">
+                                                <SearchableSelect
+                                                    value={item.manufacturerId || suppliers.find(s => s.name === item.manufacturer || s.shortName === item.manufacturer)?.id || null}
+                                                    placeholder="Hãng SX..."
+                                                    getDisplayValue={(id) => {
+                                                        const mfr = suppliers.find(s => s.id === id);
+                                                        return mfr ? (mfr.shortName || mfr.name) : item.manufacturer || undefined;
+                                                    }}
+                                                    onChange={(mId, option) => {
                                                         const newList = [...lineItems];
-                                                        newList[index].outputPrice = Number(raw);
+                                                        if (mId && option) {
+                                                            newList[index].manufacturer = option.name;
+                                                            newList[index].manufacturerId = mId;
+                                                        } else {
+                                                            newList[index].manufacturer = '';
+                                                            newList[index].manufacturerId = undefined;
+                                                        }
                                                         setLineItems(newList);
                                                     }}
-                                                    className="w-full bg-transparent font-bold text-indigo-600 text-right outline-none"
+                                                    onSearch={async (query) => {
+                                                        const results = await CustomerService.search(query, 20);
+                                                        return results
+                                                            .filter(c => c.type === 'Supplier' || c.type === 'Both')
+                                                            .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry?.join(', ') || undefined }));
+                                                    }}
+                                                    onAddNew={() => {
+                                                        setAddSupplierForIndex(index);
+                                                        setShowAddSupplierDialog(true);
+                                                    }}
+                                                    addNewLabel="Thêm hãng SX mới"
                                                 />
                                             </td>
-                                            <td className="px-2 py-3 text-center">
+                                            <td className="px-2 py-2">
+                                                <CurrencyCalculator
+                                                    value={item.inputPrice}
+                                                    onChange={(vnd) => {
+                                                        const newList = [...lineItems];
+                                                        newList[index].inputPrice = vnd;
+                                                        setLineItems(newList);
+                                                    }}
+                                                    onForeignCurrencyChange={(info) => {
+                                                        const newList = [...lineItems];
+                                                        newList[index].foreignCurrency = info;
+                                                        setLineItems(newList);
+                                                    }}
+                                                    foreignCurrency={item.foreignCurrency}
+                                                    formula={item.inputPriceFormula}
+                                                    onFormulaChange={(f) => {
+                                                        const newList = [...lineItems];
+                                                        newList[index].inputPriceFormula = f;
+                                                        setLineItems(newList);
+                                                    }}
+                                                    formatVND={formatVND}
+                                                    textColorClass="text-slate-600 dark:text-slate-300"
+                                                />
+                                            </td>
+                                            <td className="px-2 py-2 text-right">
+                                                <span className="font-bold text-cyan-600 dark:text-cyan-400">{formatVND(inputTotal)}</span>
+                                            </td>
+                                            <td className="px-2 py-2">
+                                                <CurrencyCalculator
+                                                    value={item.outputPrice}
+                                                    onChange={(vnd) => {
+                                                        const newList = [...lineItems];
+                                                        newList[index].outputPrice = vnd;
+                                                        setLineItems(newList);
+                                                    }}
+                                                    formula={item.outputPriceFormula}
+                                                    onFormulaChange={(f) => {
+                                                        const newList = [...lineItems];
+                                                        newList[index].outputPriceFormula = f;
+                                                        setLineItems(newList);
+                                                    }}
+                                                    formatVND={formatVND}
+                                                    textColorClass="text-indigo-600 dark:text-indigo-400"
+                                                />
+                                            </td>
+                                            <td className="px-2 py-2 text-center">
                                                 <select
                                                     value={item.vatRate ?? 0}
                                                     onChange={(e) => {
@@ -346,17 +374,17 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         newList[index].vatRate = Number(e.target.value);
                                                         setLineItems(newList);
                                                     }}
-                                                    className="w-full bg-transparent text-center font-bold text-emerald-600 dark:text-emerald-400 text-[11px] outline-none cursor-pointer border border-transparent hover:border-emerald-300 dark:hover:border-emerald-600 rounded px-0.5 py-0.5"
+                                                    className="w-full px-2 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-center font-bold text-emerald-600 dark:text-emerald-400 text-[11px] outline-none cursor-pointer hover:border-emerald-400 dark:hover:border-emerald-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-400/30 transition-colors appearance-none"
                                                 >
                                                     <option value={0}>0%</option>
                                                     <option value={8}>8%</option>
                                                     <option value={10}>10%</option>
                                                 </select>
                                             </td>
-                                            <td className="px-3 py-3 text-right">
+                                            <td className="px-2 py-2 text-right">
                                                 <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatVND(outputTotal)}</span>
                                             </td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-2 py-2 text-right">
                                                 <div className="relative group/costs">
                                                     <input
                                                         type="text"
@@ -383,13 +411,13 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-2 py-2 text-right">
                                                 <div className="flex flex-col items-end">
                                                     <span className={`font-black ${lineMargin >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatVND(lineMargin)}</span>
                                                     <span className="text-[9px] font-bold text-slate-400">{lineMarginRate.toFixed(1)}%</span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-2 py-2 text-center">
                                                 {lineItems.length > 1 && (
                                                     <button onClick={() => removeLineItem(item.id)} className="text-slate-300 hover:text-rose-500 transition-colors">
                                                         <Trash2 size={14} />
@@ -401,9 +429,9 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                 })}
                             </tbody>
                             {/* TOTALS FOOTER */}
-                            <tfoot className="bg-slate-100 dark:bg-slate-800 font-black text-slate-700 dark:text-slate-200 border-t-2 border-slate-200 dark:border-slate-800">
+                            <tfoot className="bg-slate-100 dark:bg-slate-800 font-black text-slate-700 dark:text-slate-200 border-t-2 border-slate-300 dark:border-slate-600">
                                 <tr>
-                                    <td colSpan={3} className="px-4 py-4 text-left uppercase text-xs tracking-widest text-slate-500">
+                                    <td colSpan={4} className="px-4 py-4 text-left uppercase text-xs tracking-widest text-slate-500">
                                         Tổng cộng
                                     </td>
                                     <td className="px-4 py-4 text-right text-slate-600 dark:text-slate-400">
