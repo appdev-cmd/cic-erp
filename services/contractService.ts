@@ -739,6 +739,43 @@ export const ContractService = {
         return data.map(mapContract);
     },
 
+    /**
+     * Get unique line item name suggestions from past contracts (for autocomplete).
+     * Fetches only 'details' column to minimize data transfer.
+     * Optionally filter by unitId to scope to current unit's contracts.
+     */
+    getLineItemSuggestions: async (unitId?: string): Promise<string[]> => {
+        try {
+            let query = supabase
+                .from('contracts')
+                .select('details')
+                .order('created_at', { ascending: false })
+                .limit(200); // Limit to recent 200 contracts
+
+            if (unitId) {
+                query = query.eq('unit_id', unitId);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            const nameSet = new Set<string>();
+            (data || []).forEach((c: any) => {
+                const lineItems = c.details?.lineItems || [];
+                lineItems.forEach((li: any) => {
+                    if (li.name && li.name.trim()) {
+                        nameSet.add(li.name.trim());
+                    }
+                });
+            });
+
+            return Array.from(nameSet).sort();
+        } catch (err) {
+            console.warn('[ContractService] getLineItemSuggestions failed:', err);
+            return [];
+        }
+    },
+
     // New method for Server-Side Filtering (Replaces getAll().filter())
     getRelated: async (category: string, productName: string, limit = 20): Promise<Contract[]> => {
         let query = supabase.from('contracts').select('*').order('signed_date', { ascending: false }).limit(limit);

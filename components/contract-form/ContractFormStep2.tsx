@@ -1,12 +1,12 @@
 // ContractForm Step 2: Phương án kinh doanh (Line Items + Execution Costs)
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Plus, Trash2, X, Briefcase, Package, Calculator, ShieldCheck
 } from 'lucide-react';
 import {
     LineItem, Product, Customer, ExecutionCostItem
 } from '../../types';
-import { ProductService, CustomerService, ExecutionCostService } from '../../services';
+import { ProductService, CustomerService, ExecutionCostService, ContractService } from '../../services';
 import { ExecutionCostType } from '../../services/ExecutionCostService';
 import SearchableSelect from '../ui/SearchableSelect';
 import CurrencyCalculator from '../ui/CurrencyCalculator';
@@ -65,6 +65,12 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
     setAddProductForIndex, setShowAddProductDialog,
     setAddSupplierForIndex, setShowAddSupplierDialog,
 }) => {
+    // Autocomplete suggestions from past contracts
+    const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
+    useEffect(() => {
+        ContractService.getLineItemSuggestions().then(setNameSuggestions).catch(() => {});
+    }, []);
+
     return (
         <section className="space-y-8 animate-in slide-in-from-right-8 duration-500">
             <div className="flex items-center gap-3 border-l-4 border-indigo-500 pl-4">
@@ -209,53 +215,87 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
 
                                     return (
                                         <React.Fragment key={item.id}>
-                                            {/* ── Row 1: Tên SP/DV ── */}
+                                            {/* ── Row 1: SP gốc (tag) + Mô tả (free text) ── */}
                                             <tr className={`${rowBg} border-t border-slate-200 dark:border-slate-700`}>
                                                 <td colSpan={10} className="px-3 pt-2 pb-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="flex-shrink-0 w-5 h-5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[9px] font-black">
+                                                    <div className="flex items-start gap-2">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[9px] font-black mt-2">
                                                             {index + 1}
                                                         </span>
-                                                        <div className="flex-1 min-w-0 relative">
-                                                            <input
-                                                                type="text"
-                                                                value={item.name}
-                                                                placeholder="Nhập hoặc paste tên sản phẩm/dịch vụ..."
-                                                                onChange={(e) => {
-                                                                    const newList = [...lineItems];
-                                                                    newList[index].name = e.target.value;
-                                                                    setLineItems(newList);
-                                                                }}
-                                                                onBlur={(e) => {
-                                                                    // Auto-fill prices if name matches a known product
-                                                                    const val = e.target.value.trim();
-                                                                    if (val) {
-                                                                        const matched = products.find(p => p.name.toLowerCase() === val.toLowerCase());
-                                                                        if (matched) {
-                                                                            const newList = [...lineItems];
-                                                                            newList[index].name = matched.name;
-                                                                            if (!newList[index].inputPrice) newList[index].inputPrice = matched.costPrice || 0;
-                                                                            if (!newList[index].outputPrice) newList[index].outputPrice = matched.basePrice;
-                                                                            setLineItems(newList);
-                                                                        } else {
-                                                                            // Auto-create product in background
-                                                                            ProductService.findOrCreate(val, 0, 0).then(() => {
-                                                                                ProductService.getAll().then(setProducts);
-                                                                            }).catch(() => {});
-                                                                        }
-                                                                    }
-                                                                }}
-                                                                list={`product-suggestions-${index}`}
-                                                                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/30 transition-colors"
-                                                            />
-                                                            <datalist id={`product-suggestions-${index}`}>
-                                                                {products.map(p => (
-                                                                    <option key={p.id} value={p.name} />
-                                                                ))}
-                                                            </datalist>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                {item.productId ? (
+                                                                    <>
+                                                                        {/* Tag SP gốc */}
+                                                                        <span className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-md text-xs font-bold border border-violet-200 dark:border-violet-800">
+                                                                            <Package size={12} />
+                                                                            {item.productName || 'SP gốc'}
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const newList = [...lineItems];
+                                                                                    newList[index].productId = undefined;
+                                                                                    newList[index].productName = '';
+                                                                                    newList[index].name = '';
+                                                                                    setLineItems(newList);
+                                                                                }}
+                                                                                className="ml-0.5 p-0.5 hover:bg-violet-200 dark:hover:bg-violet-800 rounded transition-colors"
+                                                                            >
+                                                                                <X size={10} />
+                                                                            </button>
+                                                                        </span>
+                                                                        {/* Mô tả biến thể — cùng dòng */}
+                                                                        <input
+                                                                            type="text"
+                                                                            value={item.name}
+                                                                            placeholder={`Mô tả chi tiết (VD: ${item.productName} mua mới, gia hạn...)...`}
+                                                                            onChange={(e) => {
+                                                                                const newList = [...lineItems];
+                                                                                newList[index].name = e.target.value;
+                                                                                setLineItems(newList);
+                                                                            }}
+                                                                            className="flex-1 min-w-0 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/30 transition-colors"
+                                                                            list={`desc-suggestions-${index}`}
+                                                                        />
+                                                                        <datalist id={`desc-suggestions-${index}`}>
+                                                                            {nameSuggestions
+                                                                                .filter(s => item.productName && s.toLowerCase().includes(item.productName.toLowerCase()))
+                                                                                .map((s, i) => (
+                                                                                    <option key={i} value={s} />
+                                                                                ))}
+                                                                        </datalist>
+                                                                    </>
+                                                                ) : (
+                                                                    <div className="flex-1">
+                                                                        <SearchableSelect
+                                                                            value={null}
+                                                                            placeholder="📦 Chọn sản phẩm gốc..."
+                                                                            getDisplayValue={() => undefined}
+                                                                            onChange={(pId, option) => {
+                                                                                if (pId && option) {
+                                                                                    const newList = [...lineItems];
+                                                                                    newList[index].productId = pId;
+                                                                                    newList[index].productName = option.name;
+                                                                                    setLineItems(newList);
+                                                                                }
+                                                                            }}
+                                                                            onSearch={async (query) => {
+                                                                                const results = await ProductService.search(query, 20);
+                                                                                return results.map(p => ({ id: p.id, name: p.name, subText: p.category }));
+                                                                            }}
+                                                                            onAddNew={() => {
+                                                                                setAddProductForIndex(index);
+                                                                                setShowAddProductDialog(true);
+                                                                            }}
+                                                                            addNewLabel="Thêm sản phẩm mới"
+                                                                            dropdownMinWidth={400}
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                         {lineItems.length > 1 && (
-                                                            <button onClick={() => removeLineItem(item.id)} className="flex-shrink-0 text-slate-300 hover:text-rose-500 transition-colors p-1">
+                                                            <button onClick={() => removeLineItem(item.id)} className="flex-shrink-0 text-slate-300 hover:text-rose-500 transition-colors p-1 mt-2">
                                                                 <Trash2 size={14} />
                                                             </button>
                                                         )}

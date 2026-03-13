@@ -22,7 +22,8 @@ export function useLineItems(initialItems: LineItem[] = []) {
     const addLineItem = useCallback(() => {
         setLineItems(prev => [...prev, {
             id: Date.now().toString(),
-            name: '', quantity: 1,
+            name: '', productId: undefined, productName: '',
+            quantity: 1,
             inputPrice: 0, outputPrice: 0, directCosts: 0,
             directCostDetails: [], supplier: '',
             manufacturer: '', manufacturerId: undefined,

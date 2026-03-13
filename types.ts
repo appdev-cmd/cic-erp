@@ -145,6 +145,8 @@ export interface ForeignCurrencyInfo {
 export interface LineItem {
   id: string;
   name: string;
+  productId?: string;        // Link đến sản phẩm gốc (để thống kê phân tích)
+  productName?: string;      // Tên SP gốc (cache, không cần JOIN)
   quantity: number;
   supplier: string;
   supplierId?: string; // ID for reliable SearchableSelect matching
