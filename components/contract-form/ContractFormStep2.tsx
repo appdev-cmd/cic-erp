@@ -193,8 +193,8 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                         <table className="w-full text-left text-xs" style={{ minWidth: '1100px' }}>
                             <thead className="bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-200 dark:border-slate-700">
                                 <tr>
-                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[160px]">Nhà cung cấp</th>
                                     <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[160px]">Hãng SX</th>
+                                    <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-[160px]">Nhà cung cấp</th>
                                     <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] w-12">SL</th>
                                     <th className="px-2 py-3 font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">Giá Đầu vào</th>
                                     <th className="px-2 py-3 font-black text-cyan-500 uppercase tracking-tighter text-[10px] text-right whitespace-nowrap">TT Đầu vào</th>
@@ -227,9 +227,9 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                                 {item.productId ? (
                                                                     <>
                                                                         {/* Tag SP gốc */}
-                                                                        <span className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-md text-xs font-bold border border-violet-200 dark:border-violet-800">
-                                                                            <Package size={12} />
-                                                                            {item.productName || 'SP gốc'}
+                                                                        <span className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-md text-xs font-bold border border-violet-200 dark:border-violet-800 max-w-[300px]" title={item.productName || 'SP gốc'}>
+                                                                            <Package size={12} className="flex-shrink-0" />
+                                                                            <span className="truncate">{item.productName || 'SP gốc'}</span>
                                                                             <button
                                                                                 type="button"
                                                                                 onClick={() => {
@@ -302,8 +302,50 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                     </div>
                                                 </td>
                                             </tr>
-                                            {/* ── Row 2: NCC, Hãng SX, SL, Giá, VAT, CP, Chênh lệch ── */}
+                                            {/* ── Row 2: Hãng SX, NCC, SL, Giá, VAT, CP, Chênh lệch ── */}
                                             <tr className={`${rowBg} group transition-colors hover:bg-indigo-50/60 dark:hover:bg-slate-700/60 border-b border-slate-100 dark:border-slate-700/50`}>
+                                                {/* Hãng SX — chọn trước */}
+                                                <td className="px-2 pb-2 pt-1">
+                                                    <SearchableSelect
+                                                        value={item.manufacturerId || (item.manufacturer ? suppliers.find(s => s.name === item.manufacturer || s.shortName === item.manufacturer)?.id : null) || null}
+                                                        placeholder="Hãng SX..."
+                                                        getDisplayValue={(id) => {
+                                                            const mfr = suppliers.find(s => s.id === id);
+                                                            return mfr ? (mfr.shortName || mfr.name) : item.manufacturer || undefined;
+                                                        }}
+                                                        onChange={(mId, option) => {
+                                                            const newList = [...lineItems];
+                                                            if (mId && option) {
+                                                                newList[index].manufacturer = option.name;
+                                                                newList[index].manufacturerId = mId;
+                                                                // Auto-fill NCC = Hãng SX nếu NCC đang trống
+                                                                if (!newList[index].supplierId && !newList[index].supplier) {
+                                                                    newList[index].supplier = option.name;
+                                                                    newList[index].supplierId = mId;
+                                                                    if (!suppliers.find(s => s.id === mId)) {
+                                                                        setSuppliers([...suppliers, { id: mId, name: option.name, shortName: option.name, type: 'Supplier', industry: [], contactPerson: '', phone: '', email: '', address: '', rating: 'Standard' } as Customer]);
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                newList[index].manufacturer = '';
+                                                                newList[index].manufacturerId = undefined;
+                                                            }
+                                                            setLineItems(newList);
+                                                        }}
+                                                        onSearch={async (query) => {
+                                                            const results = await CustomerService.search(query, 20);
+                                                            return results
+                                                                .filter(c => c.type === 'Supplier' || c.type === 'Both')
+                                                                .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry?.join(', ') || undefined }));
+                                                        }}
+                                                        onAddNew={() => {
+                                                            setAddSupplierForIndex(index);
+                                                            setShowAddSupplierDialog(true);
+                                                        }}
+                                                        addNewLabel="Thêm hãng SX mới"
+                                                    />
+                                                </td>
+                                                {/* NCC — auto-fill từ Hãng SX, user có thể đổi */}
                                                 <td className="px-2 pb-2 pt-1">
                                                     <SearchableSelect
                                                         value={item.supplierId || (item.supplier ? suppliers.find(s => s.name === item.supplier || s.shortName === item.supplier)?.id : null) || null}
@@ -337,38 +379,6 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                             setShowAddSupplierDialog(true);
                                                         }}
                                                         addNewLabel="Thêm NCC mới"
-                                                    />
-                                                </td>
-                                                <td className="px-2 pb-2 pt-1">
-                                                    <SearchableSelect
-                                                        value={item.manufacturerId || (item.manufacturer ? suppliers.find(s => s.name === item.manufacturer || s.shortName === item.manufacturer)?.id : null) || null}
-                                                        placeholder="Hãng SX..."
-                                                        getDisplayValue={(id) => {
-                                                            const mfr = suppliers.find(s => s.id === id);
-                                                            return mfr ? (mfr.shortName || mfr.name) : item.manufacturer || undefined;
-                                                        }}
-                                                        onChange={(mId, option) => {
-                                                            const newList = [...lineItems];
-                                                            if (mId && option) {
-                                                                newList[index].manufacturer = option.name;
-                                                                newList[index].manufacturerId = mId;
-                                                            } else {
-                                                                newList[index].manufacturer = '';
-                                                                newList[index].manufacturerId = undefined;
-                                                            }
-                                                            setLineItems(newList);
-                                                        }}
-                                                        onSearch={async (query) => {
-                                                            const results = await CustomerService.search(query, 20);
-                                                            return results
-                                                                .filter(c => c.type === 'Supplier' || c.type === 'Both')
-                                                                .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry?.join(', ') || undefined }));
-                                                        }}
-                                                        onAddNew={() => {
-                                                            setAddSupplierForIndex(index);
-                                                            setShowAddSupplierDialog(true);
-                                                        }}
-                                                        addNewLabel="Thêm hãng SX mới"
                                                     />
                                                 </td>
                                                 <td className="px-2 pb-2 pt-1">

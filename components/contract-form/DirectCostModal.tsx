@@ -1,6 +1,6 @@
 // Direct Cost Modal component - extracted from ContractForm
 // Includes auto-calculation toggles for Thuế nhà thầu & Phí chuyển tiền
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Trash2, Save, Calculator, ToggleLeft, ToggleRight } from 'lucide-react';
 import { DirectCostDetail, LineItem } from '../../types';
 import { ExchangeRateService } from '../../services/exchangeRateService';
@@ -38,6 +38,7 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
     const [transferFeeType, setTransferFeeType] = useState<TransferFeeType>('none');
     const [usdRate, setUsdRate] = useState(0);
     const [loadingRate, setLoadingRate] = useState(false);
+    const userEditedRate = useRef(false);
 
     // Name patterns to detect manual entries that match auto costs
     const TAX_NAMES = ['thuế nhà thầu', 'thue nha thau'];
@@ -48,6 +49,12 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
     // Initialize toggles from existing details (by ID or by name)
     useEffect(() => {
         if (isOpen) {
+            userEditedRate.current = false;
+            // Sync USD rate from lineItem's foreignCurrency (entered in CurrencyCalculator)
+            if (lineItem?.foreignCurrency?.rate && lineItem.foreignCurrency.currency === 'USD') {
+                setUsdRate(lineItem.foreignCurrency.rate);
+                userEditedRate.current = true; // Prevent API from overwriting
+            }
             const hasTax = tempCostDetails.some(d => isAutoTaxEntry(d));
             const transferEntry = tempCostDetails.find(d => isAutoTransferEntry(d));
             setContractorTax(hasTax);
@@ -77,7 +84,10 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         if (transferFeeType === 'international' && usdRate === 0) {
             setLoadingRate(true);
             ExchangeRateService.getRate('USD').then(rate => {
-                setUsdRate(rate);
+                // Only set API rate if user hasn't manually edited
+                if (!userEditedRate.current) {
+                    setUsdRate(rate);
+                }
                 setLoadingRate(false);
             }).catch(() => setLoadingRate(false));
         }
@@ -243,19 +253,37 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                             ))}
                         </div>
                         {transferFeeType !== 'none' && (
-                            <div className="mt-2 flex items-center justify-between">
-                                <p className="text-[10px] text-slate-400 leading-relaxed">
-                                    {transferFeeType === 'domestic'
-                                        ? '= TT giá vào × 0.07% (tối thiểu 22.000₫)'
-                                        : <>= (TT giá vào × 0.5%) + (10 × tỷ giá USD)
-                                            {usdRate > 0 && <span className="ml-1 text-amber-500">({formatVND(usdRate)})</span>}
-                                            {loadingRate && <span className="ml-1 text-slate-400 animate-pulse">đang tải tỷ giá...</span>}
-                                        </>
-                                    }
-                                </p>
-                                <span className="text-sm font-black text-rose-500">
-                                    {formatVND(calcTransferFee(inputTotal, transferFeeType, usdRate))}
-                                </span>
+                            <div className="mt-2 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                                        {transferFeeType === 'domestic'
+                                            ? '= TT giá vào × 0.07% (tối thiểu 22.000₫)'
+                                            : <>= (TT giá vào × 0.5%) + (10 × tỷ giá USD)</>
+                                        }
+                                    </p>
+                                    <span className="text-sm font-black text-rose-500">
+                                        {formatVND(calcTransferFee(inputTotal, transferFeeType, usdRate))}
+                                    </span>
+                                </div>
+                                {transferFeeType === 'international' && (
+                                    <div className="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
+                                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">Tỷ giá USD:</span>
+                                        <input
+                                            type="text"
+                                            value={usdRate ? formatVND(usdRate) : ''}
+                                            placeholder={loadingRate ? 'Đang tải...' : 'Nhập tỷ giá'}
+                                            onChange={(e) => {
+                                                const raw = e.target.value.replace(/\./g, '');
+                                                if (!/^\d*$/.test(raw)) return;
+                                                const newRate = Number(raw);
+                                                userEditedRate.current = true;
+                                                setUsdRate(newRate);
+                                            }}
+                                            className="flex-1 bg-transparent text-sm font-bold text-right outline-none text-amber-600 dark:text-amber-400 placeholder-slate-300 dark:placeholder-slate-600"
+                                        />
+                                        <span className="text-[10px] text-slate-400">₫/USD</span>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
