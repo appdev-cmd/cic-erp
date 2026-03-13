@@ -3,6 +3,70 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import type { Plugin } from 'vite';
 
+// ─── SECURITY: Block direct browser access to source files ──
+// Prevents users from navigating to /components/Header.tsx etc.
+// Vite's HMR still works because internal requests use /@fs/, /@vite/, /@id/ prefixes.
+function sourceFileGuard(): Plugin {
+  // File extensions that should NEVER be served directly to browsers
+  const BLOCKED_EXTENSIONS = /\.(tsx?|jsx?|vue|svelte|env|md|sql|json|lock|log|local)$/i;
+  // Paths that are always blocked
+  const BLOCKED_PATHS = /^\/(\.env|\.git|\.agent|\.brain|GEMINI|RULES|plans|scripts|supabase|api|docs)\b/i;
+  // Vite internal requests that must be allowed through
+  const VITE_INTERNAL = /^\/(@vite|@fs|@id|__vite|node_modules\/\.vite|src\/)/;
+  // Static assets that should always be served
+  const STATIC_ASSETS = /\.(css|png|jpg|jpeg|gif|svg|ico|woff2?|ttf|eot|webp|mp4|webm|pdf)$/i;
+
+  return {
+    name: 'source-file-guard',
+    configureServer(server) {
+      // This middleware runs BEFORE Vite's transform pipeline
+      server.middlewares.use((req, res, next) => {
+        const url = req.url || '';
+        const pathname = url.split('?')[0]; // Strip query params
+
+        // ✅ Always allow: root, Vite internals, API routes, static assets, HMR websocket
+        if (
+          pathname === '/' ||
+          pathname === '/index.html' ||
+          VITE_INTERNAL.test(pathname) ||
+          pathname.startsWith('/api/') ||
+          STATIC_ASSETS.test(pathname) ||
+          pathname.startsWith('/@') ||
+          pathname === '/__vite_ping'
+        ) {
+          return next();
+        }
+
+        // ✅ Allow: Vite's module requests (have ?import, ?v=, ?t= query params for HMR)
+        if (url.includes('?import') || url.includes('?v=') || url.includes('?t=')) {
+          return next();
+        }
+
+        // 🛡️ Block: Direct access to sensitive paths
+        if (BLOCKED_PATHS.test(pathname)) {
+          console.warn(`[SECURITY] Blocked access to sensitive path: ${pathname}`);
+          res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
+          res.end('<h1>403 — Forbidden</h1><p>Truy cập bị từ chối.</p>');
+          return;
+        }
+
+        // 🛡️ Block: Direct browser navigation to source files
+        // Check Sec-Fetch-Dest header: 'document' = browser navigation, 'script' = module import
+        const fetchDest = req.headers['sec-fetch-dest'];
+        if (BLOCKED_EXTENSIONS.test(pathname) && fetchDest === 'document') {
+          console.warn(`[SECURITY] Blocked direct navigation to source file: ${pathname}`);
+          // Redirect to app root instead of showing source
+          res.writeHead(302, { Location: '/' });
+          res.end();
+          return;
+        }
+
+        next();
+      });
+    },
+  };
+}
+
 // ─── Local Dev Proxy for /api/gemini-extract ────────────────
 // Khi chạy `npm run dev`, Vite không có serverless functions.
 // Plugin này xử lý /api/gemini-extract locally bằng GEMINI_API_KEY từ env.
@@ -75,9 +139,30 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       port: 3000,
-      host: '0.0.0.0',
+      // SECURITY: Bind to localhost only — prevents LAN/WiFi exposure
+      // Use 'localhost' instead of '0.0.0.0' to block network access
+      host: 'localhost',
+      fs: {
+        // SECURITY: Block access to sensitive files even via Vite's file server
+        deny: [
+          '.env',
+          '.env.local',
+          '.env.*',
+          '.git/**',
+          '.agent/**',
+          '.brain/**',
+          'GEMINI.md',
+          'RULES.md',
+          'PhanQuyenHeThong.md',
+          'plans/**',
+          'supabase/**',
+          'scripts/**',
+          'docs/**',
+        ],
+      },
     },
     plugins: [
+      sourceFileGuard(), // MUST be first — blocks requests before Vite processes them
       react(),
       geminiExtractProxy(env),
     ],

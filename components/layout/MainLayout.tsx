@@ -38,17 +38,47 @@ const MainLayout: React.FC = () => {
         target: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
         lastYearActual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
     };
-    const [selectedUnit, setSelectedUnit] = useState<Unit>(ALL_UNIT);
+    const [selectedUnit, setSelectedUnitState] = useState<Unit>(ALL_UNIT);
+    const setSelectedUnit = (unit: Unit) => {
+        setSelectedUnitState(unit);
+        localStorage.setItem('cic-erp-selected-unit-id', unit.id);
+    };
 
-    // Year filter (shared with Dashboard)
-    const [yearFilter, setYearFilter] = useState<string>(new Date().getFullYear().toString());
+    // Year filter (shared with Dashboard) — persisted across F5
+    const [yearFilter, setYearFilterState] = useState<string>(() => {
+        const saved = localStorage.getItem('cic-erp-year-filter');
+        return saved || new Date().getFullYear().toString();
+    });
+    const setYearFilter = (year: string) => {
+        setYearFilterState(year);
+        localStorage.setItem('cic-erp-year-filter', year);
+    };
+
+    // Period filter (Cả năm / Tháng X / Quý X) — persisted across F5
+    const [periodFilter, setPeriodFilterState] = useState<string>(() => {
+        const saved = localStorage.getItem('cic-erp-period-filter');
+        return saved || '';
+    });
+    const setPeriodFilter = (period: string) => {
+        setPeriodFilterState(period);
+        localStorage.setItem('cic-erp-period-filter', period);
+    };
 
     // All business units (for Header filter dropdown)
     const [allUnits, setAllUnits] = useState<Unit[]>([]);
 
     useEffect(() => {
         UnitService.getAll()
-            .then(units => setAllUnits(units.filter(u => !NON_BUSINESS_UNIT_CODES.includes(u.code))))
+            .then(units => {
+                const filtered = units.filter(u => !NON_BUSINESS_UNIT_CODES.includes(u.code));
+                setAllUnits(filtered);
+                // Restore previously selected unit from localStorage
+                const savedUnitId = localStorage.getItem('cic-erp-selected-unit-id');
+                if (savedUnitId && savedUnitId !== 'all') {
+                    const found = filtered.find(u => u.id === savedUnitId);
+                    if (found) setSelectedUnitState(found);
+                }
+            })
             .catch(e => console.error('[MainLayout] Failed to fetch units:', e));
     }, []);
 
@@ -166,7 +196,10 @@ const MainLayout: React.FC = () => {
                             onSelectUnit={setSelectedUnit}
                             yearFilter={yearFilter}
                             onYearChange={setYearFilter}
+                            periodFilter={periodFilter}
+                            onPeriodChange={setPeriodFilter}
                             allUnits={allUnits}
+                            onNavigateToContract={(contractId) => navigate(`/contracts/${contractId}`)}
                             theme={theme}
                             setTheme={setTheme}
                             accent={accent}
@@ -177,7 +210,7 @@ const MainLayout: React.FC = () => {
                         <main className={`mt-16 p-4 md:p-6 lg:p-8 ${isImpersonating ? 'pb-20' : ''}`}>
                             <div className={`${contentMaxWidthClass} mx-auto`}>
                                 {/* Pass context to child routes via Outlet */}
-                                <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, theme, setTheme, accent, setAccent }} />
+                                <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, periodFilter, setPeriodFilter, theme, setTheme, accent, setAccent }} />
                             </div>
                         </main>
                     </div>
@@ -238,6 +271,8 @@ interface LayoutContext {
     setSelectedUnit: (unit: Unit) => void;
     yearFilter: string;
     setYearFilter: (year: string) => void;
+    periodFilter: string;
+    setPeriodFilter: (period: string) => void;
     theme: 'light' | 'dark';
     setTheme: (theme: 'light' | 'dark') => void;
     accent: 'orange' | 'blue';

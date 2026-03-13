@@ -4,14 +4,15 @@ import { toast } from 'sonner';
 import {
     Calendar, DollarSign, FileText, Paperclip, ShieldCheck, AlertCircle,
     CheckCircle2, Clock, TrendingUp, ReceiptText, ShieldAlert, Wallet,
-    Trash2, Plus, Loader2, ExternalLink, HardDrive,
+    Trash2, Plus, Loader2, ExternalLink, HardDrive, Link2, Search, X,
     History as HistoryIcon, ArrowDownCircle, ArrowUpCircle, StickyNote
 } from 'lucide-react';
 import { Contract, PaymentPhase, ContractDocument, Payment, VoucherType } from '../../types';
-import { AuditLogService, AuditLog, PaymentService } from '../../services';
-import { formatVND } from '../../utils/contractHelpers';
+import { AuditLogService, AuditLog, PaymentService, ContractService } from '../../services';
+import { formatVND, getStatusColor } from '../../utils/contractHelpers';
 import { formatDate } from '../../utils/formatters';
 import { formatNumber } from '../../lib/utils';
+import { CONTRACT_STATUS_LABELS } from '../../constants';
 import PaymentForm from '../PaymentForm';
 import { usePermissionCheck } from '../../hooks/usePermissions';
 import { useSlidePanelSafe } from '../../contexts/SlidePanelContext';
@@ -613,6 +614,9 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                         </div>
                     )}
 
+                    {/* Related Contracts */}
+                    <RelatedContractsSection contractId={contract.id} />
+
                     {/* Documents */}
                     <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6">
                         <div className="flex justify-between items-center mb-4">
@@ -746,6 +750,383 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                 />
             )}
         </>
+    );
+};
+
+// ===========================================================================
+// Related Contracts Sub-component
+// ===========================================================================
+
+interface RelatedContract {
+    id: string;
+    contractCode: string;
+    title: string;
+    partyA: string;
+    value: number;
+    status: string;
+    signedDate: string;
+    unitId: string;
+}
+
+interface PendingContract {
+    id: string;
+    contractCode: string;
+    title: string;
+    partyA: string;
+    value?: number;
+    unitId: string;
+}
+
+const RelatedContractsSection: React.FC<{ contractId: string }> = ({ contractId }) => {
+    const [related, setRelated] = useState<RelatedContract[]>([]);
+    const [outgoing, setOutgoing] = useState<PendingContract[]>([]);
+    const [incoming, setIncoming] = useState<PendingContract[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showSearch, setShowSearch] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<RelatedContract[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [linking, setLinking] = useState(false);
+    const slidePanelCtx = useSlidePanelSafe();
+    const { getVisibleUnitIds } = usePermissionCheck();
+
+    // Fetch all data on mount
+    const loadAll = useCallback(async () => {
+        if (!contractId) return;
+        setLoading(true);
+        try {
+            const [approved, out, inc] = await Promise.all([
+                ContractService.getRelatedContracts(contractId),
+                ContractService.getOutgoingPendingLinks(contractId),
+                ContractService.getIncomingPendingLinks(contractId),
+            ]);
+            setRelated(approved);
+            setOutgoing(out);
+            setIncoming(inc);
+        } catch (e) {
+            console.error('Load related contracts error', e);
+        } finally {
+            setLoading(false);
+        }
+    }, [contractId]);
+
+    useEffect(() => { loadAll(); }, [loadAll]);
+
+    // Search contracts to link
+    useEffect(() => {
+        if (!searchQuery || searchQuery.length < 2) {
+            setSearchResults([]);
+            return;
+        }
+        const timer = setTimeout(async () => {
+            setSearching(true);
+            try {
+                const results = await ContractService.search(searchQuery, 10);
+                const existingIds = new Set([
+                    ...related.map(r => r.id),
+                    ...outgoing.map(r => r.id),
+                    ...incoming.map(r => r.id),
+                ]);
+                const filtered = results
+                    .filter(c => c.id !== contractId && !existingIds.has(c.id))
+                    .map(c => ({
+                        id: c.id,
+                        contractCode: c.contractCode,
+                        title: c.title,
+                        partyA: c.partyA || '',
+                        value: c.value || 0,
+                        status: c.status,
+                        signedDate: c.signedDate || '',
+                        unitId: c.unitId || '',
+                    }));
+                setSearchResults(filtered);
+            } catch (e) {
+                console.error('Search error', e);
+            } finally {
+                setSearching(false);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery, contractId, related, outgoing, incoming]);
+
+    const handleLink = async (targetId: string) => {
+        setLinking(true);
+        const result = await ContractService.linkContracts(contractId, targetId);
+        if (result === 'approved') {
+            toast.success('Đã liên kết hợp đồng!');
+        } else if (result === 'pending') {
+            toast.success('Đã gửi yêu cầu liên kết. Chờ đơn vị kia duyệt.');
+        } else {
+            toast.error('Không thể liên kết hợp đồng');
+            setLinking(false);
+            return;
+        }
+        await loadAll();
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowSearch(false);
+        setLinking(false);
+    };
+
+    const handleUnlink = async (targetId: string) => {
+        const success = await ContractService.unlinkContracts(contractId, targetId);
+        if (success) {
+            setRelated(prev => prev.filter(r => r.id !== targetId));
+            toast.success('Đã bỏ liên kết');
+        } else {
+            toast.error('Không thể bỏ liên kết');
+        }
+    };
+
+    const handleApprove = async (requesterId: string) => {
+        const success = await ContractService.approveLink(contractId, requesterId);
+        if (success) {
+            toast.success('Đã duyệt liên kết!');
+            await loadAll();
+        } else {
+            toast.error('Lỗi khi duyệt');
+        }
+    };
+
+    const handleReject = async (requesterId: string) => {
+        const success = await ContractService.rejectLink(contractId, requesterId);
+        if (success) {
+            setIncoming(prev => prev.filter(r => r.id !== requesterId));
+            toast.success('Đã từ chối yêu cầu');
+        } else {
+            toast.error('Lỗi khi từ chối');
+        }
+    };
+
+    const handleCancelOutgoing = async (targetId: string) => {
+        const success = await ContractService.unlinkContracts(contractId, targetId);
+        if (success) {
+            setOutgoing(prev => prev.filter(r => r.id !== targetId));
+            toast.success('Đã hủy yêu cầu');
+        }
+    };
+
+    const openContractInPanel = (contract: { id: string; contractCode: string; unitId: string }) => {
+        const visibleUnits = getVisibleUnitIds();
+        if (visibleUnits !== null && contract.unitId && !visibleUnits.includes(contract.unitId)) {
+            toast.info('Bạn không có quyền xem chi tiết HĐ này. Liên hệ đơn vị phụ trách.', { duration: 4000 });
+            return;
+        }
+        if (slidePanelCtx) {
+            import('../ContractDetail').then(({ default: ContractDetail }) => {
+                slidePanelCtx.openPanel({
+                    title: `HĐ: ${contract.contractCode}`,
+                    url: `/contracts/${contract.id}`,
+                    component: (
+                        <div className="p-4 md:p-6 lg:p-8">
+                            <ContractDetail
+                                contractId={contract.id}
+                                onBack={() => slidePanelCtx.closePanel()}
+                                onEdit={() => {}}
+                                onDelete={async () => { slidePanelCtx.closePanel(); }}
+                            />
+                        </div>
+                    ),
+                });
+            });
+        }
+    };
+
+    const totalCount = related.length + outgoing.length + incoming.length;
+
+    return (
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+            <div className="flex justify-between items-center mb-4">
+                <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <Link2 size={18} className="text-indigo-500" />
+                    HĐ liên quan
+                    {incoming.length > 0 && (
+                        <span className="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                            {incoming.length}
+                        </span>
+                    )}
+                </h4>
+                <button
+                    onClick={() => setShowSearch(!showSearch)}
+                    className="bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 p-2 rounded-lg transition-colors flex items-center justify-center"
+                    title="Liên kết hợp đồng"
+                >
+                    <Plus size={16} />
+                </button>
+            </div>
+
+            {/* Search to link */}
+            {showSearch && (
+                <div className="mb-4 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                    <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            autoFocus
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Tìm HĐ để liên kết..."
+                            className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => { setSearchQuery(''); setSearchResults([]); }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+                    {searching && (
+                        <div className="text-center py-2 text-slate-400 text-xs"><Loader2 size={14} className="animate-spin inline mr-1" />Đang tìm...</div>
+                    )}
+                    {searchResults.length > 0 && (
+                        <div className="max-h-[200px] overflow-y-auto space-y-1.5 custom-scrollbar">
+                            {searchResults.map(r => (
+                                <div
+                                    key={r.id}
+                                    className="flex items-center justify-between p-2.5 rounded-lg bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+                                >
+                                    <div className="overflow-hidden flex-1 mr-2">
+                                        <p className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 truncate">{r.contractCode}</p>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{r.title}</p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleLink(r.id)}
+                                        disabled={linking}
+                                        className="px-2.5 py-1 bg-indigo-600 text-white rounded-md text-[10px] font-bold hover:bg-indigo-700 transition-colors shrink-0 disabled:opacity-50"
+                                    >
+                                        {linking ? <Loader2 size={10} className="animate-spin" /> : 'Link'}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {searchQuery.length >= 2 && !searching && searchResults.length === 0 && (
+                        <p className="text-[10px] text-slate-400 italic text-center py-2">Không tìm thấy HĐ phù hợp</p>
+                    )}
+                </div>
+            )}
+
+            {loading ? (
+                <div className="text-center py-4 text-slate-400 text-xs"><Loader2 size={14} className="animate-spin inline mr-1" />Đang tải...</div>
+            ) : (
+                <div className="space-y-3">
+                    {/* ── Incoming pending requests (approve/reject) ── */}
+                    {incoming.length > 0 && (
+                        <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Yêu cầu liên kết đến</p>
+                            {incoming.map(r => (
+                                <div
+                                    key={r.id}
+                                    className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 transition-all"
+                                >
+                                    <div className="flex items-center gap-2.5 overflow-hidden">
+                                        <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg">
+                                            <Clock size={13} />
+                                        </div>
+                                        <div className="overflow-hidden">
+                                            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate">{r.contractCode}</p>
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{r.title}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                            onClick={() => handleApprove(r.id)}
+                                            className="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold hover:bg-emerald-700 transition-colors"
+                                            title="Duyệt"
+                                        >
+                                            <CheckCircle2 size={12} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleReject(r.id)}
+                                            className="px-2 py-1 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded text-[10px] font-bold hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-colors"
+                                            title="Từ chối"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* ── Outgoing pending requests (waiting) ── */}
+                    {outgoing.length > 0 && (
+                        <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Đã gửi — chờ duyệt</p>
+                            {outgoing.map(r => (
+                                <div
+                                    key={r.id}
+                                    className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-200 dark:border-slate-700 opacity-70"
+                                >
+                                    <div className="flex items-center gap-2.5 overflow-hidden">
+                                        <Clock size={13} className="text-slate-400 shrink-0" />
+                                        <div className="overflow-hidden">
+                                            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">{r.contractCode}</p>
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{r.title}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleCancelOutgoing(r.id)}
+                                        className="p-1 text-slate-300 hover:text-rose-500 transition-colors"
+                                        title="Hủy yêu cầu"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* ── Approved links ── */}
+                    {related.length > 0 && (
+                        <div className="space-y-1.5">
+                            {(incoming.length > 0 || outgoing.length > 0) && (
+                                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Đã liên kết</p>
+                            )}
+                            {related.map(r => (
+                                <div
+                                    key={r.id}
+                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent hover:border-slate-100 dark:hover:border-slate-700 transition-all cursor-pointer group"
+                                    onClick={() => openContractInPanel(r)}
+                                >
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
+                                            <Link2 size={14} />
+                                        </div>
+                                        <div className="overflow-hidden">
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{r.contractCode}</p>
+                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${getStatusColor(r.status)} uppercase`}>
+                                                    {CONTRACT_STATUS_LABELS[r.status] || r.status}
+                                                </span>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{r.title}</p>
+                                            <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                                                {r.partyA && `${r.partyA} • `}{r.signedDate ? formatDate(r.signedDate) : ''}
+                                                {r.value > 0 && ` • ${formatVND(r.value)}`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleUnlink(r.id); }}
+                                        className="p-1.5 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-500 transition-colors"
+                                        title="Bỏ liên kết"
+                                    >
+                                        <Trash2 size={13} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Empty state */}
+                    {totalCount === 0 && (
+                        <p className="text-xs text-slate-400 italic text-center py-4">Chưa có hợp đồng liên quan</p>
+                    )}
+                </div>
+            )}
+        </div>
     );
 };
 

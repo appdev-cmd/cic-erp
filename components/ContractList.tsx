@@ -39,26 +39,71 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const { can, isGlobalScope } = usePermissionCheck();
 
   // Year filter from Layout context (synced with Header)
-  const { yearFilter, setYearFilter } = useLayoutContext();
+  const { yearFilter, setYearFilter, periodFilter, setPeriodFilter } = useLayoutContext();
 
-  // Params state
-  const [statusFilter, setStatusFilter] = useState<ContractStatus | 'All'>('All');
-  const [unitFilter, setUnitFilter] = useState<string>('All');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [salespersonFilter, setSalespersonFilter] = useState<string>('All');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // ── Persisted filter states (survive F5 refresh) ──
+  const STORAGE_KEY = 'cic-erp-contract-filters';
+  const savedFilters = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  }, []);
 
-  // Date range filter (overrides year filter when set)
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  // Params state — initialize from localStorage
+  const [statusFilter, setStatusFilter] = useState<ContractStatus | 'All'>(savedFilters.statusFilter || 'All');
+  const [unitFilter, setUnitFilter] = useState<string>(savedFilters.unitFilter || 'All');
+  const [searchTerm, setSearchTerm] = useState(savedFilters.searchTerm || '');
+  const [salespersonFilter, setSalespersonFilter] = useState<string>(savedFilters.salespersonFilter || 'All');
+  const [debouncedSearch, setDebouncedSearch] = useState(savedFilters.searchTerm || '');
 
-  // Sync: when user picks a specific year in Header, clear the date range
-  useEffect(() => {
-    if (yearFilter && yearFilter !== 'All') {
-      setDateFrom('');
-      setDateTo('');
+  // Helper: compute dateFrom/dateTo from period + year (pure function)
+  const computeDatesFromPeriodYear = (period: string, year: string): { from: string; to: string } => {
+    if (period && period !== '') {
+      const y = (year && year !== 'All') ? parseInt(year) : new Date().getFullYear();
+      if (period.startsWith('M')) {
+        const m = parseInt(period.substring(1));
+        const first = `${y}-${String(m).padStart(2, '0')}-01`;
+        const lastDay = new Date(y, m, 0).getDate();
+        const last = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        return { from: first, to: last };
+      }
+      if (period.startsWith('Q')) {
+        const q = parseInt(period.substring(1));
+        const sm = (q - 1) * 3 + 1;
+        const em = q * 3;
+        const first = `${y}-${String(sm).padStart(2, '0')}-01`;
+        const lastDay = new Date(y, em, 0).getDate();
+        const last = `${y}-${String(em).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        return { from: first, to: last };
+      }
     }
-  }, [yearFilter]);
+    // "Cả năm"
+    if (year && year !== 'All') {
+      const y = parseInt(year);
+      return { from: `${y}-01-01`, to: `${y}-12-31` };
+    }
+    return { from: '', to: '' };
+  };
+
+  // Date range filter — initialized from period+year (NOT stale localStorage)
+  const initialDates = useMemo(() => computeDatesFromPeriodYear(periodFilter, yearFilter), []);
+  const [dateFrom, setDateFrom] = useState<string>(initialDates.from);
+  const [dateTo, setDateTo] = useState<string>(initialDates.to);
+
+  // Refs to avoid stale closures in fetch callbacks
+  const dateFromRef = useRef(initialDates.from);
+  const dateToRef = useRef(initialDates.to);
+
+  // Sync: when period or year changes, re-compute date range
+  // Refs are updated SYNCHRONOUSLY before setState to avoid race with resetDeps fetch
+  useEffect(() => {
+    const { from, to } = computeDatesFromPeriodYear(periodFilter, yearFilter);
+    dateFromRef.current = from;
+    dateToRef.current = to;
+    setDateFrom(from);
+    setDateTo(to);
+  }, [periodFilter, yearFilter]);
 
   // Infinite scroll batch size
   const PAGE_SIZE = 20;
@@ -75,9 +120,15 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const { visibleUnits } = useCurrentUserVisibleUnits();
   const canSeeAll = visibleUnits === 'all';
 
-  // Sort state
-  const [sortBy, setSortBy] = useState<string | null>('signedDate');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  // Sort state — initialize from localStorage
+  const [sortBy, setSortBy] = useState<string | null>(savedFilters.sortBy !== undefined ? savedFilters.sortBy : 'signedDate');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(savedFilters.sortDir || 'desc');
+
+  // ── Auto-save filters to localStorage ──
+  useEffect(() => {
+    const filters = { statusFilter, unitFilter, searchTerm, salespersonFilter, sortBy, sortDir, dateFrom, dateTo };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+  }, [statusFilter, unitFilter, searchTerm, salespersonFilter, sortBy, sortDir, dateFrom, dateTo]);
 
   // Quick status change state
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
@@ -353,7 +404,23 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     return canSeeAll ? 'All' : 'All';
   }, [profile, selectedUnit, unitFilter, canSeeAll, visibleUnits]);
 
-  // Fetch unique salesperson IDs from contracts (depends on unit & year)
+  // Ref to track salesperson for fetch callback (avoids stale closure)
+  const salespersonRef = useRef(salespersonFilter);
+  useEffect(() => { salespersonRef.current = salespersonFilter; }, [salespersonFilter]);
+
+  // Reset salesperson filter when unit changes (prevent cross-unit empty results)
+  const isFirstUnitRender = useRef(true);
+  useEffect(() => {
+    if (isFirstUnitRender.current) {
+      isFirstUnitRender.current = false;
+      return; // Don't reset on initial mount
+    }
+    // Update ref SYNCHRONOUSLY before setState to beat the fetch race
+    salespersonRef.current = 'All';
+    setSalespersonFilter('All');
+  }, [effectiveUnitId]);
+
+  // Fetch unique salesperson IDs from contracts (depends on unit & date range)
   useEffect(() => {
     const fetchSalespersonIds = async () => {
       try {
@@ -369,8 +436,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         if (dateFrom || dateTo) {
           if (dateFrom) query = query.gte('signed_date', dateFrom);
           if (dateTo) query = query.lte('signed_date', dateTo);
-        } else if (yearFilter && yearFilter !== 'All') {
-          query = query.gte('signed_date', `${yearFilter}-01-01`).lte('signed_date', `${yearFilter}-12-31`);
         }
         const { data } = await query;
         const ids = new Set((data || []).map((c: any) => c.employee_id).filter(Boolean));
@@ -380,7 +445,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       }
     };
     fetchSalespersonIds();
-  }, [effectiveUnitId, yearFilter, dateFrom, dateTo]);
+  }, [effectiveUnitId, dateFrom, dateTo]);
 
   // Compute matching customer IDs when search matches customer short names (tên viết tắt)
   const matchingCustomerIds = useMemo(() => {
@@ -397,16 +462,22 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
   // Infinite scroll fetch function
   const fetchContractPage = useCallback(async (page: number) => {
+    // Compute dates fresh from period+year to avoid stale closure issues
+    const computedDates = computeDatesFromPeriodYear(periodFilter, yearFilter);
+    
+    // Read salesperson from ref (updated synchronously before resetDeps fires)
+    const currentSalesperson = salespersonRef.current;
+    
     const params = {
       page,
       limit: PAGE_SIZE,
       search: debouncedSearch,
       status: statusFilter,
       unitId: effectiveUnitId,
-      year: yearFilter,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined,
-      salespersonId: salespersonFilter !== 'All' ? salespersonFilter : undefined,
+      year: 'All', // dates are always computed — no year fallback needed
+      dateFrom: computedDates.from || undefined,
+      dateTo: computedDates.to || undefined,
+      salespersonId: currentSalesperson !== 'All' ? currentSalesperson : undefined,
       sortBy: sortBy || undefined,
       sortDir: sortBy ? sortDir : undefined,
       matchingCustomerIds
@@ -424,7 +495,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       hasMore: listRes.data.length >= PAGE_SIZE,
       totalCount: listRes.count
     };
-  }, [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, dateFrom, dateTo, sortBy, sortDir, matchingCustomerIds]);
+  }, [debouncedSearch, statusFilter, effectiveUnitId, periodFilter, yearFilter, sortBy, sortDir, matchingCustomerIds]);
 
   const {
     items: contracts,
@@ -438,7 +509,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   } = useInfiniteScroll<Contract>({
     fetchFn: fetchContractPage,
     pageSize: PAGE_SIZE,
-    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, yearFilter, dateFrom, dateTo, sortBy, sortDir, matchingCustomerIds]
+    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, periodFilter, yearFilter, sortBy, sortDir, matchingCustomerIds]
   });
 
   // Auto-refresh list when contracts are created, updated, or deleted
@@ -673,25 +744,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           />
         </div>
 
-        {/* Status Filter */}
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
-          <Filter size={18} className="text-slate-500" />
-          <select
-            className="bg-transparent py-3 text-sm font-black text-slate-900 dark:text-slate-100 outline-none"
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value as any);
-            }}
-          >
-            <option value="All">Tất cả trạng thái</option>
-            <option value="Processing">Đang thực hiện</option>
-            <option value="Suspended">Tạm dừng/Huỷ</option>
-            <option value="Handover">Bàn giao</option>
-            <option value="Acceptance">Nghiệm thu/TL</option>
-            <option value="Completed">Hoàn thành</option>
-          </select>
-        </div>
-
         {/* Salesperson Filter */}
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
           <User size={18} className="text-slate-500" />
@@ -709,32 +761,29 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </select>
         </div>
 
-        {/* Date Range Filter */}
-        <div className="flex items-center gap-1.5">
-          <Calendar size={15} className="text-slate-400 flex-shrink-0" />
-          <DateInput
-            value={dateFrom}
-            onChange={(v) => { setDateFrom(v); if (v) setYearFilter('All'); }}
-            placeholder="Từ ngày"
-            className="w-[120px] px-2.5 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <span className="text-slate-400 text-xs">→</span>
-          <DateInput
-            value={dateTo}
-            onChange={(v) => { setDateTo(v); if (v) setYearFilter('All'); }}
-            placeholder="Đến ngày"
-            className="w-[120px] px-2.5 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          {(dateFrom || dateTo) && (
-            <button
-              onClick={() => { setDateFrom(''); setDateTo(''); }}
-              className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
-              title="Xóa bộ lọc ngày"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
+        {/* Date Range — luôn hiện */}
+        <DateInput
+          value={dateFrom}
+          onChange={(v) => { setDateFrom(v); if (v) { setPeriodFilter(''); setYearFilter('All'); } }}
+          placeholder="Từ ngày"
+          className="w-[120px] px-2.5 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <span className="text-slate-400 text-xs">→</span>
+        <DateInput
+          value={dateTo}
+          onChange={(v) => { setDateTo(v); if (v) { setPeriodFilter(''); setYearFilter('All'); } }}
+          placeholder="Đến ngày"
+          className="w-[120px] px-2.5 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        {(dateFrom || dateTo) && (
+          <button
+            onClick={() => { setDateFrom(''); setDateTo(''); setPeriodFilter(''); setYearFilter(String(new Date().getFullYear())); }}
+            className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+            title="Xóa bộ lọc ngày"
+          >
+            <X size={14} />
+          </button>
+        )}
       </div>
 
       {/* TABLE */}

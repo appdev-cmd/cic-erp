@@ -14,6 +14,8 @@ interface HeaderProps {
   onSelectUnit?: (unit: Unit) => void;
   yearFilter?: string;
   onYearChange?: (year: string) => void;
+  periodFilter?: string;
+  onPeriodChange?: (period: string) => void;
   allUnits?: Unit[];
   onNavigateToContract?: (contractId: string) => void;
   theme?: 'light' | 'dark';
@@ -22,7 +24,7 @@ interface HeaderProps {
   setAccent?: (accent: 'orange' | 'blue') => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, selectedUnit, onSelectUnit, yearFilter, onYearChange, allUnits = [], onNavigateToContract, theme, setTheme, accent, setAccent }) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, selectedUnit, onSelectUnit, yearFilter, onYearChange, periodFilter, onPeriodChange, allUnits = [], onNavigateToContract, theme, setTheme, accent, setAccent }) => {
   const marginClass = isSidebarCollapsed ? 'md:ml-20' : 'md:ml-52';
   const { signOut, user, profile } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -139,11 +141,60 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
               </div>
             </div>
 
-            {/* Year Filter */}
-            {yearFilter && onYearChange && (
+            {/* Period Filter (Tháng/Quý) — ĐI TRƯỚC Năm */}
+            {periodFilter !== undefined && onPeriodChange && (
               <div className="hidden lg:block relative">
                 <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-orange-300 dark:hover:border-orange-700/50 rounded-lg transition-all group cursor-pointer relative">
                   <Calendar size={15} className="text-slate-400 group-hover:text-orange-500 transition-colors" />
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                    {periodFilter === '' ? 'Cả năm' :
+                     periodFilter.startsWith('M') ? `Tháng ${periodFilter.substring(1)}` :
+                     periodFilter.startsWith('Q') ? `Quý ${periodFilter.substring(1)}` :
+                     'Cả năm'}
+                  </span>
+                  <ChevronDown size={13} className="text-slate-400" />
+                  <select
+                    value={periodFilter}
+                    onChange={(e) => {
+                      const newPeriod = e.target.value;
+                      onPeriodChange(newPeriod);
+                      // Khi chọn Tháng/Quý, bắt buộc chọn năm cụ thể
+                      if (newPeriod && newPeriod !== '' && onYearChange && yearFilter === 'All') {
+                        onYearChange(String(new Date().getFullYear()));
+                      }
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  >
+                    <option value="">Cả năm</option>
+                    <optgroup label="Theo tháng">
+                      <option value="M1">Tháng 1</option>
+                      <option value="M2">Tháng 2</option>
+                      <option value="M3">Tháng 3</option>
+                      <option value="M4">Tháng 4</option>
+                      <option value="M5">Tháng 5</option>
+                      <option value="M6">Tháng 6</option>
+                      <option value="M7">Tháng 7</option>
+                      <option value="M8">Tháng 8</option>
+                      <option value="M9">Tháng 9</option>
+                      <option value="M10">Tháng 10</option>
+                      <option value="M11">Tháng 11</option>
+                      <option value="M12">Tháng 12</option>
+                    </optgroup>
+                    <optgroup label="Theo quý">
+                      <option value="Q1">Quý 1</option>
+                      <option value="Q2">Quý 2</option>
+                      <option value="Q3">Quý 3</option>
+                      <option value="Q4">Quý 4</option>
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Year Filter — SAU Period */}
+            {yearFilter && onYearChange && (
+              <div className="hidden lg:block relative">
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-orange-300 dark:hover:border-orange-700/50 rounded-lg transition-all group cursor-pointer relative">
                   <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
                     {yearFilter === 'All' ? 'Tất cả' : yearFilter}
                   </span>
@@ -153,10 +204,13 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
                     onChange={(e) => onYearChange(e.target.value)}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   >
-                    <option value="All">Tất cả năm</option>
-                    <option value="2026">2026</option>
-                    <option value="2025">2025</option>
-                    <option value="2024">2024</option>
+                    {/* Hiện "Tất cả các năm" chỉ khi Period = "Cả năm" */}
+                    {(!periodFilter || periodFilter === '') && (
+                      <option value="All">Tất cả các năm</option>
+                    )}
+                    {Array.from({ length: new Date().getFullYear() - 2023 + 1 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                      <option key={y} value={String(y)}>{y}</option>
+                    ))}
                   </select>
                 </div>
               </div>
