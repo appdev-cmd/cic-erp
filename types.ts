@@ -16,6 +16,7 @@ export interface ContractWarnings {
 }
 export type ImplementationStage = 'Signed' | 'Advanced' | 'Guaranteed' | 'InputOrdered' | 'Implementation' | 'Completed' | 'Invoiced';
 export type ContractType = 'HĐ' | 'VV';
+export type ContractClassification = 'Thông thường' | 'Bán qua đại lý' | 'Khách bị LC' | 'Hỗ trợ đối tác' | 'Khác';
 
 export interface KPIPlan {
   signing: number;
@@ -263,6 +264,7 @@ export interface Contract {
   status: ContractStatus;
   stage: ImplementationStage;
   category: string;
+  classification?: ContractClassification; // Phân loại HĐ: Thông thường, Bán qua đại lý, Khách bị LC...
   unitId: string;
   coordinatingUnitId?: string; // Đơn vị phối hợp (Legacy - backward compatibility)
   unitAllocations?: UnitAllocation[]; // Phân bổ đơn vị phối hợp với % (QĐ 09.2024)

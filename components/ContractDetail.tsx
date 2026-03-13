@@ -398,6 +398,16 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusColor(contract?.status || '')} uppercase`}>
                   {CONTRACT_STATUS_LABELS[contract?.status || ''] || contract?.status}
                 </span>
+                {contract?.classification && contract.classification !== 'Thông thường' && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    contract.classification === 'Bán qua đại lý' ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800'
+                    : contract.classification === 'Khách bị LC' ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800'
+                    : contract.classification === 'Hỗ trợ đối tác' ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                  }`}>
+                    {contract.classification}
+                  </span>
+                )}
               </div>
               <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">{contract?.title}</h1>
 

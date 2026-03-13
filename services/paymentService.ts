@@ -266,10 +266,11 @@ export const PaymentService = {
 
         // Telegram notification (fire-and-forget)
         if (data.contractId) {
-            supabase.from('contracts').select('title').eq('id', data.contractId).single().then(({ data: c }) => {
+            supabase.from('contracts').select('title, contract_code').eq('id', data.contractId).single().then(({ data: c }) => {
+                const label = c?.contract_code ? `${c.contract_code} — ${c.title || ''}` : (c?.title || data.contractId!);
                 TelegramNotificationService.notifyPaymentChange({
                     eventType: 'created',
-                    contractTitle: c?.title || data.contractId!,
+                    contractTitle: label,
                     contractId: data.contractId!,
                     amount: data.amount,
                     status: data.status,
@@ -324,10 +325,11 @@ export const PaymentService = {
 
         // Telegram notification (fire-and-forget)
         if (mapped.contractId) {
-            supabase.from('contracts').select('title').eq('id', mapped.contractId).single().then(({ data: c }) => {
+            supabase.from('contracts').select('title, contract_code').eq('id', mapped.contractId).single().then(({ data: c }) => {
+                const label = c?.contract_code ? `${c.contract_code} — ${c.title || ''}` : (c?.title || mapped.contractId);
                 TelegramNotificationService.notifyPaymentChange({
                     eventType: 'updated',
-                    contractTitle: c?.title || mapped.contractId,
+                    contractTitle: label,
                     contractId: mapped.contractId,
                     amount: mapped.amount,
                     status: mapped.status,
@@ -350,10 +352,11 @@ export const PaymentService = {
 
         // Telegram notification (fire-and-forget)
         if (payment?.contract_id) {
-            supabase.from('contracts').select('title').eq('id', payment.contract_id).single().then(({ data: c }) => {
+            supabase.from('contracts').select('title, contract_code').eq('id', payment.contract_id).single().then(({ data: c }) => {
+                const label = c?.contract_code ? `${c.contract_code} — ${c.title || ''}` : (c?.title || payment.contract_id);
                 TelegramNotificationService.notifyPaymentChange({
                     eventType: 'deleted',
-                    contractTitle: c?.title || payment.contract_id,
+                    contractTitle: label,
                     contractId: payment.contract_id,
                     amount: payment.amount || 0,
                     paymentType: payment.payment_type || 'Revenue',

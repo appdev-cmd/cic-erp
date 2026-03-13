@@ -61,7 +61,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
 
   // Handle notification click → navigate to relevant resource
   const handleNotificationNavigate = (notification: NotificationItemType) => {
-    const contractId = notification.metadata?.contractId;
+    // metadata may be stored as a JSON string or an object
+    let meta = notification.metadata;
+    if (typeof meta === 'string') {
+      try { meta = JSON.parse(meta); } catch { meta = {}; }
+    }
+    const contractId = meta?.contractId || meta?.contract_id;
     if (contractId && onNavigateToContract) {
       onNavigateToContract(contractId);
     }

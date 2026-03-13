@@ -4,7 +4,7 @@ import {
   X, Save, Plus, Users, Hash, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import {
-  ContractType, LineItem, UnitAllocation, EmployeeAllocation,
+  ContractType, ContractClassification, LineItem, UnitAllocation, EmployeeAllocation,
   ContractContact, PaymentSchedule,
   RevenueSchedule, AdministrativeCosts,
   Contract, ExecutionCostItem
@@ -115,7 +115,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const [customerId, setCustomerId] = useState(contract?.customerId || null);
   const [title, setTitle] = useState(contract?.title || '');
   const [clientName, setClientName] = useState(contract?.partyA || '');
-  const [isDealerSale, setIsDealerSale] = useState(contract?.isDealerSale || false);
+  const [classification, setClassification] = useState<ContractClassification>(contract?.classification || (contract?.isDealerSale ? 'Bán qua đại lý' : 'Thông thường'));
+  const isDealerSale = classification === 'Bán qua đại lý';
   const [endUserId, setEndUserId] = useState<string | null>(contract?.endUserId || null);
   const [endUserName, setEndUserName] = useState(contract?.endUserName || '');
   const [showAddEndUserDialog, setShowAddEndUserDialog] = useState(false);
@@ -138,7 +139,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       setCustomerId(contract.customerId || null);
       setTitle(contract.title || '');
       setClientName(contract.partyA || '');
-      setIsDealerSale(contract.isDealerSale || false);
+      setClassification(contract.classification || (contract.isDealerSale ? 'Bán qua đại lý' : 'Thông thường'));
       setEndUserId(contract.endUserId || null);
       setEndUserName(contract.endUserName || '');
       setSignedDate(contract.signedDate || new Date().toISOString().split('T')[0]);
@@ -332,14 +333,14 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   // Key fields that constitute "user data"
   const currentSnapshot = useMemo(() => JSON.stringify({
     contractType, unitId, coordinatingUnitId, salespersonId, customerId,
-    title, clientName, signedDate, hasVat, vatRate, isDealerSale,
+    title, clientName, signedDate, hasVat, vatRate, classification,
     endUserId, endUserName, contacts, lineItems, executionCosts,
     revenueSchedules, paymentSchedules, supplierSchedules,
     employeeAllocations, unitAllocations, formContractId,
     customerContractNumber, hasCustomerContractNumber, notes,
   }), [
     contractType, unitId, coordinatingUnitId, salespersonId, customerId,
-    title, clientName, signedDate, hasVat, vatRate, isDealerSale,
+    title, clientName, signedDate, hasVat, vatRate, classification,
     endUserId, endUserName, contacts, lineItems, executionCosts,
     revenueSchedules, paymentSchedules, supplierSchedules,
     employeeAllocations, unitAllocations, formContractId,
@@ -455,6 +456,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       clientInitials: clientName ? clientName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 5) : 'KH',
       customerId: customerId || null,
       isDealerSale,
+      classification,
       hasVat,
       vatRate: hasVat ? vatRate : 0,
       endUserId: isDealerSale ? (endUserId || null) : null,
@@ -593,7 +595,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 customerId={customerId} setCustomerId={setCustomerId}
                 clientName={clientName} setClientName={setClientName}
                 title={title} setTitle={setTitle}
-                isDealerSale={isDealerSale} setIsDealerSale={setIsDealerSale}
+                classification={classification} setClassification={setClassification}
                 endUserId={endUserId} setEndUserId={setEndUserId}
                 endUserName={endUserName} setEndUserName={setEndUserName}
                 signedDate={signedDate} setSignedDate={setSignedDate}

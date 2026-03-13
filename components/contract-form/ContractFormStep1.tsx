@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import {
     Unit, Employee, Customer, ContractType, ContractContact,
-    UnitAllocation, EmployeeAllocation
+    UnitAllocation, EmployeeAllocation, ContractClassification
 } from '../../types';
 import SearchableSelect from '../ui/SearchableSelect';
 import DateInput from '../ui/DateInput';
@@ -40,8 +40,8 @@ interface ContractFormStep1Props {
     setClientName: (v: string) => void;
     title: string;
     setTitle: (v: string) => void;
-    isDealerSale: boolean;
-    setIsDealerSale: (v: boolean) => void;
+    classification: ContractClassification;
+    setClassification: (v: ContractClassification) => void;
     endUserId: string | null;
     setEndUserId: (v: string | null) => void;
     endUserName: string;
@@ -116,7 +116,7 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
     customerId, setCustomerId,
     clientName, setClientName,
     title, setTitle,
-    isDealerSale, setIsDealerSale,
+    classification, setClassification,
     endUserId, setEndUserId,
     endUserName, setEndUserName,
     signedDate, setSignedDate,
@@ -408,21 +408,24 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                             addNewLabel="+ Thêm khách hàng mới"
                         />
 
-                        {/* Dealer checkbox */}
-                        <div className="flex items-center gap-3 flex-wrap">
-                            <label className="flex items-center gap-2 cursor-pointer select-none">
-                                <input
-                                    type="checkbox"
-                                    checked={isDealerSale}
-                                    onChange={(e) => setIsDealerSale(e.target.checked)}
-                                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500"
-                                />
-                                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Bán qua đại lý (Dealer)</span>
-                            </label>
+                        {/* Phân loại HĐ */}
+                        <div className="space-y-1">
+                            <FieldLabel icon={<Tag size={10} />}>Phân loại HĐ</FieldLabel>
+                            <select
+                                value={classification}
+                                onChange={(e) => setClassification(e.target.value as ContractClassification)}
+                                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all cursor-pointer"
+                            >
+                                <option value="Thông thường">Thông thường</option>
+                                <option value="Bán qua đại lý">Bán qua đại lý (Dealer)</option>
+                                <option value="Khách bị LC">Khách bị LC</option>
+                                <option value="Hỗ trợ đối tác">Hỗ trợ đối tác</option>
+                                <option value="Khác">Khác</option>
+                            </select>
                         </div>
 
                         {/* End User (conditional) */}
-                        {isDealerSale && (
+                        {classification === 'Bán qua đại lý' && (
                             <div className="animate-in slide-in-from-top-2 duration-300">
                                 <SearchableSelect
                                     label="Người dùng cuối (End User)"

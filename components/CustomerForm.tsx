@@ -234,19 +234,33 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
                     </label>
                 </div>
 
-                {/* Row 1: Name + Short Name */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Row 1: Mã số DN + Tra cứu + Tên viết tắt */}
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_180px] gap-2 items-end">
                     <div>
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Tên công ty *</label>
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Mã số Doanh nghiệp {(formData.type === 'Customer' || formData.type === 'Both') && <span className="text-rose-500">*</span>}
+                        </label>
                         <input
                             type="text"
-                            required
-                            value={formData.name}
-                            onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="VD: FECON Corporation"
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                            required={formData.type === 'Customer' || formData.type === 'Both'}
+                            value={formData.taxCode}
+                            onChange={e => { setFormData(prev => ({ ...prev, taxCode: e.target.value })); setDuplicateError(null); }}
+                            placeholder="VD: 0101234567"
+                            className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm ${
+                                duplicateError ? 'border-rose-400 dark:border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                            }`}
                         />
                     </div>
+                    <button
+                        type="button"
+                        onClick={handleTaxLookup}
+                        disabled={isLookingUp || !formData.taxCode.trim()}
+                        className="px-3 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                        title="Tra cứu thông tin DN từ mã số thuế"
+                    >
+                        {isLookingUp ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+                        Tra cứu
+                    </button>
                     <div>
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Tên viết tắt *</label>
                         <input
@@ -259,82 +273,66 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
                         />
                     </div>
                 </div>
+                {duplicateError && (
+                    <p className="-mt-3 text-xs text-rose-500 dark:text-rose-400">{duplicateError}</p>
+                )}
 
-                {/* Row 2: Industry (Multi-select) + Tax Code */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div ref={dropdownRef} className="relative">
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Ngành nghề *</label>
-                        <button
-                            type="button"
-                            onClick={() => setShowIndustryDropdown(!showIndustryDropdown)}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-left flex items-center justify-between"
-                        >
-                            <span className={formData.industry.length > 0 ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400'}>
-                                {formData.industry.length > 0 ? formData.industry.join(', ') : 'Chọn ngành nghề...'}
-                            </span>
-                            <ChevronDown size={16} className={`text-slate-400 transition-transform ${showIndustryDropdown ? 'rotate-180' : ''}`} />
-                        </button>
-                        {/* Selected tags */}
-                        {formData.industry.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                                {formData.industry.map(ind => (
-                                    <span key={ind} className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded text-[10px] font-bold">
-                                        {ind}
-                                        <button type="button" onClick={() => toggleIndustry(ind)} className="hover:text-rose-500"><X size={10} /></button>
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                        {/* Dropdown */}
-                        {showIndustryDropdown && (
-                            <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                                {INDUSTRIES.map(ind => (
-                                    <label
-                                        key={ind}
-                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.industry.includes(ind)}
-                                            onChange={() => toggleIndustry(ind)}
-                                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                                        />
-                                        <span className="text-sm text-slate-700 dark:text-slate-300">{ind}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
-                            Mã số Doanh nghiệp {(formData.type === 'Customer' || formData.type === 'Both') && <span className="text-rose-500">*</span>}
-                        </label>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                required={formData.type === 'Customer' || formData.type === 'Both'}
-                                value={formData.taxCode}
-                                onChange={e => { setFormData(prev => ({ ...prev, taxCode: e.target.value })); setDuplicateError(null); }}
-                                placeholder="VD: 0101234567"
-                                className={`flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm ${
-                                    duplicateError ? 'border-rose-400 dark:border-rose-500' : 'border-slate-200 dark:border-slate-800'
-                                }`}
-                            />
-                            <button
-                                type="button"
-                                onClick={handleTaxLookup}
-                                disabled={isLookingUp || !formData.taxCode.trim()}
-                                className="px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg transition-colors flex items-center gap-1.5 text-xs font-bold shrink-0 cursor-pointer disabled:cursor-not-allowed"
-                                title="Tra cứu thông tin DN từ mã số thuế"
-                            >
-                                {isLookingUp ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
-                                Tra cứu
-                            </button>
+                {/* Row 2: Tên công ty */}
+                <div>
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Tên công ty *</label>
+                    <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="VD: FECON Corporation"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    />
+                </div>
+
+                {/* Row 3: Industry (Multi-select) */}
+                <div ref={dropdownRef} className="relative">
+                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Ngành nghề *</label>
+                    <button
+                        type="button"
+                        onClick={() => setShowIndustryDropdown(!showIndustryDropdown)}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-left flex items-center justify-between"
+                    >
+                        <span className={formData.industry.length > 0 ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400'}>
+                            {formData.industry.length > 0 ? formData.industry.join(', ') : 'Chọn ngành nghề...'}
+                        </span>
+                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${showIndustryDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+                    {/* Selected tags */}
+                    {formData.industry.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                            {formData.industry.map(ind => (
+                                <span key={ind} className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded text-[10px] font-bold">
+                                    {ind}
+                                    <button type="button" onClick={() => toggleIndustry(ind)} className="hover:text-rose-500"><X size={10} /></button>
+                                </span>
+                            ))}
                         </div>
-                        {duplicateError && (
-                            <p className="mt-1 text-xs text-rose-500 dark:text-rose-400">{duplicateError}</p>
-                        )}
-                    </div>
+                    )}
+                    {/* Dropdown */}
+                    {showIndustryDropdown && (
+                        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                            {INDUSTRIES.map(ind => (
+                                <label
+                                    key={ind}
+                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.industry.includes(ind)}
+                                        onChange={() => toggleIndustry(ind)}
+                                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-sm text-slate-700 dark:text-slate-300">{ind}</span>
+                                </label>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Contact Info Section */}
