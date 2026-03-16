@@ -102,4 +102,29 @@ export const BrandService = {
         if (error) throw error;
         return (data || []).map(mapBrand);
     },
+
+    findOrCreate: async (name: string): Promise<Brand> => {
+        const trimmed = name.trim();
+        if (!trimmed) throw new Error('Brand name is required');
+
+        // Check existing (case-insensitive)
+        const { data: existing } = await supabase
+            .from('brands')
+            .select('*')
+            .ilike('name', trimmed)
+            .limit(1);
+
+        if (existing && existing.length > 0) {
+            return mapBrand(existing[0]);
+        }
+
+        // Create new brand
+        const { data: created, error } = await supabase
+            .from('brands')
+            .insert({ name: trimmed, is_active: true })
+            .select()
+            .single();
+        if (error) throw error;
+        return mapBrand(created);
+    },
 };

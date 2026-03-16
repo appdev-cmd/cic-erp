@@ -47,7 +47,6 @@ const Modal: React.FC<ModalProps> = ({
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm"
-                onClick={onClose}
             />
 
             {/* Modal Content */}

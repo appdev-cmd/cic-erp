@@ -216,7 +216,7 @@ const ImportCustomerModal: React.FC<ImportCustomerModalProps> = ({ isOpen, onClo
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
             <div className="relative bg-white dark:bg-slate-900 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Header */}

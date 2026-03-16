@@ -17,6 +17,8 @@ export * from './employeeTargetService';
 export * from './historicalProductionService';
 export * from './spaceService';
 export * from './taskService';
+export * from './productLineService';
+export * from './productEditionService';
 
 // Re-export specific APIs as legacy aliases if needed, or prefer using *Service naming.
 // To maintain compatibility with existing 'api.ts' consumers, we might want to update 'api.ts' to re-export these,

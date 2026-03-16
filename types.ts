@@ -348,6 +348,11 @@ export interface Customer {
 export type ProductCategory = string;
 
 /**
+ * License type for structured product naming
+ */
+export type LicenseType = 'Standalone' | 'Network' | 'Hardlock';
+
+/**
  * Represents a brand/manufacturer
  */
 export interface Brand {
@@ -410,6 +415,10 @@ export interface Product {
   costPrice?: number;
   isActive: boolean;
   unitId?: string; // đơn vị kinh doanh phụ trách
+  // Structured Name Builder fields (all optional — some products only have a name)
+  productLine?: string;    // Dòng sản phẩm (VD: CIC Document, PLAXIS, SAP2000)
+  edition?: string;        // Phiên bản (VD: Standard, Pro, Ultimate)
+  licenseType?: LicenseType; // Loại license (Standalone, Network, Hardlock)
   // CRM fields — Brand & Supplier linkage
   brandId?: string;
   supplierId?: string; // NCC chính

@@ -49,6 +49,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
     const [ratingFilter, setRatingFilter] = useState<string>('all');
     const [activeView, setActiveView] = useState<'partners' | 'brands'>('partners');
     const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+    const [brandFormOpen, setBrandFormOpen] = useState(false);
 
     // Infinite scroll batch size
     const PAGE_SIZE = 20;
@@ -232,20 +233,32 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                         className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100"
                     />
                 </div>
-                <button
-                    onClick={() => setIsImportOpen(true)}
-                    className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 dark:shadow-none"
-                >
-                    <Upload size={18} />
-                    <span className="hidden md:inline">Import</span>
-                </button>
-                <button
-                    onClick={handleAdd}
-                    className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 dark:shadow-none"
-                >
-                    <Plus size={18} />
-                    <span className="hidden md:inline">Thêm Đối tác</span>
-                </button>
+                {activeView === 'partners' && (
+                    <button
+                        onClick={() => setIsImportOpen(true)}
+                        className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 dark:shadow-none"
+                    >
+                        <Upload size={18} />
+                        <span className="hidden md:inline">Import</span>
+                    </button>
+                )}
+                {activeView === 'partners' ? (
+                    <button
+                        onClick={handleAdd}
+                        className="flex items-center gap-2 px-5 py-3 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 dark:shadow-none cursor-pointer"
+                    >
+                        <Plus size={18} />
+                        <span className="hidden md:inline">Thêm Đối tác</span>
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => setBrandFormOpen(true)}
+                        className="flex items-center gap-2 px-5 py-3 bg-violet-600 text-white rounded-lg font-bold text-sm hover:bg-violet-700 transition-colors shadow-lg shadow-violet-200 dark:shadow-none cursor-pointer"
+                    >
+                        <Plus size={18} />
+                        <span className="hidden md:inline">Thêm Hãng</span>
+                    </button>
+                )}
             </div>
 
             {/* Customer Form Modal */}
@@ -297,7 +310,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                     />
                 ) : (
                     <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
-                        <BrandManager onSelectBrand={(id) => setSelectedBrandId(id)} />
+                        <BrandManager
+                        onSelectBrand={(id) => setSelectedBrandId(id)}
+                        isFormOpenExternal={brandFormOpen}
+                        onFormClose={() => setBrandFormOpen(false)}
+                    />
                     </div>
                 )
             ) : (

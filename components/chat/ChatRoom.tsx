@@ -215,7 +215,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
 
             {/* Forward modal */}
             {showForwardModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowForwardModal(null)}>
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-80 max-h-96 overflow-y-auto" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-slate-200 dark:border-slate-800">
                             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Chuyển tiếp đến</h3>

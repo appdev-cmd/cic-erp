@@ -39,7 +39,6 @@ export const RejectDialog: React.FC<Props> = ({ isOpen, onClose, onConfirm, isLo
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={handleClose}
             />
 
             {/* Dialog */}

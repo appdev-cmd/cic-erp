@@ -13,6 +13,10 @@ const mapProduct = (p: any): Product => ({
     costPrice: p.cost_price,
     isActive: p.is_active,
     unitId: p.unit_id,
+    // Structured Name Builder fields
+    productLine: p.product_line,
+    edition: p.edition,
+    licenseType: p.license_type,
     // CRM fields
     brandId: p.brand_id,
     supplierId: p.supplier_id,
@@ -30,6 +34,21 @@ const mapProduct = (p: any): Product => ({
 const SELECT_WITH_JOINS = '*, brands:brand_id(name), suppliers:supplier_id(name)';
 
 export const ProductService = {
+    /**
+     * Generate next product code following pattern: [CategoryCode]-[BrandName]-[UnitCode]-[Seq]
+     * e.g. PM-Bentley-DCS-001
+     */
+    getNextCode: async (prefix: string): Promise<string> => {
+        const like = `${prefix}-%`;
+        const { count, error } = await supabase
+            .from('products')
+            .select('id', { count: 'exact', head: true })
+            .ilike('code', like);
+        if (error) throw error;
+        const seq = ((count || 0) + 1).toString().padStart(3, '0');
+        return `${prefix}-${seq}`;
+    },
+
     getAll: async (): Promise<Product[]> => {
         const { data, error } = await supabase.from('products').select(SELECT_WITH_JOINS);
         if (error) throw error;
@@ -99,6 +118,9 @@ export const ProductService = {
             cost_price: data.costPrice,
             is_active: data.isActive,
             unit_id: data.unitId || null,
+            product_line: data.productLine || null,
+            edition: data.edition || null,
+            license_type: data.licenseType || null,
             brand_id: data.brandId || null,
             supplier_id: data.supplierId || null,
             sku: data.sku || null,
@@ -121,6 +143,9 @@ export const ProductService = {
         if (data.costPrice !== undefined) payload.cost_price = data.costPrice;
         if (data.isActive !== undefined) payload.is_active = data.isActive;
         if (data.unitId !== undefined) payload.unit_id = data.unitId || null;
+        if (data.productLine !== undefined) payload.product_line = data.productLine || null;
+        if (data.edition !== undefined) payload.edition = data.edition || null;
+        if (data.licenseType !== undefined) payload.license_type = data.licenseType || null;
         if (data.brandId !== undefined) payload.brand_id = data.brandId || null;
         if (data.supplierId !== undefined) payload.supplier_id = data.supplierId || null;
         if (data.sku !== undefined) payload.sku = data.sku || null;

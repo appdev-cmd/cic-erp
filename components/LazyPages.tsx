@@ -398,11 +398,106 @@ export const LazyContractFormPage: React.FC = () => {
     );
 };
 
-// Payment List
+// ═══════════════════════════════════════════════════════════════════════
+// SHARED PANEL HELPERS — reusable across modules
+// ═══════════════════════════════════════════════════════════════════════
+
+// Opens a Contract detail in a slide panel (used by Personnel, Customer, Product, Unit, Payment)
+function useOpenContractPanel() {
+    const { openPanel, closePanel } = useSlidePanel();
+    return useCallback((contractId: string) => {
+        openPanel({
+            title: `Hợp đồng ${contractId}`,
+            url: ROUTES.CONTRACT_DETAIL(contractId),
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <ContractDetail
+                            contractId={contractId}
+                            onBack={() => closePanel()}
+                            onEdit={(contract) => {
+                                openPanel({
+                                    title: `Chỉnh sửa ${contract.contractCode}`,
+                                    url: `${ROUTES.CONTRACT_DETAIL(contract.id)}?edit=true`,
+                                    component: (
+                                        <Suspense fallback={<FormPageSkeleton />}>
+                                            <ContractFormInSlidePanel contractId={contract.id} />
+                                        </Suspense>
+                                    ),
+                                });
+                            }}
+                            onDelete={async () => {
+                                try {
+                                    await ContractService.delete(contractId);
+                                    toast.success('Đã xóa hợp đồng thành công!');
+                                    closePanel();
+                                } catch (e: any) {
+                                    toast.error('Lỗi xóa hợp đồng: ' + (e.message || e));
+                                }
+                            }}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel]);
+}
+
+// Opens a Personnel detail in a slide panel (used by Unit)
+function useOpenPersonnelPanel() {
+    const { openPanel, closePanel } = useSlidePanel();
+    const openContractPanel = useOpenContractPanel();
+    return useCallback((personnelId: string) => {
+        openPanel({
+            title: 'Chi tiết Nhân viên',
+            url: ROUTES.PERSONNEL_DETAIL(personnelId),
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <PersonnelDetail
+                            personnelId={personnelId}
+                            onBack={() => closePanel()}
+                            onViewContract={openContractPanel}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel, openContractPanel]);
+}
+
+// Opens a Product detail in a slide panel (used by Customer)
+function useOpenProductPanel() {
+    const { openPanel, closePanel } = useSlidePanel();
+    const openContractPanel = useOpenContractPanel();
+    return useCallback((productId: string) => {
+        openPanel({
+            title: 'Chi tiết Sản phẩm/DV',
+            url: ROUTES.PRODUCT_DETAIL(productId),
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <ProductDetail
+                            productId={productId}
+                            onBack={() => closePanel()}
+                            onViewContract={openContractPanel}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel, openContractPanel]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PAYMENT MODULE — Slide Panel Integration
+// ═══════════════════════════════════════════════════════════════════════
+
+// Payment List — opens contract detail in slide panel
 export const LazyPaymentListPage: React.FC = () => {
-    const navigate = useNavigate();
+    const openContractPanel = useOpenContractPanel();
     return withSuspense(
-        <PaymentList onSelectContract={(id) => navigate(ROUTES.CONTRACT_DETAIL(id))} />
+        <PaymentList onSelectContract={openContractPanel} />
     );
 };
 
@@ -418,101 +513,169 @@ export const LazyAnalyticsPage: React.FC = () => {
 // AI Assistant
 export const LazyAIAssistantPage: React.FC = () => withSuspense(<AIAssistant />);
 
-// Personnel List
+// ═══════════════════════════════════════════════════════════════════════
+// PERSONNEL MODULE — Slide Panel Integration
+// ═══════════════════════════════════════════════════════════════════════
+
+// Personnel List — opens detail in slide panel
 export const LazyPersonnelListPage: React.FC = () => {
-    const navigate = useNavigate();
     const { selectedUnit } = useLayoutContext();
+    const openPersonnelPanel = useOpenPersonnelPanel();
     return withSuspense(
         <PersonnelList
             selectedUnit={selectedUnit}
-            onSelectPersonnel={(id) => navigate(ROUTES.PERSONNEL_DETAIL(id))}
+            onSelectPersonnel={openPersonnelPanel}
         />
     );
 };
 
-// Personnel Detail
+// Personnel Detail — fallback for direct URL access (/personnel/:id)
 export const LazyPersonnelDetailPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const openContractPanel = useOpenContractPanel();
     if (!id) return <div>Personnel not found</div>;
     return withSuspense(
         <PersonnelDetail
             personnelId={id}
             onBack={() => navigate(ROUTES.PERSONNEL)}
-            onViewContract={(contractId) => navigate(ROUTES.CONTRACT_DETAIL(contractId))}
+            onViewContract={openContractPanel}
         />,
         <DetailPageSkeleton />
     );
 };
 
-// Customer List
+// ═══════════════════════════════════════════════════════════════════════
+// CUSTOMER MODULE — Slide Panel Integration
+// ═══════════════════════════════════════════════════════════════════════
+
+// Customer List — opens detail in slide panel
 export const LazyCustomerListPage: React.FC = () => {
-    const navigate = useNavigate();
+    const { openPanel, closePanel } = useSlidePanel();
+    const openContractPanel = useOpenContractPanel();
+    const openProductPanel = useOpenProductPanel();
+
+    const handleSelectCustomer = useCallback((id: string) => {
+        openPanel({
+            title: 'Chi tiết Khách hàng',
+            url: ROUTES.CUSTOMER_DETAIL(id),
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <CustomerDetail
+                            customerId={id}
+                            onBack={() => closePanel()}
+                            onViewContract={openContractPanel}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel, openContractPanel]);
+
     return withSuspense(
         <CustomerList
-            onSelectCustomer={(id) => navigate(ROUTES.CUSTOMER_DETAIL(id))}
-            onSelectProduct={(id) => navigate(ROUTES.PRODUCT_DETAIL(id))}
+            onSelectCustomer={handleSelectCustomer}
+            onSelectProduct={openProductPanel}
         />
     );
 };
 
-// Customer Detail
+// Customer Detail — fallback for direct URL access (/customers/:id)
 export const LazyCustomerDetailPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const openContractPanel = useOpenContractPanel();
     if (!id) return <div>Customer not found</div>;
     return withSuspense(
         <CustomerDetail
             customerId={id}
             onBack={() => navigate(ROUTES.CUSTOMERS)}
-            onViewContract={(contractId) => navigate(ROUTES.CONTRACT_DETAIL(contractId))}
+            onViewContract={openContractPanel}
         />,
         <DetailPageSkeleton />
     );
 };
 
-// Product List
+// ═══════════════════════════════════════════════════════════════════════
+// PRODUCT MODULE — Slide Panel Integration
+// ═══════════════════════════════════════════════════════════════════════
+
+// Product List — opens detail in slide panel
 export const LazyProductListPage: React.FC = () => {
-    const navigate = useNavigate();
+    const openProductPanel = useOpenProductPanel();
     return withSuspense(
-        <ProductList onSelectProduct={(id) => navigate(ROUTES.PRODUCT_DETAIL(id))} />
+        <ProductList onSelectProduct={openProductPanel} />
     );
 };
 
-// Product Detail
+// Product Detail — fallback for direct URL access (/products/:id)
 export const LazyProductDetailPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const openContractPanel = useOpenContractPanel();
     if (!id) return <div>Product not found</div>;
     return withSuspense(
         <ProductDetail
             productId={id}
             onBack={() => navigate(ROUTES.PRODUCTS)}
-            onViewContract={(contractId) => navigate(ROUTES.CONTRACT_DETAIL(contractId))}
+            onViewContract={openContractPanel}
         />,
         <DetailPageSkeleton />
     );
 };
 
-// Unit List
+// ═══════════════════════════════════════════════════════════════════════
+// UNIT MODULE — Slide Panel Integration
+// ═══════════════════════════════════════════════════════════════════════
+
+// Unit List — opens detail in slide panel
 export const LazyUnitListPage: React.FC = () => {
-    const navigate = useNavigate();
+    const { openPanel, closePanel } = useSlidePanel();
+    const { yearFilter } = useLayoutContext();
+    const openContractPanel = useOpenContractPanel();
+    const openPersonnelPanel = useOpenPersonnelPanel();
+
+    const handleSelectUnit = useCallback((id: string) => {
+        openPanel({
+            title: 'Chi tiết Đơn vị',
+            url: ROUTES.UNIT_DETAIL(id),
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <UnitDetail
+                            unitId={id}
+                            onBack={() => closePanel()}
+                            onViewContract={openContractPanel}
+                            onViewPersonnel={openPersonnelPanel}
+                            yearFilter={yearFilter}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel, openContractPanel, openPersonnelPanel, yearFilter]);
+
     return withSuspense(
-        <UnitList onSelectUnit={(id) => navigate(ROUTES.UNIT_DETAIL(id))} />
+        <UnitList onSelectUnit={handleSelectUnit} />
     );
 };
 
-// Unit Detail
+// Unit Detail — fallback for direct URL access (/units/:id)
 export const LazyUnitDetailPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const { yearFilter } = useLayoutContext();
+    const openContractPanel = useOpenContractPanel();
+    const openPersonnelPanel = useOpenPersonnelPanel();
     if (!id) return <div>Unit not found</div>;
     return withSuspense(
         <UnitDetail
             unitId={id}
             onBack={() => navigate(ROUTES.UNITS)}
-            onViewContract={(contractId) => navigate(ROUTES.CONTRACT_DETAIL(contractId))}
-            onViewPersonnel={(personnelId) => navigate(ROUTES.PERSONNEL_DETAIL(personnelId))}
+            onViewContract={openContractPanel}
+            onViewPersonnel={openPersonnelPanel}
+            yearFilter={yearFilter}
         />,
         <DetailPageSkeleton />
     );

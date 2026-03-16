@@ -440,7 +440,7 @@ const UserGuide: React.FC = () => {
 
             {/* Keyboard Shortcuts Modal */}
             {showShortcuts && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowShortcuts(false)}>
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl max-w-md w-full" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
                             <h3 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">

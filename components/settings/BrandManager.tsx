@@ -19,6 +19,8 @@ import ConfirmDialog, { useConfirmDialog } from '../ui/ConfirmDialog';
 
 interface BrandManagerProps {
     onSelectBrand?: (id: string) => void;
+    isFormOpenExternal?: boolean;
+    onFormClose?: () => void;
 }
 
 const EMPTY_FORM: Omit<Brand, 'id'> = {
@@ -30,7 +32,7 @@ const EMPTY_FORM: Omit<Brand, 'id'> = {
     isActive: true,
 };
 
-const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand }) => {
+const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand, isFormOpenExternal, onFormClose }) => {
     const [brands, setBrands] = useState<Brand[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -79,6 +81,18 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand }) => {
         setIsFormOpen(true);
     };
 
+    // Sync with external open trigger
+    React.useEffect(() => {
+        if (isFormOpenExternal) {
+            handleAdd();
+        }
+    }, [isFormOpenExternal]);
+
+    const closeForm = () => {
+        setIsFormOpen(false);
+        onFormClose?.();
+    };
+
     // Open form for edit
     const handleEdit = (brand: Brand) => {
         setEditingBrand(brand);
@@ -110,7 +124,7 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand }) => {
                 setBrands(prev => [created, ...prev]);
                 toast.success('Đã thêm hãng mới');
             }
-            setIsFormOpen(false);
+            closeForm();
         } catch (error: any) {
             console.error('Error saving brand:', error);
             if (error?.message?.includes('duplicate') || error?.code === '23505') {
@@ -155,13 +169,6 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand }) => {
                         <p className="text-xs text-slate-500 dark:text-slate-400">Quản lý danh mục hãng/thương hiệu cho sản phẩm</p>
                     </div>
                 </div>
-                <button
-                    onClick={handleAdd}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-xs hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 dark:shadow-none cursor-pointer"
-                >
-                    <Plus size={15} />
-                    Thêm hãng
-                </button>
             </div>
 
             {/* Search */}
@@ -176,91 +183,115 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand }) => {
                 />
             </div>
 
-            {/* Inline Form */}
+            {/* Brand Form Modal */}
             {isFormOpen && (
-                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-5 space-y-4 animate-in slide-in-from-top-2 duration-300">
-                    <h4 className="font-bold text-sm text-indigo-700 dark:text-indigo-300">
-                        {editingBrand ? `Chỉnh sửa: ${editingBrand.name}` : 'Thêm hãng mới'}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">Tên hãng *</label>
-                            <input
-                                type="text"
-                                required
-                                value={formData.name}
-                                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                placeholder="VD: Autodesk"
-                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100 transition-colors"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">Mã hãng</label>
-                            <input
-                                type="text"
-                                value={formData.code || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                                placeholder="VD: ADSK"
-                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100 transition-colors"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">Quốc gia</label>
-                            <input
-                                type="text"
-                                value={formData.country || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, country: e.target.value }))}
-                                placeholder="VD: Mỹ"
-                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100 transition-colors"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">Website</label>
-                            <input
-                                type="text"
-                                value={formData.website || ''}
-                                onChange={e => setFormData(prev => ({ ...prev, website: e.target.value }))}
-                                placeholder="VD: https://autodesk.com"
-                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100 transition-colors"
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-1 uppercase tracking-wide">Mô tả</label>
-                        <input
-                            type="text"
-                            value={formData.description || ''}
-                            onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                            placeholder="Mô tả ngắn gọn về hãng..."
-                            className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100 transition-colors"
-                        />
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-violet-500 to-purple-600 px-6 py-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                                    <Tag size={20} className="text-white" />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-bold text-white">
+                                        {editingBrand ? `Chỉnh sửa: ${editingBrand.name}` : 'Thêm hãng mới'}
+                                    </h2>
+                                    <p className="text-violet-100 text-xs">Quản lý thông tin hãng/thương hiệu</p>
+                                </div>
+                            </div>
                             <button
-                                type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
-                                className={`relative w-10 h-6 rounded-full transition-colors cursor-pointer ${formData.isActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                onClick={closeForm}
+                                className="p-2 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
                             >
-                                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${formData.isActive ? 'left-[18px]' : 'left-0.5'}`} />
+                                <X size={18} className="text-white" />
                             </button>
-                            <span className="text-xs text-slate-600 dark:text-slate-400">{formData.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setIsFormOpen(false)}
-                                className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                            >
-                                Hủy
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={isSaving}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 cursor-pointer"
-                            >
-                                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                                {editingBrand ? 'Cập nhật' : 'Thêm mới'}
-                            </button>
+
+                        {/* Modal Body */}
+                        <div className="p-6 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Tên hãng *</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.name}
+                                        onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                        placeholder="VD: Autodesk"
+                                        autoFocus
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100 transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Mã hãng</label>
+                                    <input
+                                        type="text"
+                                        value={formData.code || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                                        placeholder="VD: ADSK"
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100 transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Quốc gia</label>
+                                    <input
+                                        type="text"
+                                        value={formData.country || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, country: e.target.value }))}
+                                        placeholder="VD: Mỹ"
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100 transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Website</label>
+                                    <input
+                                        type="text"
+                                        value={formData.website || ''}
+                                        onChange={e => setFormData(prev => ({ ...prev, website: e.target.value }))}
+                                        placeholder="VD: https://autodesk.com"
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100 transition-colors"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Mô tả</label>
+                                <input
+                                    type="text"
+                                    value={formData.description || ''}
+                                    onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                    placeholder="Mô tả ngắn gọn về hãng..."
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100 transition-colors"
+                                />
+                            </div>
+                            <div className="flex items-center gap-3 py-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
+                                    className={`relative w-12 h-7 rounded-full transition-colors cursor-pointer ${formData.isActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                >
+                                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${formData.isActive ? 'left-6' : 'left-1'}`} />
+                                </button>
+                                <span className="text-sm text-slate-600 dark:text-slate-400">{formData.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}</span>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                <button
+                                    onClick={closeForm}
+                                    className="px-5 py-2.5 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={isSaving}
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 cursor-pointer"
+                                >
+                                    {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={14} />}
+                                    {editingBrand ? 'Cập nhật' : 'Thêm mới'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
