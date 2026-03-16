@@ -1,7 +1,7 @@
 // ContractForm Step 2: Phương án kinh doanh (Line Items + Execution Costs)
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
-    Plus, Trash2, X, Briefcase, Package, Calculator, ShieldCheck
+    Plus, Trash2, X, Briefcase, Package, Calculator, ShieldCheck, Lock
 } from 'lucide-react';
 import {
     LineItem, Product, Customer, ExecutionCostItem
@@ -13,6 +13,88 @@ import CurrencyCalculator from '../ui/CurrencyCalculator';
 import { PAKDImportButton } from './PAKDImportButton';
 import { FinancialTotals } from '../../hooks/useFinancialCalculations';
 
+
+/**
+ * Inline autocomplete input with ghost-text suggestion.
+ * User types → ghost text of matching suggestion appears → Tab to accept.
+ */
+const InlineAutocompleteInput: React.FC<{
+    value: string;
+    onChange: (v: string) => void;
+    suggestions: string[];
+    placeholder: string;
+    className?: string;
+}> = ({ value, onChange, suggestions, placeholder, className }) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Find the best matching suggestion for ghost text
+    const ghostSuggestion = useMemo(() => {
+        if (!value || value.length < 2) return '';
+        const lower = value.toLowerCase();
+        // Find a suggestion that starts with what the user typed
+        const startMatch = suggestions.find(s => s.toLowerCase().startsWith(lower));
+        if (startMatch) return startMatch;
+        // Find a suggestion where the last word(s) typed match the start of a suggestion
+        // e.g. user types "Bán Phần" → match "Phần mềm Test Pro Network mua mới"
+        const words = value.split(/\s+/);
+        for (let i = words.length - 1; i >= 0; i--) {
+            const partial = words.slice(i).join(' ').toLowerCase();
+            if (partial.length < 2) continue;
+            const match = suggestions.find(s => s.toLowerCase().startsWith(partial));
+            if (match) {
+                const prefix = words.slice(0, i).join(' ');
+                return prefix ? `${prefix} ${match}` : match;
+            }
+        }
+        return '';
+    }, [value, suggestions]);
+
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Tab' && ghostSuggestion && ghostSuggestion.toLowerCase() !== value.toLowerCase()) {
+            e.preventDefault();
+            onChange(ghostSuggestion);
+            // Move cursor to end
+            setTimeout(() => {
+                if (inputRef.current) {
+                    inputRef.current.setSelectionRange(ghostSuggestion.length, ghostSuggestion.length);
+                }
+            }, 0);
+        }
+    }, [ghostSuggestion, value, onChange]);
+
+    const showGhost = ghostSuggestion && ghostSuggestion.toLowerCase() !== value.toLowerCase() && ghostSuggestion.toLowerCase().startsWith(value.toLowerCase());
+
+    return (
+        <div className="relative flex-1 min-w-0">
+            {/* Ghost text layer */}
+            {showGhost && (
+                <div className="absolute inset-0 pointer-events-none flex items-center px-3 py-1.5 text-sm">
+                    <span className="invisible">{value}</span>
+                    <span className="text-slate-300/50 dark:text-slate-600/70 italic">
+                        {ghostSuggestion.slice(value.length)}
+                    </span>
+                </div>
+            )}
+            {/* Actual input */}
+            <input
+                ref={inputRef}
+                type="text"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={placeholder}
+                className={className}
+                autoComplete="off"
+            />
+            {/* Tab hint */}
+            {showGhost && (
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400/70 dark:text-slate-500/70 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 pointer-events-none">
+                    Tab ↹
+                </span>
+            )}
+        </div>
+    );
+};
 
 
 interface ContractFormStep2Props {
@@ -244,26 +326,25 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                                                 <X size={10} />
                                                                             </button>
                                                                         </span>
-                                                                        {/* Mô tả biến thể — cùng dòng */}
-                                                                        <input
-                                                                            type="text"
+                                                                        {/* Mô tả biến thể — cùng dòng, inline autocomplete */}
+                                                                        <InlineAutocompleteInput
                                                                             value={item.name}
-                                                                            placeholder={`Mô tả chi tiết (VD: ${item.productName} mua mới, gia hạn...)...`}
-                                                                            onChange={(e) => {
+                                                                            onChange={(v) => {
                                                                                 const newList = [...lineItems];
-                                                                                newList[index].name = e.target.value;
+                                                                                newList[index].name = v;
                                                                                 setLineItems(newList);
                                                                             }}
-                                                                            className="flex-1 min-w-0 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/30 transition-colors"
-                                                                            list={`desc-suggestions-${index}`}
+                                                                            suggestions={[
+                                                                                // Just the product name for ghost-text autocomplete
+                                                                                ...(item.productName ? [item.productName] : []),
+                                                                                // Historical suggestions
+                                                                                ...nameSuggestions.filter(s =>
+                                                                                    item.productName && s.toLowerCase().includes(item.productName.toLowerCase())
+                                                                                ),
+                                                                            ]}
+                                                                            placeholder={`Mô tả chi tiết (VD: ${item.productName} mua mới, gia hạn...)...`}
+                                                                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/30 transition-colors"
                                                                         />
-                                                                        <datalist id={`desc-suggestions-${index}`}>
-                                                                            {nameSuggestions
-                                                                                .filter(s => item.productName && s.toLowerCase().includes(item.productName.toLowerCase()))
-                                                                                .map((s, i) => (
-                                                                                    <option key={i} value={s} />
-                                                                                ))}
-                                                                        </datalist>
                                                                     </>
                                                                 ) : (
                                                                     <div className="flex-1">
@@ -271,11 +352,55 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                                             value={null}
                                                                             placeholder="📦 Chọn sản phẩm gốc..."
                                                                             getDisplayValue={() => undefined}
-                                                                            onChange={(pId, option) => {
+                                                                            onChange={async (pId, option) => {
                                                                                 if (pId && option) {
                                                                                     const newList = [...lineItems];
                                                                                     newList[index].productId = pId;
                                                                                     newList[index].productName = option.name;
+
+                                                                                    // Fetch full product to get brand + supplier
+                                                                                    try {
+                                                                                        const fullProduct = await ProductService.getById(pId);
+                                                                                        if (fullProduct) {
+                                                                                            // Auto-fill Hãng SX from product's brand
+                                                                                            if (fullProduct.brandId && fullProduct.brandName) {
+                                                                                                const brandName = fullProduct.brandName;
+                                                                                                // Always set the brand name as manufacturer
+                                                                                                newList[index].manufacturer = brandName;
+                                                                                                
+                                                                                                // Try to find a matching supplier for ID linkage
+                                                                                                try {
+                                                                                                    const brandResults = await CustomerService.search(brandName, 5);
+                                                                                                    const brandAsSupplier = brandResults.find(c =>
+                                                                                                        (c.type === 'Supplier' || c.type === 'Both') &&
+                                                                                                        (c.name.toLowerCase() === brandName.toLowerCase() || c.shortName?.toLowerCase() === brandName.toLowerCase())
+                                                                                                    );
+                                                                                                    if (brandAsSupplier) {
+                                                                                                        newList[index].manufacturer = brandAsSupplier.shortName || brandAsSupplier.name;
+                                                                                                        newList[index].manufacturerId = brandAsSupplier.id;
+                                                                                                        if (!suppliers.find(s => s.id === brandAsSupplier.id)) {
+                                                                                                            setSuppliers([...suppliers, brandAsSupplier]);
+                                                                                                        }
+                                                                                                    }
+                                                                                                } catch { /* ignore lookup failure, name is already set */ }
+                                                                                            }
+
+                                                                                            // Auto-fill NCC from product's primary supplier
+                                                                                            if (fullProduct.supplierId) {
+                                                                                                const supplierData = await CustomerService.getById(fullProduct.supplierId);
+                                                                                                if (supplierData) {
+                                                                                                    newList[index].supplier = supplierData.shortName || supplierData.name;
+                                                                                                    newList[index].supplierId = supplierData.id;
+                                                                                                    if (!suppliers.find(s => s.id === supplierData.id)) {
+                                                                                                        setSuppliers([...suppliers, supplierData]);
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    } catch (err) {
+                                                                                        console.warn('[Auto-fill] Could not fetch product details:', err);
+                                                                                    }
+
                                                                                     setLineItems(newList);
                                                                                 }
                                                                             }}
@@ -304,46 +429,63 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                             </tr>
                                             {/* ── Row 2: Hãng SX, NCC, SL, Giá, VAT, CP, Chênh lệch ── */}
                                             <tr className={`${rowBg} group transition-colors hover:bg-indigo-50/60 dark:hover:bg-slate-700/60 border-b border-slate-100 dark:border-slate-700/50`}>
-                                                {/* Hãng SX — chọn trước */}
+                                                {/* Hãng SX — auto-filled from product, locked if product has brand */}
                                                 <td className="px-2 pb-2 pt-1">
-                                                    <SearchableSelect
-                                                        value={item.manufacturerId || (item.manufacturer ? suppliers.find(s => s.name === item.manufacturer || s.shortName === item.manufacturer)?.id : null) || null}
-                                                        placeholder="Hãng SX..."
-                                                        getDisplayValue={(id) => {
-                                                            const mfr = suppliers.find(s => s.id === id);
-                                                            return mfr ? (mfr.shortName || mfr.name) : item.manufacturer || undefined;
-                                                        }}
-                                                        onChange={(mId, option) => {
-                                                            const newList = [...lineItems];
-                                                            if (mId && option) {
-                                                                newList[index].manufacturer = option.name;
-                                                                newList[index].manufacturerId = mId;
-                                                                // Auto-fill NCC = Hãng SX nếu NCC đang trống
-                                                                if (!newList[index].supplierId && !newList[index].supplier) {
-                                                                    newList[index].supplier = option.name;
-                                                                    newList[index].supplierId = mId;
-                                                                    if (!suppliers.find(s => s.id === mId)) {
-                                                                        setSuppliers([...suppliers, { id: mId, name: option.name, shortName: option.name, type: 'Supplier', industry: [], contactPerson: '', phone: '', email: '', address: '', rating: 'Standard' } as Customer]);
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                newList[index].manufacturer = '';
-                                                                newList[index].manufacturerId = undefined;
-                                                            }
-                                                            setLineItems(newList);
-                                                        }}
-                                                        onSearch={async (query) => {
-                                                            const results = await CustomerService.search(query, 20);
-                                                            return results
-                                                                .filter(c => c.type === 'Supplier' || c.type === 'Both')
-                                                                .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry?.join(', ') || undefined }));
-                                                        }}
-                                                        onAddNew={() => {
-                                                            setAddSupplierForIndex(index);
-                                                            setShowAddSupplierDialog(true);
-                                                        }}
-                                                        addNewLabel="Thêm hãng SX mới"
-                                                    />
+                                                    {(() => {
+                                                        const selectedProduct = item.productId ? products.find(p => p.id === item.productId) : null;
+                                                        const isBrandLocked = !!(selectedProduct?.brandId && item.manufacturer);
+                                                        return (
+                                                            <div className="relative">
+                                                                {isBrandLocked ? (
+                                                                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm cursor-not-allowed" title="Hãng SX được gán tự động từ sản phẩm gốc">
+                                                                        <Lock size={12} className="text-slate-400 shrink-0" />
+                                                                        <span className="text-slate-700 dark:text-slate-300 font-medium truncate">
+                                                                            {item.manufacturer || 'N/A'}
+                                                                        </span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <SearchableSelect
+                                                                        value={item.manufacturerId || (item.manufacturer ? suppliers.find(s => s.name === item.manufacturer || s.shortName === item.manufacturer)?.id : null) || null}
+                                                                        placeholder="Hãng SX..."
+                                                                        getDisplayValue={(id) => {
+                                                                            const mfr = suppliers.find(s => s.id === id);
+                                                                            return mfr ? (mfr.shortName || mfr.name) : item.manufacturer || undefined;
+                                                                        }}
+                                                                        onChange={(mId, option) => {
+                                                                            const newList = [...lineItems];
+                                                                            if (mId && option) {
+                                                                                newList[index].manufacturer = option.name;
+                                                                                newList[index].manufacturerId = mId;
+                                                                                // Auto-fill NCC = Hãng SX nếu NCC đang trống
+                                                                                if (!newList[index].supplierId && !newList[index].supplier) {
+                                                                                    newList[index].supplier = option.name;
+                                                                                    newList[index].supplierId = mId;
+                                                                                    if (!suppliers.find(s => s.id === mId)) {
+                                                                                        setSuppliers([...suppliers, { id: mId, name: option.name, shortName: option.name, type: 'Supplier', industry: [], contactPerson: '', phone: '', email: '', address: '', rating: 'Standard' } as Customer]);
+                                                                                    }
+                                                                                }
+                                                                            } else {
+                                                                                newList[index].manufacturer = '';
+                                                                                newList[index].manufacturerId = undefined;
+                                                                            }
+                                                                            setLineItems(newList);
+                                                                        }}
+                                                                        onSearch={async (query) => {
+                                                                            const results = await CustomerService.search(query, 20);
+                                                                            return results
+                                                                                .filter(c => c.type === 'Supplier' || c.type === 'Both')
+                                                                                .map(c => ({ id: c.id, name: c.shortName || c.name, subText: c.industry?.join(', ') || undefined }));
+                                                                        }}
+                                                                        onAddNew={() => {
+                                                                            setAddSupplierForIndex(index);
+                                                                            setShowAddSupplierDialog(true);
+                                                                        }}
+                                                                        addNewLabel="Thêm hãng SX mới"
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 {/* NCC — auto-fill từ Hãng SX, user có thể đổi */}
                                                 <td className="px-2 pb-2 pt-1">

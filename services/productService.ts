@@ -200,6 +200,27 @@ export const ProductService = {
     },
 
     /**
+     * Check if a product with the given name already exists.
+     * @param name - product name to check
+     * @param excludeId - optional product ID to exclude (for edit mode)
+     * @returns the existing product if found, or null
+     */
+    checkNameExists: async (name: string, excludeId?: string): Promise<Product | null> => {
+        if (!name || name.trim().length < 2) return null;
+        let query = supabase
+            .from('products')
+            .select(SELECT_WITH_JOINS)
+            .ilike('name', name.trim())
+            .limit(1);
+        if (excludeId) {
+            query = query.neq('id', excludeId);
+        }
+        const { data, error } = await query;
+        if (error) return null;
+        return data && data.length > 0 ? mapProduct(data[0]) : null;
+    },
+
+    /**
      * Search products by name or code (for SearchableSelect)
      */
     search: async (query: string, limit: number = 20): Promise<Product[]> => {

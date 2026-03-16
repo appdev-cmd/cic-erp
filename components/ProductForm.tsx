@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
-import { Save, X, Loader2, Search, ChevronDown, Sparkles, Plus, RefreshCw } from 'lucide-react';
+import { Save, X, Loader2, Search, ChevronDown, Sparkles, Plus, RefreshCw, AlertTriangle } from 'lucide-react';
 import Modal from './ui/Modal';
 import NumberInput from './ui/NumberInput';
 import QuickAddBrandDialog from './ui/QuickAddBrandDialog';
+import QuickAddSupplierDialog from './ui/QuickAddSupplierDialog';
 import { Product, ProductCategory, LicenseType, Unit, Brand, Customer } from '../types';
 import { UnitService, BrandService, CustomerService, ProductLineService, ProductEditionService } from '../services';
 import { ProductService } from '../services/productService';
@@ -205,8 +206,17 @@ const BrandCombobox: React.FC<{
     );
 };
 
-const buildProductName = (line?: string, edition?: string, license?: string): string => {
-    return [line, edition, license].filter(Boolean).join(' ');
+/** Categories that get auto-prepended to the product name */
+const PREFIXED_CATEGORIES = ['Phần mềm', 'Thiết bị'];
+
+const buildProductName = (category: string, line?: string, edition?: string, license?: string): string => {
+    const parts = [line, edition, license].filter(Boolean);
+    if (parts.length === 0) return '';
+    const base = parts.join(' ');
+    if (PREFIXED_CATEGORIES.includes(category)) {
+        return `${category} ${base}`;
+    }
+    return base;
 };
 
 const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, product }) => {
@@ -241,15 +251,36 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
     const [isGeneratingCode, setIsGeneratingCode] = useState(false);
     const [brandDialogOpen, setBrandDialogOpen] = useState(false);
     const [brandDialogInitial, setBrandDialogInitial] = useState('');
+    const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
+    const [supplierDialogInitial, setSupplierDialogInitial] = useState('');
 
     // Determine if this is an old product (no structured fields)
     const isLegacyProduct = product && !product.productLine && !product.edition && !product.licenseType;
 
-    // Auto-build name from structured parts
+    // Duplicate name check
+    const [duplicateProduct, setDuplicateProduct] = useState<Product | null>(null);
+    const duplicateTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Auto-build name from structured parts (with category prefix for PM/TB)
     const builtName = useMemo(
-        () => buildProductName(formData.productLine, formData.edition, formData.licenseType),
-        [formData.productLine, formData.edition, formData.licenseType]
+        () => buildProductName(formData.category, formData.productLine, formData.edition, formData.licenseType),
+        [formData.category, formData.productLine, formData.edition, formData.licenseType]
     );
+
+    // Debounced duplicate name check
+    useEffect(() => {
+        if (duplicateTimerRef.current) clearTimeout(duplicateTimerRef.current);
+        const nameToCheck = isLegacyProduct ? formData.name : builtName;
+        if (!nameToCheck || nameToCheck.trim().length < 3) {
+            setDuplicateProduct(null);
+            return;
+        }
+        duplicateTimerRef.current = setTimeout(async () => {
+            const existing = await ProductService.checkNameExists(nameToCheck.trim(), product?.id);
+            setDuplicateProduct(existing);
+        }, 500);
+        return () => { if (duplicateTimerRef.current) clearTimeout(duplicateTimerRef.current); };
+    }, [builtName, formData.name, isLegacyProduct, product?.id]);
 
     const refreshBrands = () => {
         BrandService.getActive().then(setBrands).catch(console.error);
@@ -363,6 +394,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
             toast.error('Vui lòng chọn hoặc thêm Hãng/Thương hiệu');
             return;
         }
+        if (duplicateProduct) {
+            const name = isLegacyProduct ? formData.name : builtName;
+            toast.error(`Sản phẩm "${name}" đã tồn tại (Mã: ${duplicateProduct.code}). Vui lòng kiểm tra lại.`);
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -459,14 +495,31 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                             <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Cấu trúc tên sản phẩm</span>
                         </div>
 
-                        <ComboboxInput
-                            value={formData.productLine}
-                            onChange={(v) => setFormData(prev => ({ ...prev, productLine: v }))}
-                            options={lineOptions}
-                            placeholder="Chỉ ghi tên ngắn gọn. VD: enjiCAD, Escon, SAP2000, Tư vấn BIM..."
-                            label="Dòng sản phẩm *"
-                        />
+                        {/* Row 1: Danh mục + Dòng sản phẩm */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Danh mục *</label>
+                                <select
+                                    required
+                                    value={formData.category}
+                                    onChange={e => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
+                                >
+                                    {CATEGORY_MAP.map(cat => (
+                                        <option key={cat.label} value={cat.label}>{cat.label} ({cat.code})</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <ComboboxInput
+                                value={formData.productLine}
+                                onChange={(v) => setFormData(prev => ({ ...prev, productLine: v }))}
+                                options={lineOptions}
+                                placeholder="VD: enjiCAD, Escon..."
+                                label="Sản phẩm *"
+                            />
+                        </div>
 
+                        {/* Row 2: Phiên bản + License */}
                         <div className="grid grid-cols-2 gap-3">
                             <ComboboxInput
                                 value={formData.edition}
@@ -495,27 +548,31 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                         {builtName && (
                             <div className="mt-2 px-4 py-2.5 bg-white dark:bg-slate-800 rounded-lg border border-indigo-200 dark:border-indigo-800 flex items-center gap-2">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap">Tên SP:</span>
-                                <span className="text-sm font-black text-indigo-700 dark:text-indigo-300 truncate">{builtName}</span>
+                                <span className="text-sm font-black text-indigo-700 dark:text-indigo-300 truncate flex-1">{builtName}</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap">ĐVT:</span>
+                                <input
+                                    type="text"
+                                    value={formData.unit}
+                                    onChange={e => setFormData(prev => ({ ...prev, unit: e.target.value }))}
+                                    className="w-20 px-2 py-1 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-sm font-bold text-center focus:border-indigo-500 outline-none transition-all text-slate-800 dark:text-slate-200"
+                                />
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* Row 2: Category + Unit */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Danh mục *</label>
-                        <select
-                            required
-                            value={formData.category}
-                            onChange={e => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
-                        >
-                            {CATEGORY_MAP.map(cat => (
-                                <option key={cat.label} value={cat.label}>{cat.label} ({cat.code})</option>
-                            ))}
-                        </select>
+                {/* Duplicate warning (shown outside name builder for legacy, inside for structured) */}
+                {!isLegacyProduct && duplicateProduct && (
+                    <div className="-mt-3 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg flex items-start gap-2">
+                        <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                        <div className="text-xs text-amber-700 dark:text-amber-400">
+                            <span className="font-bold">Trùng tên!</span> Sản phẩm <span className="font-bold">"{duplicateProduct.name}"</span> đã tồn tại (Mã: {duplicateProduct.code}).
+                        </div>
                     </div>
+                )}
+
+                {/* Legacy product: show unit separately */}
+                {isLegacyProduct && (
                     <div>
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Đơn vị tính *</label>
                         <input
@@ -527,7 +584,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
                         />
                     </div>
-                </div>
+                )}
 
                 {/* Row 3: Brand (required, combobox with add-new) + Supplier */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -546,39 +603,64 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                     />
                     <div className="relative">
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Nhà cung cấp chính</label>
-                        {selectedSupplierName ? (
-                            <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                <span className="flex-1 font-medium text-slate-900 dark:text-slate-100 truncate">{selectedSupplierName}</span>
-                                <button type="button" onClick={clearSupplier} className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer">
-                                    <X size={14} className="text-slate-400" />
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="relative">
-                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input
-                                    type="text"
-                                    value={supplierSearch}
-                                    onChange={e => setSupplierSearch(e.target.value)}
-                                    onFocus={() => supplierResults.length > 0 && setShowSupplierDropdown(true)}
-                                    placeholder="Tìm NCC theo tên..."
-                                    className="w-full pl-9 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
-                                />
-                            </div>
-                        )}
-                        {showSupplierDropdown && supplierResults.length > 0 && (
+                        <div className="relative">
+                            {formData.supplierId ? (
+                                <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+                                    <span className="flex-1 font-medium text-slate-900 dark:text-slate-100 truncate">{selectedSupplierName}</span>
+                                    <button type="button" onClick={clearSupplier} className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer">
+                                        <X size={14} className="text-slate-400" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    <input
+                                        type="text"
+                                        value={supplierSearch}
+                                        onChange={e => {
+                                            setSupplierSearch(e.target.value);
+                                            if (!showSupplierDropdown) setShowSupplierDropdown(true);
+                                        }}
+                                        onFocus={() => setShowSupplierDropdown(true)}
+                                        onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 250)}
+                                        placeholder="Gõ tên NCC hoặc chọn..."
+                                        className="w-full px-4 py-3 pr-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200 placeholder-slate-400"
+                                    />
+                                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                </>
+                            )}
+                        </div>
+                        {showSupplierDropdown && !formData.supplierId && (
                             <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
                                 {supplierResults.map(s => (
                                     <button
                                         key={s.id}
                                         type="button"
+                                        onMouseDown={(e) => e.preventDefault()}
                                         onClick={() => selectSupplier(s)}
                                         className="w-full px-4 py-2.5 text-left hover:bg-indigo-50 dark:hover:bg-slate-800 text-sm transition-colors cursor-pointer"
                                     >
-                                        <span className="font-medium text-slate-900 dark:text-slate-100">{s.name}</span>
+                                        {s.name}
                                         {s.shortName && <span className="ml-2 text-slate-400 text-xs">({s.shortName})</span>}
                                     </button>
                                 ))}
+                                {supplierSearch.trim() && !supplierResults.some(s => s.name.toLowerCase() === supplierSearch.trim().toLowerCase()) && (
+                                    <button
+                                        type="button"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => {
+                                            setSupplierDialogInitial(supplierSearch.trim());
+                                            setSupplierDialogOpen(true);
+                                            setShowSupplierDropdown(false);
+                                        }}
+                                        className="w-full text-left px-4 py-2.5 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors border-t border-slate-100 dark:border-slate-700 flex items-center gap-2"
+                                    >
+                                        <Plus size={14} />
+                                        Thêm NCC "{supplierSearch.trim()}"
+                                    </button>
+                                )}
+                                {supplierResults.length === 0 && !supplierSearch.trim() && (
+                                    <div className="px-4 py-3 text-sm text-slate-400 text-center">Gõ tên để tìm NCC</div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -678,6 +760,18 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                     setBrandDialogOpen(false);
                 }}
                 initialName={brandDialogInitial}
+            />
+
+            {/* Quick Add Supplier Dialog */}
+            <QuickAddSupplierDialog
+                isOpen={supplierDialogOpen}
+                onClose={() => setSupplierDialogOpen(false)}
+                onCreated={(supplier) => {
+                    setFormData(prev => ({ ...prev, supplierId: supplier.id }));
+                    setSelectedSupplierName(supplier.name);
+                    setSupplierDialogOpen(false);
+                }}
+                initialName={supplierDialogInitial}
             />
         </Modal>
     );
