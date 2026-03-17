@@ -353,10 +353,10 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                     {isCategoryDropdownOpen && (
                         <>
                             <div
-                                className="fixed inset-0 z-10"
+                                className="fixed inset-0 z-20"
                                 onClick={() => setIsCategoryDropdownOpen(false)}
                             />
-                            <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden">
+                            <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-30 overflow-hidden">
                                 <button
                                     onClick={() => {
                                         setCategoryFilter('all');
@@ -402,8 +402,8 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
 
                     {isBrandDropdownOpen && (
                         <>
-                            <div className="fixed inset-0 z-10" onClick={() => setIsBrandDropdownOpen(false)} />
-                            <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden max-h-56 overflow-y-auto">
+                            <div className="fixed inset-0 z-20" onClick={() => setIsBrandDropdownOpen(false)} />
+                            <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-30 overflow-hidden max-h-56 overflow-y-auto">
                                 <button
                                     onClick={() => { setBrandFilter('all'); setIsBrandDropdownOpen(false); }}
                                     className={`w-full px-3 py-2.5 text-xs text-left transition-colors cursor-pointer ${brandFilter === 'all'
@@ -443,8 +443,8 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
 
                     {isStatusDropdownOpen && (
                         <>
-                            <div className="fixed inset-0 z-10" onClick={() => setIsStatusDropdownOpen(false)} />
-                            <div className="absolute top-full left-0 mt-1 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden">
+                            <div className="fixed inset-0 z-20" onClick={() => setIsStatusDropdownOpen(false)} />
+                            <div className="absolute top-full left-0 mt-1 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-30 overflow-hidden">
                                 {[{ value: 'all', label: 'Tất cả' }, { value: 'active', label: 'Đang bán' }, { value: 'inactive', label: 'Ngừng bán' }].map(opt => (
                                     <button
                                         key={opt.value}
@@ -475,8 +475,8 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
 
                     {isSupplierDropdownOpen && (
                         <>
-                            <div className="fixed inset-0 z-10" onClick={() => setIsSupplierDropdownOpen(false)} />
-                            <div className="absolute top-full left-0 mt-1 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-20 overflow-hidden max-h-56 overflow-y-auto">
+                            <div className="fixed inset-0 z-20" onClick={() => setIsSupplierDropdownOpen(false)} />
+                            <div className="absolute top-full left-0 mt-1 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-30 overflow-hidden max-h-56 overflow-y-auto">
                                 <button
                                     onClick={() => { setSupplierFilter('all'); setIsSupplierDropdownOpen(false); }}
                                     className={`w-full px-3 py-2.5 text-xs text-left transition-colors cursor-pointer ${supplierFilter === 'all'

@@ -15,16 +15,22 @@ import { ExchangeRateService, ExchangeRate, COMMON_CURRENCIES } from '../../serv
 
 /**
  * Safely evaluate a math expression string.
- * Supports: +, -, *, /, (), and decimal numbers.
+ * Supports: +, -, *, /, (), %, and decimal numbers.
+ * Percentage: 70% → (70/100), so 1000*70% = 700
  * Returns NaN if invalid.
  */
 function safeEval(expr: string): number {
     // Remove whitespace and replace commas with dots for decimals
-    const cleaned = expr.replace(/\s/g, '').replace(/,/g, '.');
-    // Only allow math characters: digits, dots, +, -, *, /, (, )
-    if (!/^[0-9.+\-*/()]+$/.test(cleaned)) return NaN;
+    let cleaned = expr.replace(/\s/g, '').replace(/,/g, '.');
+    // Only allow math characters: digits, dots, +, -, *, /, (, ), %
+    if (!/^[0-9.+\-*/()%]+$/.test(cleaned)) return NaN;
     // Reject empty or invalid patterns
     if (!cleaned || cleaned.length === 0) return NaN;
+    // Convert percentage: number% → (number/100)
+    // Handles patterns like 70%, 12.5%, (100+50)%
+    cleaned = cleaned.replace(/([0-9.]+)%/g, '($1/100)');
+    // Also handle parenthesized expressions followed by %: (expr)%
+    cleaned = cleaned.replace(/(\([^)]+\))%/g, '($1/100)');
     try {
         // Use Function constructor (safer than eval, no access to scope)
         const result = new Function(`"use strict"; return (${cleaned});`)();
@@ -183,7 +189,7 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
     }, [isOpen]);
 
     // Check if expression contains operators (is a formula)
-    const isFormula = (expr: string) => /[+\-*/()]/.test(expr);
+    const isFormula = (expr: string) => /[+\-*/(%)]+/.test(expr);
 
     const handleVNDApply = () => {
         if (!isNaN(vndResult)) {
@@ -301,14 +307,14 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1.5">
                                     Công thức / Giá trị (VND)
-                                    <span className="text-[8px] font-medium text-slate-400/70 normal-case">hỗ trợ +, -, *, /, ()</span>
+                                    <span className="text-[8px] font-medium text-slate-400/70 normal-case">hỗ trợ +, -, *, /, (), %</span>
                                 </label>
                                 <input
                                     type="text"
                                     value={vndExpr}
                                     onChange={(e) => setVndExpr(e.target.value)}
                                     onKeyDown={(e) => handleKeyDown(e, handleVNDApply)}
-                                    placeholder="VD: 2000*(222+333)"
+                                    placeholder="VD: 2000*(222+333) hoặc 1000*70%"
                                     autoFocus
                                     className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-base font-mono font-bold text-right text-slate-800 dark:text-slate-100 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-400/20"
                                 />
@@ -380,7 +386,7 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
                                         value={foreignExpr}
                                         onChange={(e) => setForeignExpr(e.target.value)}
                                         onKeyDown={(e) => handleKeyDown(e, handleForeignApply)}
-                                        placeholder="VD: 1500 hoặc 500+1000"
+                                        placeholder="VD: 1500 hoặc 500+1000 hoặc 1000*70%"
                                         autoFocus
                                         className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-base font-mono font-bold text-right text-cyan-600 dark:text-cyan-400 outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
                                     />

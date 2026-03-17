@@ -27,6 +27,7 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
     // CRUD State
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingUnit, setEditingUnit] = useState<Unit | undefined>(undefined);
+    const [presetParentId, setPresetParentId] = useState<string | undefined>(undefined);
 
     // Filter out non-business units + scope to user's own unit for unit-scoped roles
     const units = useMemo(() => {
@@ -78,6 +79,13 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
 
     const handleAdd = () => {
         setEditingUnit(undefined);
+        setPresetParentId(undefined);
+        setIsFormOpen(true);
+    };
+
+    const handleAddChild = (parentId: string) => {
+        setEditingUnit(undefined);
+        setPresetParentId(parentId);
         setIsFormOpen(true);
     };
 
@@ -171,6 +179,7 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                 <OrganizationChart
                     onSelectUnit={(unit) => onSelectUnit?.(unit.id)}
                     onEditUnit={handleEdit}
+                    onAddChild={handleAddChild}
                 />
             ) : (
                 <>
@@ -214,7 +223,6 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                                         <th className="text-right py-3 px-3 text-[11px] font-black text-blue-500 uppercase tracking-wider">Ký kết</th>
                                         <th className="text-right py-3 px-3 text-[11px] font-black text-emerald-500 uppercase tracking-wider">Doanh thu</th>
                                         <th className="text-right py-3 px-3 text-[11px] font-black text-purple-500 uppercase tracking-wider">LNG QT</th>
-                                        <th className="py-3 px-3 text-[11px] font-black text-slate-400 uppercase tracking-wider text-center w-36">Tiến độ KH</th>
                                         <th className="py-3 px-4 w-24"></th>
                                     </tr>
                                 </thead>
@@ -225,7 +233,11 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                                         const revenue = unitStat?.revenue || 0;
                                         const profit = unitStat?.profit || 0;
                                         const targetSigning = unit.target?.signing || 0;
+                                        const targetRevenue = unit.target?.revenue || 0;
+                                        const targetProfit = unit.target?.adminProfit || 0;
                                         const pctSigning = targetSigning > 0 ? Math.round((signing / targetSigning) * 100) : 0;
+                                        const pctRevenue = targetRevenue > 0 ? Math.round((revenue / targetRevenue) * 100) : 0;
+                                        const pctProfit = targetProfit > 0 ? Math.round((profit / targetProfit) * 100) : 0;
                                         const tl = typeLabel(unit.type);
 
                                         return (
@@ -264,34 +276,52 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                                                     <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{(unit as any).stats?.contractCount || 0}</span>
                                                 </td>
 
-                                                {/* Signing */}
                                                 <td className="py-3 px-3 text-right">
                                                     <span className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(signing)}</span>
+                                                    {targetSigning > 0 && <span className="text-[10px] text-slate-400 dark:text-slate-500">/{formatCurrency(targetSigning)}</span>}
+                                                    {targetSigning > 0 && (
+                                                        <div className="flex items-center gap-1.5 mt-1 justify-end">
+                                                            <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all duration-700 ${pctSigning >= 100 ? 'bg-emerald-500' : pctSigning >= 70 ? 'bg-blue-500' : 'bg-amber-500'}`}
+                                                                    style={{ width: `${Math.min(100, pctSigning)}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <span className={`text-[10px] font-black ${pctSigning >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>{pctSigning}%</span>
+                                                        </div>
+                                                    )}
                                                 </td>
 
-                                                {/* Revenue */}
                                                 <td className="py-3 px-3 text-right">
                                                     <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(revenue)}</span>
+                                                    {targetRevenue > 0 && <span className="text-[10px] text-slate-400 dark:text-slate-500">/{formatCurrency(targetRevenue)}</span>}
+                                                    {targetRevenue > 0 && (
+                                                        <div className="flex items-center gap-1.5 mt-1 justify-end">
+                                                            <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all duration-700 ${pctRevenue >= 100 ? 'bg-emerald-500' : pctRevenue >= 70 ? 'bg-emerald-400' : 'bg-amber-500'}`}
+                                                                    style={{ width: `${Math.min(100, pctRevenue)}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <span className={`text-[10px] font-black ${pctRevenue >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>{pctRevenue}%</span>
+                                                        </div>
+                                                    )}
                                                 </td>
 
-                                                {/* Profit */}
                                                 <td className="py-3 px-3 text-right">
                                                     <span className="text-sm font-black text-purple-600 dark:text-purple-400">{formatCurrency(profit)}</span>
-                                                </td>
-
-                                                {/* Progress */}
-                                                <td className="py-3 px-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full transition-all duration-700 ${pctSigning >= 100 ? 'bg-emerald-500' : pctSigning >= 70 ? 'bg-indigo-500' : 'bg-amber-500'}`}
-                                                                style={{ width: `${Math.min(100, pctSigning)}%` }}
-                                                            ></div>
+                                                    {targetProfit > 0 && <span className="text-[10px] text-slate-400 dark:text-slate-500">/{formatCurrency(targetProfit)}</span>}
+                                                    {targetProfit > 0 && (
+                                                        <div className="flex items-center gap-1.5 mt-1 justify-end">
+                                                            <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all duration-700 ${pctProfit >= 100 ? 'bg-emerald-500' : pctProfit >= 70 ? 'bg-purple-500' : 'bg-amber-500'}`}
+                                                                    style={{ width: `${Math.min(100, pctProfit)}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <span className={`text-[10px] font-black ${pctProfit >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>{pctProfit}%</span>
                                                         </div>
-                                                        <span className={`text-xs font-black w-10 text-right ${pctSigning >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}`}>
-                                                            {pctSigning}%
-                                                        </span>
-                                                    </div>
+                                                    )}
                                                 </td>
 
                                                 {/* Actions */}
@@ -330,9 +360,10 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
 
             <UnitForm
                 isOpen={isFormOpen}
-                onClose={() => setIsFormOpen(false)}
+                onClose={() => { setIsFormOpen(false); setPresetParentId(undefined); }}
                 onSave={handleSave}
                 unit={editingUnit}
+                presetParentId={presetParentId}
             />
         </div>
     );

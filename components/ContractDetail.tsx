@@ -33,7 +33,8 @@ import {
   Plus,
   Loader2,
   ExternalLink,
-  HardDrive
+  HardDrive,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Contract, Unit, Milestone, PaymentPhase, AdministrativeCosts, ContractDocument } from '../types';
 import { ContractService, UnitService, EmployeeService, CustomerService, DocumentService, WorkflowService, AuditLogService, AuditLog } from '../services';
@@ -54,6 +55,7 @@ import { formatDate } from '../utils/formatters';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
 import CustomerDetail from './CustomerDetail';
 import AcceptanceDialog from './ui/AcceptanceDialog';
+import { generateBusinessPlanPdf } from '../utils/businessPlanPdf';
 
 interface ContractDetailProps {
   contract?: Contract;
@@ -94,6 +96,8 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [customerShortName, setCustomerShortName] = useState('');
   // Allocation display names
   const [allocationNames, setAllocationNames] = useState<{ unitName: string; employeeName: string; percent: number; role: string }[]>([]);
+  // Employee allocation names (lead unit employees with %)
+  const [employeeAllocationNames, setEmployeeAllocationNames] = useState<{ employeeName: string; percent: number; role: string }[]>([]);
 
   // Documents State
   const [documents, setDocuments] = useState<ContractDocument[]>([]);
@@ -203,6 +207,25 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
           setAllocationNames(allocResults);
         } else {
           setAllocationNames([]);
+        }
+
+        // Employee Allocations — resolve names for lead unit employees
+        if (contract.employeeAllocations && contract.employeeAllocations.length > 0) {
+          const empResults = await Promise.all(
+            contract.employeeAllocations.map(async (alloc: any) => {
+              let eName = alloc.employeeId || '';
+              if (alloc.employeeId) {
+                try {
+                  const emp = await EmployeeService.getById(alloc.employeeId);
+                  if (emp) eName = emp.name;
+                } catch { /* fallback to ID */ }
+              }
+              return { employeeName: eName, percent: alloc.percent, role: alloc.role };
+            })
+          );
+          setEmployeeAllocationNames(empResults);
+        } else {
+          setEmployeeAllocationNames([]);
         }
 
       } catch (e) {
@@ -411,15 +434,8 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
               </div>
               <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">{contract?.title}</h1>
 
+              {/* Khách hàng & thông tin phụ */}
               <div className="flex flex-wrap gap-4 mt-3">
-                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs font-medium">
-                  <Building2 size={14} />
-                  <span>Đơn vị: <b className="text-slate-700 dark:text-slate-200">{unitName}</b></span>
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs font-medium">
-                  <User size={14} />
-                  <span>PIC: <b className="text-slate-700 dark:text-slate-200">{salesName}</b></span>
-                </div>
                 <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs font-medium">
                   <Users size={14} />
                   <span>Khách hàng: {contract.customerId ? (
@@ -519,26 +535,104 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                   </div>
                 )}
               </div>
-              {/* Unit Allocations Display */}
-              {allocationNames.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
+              {/* ═══ Tổ chức thực hiện — hiển thị đầy đủ đơn vị & nhân sự ═══ */}
+              {(allocationNames.length > 0 || employeeAllocationNames.length > 0) && (
+                <div className="mt-3 space-y-1.5">
+                  {/* Group by units */}
                   {allocationNames.map((alloc, i) => (
-                    <div
-                      key={i}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${alloc.role === 'lead'
+                    <div key={`unit-${i}`} className="flex items-start gap-2">
+                      {/* Unit badge */}
+                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border shrink-0 ${alloc.role === 'lead'
                         ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
                         : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800'
                         }`}
-                    >
-                      <Building2 size={12} />
-                      <span className="font-bold">{alloc.role === 'lead' ? 'Chủ trì' : 'Phối hợp'}:</span>
-                      <span>{alloc.unitName}</span>
-                      {alloc.employeeName && (
-                        <><span className="text-slate-400 dark:text-slate-500">•</span><User size={11} /><span>{alloc.employeeName}</span></>
-                      )}
-                      <span className="ml-1 px-1.5 py-0.5 rounded bg-white/60 dark:bg-slate-800/60 text-[10px] font-black">{alloc.percent}%</span>
+                      >
+                        <Building2 size={12} />
+                        <span className="font-bold">{alloc.role === 'lead' ? 'Chủ trì' : 'Phối hợp'}:</span>
+                        <span>{alloc.unitName}</span>
+                        <span className="ml-1 px-1.5 py-0.5 rounded bg-white/80 dark:bg-slate-800 text-[10px] font-black text-slate-700 dark:text-slate-200">{alloc.percent}%</span>
+                      </div>
+                      {/* Employees of this unit */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {alloc.role === 'lead' && employeeAllocationNames.length > 0 ? (
+                          // Lead unit: show all employees from employeeAllocations
+                          employeeAllocationNames.map((emp, j) => (
+                            <div
+                              key={`emp-${j}`}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border ${
+                                emp.role === 'lead'
+                                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800'
+                                  : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              <User size={11} />
+                              <span>{emp.employeeName}</span>
+                              <span className="px-1 py-0.5 rounded bg-white/80 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-200">{emp.percent}%</span>
+                              {emp.role === 'lead' && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">CHÍNH</span>
+                              )}
+                            </div>
+                          ))
+                        ) : alloc.role === 'lead' ? (
+                          // Lead unit with no employeeAllocations — show legacy PIC
+                          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800">
+                            <User size={11} />
+                            <span>{salesName}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider">CHÍNH</span>
+                          </div>
+                        ) : alloc.employeeName ? (
+                          // Support unit: show the single employee
+                          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700">
+                            <User size={11} />
+                            <span>{alloc.employeeName}</span>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
+                  {/* Fallback: no unitAllocations but has employeeAllocations (legacy: only lead unit) */}
+                  {allocationNames.length === 0 && employeeAllocationNames.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 shrink-0">
+                        <Building2 size={12} />
+                        <span className="font-bold">Chủ trì:</span>
+                        <span>{unitName}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {employeeAllocationNames.map((emp, j) => (
+                          <div
+                            key={`emp-fallback-${j}`}
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border ${
+                              emp.role === 'lead'
+                                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800'
+                                : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                            }`}
+                          >
+                            <User size={11} />
+                            <span>{emp.employeeName}</span>
+                            <span className="px-1 py-0.5 rounded bg-white/80 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-200">{emp.percent}%</span>
+                            {emp.role === 'lead' && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">CHÍNH</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Fallback khi không có allocation nào — vẫn hiện đơn vị + PIC */}
+              {allocationNames.length === 0 && employeeAllocationNames.length === 0 && (
+                <div className="flex items-center gap-3 mt-3">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800">
+                    <Building2 size={12} />
+                    <span>{unitName}</span>
+                  </div>
+                  <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800">
+                    <User size={11} />
+                    <span>{salesName}</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider">PIC</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -563,6 +657,22 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                 Chỉnh sửa
               </button>
             )}
+            <button
+              onClick={async () => {
+                try {
+                  toast.info('Đang tạo PDF PAKD...');
+                  await generateBusinessPlanPdf(contract, customerName, salesName, unitName);
+                  toast.success('Đã tải PDF PAKD!');
+                } catch (err: any) {
+                  console.error('PDF generation error:', err);
+                  toast.error('Lỗi tạo PDF: ' + (err.message || err));
+                }
+              }}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 dark:shadow-none"
+            >
+              <FileSpreadsheet size={16} />
+              Xuất PAKD
+            </button>
             <button
               onClick={() => window.print()}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-semibold hover:bg-orange-700 transition-all shadow-lg shadow-orange-100 dark:shadow-none"

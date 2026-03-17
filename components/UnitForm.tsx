@@ -1,22 +1,23 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
-import { Save, Loader2, X, Building, User, Phone, Mail, MapPin, Search } from 'lucide-react';
+import { Save, Loader2, X, Building, User, Phone, Mail, MapPin, Search, Network } from 'lucide-react';
 import Modal from './ui/Modal';
-import NumberInput from './ui/NumberInput';
 import { Unit, KPIPlan, Employee } from '../types';
-import { EmployeeService } from '../services';
+import { EmployeeService, UnitService } from '../services';
 
 interface UnitFormProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (data: Omit<Unit, 'id'> | Unit) => Promise<void>;
     unit?: Unit;
+    presetParentId?: string;
 }
 
-const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) => {
+const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit, presetParentId }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [employees, setEmployees] = useState<Employee[]>([]);
+    const [allUnits, setAllUnits] = useState<Unit[]>([]);
     const [managerSearch, setManagerSearch] = useState('');
     const [showManagerDropdown, setShowManagerDropdown] = useState(false);
     const managerDropdownRef = useRef<HTMLDivElement>(null);
@@ -48,24 +49,29 @@ const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) =>
         functions: '',
         // Phase 2 fields
         managerId: '',
+        parentId: '' as string | undefined,
         address: '',
         phone: '',
         email: '',
         description: '',
     });
 
-    // Fetch employees for manager selector
+    // Fetch employees and units for selectors
     useEffect(() => {
-        const fetchEmployees = async () => {
+        const fetchData = async () => {
             try {
-                const data = await EmployeeService.list({ page: 1, pageSize: 100 });
-                const empList = Array.isArray(data) ? data : (data as any).data || [];
+                const [empData, unitsData] = await Promise.all([
+                    EmployeeService.list({ page: 1, pageSize: 100 }),
+                    UnitService.getAll()
+                ]);
+                const empList = Array.isArray(empData) ? empData : (empData as any).data || [];
                 setEmployees(empList);
+                setAllUnits(unitsData.filter(u => u.id !== 'all'));
             } catch (error) {
-                console.error('Error fetching employees:', error);
+                console.error('Error fetching form data:', error);
             }
         };
-        if (isOpen) fetchEmployees();
+        if (isOpen) fetchData();
     }, [isOpen]);
 
     // Filter employees for manager dropdown
@@ -91,6 +97,7 @@ const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) =>
                 functions: unit.functions || '',
                 // Phase 2 fields
                 managerId: unit.managerId || '',
+                parentId: unit.parentId || '',
                 address: unit.address || '',
                 phone: unit.phone || '',
                 email: unit.email || '',
@@ -111,6 +118,7 @@ const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) =>
                 },
                 functions: '',
                 managerId: '',
+                parentId: presetParentId || '',
                 address: '',
                 phone: '',
                 email: '',
@@ -118,7 +126,7 @@ const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) =>
             });
             setManagerSearch('');
         }
-    }, [unit, isOpen]);
+    }, [unit, isOpen, presetParentId]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -139,15 +147,7 @@ const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) =>
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleTargetChange = (field: keyof KPIPlan, value: number) => {
-        setFormData(prev => ({
-            ...prev,
-            target: {
-                ...prev.target,
-                [field]: value
-            }
-        }));
-    };
+
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={unit ? "Chỉnh sửa Đơn vị" : "Thêm Đơn vị mới"}>
@@ -193,6 +193,33 @@ const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) =>
                                 <option value="Center">Trung tâm</option>
                                 <option value="BackOffice">Phòng ban</option>
                             </select>
+                        </div>
+
+                        {/* Parent Unit Selector */}
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
+                                <Network className="inline w-4 h-4 mr-1" />Đơn vị cha
+                            </label>
+                            <select
+                                value={formData.parentId || ''}
+                                onChange={(e) => handleChange('parentId', e.target.value || undefined)}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 dark:text-slate-100"
+                            >
+                                <option value="">— Không chọn (Root) —</option>
+                                {allUnits
+                                    .filter(u => u.id !== unit?.id) // Exclude self to prevent circular
+                                    .map(u => (
+                                        <option key={u.id} value={u.id}>
+                                            {u.name} ({u.code})
+                                        </option>
+                                    ))
+                                }
+                            </select>
+                            {presetParentId && !unit && (
+                                <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">
+                                    Tự động chọn từ sơ đồ tổ chức
+                                </p>
+                            )}
                         </div>
 
                         {/* Manager Selector */}
@@ -307,56 +334,7 @@ const UnitForm: React.FC<UnitFormProps> = ({ isOpen, onClose, onSave, unit }) =>
                     </div>
                 </div>
 
-                <div className="space-y-4">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-200 border-b pb-2">Chỉ tiêu KPI (Năm)</h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu Ký kết <span className="text-[10px] text-slate-400 font-normal">(VNĐ)</span></label>
-                            <NumberInput
-                                value={formData.target.signing}
-                                onChange={(value) => handleTargetChange('signing', value)}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu Doanh thu <span className="text-[10px] text-slate-400 font-normal">(VNĐ)</span></label>
-                            <NumberInput
-                                value={formData.target.revenue}
-                                onChange={(value) => handleTargetChange('revenue', value)}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu LNG Quản trị <span className="text-[10px] text-slate-400 font-normal">(VNĐ)</span></label>
-                            <NumberInput
-                                value={formData.target.adminProfit}
-                                onChange={(value) => handleTargetChange('adminProfit', value)}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">LNG Doanh thu <span className="text-[10px] text-slate-400 font-normal">(VNĐ)</span></label>
-                            <NumberInput
-                                value={formData.target.revProfit}
-                                onChange={(value) => handleTargetChange('revProfit', value)}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                            />
-                        </div>
-
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Chỉ tiêu Thu tiền <span className="text-[10px] text-slate-400 font-normal">(VNĐ)</span></label>
-                            <NumberInput
-                                value={formData.target.cash}
-                                onChange={(value) => handleTargetChange('cash', value)}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                            />
-                        </div>
-                    </div>
-                </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                     <button

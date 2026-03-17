@@ -623,9 +623,9 @@ export const ContractService = {
                 const endDate = `${year}-12-31`;
                 query = query.gte('signed_date', startDate).lte('signed_date', endDate);
             }
-            if (salespersonId) {
-                query = query.eq('employee_id', salespersonId);
-            }
+            // DO NOT filter by salespersonId in SQL here — we need to find
+            // contracts where the employee appears in employee_allocations too.
+            // Salesperson filtering is done in JS below.
 
             // Sort mapping
             const SORT_MAP: Record<string, string> = {
@@ -644,11 +644,35 @@ export const ContractService = {
             const { data, error } = await query;
             if (error) throw error;
 
+            // Helper: get employee's percentage within the contract (from employee_allocations)
+            const getEmployeePct = (c: any, targetEmployeeId: string): number => {
+                const empAllocs: any[] = c.employee_allocations || [];
+                if (empAllocs.length === 0) {
+                    // Legacy: if contract's employee_id matches, 100%
+                    return c.employee_id === targetEmployeeId ? 100 : 0;
+                }
+                const match = empAllocs.find((a: any) => a.employeeId === targetEmployeeId);
+                if (match) return match.percent || 100;
+                // Also check unit_allocations for support unit employees
+                const unitAllocations: any[] = c.unit_allocations?.allocations || [];
+                const supportMatch = unitAllocations.find(
+                    (a: any) => a.role === 'support' && a.employeeId === targetEmployeeId
+                );
+                if (supportMatch) return 100; // support unit PIC gets 100% of their unit's share
+                return 0;
+            };
+
             // Filter in JS: include contracts where this unit is lead or support
             const filteredContracts: Contract[] = [];
             (data || []).forEach((c: any) => {
                 const allocationPct = getUnitSharePct(c, unitId!);
                 if (allocationPct === 0) return;
+
+                // If salesperson filter is active, also check employee_allocations
+                if (salespersonId) {
+                    const empPct = getEmployeePct(c, salespersonId);
+                    if (empPct === 0) return; // This employee has no role in this contract
+                }
 
                 const isLeadUnit = c.unit_id === unitId;
                 const allocationRole = isLeadUnit ? 'lead' : 'support';
@@ -657,6 +681,10 @@ export const ContractService = {
                 // Tag with allocation info for UI display
                 (mapped as any)._allocationRole = allocationRole;
                 (mapped as any)._allocationPct = allocationPct;
+                // Tag with employee allocation info
+                if (salespersonId) {
+                    (mapped as any)._employeePct = getEmployeePct(c, salespersonId);
+                }
                 filteredContracts.push(mapped);
             });
 
@@ -842,7 +870,7 @@ export const ContractService = {
 
         // Fetch ALL contracts with unit_allocations for allocation-aware filtering
         // OPTIMIZED: No payments JOIN — use pre-computed columns
-        let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, title, party_a, signed_date, unit_id, unit_allocations');
+        let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, title, party_a, signed_date, unit_id, unit_allocations, employee_id, employee_allocations');
 
         if (search) {
             query = query.or(buildSearchFilter(search, matchingCustomerIds, unaccentMatchIds));
@@ -859,9 +887,9 @@ export const ContractService = {
             const endDate = `${year}-12-31`;
             query = query.gte('signed_date', startDate).lte('signed_date', endDate);
         }
-        if (salespersonId) {
-            query = query.eq('employee_id', salespersonId);
-        }
+        // DO NOT filter by salespersonId in SQL — we need to also find
+        // contracts where the employee appears in employee_allocations.
+        // Salesperson filtering is done in JS below.
 
         const { data, error } = await query;
         if (error) throw error;
@@ -879,9 +907,7 @@ export const ContractService = {
             const endDate = `${year}-12-31`;
             statusCountQuery = statusCountQuery.gte('signed_date', startDate).lte('signed_date', endDate);
         }
-        if (salespersonId) {
-            statusCountQuery = statusCountQuery.eq('employee_id', salespersonId);
-        }
+        // Salesperson filtering for status counts is also done in JS.
         const { data: statusData } = await statusCountQuery;
 
         // Determine if filtering by specific unit(s)
@@ -890,7 +916,32 @@ export const ContractService = {
             ? unitId!.split(',').map(id => id.trim())
             : isFilteringByUnit ? [unitId!] : [];
 
-        // Count statuses from unfiltered data (but respecting unit filter)
+        // Helper: check if employee is associated with a contract (via employee_id or employee_allocations)
+        const isEmployeeInContract = (c: any, empId: string): boolean => {
+            if (c.employee_id === empId) return true;
+            const empAllocs: any[] = c.employee_allocations || [];
+            if (empAllocs.some((a: any) => a.employeeId === empId)) return true;
+            const unitAllocs: any[] = c.unit_allocations?.allocations || [];
+            return unitAllocs.some((a: any) => a.role === 'support' && a.employeeId === empId);
+        };
+
+        // Helper: get employee's fraction = unitSharePct × employeePct / 100
+        const getEmployeeSharePct = (c: any, empId: string): number => {
+            const empAllocs: any[] = c.employee_allocations || [];
+            if (empAllocs.length > 0) {
+                const match = empAllocs.find((a: any) => a.employeeId === empId);
+                if (match) return match.percent || 100;
+            }
+            // Check support unit allocations
+            const unitAllocs: any[] = c.unit_allocations?.allocations || [];
+            const supportMatch = unitAllocs.find((a: any) => a.role === 'support' && a.employeeId === empId);
+            if (supportMatch) return 100; // PIC of support unit gets 100% of that unit's share
+            // Legacy: primary employee gets 100%
+            if (c.employee_id === empId) return 100;
+            return 0;
+        };
+
+        // Count statuses from unfiltered data (but respecting unit + salesperson filter)
         const statusCounts = { processingCount: 0, suspendedCount: 0, handoverCount: 0, acceptanceCount: 0, completedCount: 0 };
         (statusData || []).forEach((c: any) => {
             if (isFilteringByUnit) {
@@ -900,6 +951,7 @@ export const ContractService = {
                 }
                 if (matchedPct === 0) return;
             }
+            if (salespersonId && !isEmployeeInContract(c, salespersonId)) return;
             if (c.status === 'Processing') statusCounts.processingCount++;
             else if (c.status === 'Suspended') statusCounts.suspendedCount++;
             else if (c.status === 'Handover') statusCounts.handoverCount++;
@@ -916,19 +968,27 @@ export const ContractService = {
             const cash = curr.cash_received || 0;
 
             // Determine this unit's share percentage using shared helper
-            let sharePct = 100; // Default: 100% for "all" view
+            let unitSharePct = 100; // Default: 100% for "all" view
 
             if (isFilteringByUnit) {
                 let matchedPct = 0;
                 for (const targetUnitId of unitIds) {
                     matchedPct = Math.max(matchedPct, getUnitSharePct(curr, targetUnitId));
                 }
-                sharePct = matchedPct;
+                unitSharePct = matchedPct;
             }
 
-            if (sharePct === 0) return acc; // Skip contracts where unit has no share
+            if (unitSharePct === 0) return acc; // Skip contracts where unit has no share
 
-            const fraction = sharePct / 100;
+            // If filtering by salesperson, check if they're in this contract
+            if (salespersonId && !isEmployeeInContract(curr, salespersonId)) return acc;
+
+            // Combined fraction: unitPct × employeePct
+            let fraction = unitSharePct / 100;
+            if (salespersonId) {
+                const empPct = getEmployeeSharePct(curr, salespersonId);
+                fraction = fraction * empPct / 100;
+            }
 
             return {
                 totalContracts: acc.totalContracts + 1,

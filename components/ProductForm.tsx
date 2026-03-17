@@ -209,8 +209,8 @@ const BrandCombobox: React.FC<{
 /** Categories that get auto-prepended to the product name */
 const PREFIXED_CATEGORIES = ['Phần mềm', 'Thiết bị'];
 
-const buildProductName = (category: string, line?: string, edition?: string, license?: string): string => {
-    const parts = [line, edition, license].filter(Boolean);
+const buildProductName = (category: string, line?: string, edition?: string): string => {
+    const parts = [line, edition].filter(Boolean);
     if (parts.length === 0) return '';
     const base = parts.join(' ');
     if (PREFIXED_CATEGORIES.includes(category)) {
@@ -263,8 +263,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
 
     // Auto-build name from structured parts (with category prefix for PM/TB)
     const builtName = useMemo(
-        () => buildProductName(formData.category, formData.productLine, formData.edition, formData.licenseType),
-        [formData.category, formData.productLine, formData.edition, formData.licenseType]
+        () => buildProductName(formData.category, formData.productLine, formData.edition),
+        [formData.category, formData.productLine, formData.edition]
     );
 
     // Debounced duplicate name check
@@ -310,7 +310,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
 
     // Re-generate code when category/brand/unit change (only for new products)
     useEffect(() => {
-        if (!product && isOpen && (formData.category || selectedBrandName || formData.unitId)) {
+        if (isOpen && (formData.category || selectedBrandName || formData.unitId)) {
             generateCode();
         }
     }, [formData.category, selectedBrandName, formData.unitId, units]);

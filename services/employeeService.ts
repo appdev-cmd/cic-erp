@@ -263,6 +263,7 @@ export const EmployeeService = {
                     totalSigning: e.total_signing,
                     totalRevenue: e.total_revenue,
                     totalProfit: e.total_profit,
+                    totalRevenueProfit: e.total_revenue_profit || 0,
                     totalCash: e.total_cash
                 }
             }));

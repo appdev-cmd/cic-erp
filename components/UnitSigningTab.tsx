@@ -18,7 +18,10 @@ import {
     Users,
     UserPlus,
     Trash2,
-    Lock
+    Lock,
+    ChevronLeft,
+    ChevronRight as ChevronRightIcon,
+    AlertTriangle
 } from 'lucide-react';
 import { Employee, KPIPlan, Unit } from '../types';
 import { UnitService } from '../services';
@@ -55,6 +58,9 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
         ((role === 'UnitLeader' || role === 'AdminUnit') && userUnitId === unit.id);
 
     // === State ===
+    const currentYear = new Date().getFullYear();
+    const defaultYear = parseInt(yearFilter) || currentYear;
+    const [selectedYear, setSelectedYear] = useState(defaultYear);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editTarget, setEditTarget] = useState<KPIPlan>({ signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 });
     const [isSaving, setIsSaving] = useState(false);
@@ -68,7 +74,10 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
     const [editUnitTarget, setEditUnitTarget] = useState<KPIPlan>({ signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 });
     const [isSavingUnitTarget, setIsSavingUnitTarget] = useState(false);
 
-    const year = parseInt(yearFilter) || new Date().getFullYear();
+    const year = selectedYear;
+
+    // Year options for selector
+    const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
 
     // Fetch year-specific unit target
     useEffect(() => {
@@ -119,11 +128,16 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
         return { signing: t.signing, revenue: t.revenue, adminProfit: t.adminProfit, revProfit: t.revProfit, cash: t.cash };
     };
 
-    // Current unit KPI plan (from per-year data, fallback to legacy unit.target)
+    // Current unit KPI plan (from per-year data, fallback to legacy unit.target only for default year)
     const currentUnitKPI = useMemo((): KPIPlan => {
         if (unitTarget) return UnitTargetService.toKPIPlan(unitTarget);
-        return unit.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
-    }, [unitTarget, unit.target]);
+        // Only fallback to legacy unit.target for the default year (current filter year)
+        if (selectedYear === defaultYear) {
+            return unit.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+        }
+        // For other years without per-year data, show zeros
+        return { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+    }, [unitTarget, unit.target, selectedYear, defaultYear]);
 
     // Summary totals
     const totals = useMemo(() => {
@@ -145,7 +159,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
             target: { signing: targetSigning, revenue: targetRevenue, profit: targetProfit },
             actual: { signing: actualSigning, revenue: actualRevenue, profit: actualProfit }
         };
-    }, [employees]);
+    }, [employees, targetMap]);
 
     // Unit target vs employee target allocation comparison
     const allocationRate = useMemo(() => {
@@ -254,13 +268,42 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
             {/* ═══════════════════════════════════════════════ */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <Target size={16} className="text-indigo-500" />
-                        Chỉ tiêu Đơn vị
-                        <span className="ml-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[11px] font-black rounded-md">
-                            {year}
-                        </span>
-                    </h3>
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            <Target size={16} className="text-indigo-500" />
+                            Chỉ tiêu Đơn vị
+                        </h3>
+                        {/* Year Selector */}
+                        <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+                            <button
+                                onClick={() => setSelectedYear(prev => prev - 1)}
+                                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded transition-colors cursor-pointer"
+                                title="Năm trước"
+                            >
+                                <ChevronLeft size={14} />
+                            </button>
+                            {yearOptions.map(y => (
+                                <button
+                                    key={y}
+                                    onClick={() => setSelectedYear(y)}
+                                    className={`px-2.5 py-1 text-[11px] font-black rounded-md transition-all cursor-pointer ${
+                                        y === selectedYear
+                                            ? 'bg-indigo-600 text-white shadow-sm'
+                                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                    }`}
+                                >
+                                    {y}
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => setSelectedYear(prev => prev + 1)}
+                                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded transition-colors cursor-pointer"
+                                title="Năm sau"
+                            >
+                                <ChevronRightIcon size={14} />
+                            </button>
+                        </div>
+                    </div>
                     {canEditUnitTarget ? (
                         isEditingUnitTarget ? (
                             <div className="flex items-center gap-2">
@@ -508,7 +551,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                         <FileText size={16} className="text-indigo-500" />
                         Chỉ tiêu ký kết NVKD
                         <span className="ml-1 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[11px] font-black rounded-md">
-                            {year}
+                            {selectedYear}
                         </span>
                     </h3>
                     <div className="flex items-center gap-3">
@@ -562,10 +605,8 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                             <tr>
                                 <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[200px]">Nhân viên</th>
                                 <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CT Ký kết</th>
-                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Thực tế</th>
-                                <th className="text-center px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[80px]">%</th>
                                 <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CT Doanh thu</th>
-                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CT LNG QT</th>
+                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">CT LNG</th>
                                 {canEditEmployeeTargets && (
                                     <th className="text-center px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[100px]"></th>
                                 )}
@@ -574,7 +615,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {employees.length === 0 ? (
                                 <tr>
-                                    <td colSpan={canEditEmployeeTargets ? 7 : 6} className="text-center py-12 text-slate-400">
+                                    <td colSpan={canEditEmployeeTargets ? 5 : 4} className="text-center py-12 text-slate-400">
                                         <Users size={40} className="mx-auto mb-3 opacity-50" />
                                         <p>Chưa có nhân viên trong đơn vị</p>
                                     </td>
@@ -619,29 +660,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                             )}
                                         </td>
 
-                                        {/* Actual Signing */}
-                                        <td className="px-4 py-3 text-right">
-                                            <span className="text-sm font-black text-slate-900 dark:text-slate-100">
-                                                {actualSigning > 0 ? formatCurrency(actualSigning) : '0'}
-                                            </span>
-                                        </td>
 
-                                        {/* Progress % */}
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col items-center gap-1">
-                                                <span className={`text-xs font-black ${getProgressColor(signingPct)}`}>
-                                                    {signingTarget > 0 ? `${signingPct.toFixed(0)}%` : '—'}
-                                                </span>
-                                                {signingTarget > 0 && (
-                                                    <div className="w-full bg-slate-100 dark:bg-slate-700 h-1 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full transition-all duration-500 ${getProgressBarColor(signingPct)}`}
-                                                            style={{ width: `${Math.min(signingPct, 100)}%` }}
-                                                        ></div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </td>
 
                                         {/* Target Revenue */}
                                         <td className="px-4 py-3 text-right">
@@ -729,14 +748,6 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                     <td className="px-4 py-3 text-right text-sm text-indigo-600 dark:text-indigo-400 font-black">
                                         {formatCurrency(totals.target.signing)}
                                     </td>
-                                    <td className="px-4 py-3 text-right text-sm text-slate-900 dark:text-slate-100 font-black">
-                                        {formatCurrency(totals.actual.signing)}
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <span className={`text-xs font-black ${getProgressColor(totals.target.signing > 0 ? (totals.actual.signing / totals.target.signing) * 100 : 0)}`}>
-                                            {totals.target.signing > 0 ? `${((totals.actual.signing / totals.target.signing) * 100).toFixed(0)}%` : '—'}
-                                        </span>
-                                    </td>
                                     <td className="px-4 py-3 text-right text-sm text-emerald-600 dark:text-emerald-400 font-black">
                                         {formatCurrency(totals.target.revenue)}
                                     </td>
@@ -746,6 +757,38 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                                     {canEditEmployeeTargets && <td className="px-4 py-3"></td>}
                                 </tr>
                             )}
+
+                            {/* Còn thiếu Row */}
+                            {employees.length > 0 && currentUnitKPI.signing > 0 && (() => {
+                                const remainSigning = (currentUnitKPI.signing || 0) - totals.target.signing;
+                                const remainRevenue = (currentUnitKPI.revenue || 0) - totals.target.revenue;
+                                const remainProfit = (currentUnitKPI.adminProfit || 0) - totals.target.profit;
+                                const hasShortfall = remainSigning > 0 || remainRevenue > 0 || remainProfit > 0;
+                                if (!hasShortfall) return null;
+                                return (
+                                    <tr className="bg-amber-50/50 dark:bg-amber-900/10 border-t-2 border-dashed border-amber-300 dark:border-amber-700">
+                                        <td className="px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400 font-bold">
+                                            Còn thiếu
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right text-sm font-bold">
+                                            <span className={`inline-flex items-center gap-1 ${remainSigning > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                {remainSigning > 0 ? <><AlertTriangle size={13} /> {formatCurrency(remainSigning)}</> : <Check size={13} />}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right text-sm font-bold">
+                                            <span className={`inline-flex items-center gap-1 ${remainRevenue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                {remainRevenue > 0 ? <><AlertTriangle size={13} /> {formatCurrency(remainRevenue)}</> : <Check size={13} />}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right text-sm font-bold">
+                                            <span className={`inline-flex items-center gap-1 ${remainProfit > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                {remainProfit > 0 ? <><AlertTriangle size={13} /> {formatCurrency(remainProfit)}</> : <Check size={13} />}
+                                            </span>
+                                        </td>
+                                        {canEditEmployeeTargets && <td className="px-4 py-2.5"></td>}
+                                    </tr>
+                                );
+                            })()}
                         </tbody>
                     </table>
                 </div>

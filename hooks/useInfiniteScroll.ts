@@ -62,7 +62,12 @@ export function useInfiniteScroll<T>({
             if (isReset) {
                 setItems(result.data);
             } else {
-                setItems(prev => [...prev, ...result.data]);
+                // Deduplicate: prevent same item appearing in multiple pages
+                setItems(prev => {
+                    const existingIds = new Set(prev.map((item: any) => item.id));
+                    const newItems = result.data.filter((item: any) => !existingIds.has(item.id));
+                    return [...prev, ...newItems];
+                });
             }
 
             setHasMore(result.hasMore);

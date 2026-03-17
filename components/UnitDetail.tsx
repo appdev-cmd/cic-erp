@@ -31,12 +31,12 @@ interface UnitDetailProps {
     onBack: () => void;
     onViewContract: (id: string) => void;
     onViewPersonnel: (id: string) => void;
-    yearFilter: string;
+    yearFilter?: string;
 }
 
 type TabType = 'overview' | 'signing' | 'employees' | 'contracts' | 'history';
 
-const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract, onViewPersonnel, yearFilter }) => {
+const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract, onViewPersonnel, yearFilter = String(new Date().getFullYear()) }) => {
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [unit, setUnit] = useState<Unit | null>(null);
     const [contracts, setContracts] = useState<Contract[]>([]);

@@ -1,11 +1,11 @@
 // ContractForm Step 1: Thông tin chung — redesigned card-based layout
 import React from 'react';
 import {
-    MapPin, User, UserCheck, Building2, Plus, Trash2, Hash, Calendar, Percent, FileText, Tag, FileSignature
+    MapPin, User, UserCheck, Building2, Plus, Trash2, Hash, Calendar, Percent, FileText, Tag, FileSignature, Sparkles, Loader2
 } from 'lucide-react';
 import {
     Unit, Employee, Customer, ContractType, ContractContact,
-    UnitAllocation, EmployeeAllocation, ContractClassification
+    UnitAllocation, EmployeeAllocation, ContractClassification, LineItem
 } from '../../types';
 import SearchableSelect from '../ui/SearchableSelect';
 import DateInput from '../ui/DateInput';
@@ -68,6 +68,11 @@ interface ContractFormStep1Props {
     // Quick-add dialog triggers
     setShowAddCustomerDialog: (v: boolean) => void;
     setShowAddEndUserDialog: (v: boolean) => void;
+
+    // AI summary
+    lineItems: LineItem[];
+    onGenerateTitle: () => void;
+    isGeneratingTitle: boolean;
 }
 
 // --- Accent color class map (Tailwind can't purge dynamic classes) ---
@@ -129,6 +134,7 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
     contacts, setContacts,
     addContact, removeContact,
     setShowAddCustomerDialog, setShowAddEndUserDialog,
+    lineItems, onGenerateTitle, isGeneratingTitle,
 }) => {
     const GLOBAL_ROLES = ['Leadership', 'Admin', 'Legal', 'Accountant', 'ChiefAccountant'];
     const isGlobal = profile && GLOBAL_ROLES.includes(profile.role);
@@ -457,7 +463,23 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
 
                     {/* Right: Content */}
                     <div className="space-y-1">
-                        <FieldLabel icon={<FileText size={10} />}>Nội dung hợp đồng</FieldLabel>
+                        <div className="flex items-center justify-between">
+                            <FieldLabel icon={<FileText size={10} />}>Nội dung hợp đồng</FieldLabel>
+                            <button
+                                type="button"
+                                onClick={onGenerateTitle}
+                                disabled={isGeneratingTitle || lineItems.filter(li => li.name || li.productName).length === 0}
+                                className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-lg text-[10px] font-bold border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                title={lineItems.filter(li => li.name || li.productName).length === 0 ? 'Cần có ít nhất 1 sản phẩm/dịch vụ trong Bước 2' : 'AI tự động tóm tắt nội dung từ danh sách sản phẩm'}
+                            >
+                                {isGeneratingTitle ? (
+                                    <Loader2 size={11} className="animate-spin" />
+                                ) : (
+                                    <Sparkles size={11} />
+                                )}
+                                AI Tóm tắt
+                            </button>
+                        </div>
                         <textarea
                             placeholder="VD: Tư vấn giải pháp BIM, Đào tạo chuyên sâu phần mềm Plaxis 3D..."
                             value={title}

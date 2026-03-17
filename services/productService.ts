@@ -183,10 +183,14 @@ export const ProductService = {
             query = query.range(from, to);
         }
 
-        // Sorting
+        // Sorting - always add secondary sort by 'id' to ensure deterministic ordering
+        // This prevents duplicate items at page boundaries when many rows share the same sort value
         const sortColumn = params.sortBy || 'created_at';
         const ascending = params.sortOrder === 'asc';
         query = query.order(sortColumn, { ascending });
+        if (sortColumn !== 'id') {
+            query = query.order('id', { ascending: true });
+        }
 
         const { data, error, count } = await query;
         if (error) throw error;

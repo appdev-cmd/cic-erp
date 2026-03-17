@@ -41,8 +41,8 @@ const PREFIXED_CATEGORIES = ['Phần mềm', 'Thiết bị'];
  * Build display name from structured parts.
  * If category is Phần mềm or Thiết bị, prepend it as a prefix.
  */
-const buildProductName = (category: string, line?: string, edition?: string, license?: string): string => {
-    const parts = [line, edition, license].filter(Boolean);
+const buildProductName = (category: string, line?: string, edition?: string): string => {
+    const parts = [line, edition].filter(Boolean);
     if (parts.length === 0) return '';
     const base = parts.join(' ');
     if (PREFIXED_CATEGORIES.includes(category)) {
@@ -278,8 +278,8 @@ const QuickAddProductDialog: React.FC<QuickAddProductDialogProps> = ({
 
     // Auto-build name from structured parts (with category prefix for PM/TB)
     const builtName = useMemo(
-        () => buildProductName(category, productLine, edition, licenseType),
-        [category, productLine, edition, licenseType]
+        () => buildProductName(category, productLine, edition),
+        [category, productLine, edition]
     );
 
     // Debounced duplicate name check

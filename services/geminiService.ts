@@ -158,6 +158,67 @@ export async function getSmartInsights(contracts: any[]) {
   }
 }
 
+/**
+ * AI tự động tóm tắt nội dung hợp đồng từ danh sách sản phẩm/dịch vụ.
+ * Output: 1 câu tiếng Việt ngắn gọn, VD: "Cung cấp phần mềm SACS, MOSES và STAAD.PRO của hãng BENTLEY"
+ */
+export async function summarizeContractContent(
+  lineItems: { name: string; productName?: string; manufacturer?: string }[]
+): Promise<string> {
+  const descriptions = lineItems
+    .filter(item => (item.name || item.productName))
+    .map((item, i) => {
+      const desc = item.name || item.productName || '';
+      const mfr = item.manufacturer ? ` - Hãng: ${item.manufacturer}` : '';
+      return `${i + 1}. ${desc}${mfr}`;
+    })
+    .join('\n');
+
+  if (!descriptions) return '';
+
+  const prompt = `Bạn là trợ lý hợp đồng của CIC (công ty phần mềm kỹ thuật).
+Dưới đây là danh sách các sản phẩm/dịch vụ trong hợp đồng:
+${descriptions}
+
+Hãy tóm tắt nội dung hợp đồng trong MỘT câu ngắn gọn, chuyên nghiệp (tiếng Việt).
+Chỉ nêu tên sản phẩm chính và hãng cung cấp. Không giải thích thêm. Không thêm dấu ngoặc kép.
+Ví dụ: "Cung cấp phần mềm SACS, MOSES và STAAD.PRO của hãng BENTLEY"`;
+
+  try {
+    const customKey = getCustomGeminiKey();
+    if (customKey) {
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(customKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 200 },
+      });
+      return result.response.text().trim().replace(/^["']|["']$/g, '');
+    }
+
+    if (await isEdgeFunctionAvailable()) {
+      const data = await callEdgeFunction('summarize-contract', { text: prompt });
+      return (data.result || '').trim().replace(/^["']|["']$/g, '');
+    }
+
+    // Direct fallback
+    const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+    if (!apiKey) return '';
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 200 },
+    });
+    return result.response.text().trim().replace(/^["']|["']$/g, '');
+  } catch (error) {
+    console.error('[AI Summary] Error:', error);
+    return '';
+  }
+}
+
 // Enterprise AI: Chat Streaming qua Edge Function SSE
 export async function* streamGeminiChat(
   history: { role: 'user' | 'model'; content: string }[],

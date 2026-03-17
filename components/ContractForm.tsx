@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
   X, Save, Plus, Users, Hash, ArrowLeft, ArrowRight
@@ -10,6 +10,7 @@ import {
   Contract, ExecutionCostItem
 } from '../types';
 import { UnitService, CustomerService, ProductService, ContractService, EmployeeService, ExecutionCostService, ExecutionCostType } from '../services';
+import { summarizeContractContent } from '../services/geminiService';
 import QuickAddCustomerDialog from './ui/QuickAddCustomerDialog';
 import QuickAddProductDialog from './ui/QuickAddProductDialog';
 import QuickAddSupplierDialog from './ui/QuickAddSupplierDialog';
@@ -441,6 +442,31 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const addLineItem = () => setLineItems([...lineItems, { id: Date.now().toString(), name: '', productId: undefined, productName: '', quantity: 1, supplier: '', manufacturer: '', manufacturerId: undefined, inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 0 }]);
   const removeLineItem = (id: string) => setLineItems(lineItems.filter(i => i.id !== id));
 
+  // AI Auto-Generate Title from line items
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  const generateContractTitle = useCallback(async () => {
+    const itemsWithContent = lineItems.filter(li => li.name || li.productName);
+    if (itemsWithContent.length === 0) {
+      toast.warning('Chưa có sản phẩm/dịch vụ nào để tóm tắt.');
+      return;
+    }
+    setIsGeneratingTitle(true);
+    try {
+      const summary = await summarizeContractContent(itemsWithContent);
+      if (summary) {
+        setTitle(summary);
+        toast.success('Đã tạo nội dung hợp đồng từ AI!');
+      } else {
+        toast.error('AI không thể tạo tóm tắt. Vui lòng kiểm tra API Key.');
+      }
+    } catch (err) {
+      console.error('[AI Summary] Failed:', err);
+      toast.error('Lỗi khi gọi AI. Vui lòng thử lại.');
+    } finally {
+      setIsGeneratingTitle(false);
+    }
+  }, [lineItems]);
+
   const handleSave = () => {
     if (!unitId || !salespersonId || !clientName) {
       toast.error("Vui lòng nhập đầy đủ thông tin bắt buộc (Đơn vị, Sale, Khách hàng)");
@@ -595,6 +621,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 customerId={customerId} setCustomerId={setCustomerId}
                 clientName={clientName} setClientName={setClientName}
                 title={title} setTitle={setTitle}
+                lineItems={lineItems}
+                onGenerateTitle={generateContractTitle}
+                isGeneratingTitle={isGeneratingTitle}
                 classification={classification} setClassification={setClassification}
                 endUserId={endUserId} setEndUserId={setEndUserId}
                 endUserName={endUserName} setEndUserName={setEndUserName}

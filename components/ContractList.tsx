@@ -421,25 +421,45 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   }, [effectiveUnitId]);
 
   // Fetch unique salesperson IDs from contracts (depends on unit & date range)
+  // Also scan employee_allocations JSONB to include support employees
   useEffect(() => {
     const fetchSalespersonIds = async () => {
       try {
         const { dataClient } = await import('../lib/dataClient');
-        let query = dataClient.from('contracts').select('employee_id');
+        let query = dataClient.from('contracts').select('employee_id, employee_allocations, unit_id, unit_allocations');
+        const isSingleUnit = effectiveUnitId && effectiveUnitId !== 'all' && effectiveUnitId !== 'All' && !effectiveUnitId.includes(',');
         if (effectiveUnitId && effectiveUnitId !== 'all' && effectiveUnitId !== 'All') {
           if (effectiveUnitId.includes(',')) {
             query = query.in('unit_id', effectiveUnitId.split(',').map(id => id.trim()));
-          } else {
-            query = query.eq('unit_id', effectiveUnitId);
           }
+          // Single unit: no SQL filter — will filter in JS for allocation-aware matching
         }
         if (dateFrom || dateTo) {
           if (dateFrom) query = query.gte('signed_date', dateFrom);
           if (dateTo) query = query.lte('signed_date', dateTo);
         }
         const { data } = await query;
-        const ids = new Set((data || []).map((c: any) => c.employee_id).filter(Boolean));
-        setContractSalespersonIds(ids as Set<string>);
+        // For single unit: only include contracts where this unit has allocation share
+        const filtered = isSingleUnit
+          ? (data || []).filter((c: any) => {
+              // Lead unit
+              if (c.unit_id === effectiveUnitId) return true;
+              // Support unit via unit_allocations
+              const allocs: any[] = c.unit_allocations?.allocations || [];
+              return allocs.some((a: any) => a.unitId === effectiveUnitId && (a.percent || 0) > 0);
+            })
+          : (data || []);
+        const ids = new Set<string>();
+        filtered.forEach((c: any) => {
+          // Primary employee
+          if (c.employee_id) ids.add(c.employee_id);
+          // Employees from employee_allocations
+          const empAllocs: any[] = c.employee_allocations || [];
+          empAllocs.forEach((a: any) => {
+            if (a.employeeId) ids.add(a.employeeId);
+          });
+        });
+        setContractSalespersonIds(ids);
       } catch (e) {
         console.error("Fetch salesperson IDs failed", e);
       }
@@ -888,22 +908,78 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 </td>
               </tr>
             ) : contracts.map((contract, index) => {
-              const adminProfit = contract.adminProfit || 0;
+              // Allocation info (tagged by ContractService.list for collaborative contracts)
+              const allocationRole = (contract as any)._allocationRole as 'lead' | 'support' | undefined;
+              const allocationPct = (contract as any)._allocationPct as number | undefined;
+              const employeePct = (contract as any)._employeePct as number | undefined;
+              const isCollaborative = allocationRole === 'support';
+              const hasAllocation = allocationPct !== undefined && allocationPct < 100;
+              const hasEmployeeAllocation = employeePct !== undefined && employeePct < 100;
+              // Combined fraction: unitPct × employeePct (when both present)
+              let allocFraction = 1;
+              if (hasAllocation && hasEmployeeAllocation) {
+                allocFraction = (allocationPct / 100) * (employeePct / 100);
+              } else if (hasAllocation) {
+                allocFraction = allocationPct / 100;
+              } else if (hasEmployeeAllocation) {
+                allocFraction = employeePct / 100;
+              }
+              const isAllocated = allocFraction < 1;
+              // Show tooltip whenever contract has multi-unit or multi-employee allocations
+              // (regardless of current filter — always show breakdown for collaborative contracts)
+              const unitAllocs: any[] = contract.unitAllocations || [];
+              const empAllocs: any[] = contract.employeeAllocations || [];
+              const showAllocTooltip = unitAllocs.length > 1 || empAllocs.length > 1
+                || (unitAllocs.length === 1 && empAllocs.length > 0);
+              // Hierarchical tooltip: unit → employees nested under each unit
+              const buildAllocTooltip = (label: string, fullValue: number): string => {
+                if (!showAllocTooltip) return `${label}: ${formatCurrency(fullValue)}`;
+                const lines: string[] = [`${label} gốc: ${formatCurrency(fullValue)}`];
+                if (unitAllocs.length > 0) {
+                  unitAllocs.forEach((a: any) => {
+                    const unitName = units.find(u => u.id === a.unitId)?.name || a.unitId;
+                    const unitPct = a.percent || 0;
+                    const unitValue = Math.round(fullValue * unitPct / 100);
+                    lines.push(`${a.role === 'lead' ? '▸ Chủ trì' : '▹ Phối hợp'} ${unitName} ${unitPct}% = ${formatCurrency(unitValue)}`);
+                    if (a.role === 'lead' && empAllocs.length > 0) {
+                      // Lead unit: show all employees from employeeAllocations
+                      empAllocs.forEach((emp: any) => {
+                        const empName = salespeople.find(s => s.id === emp.employeeId)?.name || '?';
+                        const empPctVal = emp.percent || 100;
+                        const empValue = Math.round(fullValue * unitPct / 100 * empPctVal / 100);
+                        lines.push(`  - ${empName} ${empPctVal}% × ${unitPct}% = ${formatCurrency(empValue)}`);
+                      });
+                    } else if (a.role === 'support' && a.employeeId) {
+                      // Support unit: show single PIC
+                      const empName = salespeople.find(s => s.id === a.employeeId)?.name || '?';
+                      lines.push(`  - ${empName} 100% × ${unitPct}% = ${formatCurrency(unitValue)}`);
+                    }
+                  });
+                } else if (empAllocs.length > 0) {
+                  // No unit allocation data, only employee allocations
+                  empAllocs.forEach((emp: any) => {
+                    const empName = salespeople.find(s => s.id === emp.employeeId)?.name || '?';
+                    const empPctVal = emp.percent || 100;
+                    const empValue = Math.round(fullValue * empPctVal / 100);
+                    lines.push(`  - ${empName} ${empPctVal}% = ${formatCurrency(empValue)}`);
+                  });
+                }
+                return lines.join('\n');
+              };
+
+              // Apply allocation fraction to ALL financial metrics when viewing by unit
+              const adminProfit = Math.round((contract.adminProfit || 0) * allocFraction);
               // Doanh thu thực tế: chỉ hiển thị actual_revenue (ghi nhận sau xuất hóa đơn), không fallback
-              const revenue = contract.actualRevenue || 0;
-              const cashReceived = contract.cashReceived || 0;
-              const advanceAmount = contract.advanceAmount || 0;
+              const revenue = Math.round((contract.actualRevenue || 0) * allocFraction);
+              const cashReceived = Math.round((contract.cashReceived || 0) * allocFraction);
+              const advanceAmount = Math.round((contract.advanceAmount || 0) * allocFraction);
+              const revProfit = Math.round((contract.revProfit || 0) * allocFraction);
               // Tỷ suất LN = LNG Quản trị / Doanh thu dự kiến (Sum outputPrice * quantity)
-              const expectedRevenue = (contract.lineItems || []).reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0);
+              const expectedRevenue = (contract.lineItems || []).reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0) * allocFraction;
               const margin = expectedRevenue > 0 ? (adminProfit / expectedRevenue) * 100 : 0;
               const leadAllocEmp = contract.employeeAllocations?.find((a: any) => a.role === 'lead') || contract.employeeAllocations?.[0];
               const picEmployeeId = leadAllocEmp?.employeeId || contract.salespersonId;
               const salesperson = salespeople.find(s => s.id === picEmployeeId);
-
-              // Allocation info (tagged by ContractService.list for collaborative contracts)
-              const allocationRole = (contract as any)._allocationRole as 'lead' | 'support' | undefined;
-              const allocationPct = (contract as any)._allocationPct as number | undefined;
-              const isCollaborative = allocationRole === 'support';
 
               // STT - sequential across infinite scroll
               const stt = index + 1;
@@ -976,27 +1052,21 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       )}
                     </div>
                   </td>
-                  {/* Ký kết — hiển thị giá trị phân bổ, hover xem giá trị ký kết gốc */}
+                  {/* Ký kết — hiển thị giá trị phân bổ (ĐV% × NV%), hover xem chi tiết */}
                   <td className="px-1.5 py-2 text-right overflow-hidden">
-                    {(() => {
-                      const fullValue = contract.value || 0;
-                      const allocatedValue = allocationPct !== undefined && allocationPct < 100
-                        ? Math.round(fullValue * allocationPct / 100)
-                        : fullValue;
-                      const hasAllocation = allocationPct !== undefined && allocationPct < 100;
-                      return (
-                        <span
-                          className={`text-[11px] font-bold ${hasAllocation ? 'text-indigo-700 dark:text-indigo-400 cursor-help' : 'text-slate-900 dark:text-slate-100'}`}
-                          title={hasAllocation ? `Giá trị ký kết: ${formatCurrency(fullValue)} — Phân bổ ${allocationPct}%` : `Giá trị ký kết: ${formatCurrency(fullValue)}`}
-                        >
-                          {formatCurrency(allocatedValue)}
-                        </span>
-                      );
-                    })()}
+                    <span
+                      className={`text-[11px] font-bold ${showAllocTooltip ? 'text-indigo-700 dark:text-indigo-400 cursor-help' : 'text-slate-900 dark:text-slate-100'}`}
+                      title={buildAllocTooltip('Ký kết', contract.value || 0)}
+                    >
+                      {formatCurrency(Math.round((contract.value || 0) * allocFraction))}
+                    </span>
                   </td>
                   {/* Doanh thu */}
                   <td className="px-1.5 py-2 text-right overflow-hidden">
-                    <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100" title={formatCurrency(revenue)}>
+                    <span
+                      className={`text-[11px] font-bold ${showAllocTooltip ? 'text-emerald-700 dark:text-emerald-400 cursor-help' : 'text-slate-900 dark:text-slate-100'}`}
+                      title={buildAllocTooltip('Doanh thu', contract.actualRevenue || 0)}
+                    >
                       {formatCurrency(revenue)}
                     </span>
                     {invoiceMap.get(contract.id) && invoiceMap.get(contract.id)!.length > 0 && (
@@ -1012,20 +1082,30 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                         // All cash is from advance payments
                         <span
                           className="text-[11px] font-bold text-amber-600 dark:text-amber-400 cursor-help"
-                          title={`💰 Tạm ứng: ${formatCurrency(advanceAmount)} (chưa xuất HĐ)`}
+                          title={showAllocTooltip
+                            ? `${buildAllocTooltip('Tiền về', contract.cashReceived || 0)}\n💰 Tạm ứng: ${formatCurrency(advanceAmount)} (chưa xuất HĐ)`
+                            : `💰 Tạm ứng: ${formatCurrency(advanceAmount)} (chưa xuất HĐ)`}
                         >
                           {formatCurrency(cashReceived)}
                           <span className="block text-[8px] font-bold text-amber-500/70 dark:text-amber-500/60 uppercase tracking-wider mt-0.5">Tạm ứng</span>
                         </span>
                       ) : advanceAmount > 0 ? (
                         // Mixed: some advance + some regular
-                        <span className="cursor-help" title={`Tiền về: ${formatCurrency(cashReceived - advanceAmount)} + Tạm ứng: ${formatCurrency(advanceAmount)}`}>
+                        <span
+                          className="cursor-help"
+                          title={showAllocTooltip
+                            ? `${buildAllocTooltip('Tiền về', contract.cashReceived || 0)}\nTiền về: ${formatCurrency(cashReceived - advanceAmount)} + Tạm ứng: ${formatCurrency(advanceAmount)}`
+                            : `Tiền về: ${formatCurrency(cashReceived - advanceAmount)} + Tạm ứng: ${formatCurrency(advanceAmount)}`}
+                        >
                           <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400">{formatCurrency(cashReceived - advanceAmount)}</span>
                           <span className="block text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">+ TU: {formatCurrency(advanceAmount)}</span>
                         </span>
                       ) : (
                         // Normal cash received
-                        <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400" title={formatCurrency(cashReceived)}>
+                        <span
+                          className={`text-[11px] font-bold text-blue-700 dark:text-blue-400 ${showAllocTooltip ? 'cursor-help' : ''}`}
+                          title={buildAllocTooltip('Tiền về', contract.cashReceived || 0)}
+                        >
                           {formatCurrency(cashReceived)}
                         </span>
                       )
@@ -1036,7 +1116,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                     )}
                     {/* Còn thiếu = Tổng giá trị xuất HĐ sau VAT - Tổng tiền về */}
                     {(() => {
-                      const invoiced = contract.invoicedAmount || 0;
+                      const invoiced = Math.round((contract.invoicedAmount || 0) * allocFraction);
                       const outstanding = invoiced - cashReceived;
                       if (invoiced > 0 && outstanding > 0) {
                         return (
@@ -1050,14 +1130,20 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   </td>
                   {/* LNG Quản trị */}
                   <td className="px-1.5 py-2 text-right overflow-hidden">
-                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400" title={formatCurrency(contract.adminProfit || 0)}>
-                      {formatCurrency(contract.adminProfit || 0)}
+                    <span
+                      className={`text-[11px] font-bold text-amber-700 dark:text-amber-400 ${showAllocTooltip ? 'cursor-help' : ''}`}
+                      title={buildAllocTooltip('LNG Quản trị', contract.adminProfit || 0)}
+                    >
+                      {formatCurrency(adminProfit)}
                     </span>
                   </td>
                   {/* LNG theo DT */}
                   <td className="px-1.5 py-2 text-right overflow-hidden">
-                    <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400" title={formatCurrency(contract.revProfit || 0)}>
-                      {formatCurrency(contract.revProfit || 0)}
+                    <span
+                      className={`text-[11px] font-bold text-purple-700 dark:text-purple-400 ${showAllocTooltip ? 'cursor-help' : ''}`}
+                      title={buildAllocTooltip('LNG theo DT', contract.revProfit || 0)}
+                    >
+                      {formatCurrency(revProfit)}
                     </span>
                   </td>
                   {/* Tỷ suất LN/DT */}
