@@ -369,7 +369,19 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
             : activeMetric === 'adminProfit' ? (e.stats?.totalProfit || 0)
               : activeMetric === 'revProfit' ? (e.stats?.totalRevenueProfit || 0)
                 : (e.stats?.totalCash || 0),
-        progress: 0, // Employee target/actual profit logic pending
+        progress: (() => {
+          const t = activeMetric === 'signing' ? (e.target?.signing || 0)
+            : activeMetric === 'revenue' ? (e.target?.revenue || 0)
+              : activeMetric === 'adminProfit' ? (e.target?.adminProfit || 0)
+                : activeMetric === 'revProfit' ? (e.target?.revProfit || 0)
+                  : (e.target?.cash || 0);
+          const a = activeMetric === 'signing' ? (e.stats?.totalSigning || 0)
+            : activeMetric === 'revenue' ? (e.stats?.totalRevenue || 0)
+              : activeMetric === 'adminProfit' ? (e.stats?.totalProfit || 0)
+                : activeMetric === 'revProfit' ? (e.stats?.totalRevenueProfit || 0)
+                  : (e.stats?.totalCash || 0);
+          return t > 0 ? Math.round((a / t) * 100) : 0;
+        })(),
         value: activeMetric === 'signing' ? (e.stats?.totalSigning || 0)
           : activeMetric === 'revenue' ? (e.stats?.totalRevenue || 0)
             : activeMetric === 'adminProfit' ? (e.stats?.totalProfit || 0)

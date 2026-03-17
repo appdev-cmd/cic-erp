@@ -465,82 +465,6 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════════ */}
-            {/* SECTION 2: Summary Cards */}
-            {/* ═══════════════════════════════════════════════ */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Signing Summary */}
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-bl-full"></div>
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                            <FileText size={16} className="text-indigo-600 dark:text-indigo-400" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng CT NV Ký kết</span>
-                    </div>
-                    <p className="text-xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(totals.target.signing)}</p>
-                    <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">ĐV: {formatCurrency(currentUnitKPI.signing)}</span>
-                        <span className={`text-xs font-bold ${allocationRate > 100 ? 'text-amber-600 dark:text-amber-400' : allocationRate >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                            {allocationRate.toFixed(0)}% phân bổ
-                        </span>
-                    </div>
-                </div>
-
-                {/* Revenue Summary */}
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-bl-full"></div>
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                            <TrendingUp size={16} className="text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng CT NV Doanh thu</span>
-                    </div>
-                    <p className="text-xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(totals.target.revenue)}</p>
-                    <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">Thực tế: {formatCurrency(totals.actual.revenue)}</span>
-                        <span className={`text-xs font-bold ${totals.target.revenue > 0 ? getProgressColor((totals.actual.revenue / totals.target.revenue) * 100) : 'text-slate-400'}`}>
-                            {totals.target.revenue > 0 ? `${((totals.actual.revenue / totals.target.revenue) * 100).toFixed(0)}%` : '—'}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Profit Summary */}
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/10 to-transparent rounded-bl-full"></div>
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                            <Target size={16} className="text-purple-600 dark:text-purple-400" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng CT NV LNG</span>
-                    </div>
-                    <p className="text-xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(totals.target.profit)}</p>
-                    <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">Thực tế: {formatCurrency(totals.actual.profit)}</span>
-                        <span className={`text-xs font-bold ${totals.target.profit > 0 ? getProgressColor((totals.actual.profit / totals.target.profit) * 100) : 'text-slate-400'}`}>
-                            {totals.target.profit > 0 ? `${((totals.actual.profit / totals.target.profit) * 100).toFixed(0)}%` : '—'}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Employee Count */}
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-500/10 to-transparent rounded-bl-full"></div>
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                            <Users size={16} className="text-amber-600 dark:text-amber-400" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nhân viên</span>
-                    </div>
-                    <p className="text-xl font-black text-slate-900 dark:text-slate-100">{employees.length}</p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2">
-                        {employees.filter(e => {
-                            const t = getTarget(e.id);
-                            return (t.signing || 0) > 0;
-                        }).length} NV có chỉ tiêu
-                    </p>
-                </div>
-            </div>
 
             {/* ═══════════════════════════════════════════════ */}
             {/* SECTION 3: Employee KPI Table */}
@@ -794,41 +718,7 @@ const UnitSigningTab: React.FC<UnitSigningTabProps> = ({ unit, staff, yearFilter
                 </div>
             </div>
 
-            {/* ═══════════════════════════════════════════════ */}
-            {/* SECTION 4: Allocation Comparison */}
-            {/* ═══════════════════════════════════════════════ */}
-            {currentUnitKPI.signing > 0 && (
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-                    <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                        <Target size={16} className="text-indigo-500" />
-                        So sánh phân bổ chỉ tiêu
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Chỉ tiêu Đơn vị</p>
-                            <p className="text-lg font-black text-slate-900 dark:text-slate-100">{formatCurrency(currentUnitKPI.signing)}</p>
-                        </div>
-                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Tổng CT nhân viên</p>
-                            <p className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(totals.target.signing)}</p>
-                        </div>
-                        <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg text-center">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Chênh lệch</p>
-                            {(() => {
-                                const diff = totals.target.signing - (currentUnitKPI.signing || 0);
-                                return (
-                                    <p className={`text-lg font-black flex items-center justify-center gap-1 ${diff > 0 ? 'text-amber-600 dark:text-amber-400' : diff < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                        {diff > 0 && <ArrowUpRight size={16} />}
-                                        {diff < 0 && <ArrowDownRight size={16} />}
-                                        {diff === 0 && <Check size={16} />}
-                                        {diff === 0 ? 'Cân bằng' : formatCurrency(Math.abs(diff))}
-                                    </p>
-                                );
-                            })()}
-                        </div>
-                    </div>
-                </div>
-            )}
+
         </div>
     );
 };

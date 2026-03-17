@@ -440,7 +440,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                     <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate max-w-[200px]">{c.partyA}</p>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <p className="text-sm text-indigo-600 dark:text-indigo-400 font-mono font-bold truncate max-w-[160px]">{c.title || '—'}</p>
+                                    <p className="text-sm text-indigo-600 dark:text-indigo-400 font-mono font-bold truncate max-w-[160px]">{c.contractCode || '—'}</p>
                                 </td>
                                 <td className="px-4 py-3">
                                     <p className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-[200px]">{c.content || '—'}</p>

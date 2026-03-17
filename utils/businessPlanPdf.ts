@@ -392,10 +392,19 @@ export async function generateBusinessPlanPdf(
   doc.text('Phụ trách trung tâm', sigRightX, sigY, { align: 'center' });
 
   // ═══════════════════════════════════════════════════════════
-  // 5. DOWNLOAD
+  // 5. DOWNLOAD — manual blob to guarantee .pdf filename
   // ═══════════════════════════════════════════════════════════
   const filename = `PAKD_${contract.contractCode.replace(/\//g, '_')}.pdf`;
-  doc.save(filename);
+  const pdfBlob = doc.output('blob');
+  const blobUrl = URL.createObjectURL(pdfBlob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  // Revoke the blob URL after a short delay to ensure download starts
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 }
 
 // Helper: format date for PDF display (dd/mm/yyyy)
