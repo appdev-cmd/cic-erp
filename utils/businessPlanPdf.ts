@@ -392,19 +392,47 @@ export async function generateBusinessPlanPdf(
   doc.text('Phụ trách trung tâm', sigRightX, sigY, { align: 'center' });
 
   // ═══════════════════════════════════════════════════════════
-  // 5. DOWNLOAD — manual blob to guarantee .pdf filename
+  // 5. DOWNLOAD — robust method to guarantee .pdf filename
   // ═══════════════════════════════════════════════════════════
   const filename = `PAKD_${contract.contractCode.replace(/\//g, '_')}.pdf`;
-  const pdfBlob = doc.output('blob');
-  const blobUrl = URL.createObjectURL(pdfBlob);
-  const link = document.createElement('a');
-  link.href = blobUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  // Revoke the blob URL after a short delay to ensure download starts
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+  // Get PDF as arraybuffer and create Blob with explicit MIME type
+  const pdfArrayBuffer = doc.output('arraybuffer');
+  const pdfBlob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
+
+  // Try File System Access API first (shows native save dialog with filename)
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: filename,
+        types: [{
+          description: 'PDF Document',
+          accept: { 'application/pdf': ['.pdf'] },
+        }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(pdfBlob);
+      await writable.close();
+      return; // Done — saved via native dialog
+    } catch (err: any) {
+      // User cancelled or API not supported — fall through to fallback
+      if (err.name === 'AbortError') return;
+    }
+  }
+
+  // Fallback: anchor download with data URI (avoids blob URL UUID issue)
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUri = reader.result as string;
+    const link = document.createElement('a');
+    link.href = dataUri;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => document.body.removeChild(link), 100);
+  };
+  reader.readAsDataURL(pdfBlob);
 }
 
 // Helper: format date for PDF display (dd/mm/yyyy)

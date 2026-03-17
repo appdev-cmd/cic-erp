@@ -134,6 +134,7 @@ export interface DirectCostDetail {
   id: string;
   name: string;
   amount: number;
+  formula?: string; // Công thức gốc (VD: "1000*70%") — lưu để hiện lại khi mở form
 }
 
 export interface ForeignCurrencyInfo {
@@ -207,6 +208,7 @@ export interface ExecutionCostItem {
   amount: number;         // Số tiền (VND)
   percentage?: number;    // % tính theo Giá trị ký kết (optional)
   note?: string;          // Ghi chú
+  formula?: string;       // Công thức gốc (VD: "1000*70%") — lưu để hiện lại khi mở form
 }
 
 /**

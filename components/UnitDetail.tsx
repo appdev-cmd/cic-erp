@@ -23,6 +23,7 @@ import { UnitService, EmployeeService, ContractService } from '../services';
 import { Unit, KPIPlan, Employee, Contract } from '../types';
 import UnitForm from './UnitForm';
 import UnitSigningTab from './UnitSigningTab';
+import { usePermissionCheck } from '../hooks/usePermissions';
 
 import { formatDate } from '../utils/formatters';
 
@@ -37,6 +38,8 @@ interface UnitDetailProps {
 type TabType = 'overview' | 'signing' | 'employees' | 'contracts' | 'history';
 
 const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract, onViewPersonnel, yearFilter = String(new Date().getFullYear()) }) => {
+    const { can } = usePermissionCheck();
+    const canEditUnit = can('units', 'update');
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [unit, setUnit] = useState<Unit | null>(null);
     const [contracts, setContracts] = useState<Contract[]>([]);
@@ -528,9 +531,11 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                         <span className="text-[10px] text-slate-400">{staff.length} nhân viên • {contracts.length} hợp đồng</span>
                     </div>
                 </div>
-                <button onClick={() => setIsEditing(true)} className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
-                    <Pencil size={18} />
-                </button>
+                {canEditUnit && (
+                    <button onClick={() => setIsEditing(true)} className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+                        <Pencil size={18} />
+                    </button>
+                )}
             </div>
 
             {/* Tabs */}

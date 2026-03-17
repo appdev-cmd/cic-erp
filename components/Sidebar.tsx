@@ -1,11 +1,12 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { NAV_ITEMS } from '../constants';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import CICLogo, { CICLogoIcon } from './CICLogo';
 import { useAuth } from '../contexts/AuthContext';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import { getHiddenNavItems } from '../lib/permissions';
+import { usePermissionCheck } from '../hooks/usePermissions';
 
 interface SidebarProps {
   activeTab: string;
@@ -55,9 +56,22 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
+  const { permissions } = usePermissionCheck();
   // Use impersonated role for nav filtering when impersonating
   const effectiveProfile = isImpersonating && impersonatedUser ? impersonatedUser : profile;
-  const hiddenItems = effectiveProfile ? getHiddenNavItems(effectiveProfile.role, effectiveProfile.unitCode, effectiveProfile.email) : new Set<string>();
+
+  // Build DB permission map for nav visibility
+  const dbPermissions = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    if (permissions && permissions.length > 0) {
+      for (const p of permissions) {
+        map.set(p.resource, new Set(p.actions));
+      }
+    }
+    return map.size > 0 ? map : undefined; // undefined = DB not loaded yet
+  }, [permissions]);
+
+  const hiddenItems = effectiveProfile ? getHiddenNavItems(effectiveProfile.role, effectiveProfile.unitCode, effectiveProfile.email, dbPermissions) : new Set<string>();
 
   const managementItems = NAV_ITEMS.filter(item => ['dashboard', 'contracts', 'payments', 'analytics', 'ai-assistant', 'tools', 'tasks', 'my-tasks'].includes(item.id) && !hiddenItems.has(item.id));
   const categoryItems = NAV_ITEMS.filter(item => ['units', 'personnel', 'products', 'customers', 'user-guide'].includes(item.id) && !hiddenItems.has(item.id));

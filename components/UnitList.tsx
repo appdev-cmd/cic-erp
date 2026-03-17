@@ -18,8 +18,10 @@ interface UnitListProps {
 
 const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
     const queryClient = useQueryClient();
-    const { role, unitId: userUnitId } = usePermissionCheck();
+    const { role, unitId: userUnitId, can } = usePermissionCheck();
+    // User can see all units if they are Admin/Leadership OR have explicit DB permission
     const isAdmin = role === 'Admin' || role === 'Leadership';
+    const canViewAll = isAdmin || can('units', 'view');
     const { data: rawUnits = [], isLoading } = useUnitsWithStats();
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'orgchart'>('grid');
@@ -32,12 +34,12 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
     // Filter out non-business units + scope to user's own unit for unit-scoped roles
     const units = useMemo(() => {
         let filtered = rawUnits.filter(u => u.id !== 'all' && !NON_BUSINESS_UNIT_CODES.includes(u.code));
-        // UnitLeader/AdminUnit: only see their own unit
-        if (!isAdmin && userUnitId) {
+        // Non-admin without explicit view permission: only see their own unit
+        if (!canViewAll && userUnitId) {
             filtered = filtered.filter(u => u.id === userUnitId);
         }
         return filtered;
-    }, [rawUnits, isAdmin, userUnitId]);
+    }, [rawUnits, canViewAll, userUnitId]);
 
     const refetchData = () => queryClient.invalidateQueries({ queryKey: queryKeys.units.all });
 
@@ -136,7 +138,7 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Quản lý Đơn vị ({units.length})</h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm font-bold mt-1">
-                        {isAdmin ? 'Danh sách các Trung tâm và Chi nhánh trực thuộc' : 'Đơn vị của bạn'}
+                        {canViewAll ? 'Danh sách các Trung tâm và Chi nhánh trực thuộc' : 'Đơn vị của bạn'}
                     </p>
                 </div>
                 <div className="flex items-center gap-3">

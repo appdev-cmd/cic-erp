@@ -1,9 +1,10 @@
 // Direct Cost Modal component - extracted from ContractForm
 // Includes auto-calculation toggles for Thuế nhà thầu & Phí chuyển tiền
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Trash2, Save, Calculator, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Trash2, Save, Calculator, ToggleLeft, ToggleRight, Equal } from 'lucide-react';
 import { DirectCostDetail, LineItem } from '../../types';
 import { ExchangeRateService } from '../../services/exchangeRateService';
+import { safeEval, isFormula } from '../../utils/formulaEval';
 import Modal from '../ui/Modal';
 
 interface DirectCostModalProps {
@@ -15,6 +16,7 @@ interface DirectCostModalProps {
     onSave: () => void;
     formatVND: (val: number) => string;
     inputTotal?: number; // quantity * inputPrice — for auto-calc
+    supplierShareCount?: number; // Số SP cùng NCC — để chia điện phí $10
 }
 
 // Auto-cost IDs (so we can identify and update them)
@@ -32,6 +34,7 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
     onSave,
     formatVND,
     inputTotal = 0,
+    supplierShareCount = 1,
 }) => {
     // Auto-cost toggles
     const [contractorTax, setContractorTax] = useState(false);
@@ -73,7 +76,7 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                 const detectedTransferType = transferEntry
                     ? (transferEntry.name.includes('nước ngoài') || transferEntry.name.includes('international') ? 'international' as TransferFeeType : 'domestic' as TransferFeeType)
                     : 'none' as TransferFeeType;
-                const updated = updateAutoCosts(cleaned, hasTax, detectedTransferType, inputTotal, usdRate);
+                const updated = updateAutoCosts(cleaned, hasTax, detectedTransferType, inputTotal, usdRate, supplierShareCount);
                 setTempCostDetails(updated);
             }
         }
@@ -99,14 +102,16 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         return Math.round(total / 0.9 * 0.1);
     }, []);
 
-    const calcTransferFee = useCallback((total: number, type: TransferFeeType, rate: number) => {
+    const calcTransferFee = useCallback((total: number, type: TransferFeeType, rate: number, shareCount: number = 1) => {
         if (type === 'domestic') {
             // Trong nước: total * 0.07%, min 22,000
             return Math.max(Math.round(total * 0.0007), 22000);
         }
         if (type === 'international') {
-            // Nước ngoài: (total * 0.5%) + (10 * tỷ giá USD)
-            return Math.round(total * 0.005 + 10 * rate);
+            // Nước ngoài: (total * 0.5%) + (10 * tỷ giá USD / số SP cùng NCC)
+            // Điện phí $10 chỉ tính 1 lần cho mỗi NCC → chia đều cho các SP cùng NCC
+            const sc = Math.max(shareCount, 1);
+            return Math.round(total * 0.005 + 10 * rate / sc);
         }
         return 0;
     }, []);
@@ -117,7 +122,8 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         tax: boolean,
         transfer: TransferFeeType,
         total: number,
-        rate: number
+        rate: number,
+        shareCount: number = 1
     ) => {
         // Filter out ALL auto entries — both by ID and by name patterns
         let newDetails = details.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
@@ -130,7 +136,7 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         }
 
         if (transfer !== 'none') {
-            const fee = calcTransferFee(total, transfer, rate);
+            const fee = calcTransferFee(total, transfer, rate, shareCount);
             const label = transfer === 'domestic'
                 ? 'Phí chuyển tiền trong nước'
                 : 'Phí chuyển tiền nước ngoài';
@@ -151,14 +157,14 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
     const handleToggleTax = () => {
         const newVal = !contractorTax;
         setContractorTax(newVal);
-        const updated = updateAutoCosts(tempCostDetails, newVal, transferFeeType, inputTotal, usdRate);
+        const updated = updateAutoCosts(tempCostDetails, newVal, transferFeeType, inputTotal, usdRate, supplierShareCount);
         setTempCostDetails(updated);
     };
 
     // Change transfer fee type
     const handleTransferChange = (type: TransferFeeType) => {
         setTransferFeeType(type);
-        const updated = updateAutoCosts(tempCostDetails, contractorTax, type, inputTotal, usdRate);
+        const updated = updateAutoCosts(tempCostDetails, contractorTax, type, inputTotal, usdRate, supplierShareCount);
         setTempCostDetails(updated);
     };
 
@@ -166,14 +172,14 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
     useEffect(() => {
         if (!isOpen) return;
         if (!contractorTax && transferFeeType === 'none') return;
-        const updated = updateAutoCosts(tempCostDetails, contractorTax, transferFeeType, inputTotal, usdRate);
+        const updated = updateAutoCosts(tempCostDetails, contractorTax, transferFeeType, inputTotal, usdRate, supplierShareCount);
         // Only update if amounts differ to avoid infinite loop
         const oldAutoAmounts = tempCostDetails.filter(d => d.id === AUTO_TAX_ID || d.id === AUTO_TRANSFER_ID).map(d => d.amount).join(',');
         const newAutoAmounts = updated.filter(d => d.id === AUTO_TAX_ID || d.id === AUTO_TRANSFER_ID).map(d => d.amount).join(',');
         if (oldAutoAmounts !== newAutoAmounts) {
             setTempCostDetails(updated);
         }
-    }, [inputTotal, usdRate]);
+    }, [inputTotal, usdRate, supplierShareCount]);
 
     // Manual (non-auto) details
     const manualDetails = tempCostDetails.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
@@ -197,6 +203,14 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                         Thành tiền đầu vào: <span className="font-black text-cyan-600 dark:text-cyan-400">{formatVND(inputTotal)}</span>
+                        {lineItem?.supplier && (
+                            <span className="ml-3">
+                                NCC: <span className="font-bold text-slate-700 dark:text-slate-200">{lineItem.supplier}</span>
+                                {supplierShareCount > 1 && (
+                                    <span className="ml-1 text-amber-600 dark:text-amber-400 font-bold">({supplierShareCount} SP cùng NCC)</span>
+                                )}
+                            </span>
+                        )}
                     </p>
                 </div>
 
@@ -255,14 +269,21 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                         {transferFeeType !== 'none' && (
                             <div className="mt-2 space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <p className="text-[10px] text-slate-400 leading-relaxed">
-                                        {transferFeeType === 'domestic'
-                                            ? '= TT giá vào × 0.07% (tối thiểu 22.000₫)'
-                                            : <>= (TT giá vào × 0.5%) + (10 × tỷ giá USD)</>
-                                        }
-                                    </p>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 leading-relaxed">
+                                            {transferFeeType === 'domestic'
+                                                ? '= TT giá vào × 0.07% (tối thiểu 22.000₫)'
+                                                : <>= (TT giá vào × 0.5%) + (10 × tỷ giá USD{supplierShareCount > 1 ? ` ÷ ${supplierShareCount}` : ''})</>
+                                            }
+                                        </p>
+                                        {transferFeeType === 'international' && supplierShareCount > 1 && (
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                                                💡 Điện phí $10 chia cho {supplierShareCount} SP cùng NCC
+                                            </p>
+                                        )}
+                                    </div>
                                     <span className="text-sm font-black text-rose-500">
-                                        {formatVND(calcTransferFee(inputTotal, transferFeeType, usdRate))}
+                                        {formatVND(calcTransferFee(inputTotal, transferFeeType, usdRate, supplierShareCount))}
                                     </span>
                                 </div>
                                 {transferFeeType === 'international' && (
@@ -319,20 +340,54 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                                     }}
                                     className="flex-1 bg-transparent px-3 py-2 text-sm font-medium outline-none border-b border-transparent focus:border-indigo-500 transition-colors text-slate-700 dark:text-slate-200"
                                 />
-                                <div className="w-32 relative">
+                                <div className="w-40 relative">
                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">₫</span>
                                     <input
                                         type="text"
-                                        value={detail.amount ? formatVND(detail.amount) : '0'}
+                                        value={detail.formula ?? (detail.amount ? formatVND(detail.amount) : '0')}
                                         onChange={(e) => {
-                                            const raw = e.target.value.replace(/\./g, '');
-                                            if (!/^\d*$/.test(raw)) return;
+                                            const raw = e.target.value;
                                             const newDetails = [...tempCostDetails];
-                                            newDetails[realIndex].amount = Number(raw);
+                                            // Store formula expression
+                                            newDetails[realIndex].formula = raw;
+                                            // Try to evaluate
+                                            const plainNum = raw.replace(/\./g, '');
+                                            if (/^\d*$/.test(plainNum)) {
+                                                // Plain number (with dots as thousand sep) — clear formula
+                                                newDetails[realIndex].amount = Number(plainNum);
+                                                newDetails[realIndex].formula = undefined;
+                                            } else {
+                                                // Formula expression — evaluate and keep formula
+                                                const result = safeEval(raw);
+                                                if (!isNaN(result)) {
+                                                    newDetails[realIndex].amount = Math.round(result);
+                                                }
+                                            }
                                             setTempCostDetails(newDetails);
                                         }}
-                                        className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg px-3 pl-6 py-2 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700 dark:text-slate-200"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                (e.target as HTMLInputElement).blur();
+                                            }
+                                        }}
+                                        className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg px-3 pl-6 py-2 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700 dark:text-slate-200 font-mono"
+                                        placeholder="VD: 1000*70%"
                                     />
+                                    {/* Formula result preview */}
+                                    {detail.formula && isFormula(detail.formula) && (() => {
+                                        const result = safeEval(detail.formula);
+                                        return (
+                                            <div className="absolute -bottom-5 right-0 flex items-center gap-1 text-[10px]">
+                                                <Equal size={10} className="text-slate-400" />
+                                                {!isNaN(result) ? (
+                                                    <span className="font-bold text-emerald-500">{formatVND(Math.round(result))}</span>
+                                                ) : (
+                                                    <span className="font-bold text-rose-500">Lỗi</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 <button
                                     onClick={() => {

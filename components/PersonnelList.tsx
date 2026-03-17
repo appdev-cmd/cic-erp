@@ -24,7 +24,11 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     const { impersonatedUser, isImpersonating } = useImpersonation();
     const profile = isImpersonating && impersonatedUser ? impersonatedUser : realProfile;
     const { can } = usePermissionCheck();
-    const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
+    const { visibleUnits: baseVisibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
+
+    // HR managers with employees.view permission see all employees across all units
+    const hasEmployeesView = can('employees', 'view');
+    const visibleUnits = hasEmployeesView ? 'all' as const : baseVisibleUnits;
 
     const [searchQuery, setSearchQuery] = useState('');
     const [unitFilter, setUnitFilter] = useState<string>('all');

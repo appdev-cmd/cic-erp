@@ -759,6 +759,11 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                         onSave={saveCostModal}
                         formatVND={fmtVND}
                         inputTotal={(lineItems[activeCostModalIndex]?.quantity || 0) * (lineItems[activeCostModalIndex]?.inputPrice || 0)}
+                        supplierShareCount={(() => {
+                            const s = lineItems[activeCostModalIndex]?.supplier;
+                            if (!s) return 1;
+                            return lineItems.filter(li => li.supplier === s).length;
+                        })()}
                     />
                 )}
             </div>

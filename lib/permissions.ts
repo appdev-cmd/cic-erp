@@ -65,10 +65,18 @@ export function canViewUnits(role: UserRole): boolean {
 }
 
 /**
- * Items that should be hidden from sidebar based on role.
+ * Items that should be hidden from sidebar based on role + DB permissions.
  * Returns Set of nav item IDs to HIDE.
+ * 
+ * @param dbPermissions - Optional permission map from user_permissions DB table.
+ *   If provided, DB permissions override role-based defaults for employees/units.
  */
-export function getHiddenNavItems(role: UserRole, userUnitCode?: string, userEmail?: string): Set<string> {
+export function getHiddenNavItems(
+    role: UserRole,
+    userUnitCode?: string,
+    userEmail?: string,
+    dbPermissions?: Map<string, Set<string>>
+): Set<string> {
     const hidden = new Set<string>();
 
     // Settings: only Admin
@@ -76,13 +84,21 @@ export function getHiddenNavItems(role: UserRole, userUnitCode?: string, userEma
         hidden.add('settings');
     }
 
-    // Units: only Admin & Leadership
-    if (!canViewUnits(role)) {
+    // Units: check DB permission first, fallback to role-based
+    const hasUnitsViewInDB = dbPermissions?.get('units')?.has('view');
+    if (hasUnitsViewInDB === undefined) {
+        // DB not loaded yet → fallback to role-based
+        if (!canViewUnits(role)) hidden.add('units');
+    } else if (!hasUnitsViewInDB) {
         hidden.add('units');
     }
 
-    // Personnel: only Admin, Leadership, ChiefAccountant, AdminUnit of HCNS
-    if (!canViewEmployees(role, userUnitCode)) {
+    // Personnel: check DB permission first, fallback to role-based
+    const hasEmployeesViewInDB = dbPermissions?.get('employees')?.has('view');
+    if (hasEmployeesViewInDB === undefined) {
+        // DB not loaded yet → fallback to role-based
+        if (!canViewEmployees(role, userUnitCode)) hidden.add('personnel');
+    } else if (!hasEmployeesViewInDB) {
         hidden.add('personnel');
     }
 

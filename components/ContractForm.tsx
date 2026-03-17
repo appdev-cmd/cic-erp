@@ -690,6 +690,12 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
         onSave={saveCostModal}
         formatVND={formatVND}
         inputTotal={activeCostModalIndex !== null ? (lineItems[activeCostModalIndex]?.quantity || 0) * (lineItems[activeCostModalIndex]?.inputPrice || 0) : 0}
+        supplierShareCount={(() => {
+          if (activeCostModalIndex === null) return 1;
+          const s = lineItems[activeCostModalIndex]?.supplier;
+          if (!s) return 1;
+          return lineItems.filter(li => li.supplier === s).length;
+        })()}
       />
 
       {/* FOOTER */}
