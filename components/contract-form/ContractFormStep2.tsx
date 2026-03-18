@@ -1,7 +1,7 @@
 // ContractForm Step 2: Phương án kinh doanh (Line Items + Execution Costs)
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
-    Plus, Trash2, X, Briefcase, Package, Calculator, ShieldCheck, Lock, Equal
+    Plus, Trash2, X, Briefcase, Package, Calculator, ShieldCheck, Lock
 } from 'lucide-react';
 import {
     LineItem, Product, Customer, ExecutionCostItem
@@ -12,7 +12,7 @@ import SearchableSelect from '../ui/SearchableSelect';
 import CurrencyCalculator from '../ui/CurrencyCalculator';
 import { PAKDImportButton } from './PAKDImportButton';
 import { FinancialTotals } from '../../hooks/useFinancialCalculations';
-import { safeEval, isFormula } from '../../utils/formulaEval';
+
 
 
 /**
@@ -748,50 +748,20 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                 </div>
                                             </td>
                                             <td className="py-2 px-2">
-                                                <div className="relative">
-                                                    <input
-                                                        type="text"
-                                                        value={cost.formula ?? (cost.amount ? formatVND(cost.amount) : '0')}
-                                                        onChange={(e) => {
-                                                            const raw = e.target.value;
-                                                            const plainNum = raw.replace(/\./g, '');
-                                                            if (/^\d*$/.test(plainNum)) {
-                                                                // Plain number — clear formula
-                                                                const val = Number(plainNum);
-                                                                const pct = totals.totalInput > 0 ? Number(((val / totals.totalInput) * 100).toFixed(2)) : 0;
-                                                                setExecutionCosts(prev => prev.map(c => c.id === cost.id ? { ...c, amount: val, percentage: pct, formula: undefined } : c));
-                                                            } else {
-                                                                // Formula expression — evaluate and keep formula
-                                                                const result = safeEval(raw);
-                                                                const val = !isNaN(result) ? Math.round(result) : cost.amount;
-                                                                const pct = totals.totalInput > 0 ? Number(((val / totals.totalInput) * 100).toFixed(2)) : 0;
-                                                                setExecutionCosts(prev => prev.map(c => c.id === cost.id ? { ...c, amount: val, percentage: pct, formula: raw } : c));
-                                                            }
-                                                        }}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                (e.target as HTMLInputElement).blur();
-                                                            }
-                                                        }}
-                                                        className="w-full px-2 py-1 bg-transparent border-0 text-xs font-black text-right outline-none font-mono"
-                                                        placeholder="VD: 1000*70%"
-                                                    />
-                                                    {/* Formula result preview */}
-                                                    {cost.formula && isFormula(cost.formula) && (() => {
-                                                        const result = safeEval(cost.formula);
-                                                        return (
-                                                            <div className="absolute -bottom-4 right-0 flex items-center gap-1 text-[9px]">
-                                                                <Equal size={8} className="text-slate-400" />
-                                                                {!isNaN(result) ? (
-                                                                    <span className="font-bold text-emerald-500">{formatVND(Math.round(result))}</span>
-                                                                ) : (
-                                                                    <span className="font-bold text-rose-500">Lỗi</span>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                </div>
+                                                <CurrencyCalculator
+                                                    value={cost.amount || 0}
+                                                    onChange={(vnd) => {
+                                                        const pct = totals.totalInput > 0 ? Number(((vnd / totals.totalInput) * 100).toFixed(2)) : 0;
+                                                        setExecutionCosts(prev => prev.map(c => c.id === cost.id ? { ...c, amount: vnd, percentage: pct } : c));
+                                                    }}
+                                                    formula={cost.formula}
+                                                    onFormulaChange={(f) => {
+                                                        setExecutionCosts(prev => prev.map(c => c.id === cost.id ? { ...c, formula: f } : c));
+                                                    }}
+                                                    formatVND={formatVND}
+                                                    inputClassName="w-full px-2 py-1 bg-transparent border-0 text-xs font-black text-right outline-none pr-5"
+                                                    textColorClass="text-slate-800 dark:text-slate-200"
+                                                />
                                             </td>
                                             <td className="py-2 px-1">
                                                 <button

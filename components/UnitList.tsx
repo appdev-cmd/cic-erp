@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Search, Building, Plus, Pencil, Trash2, Target, TrendingUp, Users, Eye, FileText, LayoutGrid, Network, ChevronRight } from 'lucide-react';
 import { UnitService } from '../services';
@@ -42,6 +42,17 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
     }, [rawUnits, canViewAll, userUnitId]);
 
     const refetchData = () => queryClient.invalidateQueries({ queryKey: queryKeys.units.all });
+
+    // Realtime: invalidate cache when unit/employee-target data changes from another tab
+    useEffect(() => {
+        const handleRealtimeRefresh = () => { refetchData(); };
+        window.addEventListener('unit-changed', handleRealtimeRefresh);
+        window.addEventListener('employee-target-changed', handleRealtimeRefresh);
+        return () => {
+            window.removeEventListener('unit-changed', handleRealtimeRefresh);
+            window.removeEventListener('employee-target-changed', handleRealtimeRefresh);
+        };
+    }, []);
 
     // Calculate Global Stats Only (Individual stats now come from Backend)
     const stats = useMemo(() => {

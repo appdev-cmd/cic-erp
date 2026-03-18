@@ -124,8 +124,24 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
           .catch(err => console.error('Refetch error:', err));
       }
     };
+    const handlePaymentOrDocChanged = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      // For payment/document changes: refetch contract to update financial summary
+      if (contractId && (!detail?.record?.contract_id || detail.record?.contract_id === contractId || detail.source === 'realtime')) {
+        console.log('[ContractDetail] payment/document changed, refetching...', detail);
+        ContractService.getById(contractId)
+          .then(data => { if (data) setContract(data); })
+          .catch(err => console.error('Refetch error:', err));
+      }
+    };
     window.addEventListener('contract-updated', handleContractUpdated);
-    return () => window.removeEventListener('contract-updated', handleContractUpdated);
+    window.addEventListener('payment-changed', handlePaymentOrDocChanged);
+    window.addEventListener('document-changed', handlePaymentOrDocChanged);
+    return () => {
+      window.removeEventListener('contract-updated', handleContractUpdated);
+      window.removeEventListener('payment-changed', handlePaymentOrDocChanged);
+      window.removeEventListener('document-changed', handlePaymentOrDocChanged);
+    };
   }, [contractId]);
 
   useEffect(() => {

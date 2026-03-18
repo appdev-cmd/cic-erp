@@ -103,6 +103,21 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
         fetchData();
     }, [unitId]);
 
+    // Realtime: silently refetch when related data changes
+    useEffect(() => {
+        const handleRefresh = () => { fetchData(); };
+        window.addEventListener('unit-changed', handleRefresh);
+        window.addEventListener('contract-changed', handleRefresh);
+        window.addEventListener('employee-changed', handleRefresh);
+        window.addEventListener('employee-target-changed', handleRefresh);
+        return () => {
+            window.removeEventListener('unit-changed', handleRefresh);
+            window.removeEventListener('contract-changed', handleRefresh);
+            window.removeEventListener('employee-changed', handleRefresh);
+            window.removeEventListener('employee-target-changed', handleRefresh);
+        };
+    }, [unitId]);
+
     const handleEditSave = async (data: Omit<Unit, 'id'> | Unit) => {
         try {
             if (unit) {

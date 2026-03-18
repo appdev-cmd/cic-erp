@@ -129,9 +129,21 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   // Recent Activity (Light Fetch)
   const [recentContracts, setRecentContracts] = useState<Contract[]>([]);
 
-
-
-
+  // Realtime: silent refresh counter — incremented by realtime events to re-trigger data fetch
+  const [realtimeRefreshCounter, setRealtimeRefreshCounter] = useState(0);
+  useEffect(() => {
+    const handleRealtimeRefresh = () => {
+      setRealtimeRefreshCounter(c => c + 1);
+    };
+    window.addEventListener('contract-changed', handleRealtimeRefresh);
+    window.addEventListener('payment-changed', handleRealtimeRefresh);
+    window.addEventListener('employee-target-changed', handleRealtimeRefresh);
+    return () => {
+      window.removeEventListener('contract-changed', handleRealtimeRefresh);
+      window.removeEventListener('payment-changed', handleRealtimeRefresh);
+      window.removeEventListener('employee-target-changed', handleRealtimeRefresh);
+    };
+  }, []);
 
 
   // Update Previous Year when year filter changes
@@ -295,7 +307,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
     fetchDashboardData();
 
     return () => { isCancelled = true; };
-  }, [selectedUnit, yearFilter]); // Always fetch when these change
+  }, [selectedUnit, yearFilter, realtimeRefreshCounter]); // Always fetch when these change or on realtime events
 
 
   // Local effect to recalculate Performance/Pie data when activeMetric changes or data updates

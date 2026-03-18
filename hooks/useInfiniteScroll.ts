@@ -26,6 +26,8 @@ interface UseInfiniteScrollReturn<T> {
     sentinelRef: React.RefObject<HTMLDivElement | null>;
     /** Manually reset the list (called automatically when resetDeps change) */
     reset: () => void;
+    /** Silent refresh: re-fetch all loaded pages in background without changing scroll/filter/loading */
+    silentRefresh: () => void;
     /** Update items in-place (e.g. after local edit/delete) */
     setItems: React.Dispatch<React.SetStateAction<T[]>>;
 }
@@ -44,6 +46,7 @@ export function useInfiniteScroll<T>({
     const [totalCount, setTotalCount] = useState(0);
     const sentinelRef = useRef<HTMLDivElement | null>(null);
     const isFetchingRef = useRef(false);
+    const isSilentRefreshingRef = useRef(false);
 
     // Fetch data for a specific page
     const fetchPage = useCallback(async (pageNum: number, isReset: boolean) => {
@@ -127,6 +130,45 @@ export function useInfiniteScroll<T>({
         fetchPage(1, true);
     }, [fetchPage]);
 
+    /**
+     * Silent refresh: re-fetch all currently loaded pages in background.
+     * - NO loading spinner
+     * - NO scroll reset
+     * - NO filter reset
+     * - Merges new data in-place (update existing, add new, remove deleted)
+     */
+    const silentRefresh = useCallback(async () => {
+        if (isSilentRefreshingRef.current || isFetchingRef.current) return;
+        isSilentRefreshingRef.current = true;
+
+        try {
+            const currentPage = page;
+            const allItems: T[] = [];
+
+            // Fetch all pages from 1 to currentPage
+            for (let p = 1; p <= currentPage; p++) {
+                const result = await fetchFn(p);
+                allItems.push(...result.data);
+
+                // Update hasMore and totalCount from the last fetched page
+                if (p === currentPage) {
+                    setHasMore(result.hasMore);
+                    if (result.totalCount !== undefined) {
+                        setTotalCount(result.totalCount);
+                    }
+                }
+            }
+
+            // Merge: replace the full item list (preserves order from server)
+            // This handles updates, inserts, and deletes automatically
+            setItems(allItems);
+        } catch (error) {
+            console.error('useInfiniteScroll silentRefresh error:', error);
+        } finally {
+            isSilentRefreshingRef.current = false;
+        }
+    }, [page, fetchFn]);
+
     return {
         items,
         isLoading,
@@ -135,6 +177,7 @@ export function useInfiniteScroll<T>({
         totalCount,
         sentinelRef,
         reset,
+        silentRefresh,
         setItems,
     };
 }

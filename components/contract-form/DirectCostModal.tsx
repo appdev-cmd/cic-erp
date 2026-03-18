@@ -1,11 +1,11 @@
 // Direct Cost Modal component - extracted from ContractForm
 // Includes auto-calculation toggles for Thuế nhà thầu & Phí chuyển tiền
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Trash2, Save, Calculator, ToggleLeft, ToggleRight, Equal } from 'lucide-react';
+import { Plus, Trash2, Save, Calculator, ToggleLeft, ToggleRight } from 'lucide-react';
 import { DirectCostDetail, LineItem } from '../../types';
 import { ExchangeRateService } from '../../services/exchangeRateService';
-import { safeEval, isFormula } from '../../utils/formulaEval';
 import Modal from '../ui/Modal';
+import CurrencyCalculator from '../ui/CurrencyCalculator';
 
 interface DirectCostModalProps {
     isOpen: boolean;
@@ -129,20 +129,30 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         let newDetails = details.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
 
         if (tax) {
+            const taxFormula = `${total}/0.9*0.1`;
             newDetails = [
-                { id: AUTO_TAX_ID, name: 'Thuế nhà thầu', amount: calcContractorTax(total) },
+                { id: AUTO_TAX_ID, name: 'Thuế nhà thầu', amount: calcContractorTax(total), formula: taxFormula },
                 ...newDetails,
             ];
         }
 
         if (transfer !== 'none') {
-            const fee = calcTransferFee(total, transfer, rate, shareCount);
+            const sc = Math.max(shareCount, 1);
+            const fee = calcTransferFee(total, transfer, rate, sc);
             const label = transfer === 'domestic'
                 ? 'Phí chuyển tiền trong nước'
                 : 'Phí chuyển tiền nước ngoài';
+            let transferFormula: string;
+            if (transfer === 'domestic') {
+                transferFormula = `${total}*0.07%`;
+            } else {
+                transferFormula = sc > 1
+                    ? `${total}*0.5%+10*${rate}/${sc}`
+                    : `${total}*0.5%+10*${rate}`;
+            }
             // Insert after tax if present, else at start
             const insertIdx = newDetails.findIndex(d => d.id === AUTO_TAX_ID);
-            const transferEntry = { id: AUTO_TRANSFER_ID, name: label, amount: fee };
+            const transferEntry: DirectCostDetail = { id: AUTO_TRANSFER_ID, name: label, amount: fee, formula: transferFormula };
             if (insertIdx >= 0) {
                 newDetails.splice(insertIdx + 1, 0, transferEntry);
             } else {
@@ -310,16 +320,37 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                     </div>
                 </div>
 
-                {/* ── Auto-generated entries (read-only display) ── */}
+                {/* ── Auto-generated entries (editable with CurrencyCalculator) ── */}
                 {autoDetails.length > 0 && (
                     <div className="space-y-1.5">
-                        {autoDetails.map(detail => (
-                            <div key={detail.id} className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg border border-indigo-100 dark:border-indigo-800/40">
-                                <Calculator size={14} className="text-indigo-400 flex-shrink-0" />
-                                <span className="flex-1 text-xs font-bold text-indigo-700 dark:text-indigo-300">{detail.name}</span>
-                                <span className="text-sm font-black text-rose-500">{formatVND(detail.amount)}</span>
-                            </div>
-                        ))}
+                        {autoDetails.map(detail => {
+                            const realIndex = tempCostDetails.findIndex(d => d.id === detail.id);
+                            return (
+                                <div key={detail.id} className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg border border-indigo-100 dark:border-indigo-800/40">
+                                    <Calculator size={14} className="text-indigo-400 flex-shrink-0" />
+                                    <span className="flex-1 text-xs font-bold text-indigo-700 dark:text-indigo-300">{detail.name}</span>
+                                    <div className="w-44">
+                                        <CurrencyCalculator
+                                            value={detail.amount || 0}
+                                            onChange={(vnd) => {
+                                                const newDetails = [...tempCostDetails];
+                                                newDetails[realIndex] = { ...newDetails[realIndex], amount: vnd };
+                                                setTempCostDetails(newDetails);
+                                            }}
+                                            formula={detail.formula}
+                                            onFormulaChange={(f) => {
+                                                const newDetails = [...tempCostDetails];
+                                                newDetails[realIndex] = { ...newDetails[realIndex], formula: f };
+                                                setTempCostDetails(newDetails);
+                                            }}
+                                            formatVND={formatVND}
+                                            inputClassName="w-full bg-white/60 dark:bg-slate-800/60 rounded-md px-2 py-1 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-rose-500 pr-6"
+                                            textColorClass="text-rose-500"
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -340,54 +371,24 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                                     }}
                                     className="flex-1 bg-transparent px-3 py-2 text-sm font-medium outline-none border-b border-transparent focus:border-indigo-500 transition-colors text-slate-700 dark:text-slate-200"
                                 />
-                                <div className="w-40 relative">
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">₫</span>
-                                    <input
-                                        type="text"
-                                        value={detail.formula ?? (detail.amount ? formatVND(detail.amount) : '0')}
-                                        onChange={(e) => {
-                                            const raw = e.target.value;
+                                <div className="w-40">
+                                    <CurrencyCalculator
+                                        value={detail.amount || 0}
+                                        onChange={(vnd) => {
                                             const newDetails = [...tempCostDetails];
-                                            // Store formula expression
-                                            newDetails[realIndex].formula = raw;
-                                            // Try to evaluate
-                                            const plainNum = raw.replace(/\./g, '');
-                                            if (/^\d*$/.test(plainNum)) {
-                                                // Plain number (with dots as thousand sep) — clear formula
-                                                newDetails[realIndex].amount = Number(plainNum);
-                                                newDetails[realIndex].formula = undefined;
-                                            } else {
-                                                // Formula expression — evaluate and keep formula
-                                                const result = safeEval(raw);
-                                                if (!isNaN(result)) {
-                                                    newDetails[realIndex].amount = Math.round(result);
-                                                }
-                                            }
+                                            newDetails[realIndex] = { ...newDetails[realIndex], amount: vnd };
                                             setTempCostDetails(newDetails);
                                         }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                (e.target as HTMLInputElement).blur();
-                                            }
+                                        formula={detail.formula}
+                                        onFormulaChange={(f) => {
+                                            const newDetails = [...tempCostDetails];
+                                            newDetails[realIndex] = { ...newDetails[realIndex], formula: f };
+                                            setTempCostDetails(newDetails);
                                         }}
-                                        className="w-full bg-slate-50 dark:bg-slate-800 rounded-lg px-3 pl-6 py-2 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700 dark:text-slate-200 font-mono"
-                                        placeholder="VD: 1000*70%"
+                                        formatVND={formatVND}
+                                        inputClassName="w-full bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700 dark:text-slate-200 pr-7"
+                                        textColorClass="text-slate-700 dark:text-slate-200"
                                     />
-                                    {/* Formula result preview */}
-                                    {detail.formula && isFormula(detail.formula) && (() => {
-                                        const result = safeEval(detail.formula);
-                                        return (
-                                            <div className="absolute -bottom-5 right-0 flex items-center gap-1 text-[10px]">
-                                                <Equal size={10} className="text-slate-400" />
-                                                {!isNaN(result) ? (
-                                                    <span className="font-bold text-emerald-500">{formatVND(Math.round(result))}</span>
-                                                ) : (
-                                                    <span className="font-bold text-rose-500">Lỗi</span>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
                                 </div>
                                 <button
                                     onClick={() => {

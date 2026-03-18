@@ -134,12 +134,24 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
         totalCount,
         sentinelRef,
         reset: resetInfiniteScroll,
+        silentRefresh,
         setItems: setProducts
     } = useInfiniteScroll<Product>({
         fetchFn: fetchProductPage,
         pageSize: PAGE_SIZE,
         resetDeps: [debouncedSearch, categoryFilter, brandFilter, supplierFilter, statusFilter, sortBy, sortOrder]
     });
+
+    // Realtime: silent refresh when product/brand data changes from another tab
+    useEffect(() => {
+        const handleRealtimeRefresh = () => { silentRefresh(); };
+        window.addEventListener('product-changed', handleRealtimeRefresh);
+        window.addEventListener('brand-changed', handleRealtimeRefresh);
+        return () => {
+            window.removeEventListener('product-changed', handleRealtimeRefresh);
+            window.removeEventListener('brand-changed', handleRealtimeRefresh);
+        };
+    }, [silentRefresh]);
 
     // Use server result
     const filteredProducts = products;

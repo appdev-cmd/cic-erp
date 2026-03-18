@@ -78,6 +78,17 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
         fetchData();
     }, [personnelId]);
 
+    // Realtime: silently refetch when employee or contract data changes
+    useEffect(() => {
+        const handleRefresh = () => { fetchData(); };
+        window.addEventListener('employee-changed', handleRefresh);
+        window.addEventListener('contract-changed', handleRefresh);
+        return () => {
+            window.removeEventListener('employee-changed', handleRefresh);
+            window.removeEventListener('contract-changed', handleRefresh);
+        };
+    }, [personnelId]);
+
     const handleEditSave = async (data: Omit<Employee, 'id'> | Employee) => {
         try {
             if (person) {

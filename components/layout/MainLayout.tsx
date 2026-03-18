@@ -17,6 +17,7 @@ import { UnitService } from '../../services';
 import { NON_BUSINESS_UNIT_CODES } from '../../constants';
 import { useCurrentUserVisibleUnits } from '../../hooks';
 import { useImpersonation } from '../../contexts/ImpersonationContext';
+import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 
 const MainLayout: React.FC = () => {
     const navigate = useNavigate();
@@ -24,6 +25,9 @@ const MainLayout: React.FC = () => {
     const { session, isLoading: isLoadingSession, profile } = useAuth();
     const { visibleUnits } = useCurrentUserVisibleUnits();
     const { impersonatedUser, isImpersonating, stopImpersonation } = useImpersonation();
+
+    // ═══ Global Realtime Subscriptions ═══
+    useRealtimeSync();
 
     // Sidebar state
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);

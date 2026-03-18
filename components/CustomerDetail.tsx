@@ -64,6 +64,19 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
 
     useEffect(() => { fetchData(); }, [customerId]);
 
+    // Realtime: silently refetch when related data changes
+    useEffect(() => {
+        const handleRefresh = () => { fetchData(); };
+        window.addEventListener('customer-changed', handleRefresh);
+        window.addEventListener('contract-changed', handleRefresh);
+        window.addEventListener('payment-changed', handleRefresh);
+        return () => {
+            window.removeEventListener('customer-changed', handleRefresh);
+            window.removeEventListener('contract-changed', handleRefresh);
+            window.removeEventListener('payment-changed', handleRefresh);
+        };
+    }, [customerId]);
+
     // ==================== COMPUTED VALUES ====================
     const stats = useMemo(() => {
         if (!contracts.length) return { contractCount: 0, totalValue: 0, totalRevenue: 0, activeContracts: 0, completedContracts: 0, avgContractValue: 0 };

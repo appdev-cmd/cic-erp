@@ -525,6 +525,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     totalCount,
     sentinelRef,
     reset: resetInfiniteScroll,
+    silentRefresh,
     setItems: setContracts
   } = useInfiniteScroll<Contract>({
     fetchFn: fetchContractPage,
@@ -534,19 +535,32 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
   // Auto-refresh list when contracts are created, updated, or deleted
   useEffect(() => {
-    const handleRefresh = () => {
-      console.log('[ContractList] contract created/updated/deleted, refreshing list...');
+    const handleLocalRefresh = () => {
+      console.log('[ContractList] local contract event, resetting list...');
       resetInfiniteScroll();
     };
-    window.addEventListener('contract-created', handleRefresh);
-    window.addEventListener('contract-updated', handleRefresh);
-    window.addEventListener('contract-deleted', handleRefresh);
-    return () => {
-      window.removeEventListener('contract-created', handleRefresh);
-      window.removeEventListener('contract-updated', handleRefresh);
-      window.removeEventListener('contract-deleted', handleRefresh);
+    const handleRealtimeRefresh = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      // Realtime events from other tabs: silent refresh (preserve scroll/filters)
+      if (detail?.source === 'realtime') {
+        console.log('[ContractList] realtime event, silent refreshing...');
+        silentRefresh();
+        return;
+      }
+      // Local events (same tab): full reset for immediate feedback
+      handleLocalRefresh();
     };
-  }, [resetInfiniteScroll]);
+    window.addEventListener('contract-created', handleRealtimeRefresh);
+    window.addEventListener('contract-updated', handleRealtimeRefresh);
+    window.addEventListener('contract-deleted', handleRealtimeRefresh);
+    window.addEventListener('payment-changed', handleRealtimeRefresh);
+    return () => {
+      window.removeEventListener('contract-created', handleRealtimeRefresh);
+      window.removeEventListener('contract-updated', handleRealtimeRefresh);
+      window.removeEventListener('contract-deleted', handleRealtimeRefresh);
+      window.removeEventListener('payment-changed', handleRealtimeRefresh);
+    };
+  }, [resetInfiniteScroll, silentRefresh]);
 
   // Tự động sinh danh sách 5 năm gần nhất
   const availableYears = useMemo(() => {

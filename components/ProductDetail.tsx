@@ -83,6 +83,19 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
         fetchData();
     }, [productId]);
 
+    // Realtime: silently refetch when product or contract data changes
+    useEffect(() => {
+        const handleRefresh = () => {
+            ProductService.getById(productId).then(p => { if (p) setProduct(p); });
+        };
+        window.addEventListener('product-changed', handleRefresh);
+        window.addEventListener('contract-changed', handleRefresh);
+        return () => {
+            window.removeEventListener('product-changed', handleRefresh);
+            window.removeEventListener('contract-changed', handleRefresh);
+        };
+    }, [productId]);
+
     const formatCurrency = (val: number) => {
         return (val || 0).toLocaleString('vi-VN') + ' ₫';
     };

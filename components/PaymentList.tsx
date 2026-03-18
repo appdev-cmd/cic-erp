@@ -155,12 +155,20 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
         totalCount,
         sentinelRef,
         reset: resetInfiniteScroll,
+        silentRefresh,
         setItems: setPayments
     } = useInfiniteScroll<Payment>({
         fetchFn: fetchPaymentPage,
         pageSize: PAGE_SIZE,
         resetDeps: [debouncedSearch, voucherTab, statusFilter, unitFilter, visibleUnits, yearFilter]
     });
+
+    // Realtime: silent refresh when payment data changes from another tab
+    useEffect(() => {
+        const handleRealtimeRefresh = () => { silentRefresh(); };
+        window.addEventListener('payment-changed', handleRealtimeRefresh);
+        return () => window.removeEventListener('payment-changed', handleRealtimeRefresh);
+    }, [silentRefresh]);
 
     const formatCurrency = (val: number) => formatNumber(val) + ' ₫';
 

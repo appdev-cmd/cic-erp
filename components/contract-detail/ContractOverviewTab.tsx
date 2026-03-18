@@ -85,6 +85,19 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
         }
     }, [contract.id]);
 
+    // Realtime: refetch vouchers silently when payments change
+    useEffect(() => {
+        const handlePaymentChanged = () => {
+            if (contract.id) {
+                PaymentService.getByContractId(contract.id)
+                    .then(setVouchers)
+                    .catch(e => console.error('Realtime voucher refetch error', e));
+            }
+        };
+        window.addEventListener('payment-changed', handlePaymentChanged);
+        return () => window.removeEventListener('payment-changed', handlePaymentChanged);
+    }, [contract.id]);
+
     const handleAddVoucher = (type: VoucherType) => {
         setVoucherFormType(type);
         setEditingVoucher(undefined);

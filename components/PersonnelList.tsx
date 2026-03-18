@@ -100,6 +100,17 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
         return () => clearTimeout(timeoutId);
     }, []);
 
+    // Realtime: silently refetch when employee data changes from another tab
+    useEffect(() => {
+        const handleRealtimeRefresh = () => {
+            EmployeeService.getAll()
+                .then(setAllPersonnel)
+                .catch(e => console.error('[PersonnelList] Realtime refetch error:', e));
+        };
+        window.addEventListener('employee-changed', handleRealtimeRefresh);
+        return () => window.removeEventListener('employee-changed', handleRealtimeRefresh);
+    }, []);
+
     // Filter units for dropdown
     const filterUnits = useMemo(() => {
         const allowedUnits = units.filter(u =>

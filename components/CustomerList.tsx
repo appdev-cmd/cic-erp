@@ -93,12 +93,20 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
         totalCount,
         sentinelRef,
         reset: resetInfiniteScroll,
+        silentRefresh,
         setItems: setCustomers
     } = useInfiniteScroll<Customer>({
         fetchFn: fetchCustomerPage,
         pageSize: PAGE_SIZE,
         resetDeps: [debouncedSearch, typeFilter, industryFilter, ratingFilter]
     });
+
+    // Realtime: silent refresh when customer data changes from another tab
+    useEffect(() => {
+        const handleRealtimeRefresh = () => { silentRefresh(); };
+        window.addEventListener('customer-changed', handleRealtimeRefresh);
+        return () => window.removeEventListener('customer-changed', handleRealtimeRefresh);
+    }, [silentRefresh]);
 
     const industries = ['all', ...INDUSTRIES];
     const RATINGS = ['all', 'VIP', 'Gold', 'Standard', 'Lead'];
