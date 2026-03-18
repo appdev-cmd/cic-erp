@@ -283,31 +283,64 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   }, [salespeople, unitId, salespersonId]);
 
   // ==================== CONTRACT ID ====================
+  // Parse initial STT from existing contract code (e.g. "HĐ_008/CSS_2026" → "008")
+  const parseInitialStt = () => {
+    const code = contract?.contractCode || contract?.id || '';
+    const match = code.match(/^(?:HĐ|VV)_(\d+)\//); 
+    return match ? match[1] : '';
+  };
   const [formContractId, setFormContractId] = useState(isCloning ? '' : (contract?.contractCode || contract?.id || ''));
+  const [contractNumberStt, setContractNumberStt] = useState(isCloning ? '' : parseInitialStt());
   const [isIdTouched, setIsIdTouched] = useState(isCloning ? false : !!(contract?.contractCode || contract?.id));
   const [hasCustomerContractNumber, setHasCustomerContractNumber] = useState(!!(contract as any)?.customerContractNumber);
   const [customerContractNumber, setCustomerContractNumber] = useState((contract as any)?.customerContractNumber || '');
 
+  // Auto-fetch next STT when unit/year changes (only for new/clone contracts)
   useEffect(() => {
-    const generateId = async () => {
+    const fetchStt = async () => {
       try {
-        // When cloning, always generate new ID (ignore isIdTouched)
-        if (isEditing || (!isCloning && isIdTouched) || !unitId) return;
-        const unit = units.find(u => u.id === unitId);
-        const unitCode = unit?.code || 'UNIT';
+        if (isEditing || !unitId) return;
+        // Don't auto-fetch if user has manually touched STT (unless cloning)
+        if (!isCloning && isIdTouched) return;
         const year = new Date(signedDate).getFullYear();
         const nextNum = await ContractService.getNextContractNumber(unitId, year, true);
         const stt = nextNum.toString().padStart(3, '0');
-        const clientInitial = clientName ? clientName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 5) : 'KH';
-        const newId = `${contractType}_${stt}/${unitCode}_${clientInitial}_${year}`;
-        setFormContractId(newId);
+        setContractNumberStt(stt);
       } catch (error) {
-        console.error("Error generating contract ID:", error);
+        console.error("Error fetching next STT:", error);
       }
     };
-    const timer = setTimeout(generateId, 500);
+    const timer = setTimeout(fetchStt, 500);
     return () => clearTimeout(timer);
-  }, [unitId, clientName, signedDate, units, isEditing, isIdTouched, contractType]);
+  }, [unitId, signedDate, units, isEditing, isIdTouched, contractType]);
+
+  // Reassemble formContractId whenever segments change
+  useEffect(() => {
+    if (!unitId || !contractNumberStt) return;
+    const unit = units.find(u => u.id === unitId);
+    const unitCode = unit?.code || 'UNIT';
+    const year = new Date(signedDate).getFullYear();
+    const newId = `${contractType}_${contractNumberStt}/${unitCode}_CIC_${year}`;
+    setFormContractId(newId);
+  }, [contractType, contractNumberStt, unitId, signedDate, units]);
+
+  // Duplicate contract number check (debounced)
+  const [duplicateWarning, setDuplicateWarning] = useState(false);
+  useEffect(() => {
+    if (!formContractId || isEditing) {
+      setDuplicateWarning(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const exists = await ContractService.exists(formContractId);
+        setDuplicateWarning(exists);
+      } catch {
+        setDuplicateWarning(false);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [formContractId, isEditing]);
 
   // ==================== AUTO-SAVE DRAFT ====================
   useEffect(() => {
@@ -467,10 +500,23 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     }
   }, [lineItems]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!unitId || !salespersonId || !clientName) {
       toast.error("Vui lòng nhập đầy đủ thông tin bắt buộc (Đơn vị, Sale, Khách hàng)");
       return;
+    }
+    // Check duplicate contract number before saving
+    if (!isEditing && formContractId) {
+      try {
+        const exists = await ContractService.exists(formContractId);
+        if (exists) {
+          toast.error(`Số hiệu HĐ "${formContractId}" đã tồn tại! Vui lòng đổi STT.`);
+          setDuplicateWarning(true);
+          return;
+        }
+      } catch (err) {
+        console.error('Duplicate check failed:', err);
+      }
     }
     const payload = {
       id: isEditing ? contract?.id : undefined, // PK: preserved on edit, auto-set from contractCode on create
@@ -631,7 +677,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 hasVat={hasVat} setHasVat={setHasVat}
                 vatRate={vatRate} setVatRate={setVatRate}
                 formContractId={formContractId} setFormContractId={setFormContractId}
+                contractNumberStt={contractNumberStt} setContractNumberStt={setContractNumberStt}
                 isIdTouched={isIdTouched} setIsIdTouched={setIsIdTouched}
+                duplicateWarning={duplicateWarning}
                 hasCustomerContractNumber={hasCustomerContractNumber} setHasCustomerContractNumber={setHasCustomerContractNumber}
                 customerContractNumber={customerContractNumber} setCustomerContractNumber={setCustomerContractNumber}
                 contacts={contacts} setContacts={setContacts}

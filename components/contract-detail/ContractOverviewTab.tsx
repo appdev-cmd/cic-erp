@@ -118,13 +118,28 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
         }
     };
 
-    const handleDeleteVoucher = async (id: string) => {
-        if (!window.confirm('Xóa phiếu này?')) return;
+    // Delete confirmation state (replaces window.confirm which is blocked in slide panels)
+    const [deletingVoucherId, setDeletingVoucherId] = useState<string | null>(null);
+
+    const handleDeleteVoucher = async (id: string, e?: React.MouseEvent) => {
+        if (e) { e.stopPropagation(); e.preventDefault(); }
+        
+        // First click: show confirm state
+        if (deletingVoucherId !== id) {
+            setDeletingVoucherId(id);
+            // Auto-clear after 3 seconds
+            setTimeout(() => setDeletingVoucherId(prev => prev === id ? null : prev), 3000);
+            return;
+        }
+        
+        // Second click: perform deletion
+        setDeletingVoucherId(null);
         try {
             await PaymentService.delete(id);
             setVouchers(prev => prev.filter(v => v.id !== id));
             toast.success('Đã xóa phiếu');
         } catch (error) {
+            console.error('Delete voucher error', error);
             toast.error('Xóa thất bại');
         }
     };
@@ -346,9 +361,9 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                             <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-1"><FileText size={11} /> Phiếu xuất HĐ VAT ({vatInvoices.length})</p>
                                             <div className="space-y-2">
                                                 {vatInvoices.map(v => (
-                                                    <div key={v.id} onClick={() => handleEditVoucher(v)}
-                                                        className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer group">
-                                                        <div className="flex items-center gap-3">
+                                                    <div key={v.id}
+                                                        className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800 hover:border-blue-300 dark:hover:border-blue-700 transition-colors group">
+                                                        <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => handleEditVoucher(v)}>
                                                             <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center"><FileText size={14} /></div>
                                                             <div>
                                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{v.invoiceNumber || 'Chưa có số HĐ'}</p>
@@ -358,9 +373,15 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-sm font-black text-blue-600 dark:text-blue-400">{formatNumber(v.amount)} ₫</span>
                                                             {canDeletePayment && (
-                                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteVoucher(v.id); }}
-                                                                    className="p-1 rounded text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                                                <button onClick={(e) => handleDeleteVoucher(v.id, e)}
+                                                                    className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                                                                        deletingVoucherId === v.id
+                                                                            ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
+                                                                            : 'text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30'
+                                                                    }`}
+                                                                    title={deletingVoucherId === v.id ? 'Bấm lần nữa để xóa' : 'Xóa hoá đơn'}>
                                                                     <Trash2 size={13} />
+                                                                    {deletingVoucherId === v.id && <span>Xóa?</span>}
                                                                 </button>
                                                             )}
                                                         </div>
@@ -376,9 +397,9 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                             <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-1"><ArrowDownCircle size={11} /> Phiếu thu ({receipts.length})</p>
                                             <div className="space-y-2">
                                                 {receipts.map(v => (
-                                                    <div key={v.id} onClick={() => handleEditVoucher(v)}
-                                                        className="flex items-center justify-between p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-800 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors cursor-pointer group">
-                                                        <div className="flex items-center gap-3">
+                                                    <div key={v.id}
+                                                        className="flex items-center justify-between p-3 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-800 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors group">
+                                                        <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => handleEditVoucher(v)}>
                                                             <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg flex items-center justify-center"><ArrowDownCircle size={14} /></div>
                                                             <div>
                                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{v.reference || v.method || 'Phiếu thu'}</p>
@@ -388,9 +409,15 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{formatNumber(v.amount)} ₫</span>
                                                             {canDeletePayment && (
-                                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteVoucher(v.id); }}
-                                                                    className="p-1 rounded text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                                                <button onClick={(e) => handleDeleteVoucher(v.id, e)}
+                                                                    className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                                                                        deletingVoucherId === v.id
+                                                                            ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
+                                                                            : 'text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30'
+                                                                    }`}
+                                                                    title={deletingVoucherId === v.id ? 'Bấm lần nữa để xóa' : 'Xóa phiếu thu'}>
                                                                     <Trash2 size={13} />
+                                                                    {deletingVoucherId === v.id && <span>Xóa?</span>}
                                                                 </button>
                                                             )}
                                                         </div>
@@ -406,9 +433,9 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                             <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-2 flex items-center gap-1"><ArrowUpCircle size={11} /> Phiếu chi ({expenses.length})</p>
                                             <div className="space-y-2">
                                                 {expenses.map(v => (
-                                                    <div key={v.id} onClick={() => handleEditVoucher(v)}
-                                                        className="flex items-center justify-between p-3 bg-rose-50/50 dark:bg-rose-900/10 rounded-lg border border-rose-100 dark:border-rose-800 hover:border-rose-300 dark:hover:border-rose-700 transition-colors cursor-pointer group">
-                                                        <div className="flex items-center gap-3">
+                                                    <div key={v.id}
+                                                        className="flex items-center justify-between p-3 bg-rose-50/50 dark:bg-rose-900/10 rounded-lg border border-rose-100 dark:border-rose-800 hover:border-rose-300 dark:hover:border-rose-700 transition-colors group">
+                                                        <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => handleEditVoucher(v)}>
                                                             <div className="w-8 h-8 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-lg flex items-center justify-center"><ArrowUpCircle size={14} /></div>
                                                             <div>
                                                                 <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{v.expenseCategory || v.notes || 'Phiếu chi'}</p>
@@ -418,9 +445,15 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-sm font-black text-rose-600 dark:text-rose-400">{formatNumber(v.amount)} ₫</span>
                                                             {canDeletePayment && (
-                                                                <button onClick={(e) => { e.stopPropagation(); handleDeleteVoucher(v.id); }}
-                                                                    className="p-1 rounded text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                                                <button onClick={(e) => handleDeleteVoucher(v.id, e)}
+                                                                    className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all ${
+                                                                        deletingVoucherId === v.id
+                                                                            ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
+                                                                            : 'text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30'
+                                                                    }`}
+                                                                    title={deletingVoucherId === v.id ? 'Bấm lần nữa để xóa' : 'Xóa phiếu chi'}>
                                                                     <Trash2 size={13} />
+                                                                    {deletingVoucherId === v.id && <span>Xóa?</span>}
                                                                 </button>
                                                             )}
                                                         </div>

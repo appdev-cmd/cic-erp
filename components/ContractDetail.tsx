@@ -116,16 +116,12 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
     const handleContractUpdated = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (contractId && (!detail?.contractId || detail.contractId === contractId)) {
-        console.log('[ContractDetail] contract-updated event received!', detail);
-        // Use saved contract data directly (no network refetch needed)
-        if (detail?.contract) {
-          setContract(detail.contract);
-        } else if (contractId) {
-          // Fallback: refetch from DB
-          ContractService.getById(contractId)
-            .then(data => { if (data) setContract(data); })
-            .catch(err => console.error('Refetch error:', err));
-        }
+        console.log('[ContractDetail] contract-updated event received, refetching from DB...', detail);
+        // Always refetch from DB to get full contract with joined data (payments, etc.)
+        // The event's contract is shallow (from .update().select() — no joins)
+        ContractService.getById(contractId)
+          .then(data => { if (data) setContract(data); })
+          .catch(err => console.error('Refetch error:', err));
       }
     };
     window.addEventListener('contract-updated', handleContractUpdated);

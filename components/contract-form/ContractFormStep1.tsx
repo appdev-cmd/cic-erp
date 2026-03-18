@@ -54,8 +54,11 @@ interface ContractFormStep1Props {
     setVatRate: (v: number) => void;
     formContractId: string;
     setFormContractId: (v: string) => void;
+    contractNumberStt: string;
+    setContractNumberStt: (v: string) => void;
     isIdTouched: boolean;
     setIsIdTouched: (v: boolean) => void;
+    duplicateWarning: boolean;
     hasCustomerContractNumber: boolean;
     setHasCustomerContractNumber: (v: boolean) => void;
     customerContractNumber: string;
@@ -128,7 +131,9 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
     hasVat, setHasVat,
     vatRate, setVatRate,
     formContractId, setFormContractId,
+    contractNumberStt, setContractNumberStt,
     isIdTouched, setIsIdTouched,
+    duplicateWarning,
     hasCustomerContractNumber, setHasCustomerContractNumber,
     customerContractNumber, setCustomerContractNumber,
     contacts, setContacts,
@@ -174,15 +179,40 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                         </div>
                     </div>
 
-                    {/* Số Hợp đồng */}
-                    <div className="flex-1 min-w-[180px]">
-                        <FieldLabel icon={<Hash size={10} />}>Số hiệu HĐ theo CIC</FieldLabel>
-                        <input
-                            value={formContractId}
-                            onChange={(e) => { setFormContractId(e.target.value); setIsIdTouched(true); }}
-                            placeholder="Tự động tạo..."
-                            className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
-                        />
+                    {/* Số Hợp đồng — structured: {type}_{STT}/{unitCode}_CIC_{year} */}
+                    <div className="flex-1 min-w-[220px]">
+                        <FieldLabel icon={<Hash size={10} />} required>Số hiệu HĐ theo CIC</FieldLabel>
+                        <div className={`flex items-center bg-white dark:bg-slate-900 border rounded-lg overflow-hidden focus-within:ring-1 transition-all ${duplicateWarning ? 'border-rose-400 dark:border-rose-500 focus-within:border-rose-500 focus-within:ring-rose-500/20' : 'border-slate-200 dark:border-slate-700 focus-within:border-indigo-500 focus-within:ring-indigo-500/20'}`}>
+                            {/* Prefix: HĐ or VV — auto from contractType */}
+                            <span className="px-2.5 py-2 text-sm font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border-r border-slate-200 dark:border-slate-700 select-none whitespace-nowrap">
+                                {contractType}_
+                            </span>
+                            {/* STT — editable */}
+                            <input
+                                value={contractNumberStt}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                                    setContractNumberStt(val);
+                                    setIsIdTouched(true);
+                                }}
+                                onBlur={() => {
+                                    if (contractNumberStt && contractNumberStt.length > 0) {
+                                        setContractNumberStt(contractNumberStt.padStart(3, '0'));
+                                    }
+                                }}
+                                placeholder="001"
+                                className="w-[52px] text-center px-1 py-2 bg-transparent text-sm font-black text-slate-800 dark:text-slate-200 outline-none"
+                            />
+                            {/* Suffix: /unitCode_CIC_year — same style as prefix */}
+                            <span className="px-2.5 py-2 text-sm font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border-l border-slate-200 dark:border-slate-700 select-none whitespace-nowrap">
+                                /{units.find(u => u.id === unitId)?.code || '...'}_CIC_{signedDate ? new Date(signedDate).getFullYear() : new Date().getFullYear()}
+                            </span>
+                        </div>
+                        {duplicateWarning && (
+                            <p className="text-[10px] font-bold text-rose-500 mt-1 animate-in slide-in-from-top-1 duration-200">
+                                ⚠ Số hiệu này đã tồn tại! Vui lòng đổi STT.
+                            </p>
+                        )}
                     </div>
 
                     {/* Ngày ký kết */}

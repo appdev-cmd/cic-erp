@@ -5,7 +5,7 @@ import Modal from './ui/Modal';
 import NumberInput from './ui/NumberInput';
 import QuickAddBrandDialog from './ui/QuickAddBrandDialog';
 import QuickAddSupplierDialog from './ui/QuickAddSupplierDialog';
-import { Product, ProductCategory, LicenseType, Unit, Brand, Customer } from '../types';
+import { Product, ProductCategory, Unit, Brand, Customer } from '../types';
 import { UnitService, BrandService, CustomerService, ProductLineService, ProductEditionService } from '../services';
 import { ProductService } from '../services/productService';
 import { ProductLine } from '../services/productLineService';
@@ -23,6 +23,7 @@ const CATEGORY_MAP: { label: string; code: string }[] = [
     { label: 'Phần mềm', code: 'PM' },
     { label: 'Thiết bị', code: 'TB' },
     { label: 'Tư vấn', code: 'TV' },
+    { label: 'Dịch vụ', code: 'DV' },
     { label: 'Bảo trì', code: 'BT' },
     { label: 'Đào tạo', code: 'ĐT' },
     { label: 'Khác', code: 'K' },
@@ -30,7 +31,7 @@ const CATEGORY_MAP: { label: string; code: string }[] = [
 const CATEGORIES = CATEGORY_MAP.map(c => c.label);
 const getCategoryCode = (label: string) => CATEGORY_MAP.find(c => c.label === label)?.code || 'K';
 
-const LICENSE_TYPES: LicenseType[] = ['Standalone', 'Network', 'Hardlock'];
+
 
 /**
  * Combobox: dropdown with search + type-to-add
@@ -206,8 +207,8 @@ const BrandCombobox: React.FC<{
     );
 };
 
-/** Categories that get auto-prepended to the product name */
-const PREFIXED_CATEGORIES = ['Phần mềm', 'Thiết bị'];
+/** All categories get auto-prepended to the product name */
+const PREFIXED_CATEGORIES = CATEGORIES;
 
 const buildProductName = (category: string, line?: string, edition?: string): string => {
     const parts = [line, edition].filter(Boolean);
@@ -233,7 +234,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
         unitId: '',
         productLine: '',
         edition: '',
-        licenseType: '' as string,
+
         brandId: '',
         supplierId: '',
     });
@@ -254,9 +255,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
     const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
     const [supplierDialogInitial, setSupplierDialogInitial] = useState('');
 
-    // Determine if this is an old product (no structured fields)
-    const isLegacyProduct = product && !product.productLine && !product.edition && !product.licenseType;
-
     // Duplicate name check
     const [duplicateProduct, setDuplicateProduct] = useState<Product | null>(null);
     const duplicateTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -270,7 +268,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
     // Debounced duplicate name check
     useEffect(() => {
         if (duplicateTimerRef.current) clearTimeout(duplicateTimerRef.current);
-        const nameToCheck = isLegacyProduct ? formData.name : builtName;
+        const nameToCheck = builtName;
         if (!nameToCheck || nameToCheck.trim().length < 3) {
             setDuplicateProduct(null);
             return;
@@ -280,7 +278,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
             setDuplicateProduct(existing);
         }, 500);
         return () => { if (duplicateTimerRef.current) clearTimeout(duplicateTimerRef.current); };
-    }, [builtName, formData.name, isLegacyProduct, product?.id]);
+    }, [builtName, product?.id]);
 
     const refreshBrands = () => {
         BrandService.getActive().then(setBrands).catch(console.error);
@@ -340,7 +338,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 unitId: product.unitId || '',
                 productLine: product.productLine || '',
                 edition: product.edition || '',
-                licenseType: product.licenseType || '',
                 brandId: product.brandId || '',
                 supplierId: product.supplierId || '',
             });
@@ -359,7 +356,6 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 unitId: '',
                 productLine: '',
                 edition: '',
-                licenseType: '',
                 brandId: '',
                 supplierId: '',
             });
@@ -395,15 +391,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
             return;
         }
         if (duplicateProduct) {
-            const name = isLegacyProduct ? formData.name : builtName;
-            toast.error(`Sản phẩm "${name}" đã tồn tại (Mã: ${duplicateProduct.code}). Vui lòng kiểm tra lại.`);
+            toast.error(`Sản phẩm "${builtName}" đã tồn tại (Mã: ${duplicateProduct.code}). Vui lòng kiểm tra lại.`);
             return;
         }
 
         setIsSubmitting(true);
         try {
             let submitData = { ...formData };
-            if (!isLegacyProduct && builtName.trim()) {
+            if (builtName.trim()) {
                 submitData.name = builtName.trim();
             }
 
@@ -416,9 +411,9 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
             }
 
             if (product) {
-                await onSave({ ...submitData, licenseType: (submitData.licenseType as LicenseType) || undefined, id: product.id });
+                await onSave({ ...submitData, id: product.id });
             } else {
-                await onSave({ ...submitData, licenseType: (submitData.licenseType as LicenseType) || undefined });
+                await onSave(submitData);
             }
             onClose();
         } catch (error) {
@@ -476,113 +471,75 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 </div>
 
                 {/* ── STRUCTURED NAME BUILDER ── */}
-                {isLegacyProduct ? (
-                    <div>
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Tên sản phẩm *</label>
-                        <input
-                            type="text"
-                            required
-                            value={formData.name}
-                            onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="VD: Hệ thống quản lý dữ liệu"
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
+                <div className="space-y-3 p-4 bg-gradient-to-br from-indigo-50/50 to-violet-50/50 dark:from-indigo-950/20 dark:to-violet-950/20 rounded-xl border border-indigo-100 dark:border-indigo-900/30">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Sparkles size={14} className="text-indigo-500" />
+                        <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Cấu trúc tên sản phẩm</span>
+                    </div>
+
+                    {/* Row 1: Danh mục + Dòng sản phẩm */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Danh mục *</label>
+                            <select
+                                required
+                                value={formData.category}
+                                onChange={e => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
+                            >
+                                {CATEGORY_MAP.map(cat => (
+                                    <option key={cat.label} value={cat.label}>{cat.label} ({cat.code})</option>
+                                ))}
+                            </select>
+                        </div>
+                        <ComboboxInput
+                            value={formData.productLine}
+                            onChange={(v) => setFormData(prev => ({ ...prev, productLine: v }))}
+                            options={lineOptions}
+                            placeholder="VD: enjiCAD, Escon..."
+                            label="Sản phẩm *"
                         />
                     </div>
-                ) : (
-                    <div className="space-y-3 p-4 bg-gradient-to-br from-indigo-50/50 to-violet-50/50 dark:from-indigo-950/20 dark:to-violet-950/20 rounded-xl border border-indigo-100 dark:border-indigo-900/30">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Sparkles size={14} className="text-indigo-500" />
-                            <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Cấu trúc tên sản phẩm</span>
-                        </div>
 
-                        {/* Row 1: Danh mục + Dòng sản phẩm */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Danh mục *</label>
-                                <select
-                                    required
-                                    value={formData.category}
-                                    onChange={e => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
-                                >
-                                    {CATEGORY_MAP.map(cat => (
-                                        <option key={cat.label} value={cat.label}>{cat.label} ({cat.code})</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <ComboboxInput
-                                value={formData.productLine}
-                                onChange={(v) => setFormData(prev => ({ ...prev, productLine: v }))}
-                                options={lineOptions}
-                                placeholder="VD: enjiCAD, Escon..."
-                                label="Sản phẩm *"
+                    {/* Row 2: Phiên bản + Đơn vị tính */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <ComboboxInput
+                            value={formData.edition}
+                            onChange={(v) => setFormData(prev => ({ ...prev, edition: v }))}
+                            options={editionOptions}
+                            placeholder="VD: Pro, Standard..."
+                            label="Phiên bản (tùy chọn)"
+                        />
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                                Đơn vị tính *
+                            </label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.unit}
+                                onChange={e => setFormData(prev => ({ ...prev, unit: e.target.value }))}
+                                placeholder="VD: Bộ, Gói, m2, Tháng"
+                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
                             />
                         </div>
-
-                        {/* Row 2: Phiên bản + License */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <ComboboxInput
-                                value={formData.edition}
-                                onChange={(v) => setFormData(prev => ({ ...prev, edition: v }))}
-                                options={editionOptions}
-                                placeholder="VD: Pro, Standard..."
-                                label="Phiên bản (tùy chọn)"
-                            />
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
-                                    License (tùy chọn)
-                                </label>
-                                <select
-                                    value={formData.licenseType}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, licenseType: e.target.value }))}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
-                                >
-                                    <option value="">— Không chọn —</option>
-                                    {LICENSE_TYPES.map(lt => (
-                                        <option key={lt} value={lt}>{lt}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        {builtName && (
-                            <div className="mt-2 px-4 py-2.5 bg-white dark:bg-slate-800 rounded-lg border border-indigo-200 dark:border-indigo-800 flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap">Tên SP:</span>
-                                <span className="text-sm font-black text-indigo-700 dark:text-indigo-300 truncate flex-1">{builtName}</span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap">ĐVT:</span>
-                                <input
-                                    type="text"
-                                    value={formData.unit}
-                                    onChange={e => setFormData(prev => ({ ...prev, unit: e.target.value }))}
-                                    className="w-20 px-2 py-1 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded text-sm font-bold text-center focus:border-indigo-500 outline-none transition-all text-slate-800 dark:text-slate-200"
-                                />
-                            </div>
-                        )}
                     </div>
-                )}
 
-                {/* Duplicate warning (shown outside name builder for legacy, inside for structured) */}
-                {!isLegacyProduct && duplicateProduct && (
+                    {builtName && (
+                        <div className="mt-2 px-4 py-2.5 bg-white dark:bg-slate-800 rounded-lg border border-indigo-200 dark:border-indigo-800 flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase whitespace-nowrap">Tên SP:</span>
+                            <span className="text-sm font-black text-indigo-700 dark:text-indigo-300 truncate flex-1">{builtName}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Duplicate warning */}
+                {duplicateProduct && (
                     <div className="-mt-3 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg flex items-start gap-2">
                         <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
                         <div className="text-xs text-amber-700 dark:text-amber-400">
                             <span className="font-bold">Trùng tên!</span> Sản phẩm <span className="font-bold">"{duplicateProduct.name}"</span> đã tồn tại (Mã: {duplicateProduct.code}).
                         </div>
-                    </div>
-                )}
-
-                {/* Legacy product: show unit separately */}
-                {isLegacyProduct && (
-                    <div>
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Đơn vị tính *</label>
-                        <input
-                            type="text"
-                            required
-                            value={formData.unit}
-                            onChange={e => setFormData(prev => ({ ...prev, unit: e.target.value }))}
-                            placeholder="VD: Bộ, Gói, m2, Tháng"
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
-                        />
                     </div>
                 )}
 

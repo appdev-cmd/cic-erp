@@ -1129,7 +1129,7 @@ export const ContractService = {
             // Fetch active contracts with payments
             const { data: contracts, error } = await supabase
                 .from('contracts')
-                .select('id, value, status, payments(amount, paid_amount, status, payment_type, due_date, voucher_type, vat_invoice_items, payment_date)')
+                .select('id, value, status, payments(amount, paid_amount, status, payment_type, due_date, voucher_type, vat_invoice_items, payment_date, invoice_date)')
                 .in('status', ['Processing', 'Handover', 'Acceptance']);
 
             if (error || !contracts) {
@@ -1150,7 +1150,7 @@ export const ContractService = {
                     // Calculate completed_date = max(last VAT invoice date, last receipt date)
                     const vatDates = payments
                         .filter((p: any) => p.voucher_type === 'VAT_INVOICE' && ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về'].includes(p.status))
-                        .map((p: any) => p.payment_date || p.due_date)
+                        .map((p: any) => p.invoice_date || p.payment_date || p.due_date)
                         .filter(Boolean);
                     const receiptDates = payments
                         .filter((p: any) => p.voucher_type === 'RECEIPT' && ['Tạm ứng', 'Tiền về'].includes(p.status))
@@ -1174,17 +1174,16 @@ export const ContractService = {
             // === BACKFILL: Fix Completed contracts missing completed_date ===
             const { data: missingDateContracts, error: missingError } = await supabase
                 .from('contracts')
-                .select('id, value, status, completed_date, payments(amount, paid_amount, status, payment_type, due_date, voucher_type, vat_invoice_items, payment_date)')
-                .eq('status', 'Completed')
-                .is('completed_date', null);
+                .select('id, value, status, completed_date, payments(amount, paid_amount, status, payment_type, due_date, voucher_type, vat_invoice_items, payment_date, invoice_date)')
+                .eq('status', 'Completed');
 
             if (!missingError && missingDateContracts && missingDateContracts.length > 0) {
-                console.log(`${logPrefix} Found ${missingDateContracts.length} Completed contracts missing completed_date, backfilling...`);
+                console.log(`${logPrefix} Found ${missingDateContracts.length} Completed contracts, recalculating completed_date...`);
                 for (const contract of missingDateContracts) {
                     const payments = contract.payments || [];
                     const vatDates = payments
                         .filter((p: any) => p.voucher_type === 'VAT_INVOICE' && ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về'].includes(p.status))
-                        .map((p: any) => p.payment_date || p.due_date)
+                        .map((p: any) => p.invoice_date || p.payment_date || p.due_date)
                         .filter(Boolean);
                     const receiptDates = payments
                         .filter((p: any) => p.voucher_type === 'RECEIPT' && ['Tạm ứng', 'Tiền về'].includes(p.status))
@@ -1193,14 +1192,17 @@ export const ContractService = {
                     const allDates = [...vatDates, ...receiptDates].sort();
                     const completedDate = allDates.length > 0 ? allDates[allDates.length - 1] : new Date().toISOString().split('T')[0];
 
-                    const { error: updateErr } = await supabase
-                        .from('contracts')
-                        .update({ completed_date: completedDate })
-                        .eq('id', contract.id);
-                    if (!updateErr) {
-                        updated++;
-                        details.push(`${contract.id}: Backfill completed_date = ${completedDate}`);
-                        console.log(`${logPrefix} ${contract.id}: Backfilled completed_date = ${completedDate}`);
+                    // Only update if the date actually changed
+                    if (completedDate !== contract.completed_date) {
+                        const { error: updateErr } = await supabase
+                            .from('contracts')
+                            .update({ completed_date: completedDate })
+                            .eq('id', contract.id);
+                        if (!updateErr) {
+                            updated++;
+                            details.push(`${contract.id}: Fix completed_date ${contract.completed_date} → ${completedDate}`);
+                            console.log(`${logPrefix} ${contract.id}: Fixed completed_date ${contract.completed_date} → ${completedDate}`);
+                        }
                     }
                 }
             }
