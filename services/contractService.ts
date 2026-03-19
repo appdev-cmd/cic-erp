@@ -575,13 +575,17 @@ export const ContractService = {
         const { page, limit, search, status, unitId, year, dateFrom, dateTo, salespersonId, sortBy, sortDir, matchingCustomerIds } = params;
 
         // Build search OR filter including customer short name matches AND unaccent matches
+        // PostgREST .or() filter: IDs must be double-quoted if they contain special chars (/, commas, etc.)
+        const quoteId = (id: string): string => /[,/()\s]/.test(id) ? `"${id}"` : id;
         const buildSearchFilter = (searchTerm: string, customerIds?: string[], unaccentIds?: string[]): string => {
-            let filter = `title.ilike.%${searchTerm}%,contract_code.ilike.%${searchTerm}%,party_a.ilike.%${searchTerm}%,customer_contract_number.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,end_user_name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`;
+            // Sanitize search term: escape commas (PostgREST delimiter) and backslashes
+            const safeTerm = searchTerm.replace(/\\/g, '\\\\').replace(/,/g, '\\,');
+            let filter = `title.ilike.%${safeTerm}%,contract_code.ilike.%${safeTerm}%,party_a.ilike.%${safeTerm}%,customer_contract_number.ilike.%${safeTerm}%,content.ilike.%${safeTerm}%,end_user_name.ilike.%${safeTerm}%,category.ilike.%${safeTerm}%`;
             if (customerIds && customerIds.length > 0) {
-                filter += `,customer_id.in.(${customerIds.join(',')})`;
+                filter += `,customer_id.in.(${customerIds.map(quoteId).join(',')})`;
             }
             if (unaccentIds && unaccentIds.length > 0) {
-                filter += `,id.in.(${unaccentIds.join(',')})`;
+                filter += `,id.in.(${unaccentIds.map(quoteId).join(',')})`;
             }
             return filter;
         };
@@ -844,13 +848,17 @@ export const ContractService = {
         const { search, status, unitId, year, dateFrom, dateTo, salespersonId, matchingCustomerIds } = params;
 
         // Build search OR filter including customer short name matches AND unaccent matches
+        // PostgREST .or() filter: IDs must be double-quoted if they contain special chars (/, commas, etc.)
+        const quoteId = (id: string): string => /[,/()\s]/.test(id) ? `"${id}"` : id;
         const buildSearchFilter = (searchTerm: string, customerIds?: string[], unaccentIds?: string[]): string => {
-            let filter = `title.ilike.%${searchTerm}%,contract_code.ilike.%${searchTerm}%,party_a.ilike.%${searchTerm}%,customer_contract_number.ilike.%${searchTerm}%,content.ilike.%${searchTerm}%,end_user_name.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`;
+            // Sanitize search term: escape commas (PostgREST delimiter) and backslashes
+            const safeTerm = searchTerm.replace(/\\/g, '\\\\').replace(/,/g, '\\,');
+            let filter = `title.ilike.%${safeTerm}%,contract_code.ilike.%${safeTerm}%,party_a.ilike.%${safeTerm}%,customer_contract_number.ilike.%${safeTerm}%,content.ilike.%${safeTerm}%,end_user_name.ilike.%${safeTerm}%,category.ilike.%${safeTerm}%`;
             if (customerIds && customerIds.length > 0) {
-                filter += `,customer_id.in.(${customerIds.join(',')})`;
+                filter += `,customer_id.in.(${customerIds.map(quoteId).join(',')})`;
             }
             if (unaccentIds && unaccentIds.length > 0) {
-                filter += `,id.in.(${unaccentIds.join(',')})`;
+                filter += `,id.in.(${unaccentIds.map(quoteId).join(',')})`;
             }
             return filter;
         };
