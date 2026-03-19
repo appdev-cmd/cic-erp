@@ -41,7 +41,7 @@ const TABLES = Object.keys(TABLE_EVENT_MAP);
 
 // Debounce map: table → timeout
 const debounceTimers: Record<string, ReturnType<typeof setTimeout>> = {};
-const DEBOUNCE_MS = 2000;
+const DEBOUNCE_MS = 500;
 
 function dispatchDebounced(eventName: string, detail?: any) {
   if (debounceTimers[eventName]) {
@@ -78,7 +78,7 @@ export function useRealtimeSync() {
           const eventType = payload.eventType; // INSERT | UPDATE | DELETE
           const record = (payload.new || payload.old) as any;
 
-          // For contracts table: use legacy event names for backward compatibility
+          // For contracts table: dispatch both legacy events AND contract-changed
           if (table === 'contracts') {
             const legacyEvent = CONTRACT_EVENTS[eventType];
             if (legacyEvent) {
@@ -88,6 +88,14 @@ export function useRealtimeSync() {
                 source: 'realtime',
               });
             }
+            // Also dispatch generic contract-changed for newer listeners
+            dispatchDebounced('contract-changed', {
+              eventType,
+              id: record?.id,
+              record,
+              table,
+              source: 'realtime',
+            });
             return;
           }
 

@@ -125,6 +125,11 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
             }
             setShowVoucherForm(false);
             setEditingVoucher(undefined);
+            // Immediately notify parent to refetch contract (e.g. update completion date)
+            // First recalculate completion date in DB, then dispatch event
+            ContractService.recalculateCompletionDate(contract.id)
+                .then(() => window.dispatchEvent(new CustomEvent('payment-changed', { detail: { record: { contract_id: contract.id }, source: 'local' } })))
+                .catch(() => window.dispatchEvent(new CustomEvent('payment-changed', { detail: { record: { contract_id: contract.id }, source: 'local' } })));
         } catch (error) {
             console.error('Save voucher error', error);
             toast.error('Lưu phiếu thất bại');
@@ -151,6 +156,10 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
             await PaymentService.delete(id);
             setVouchers(prev => prev.filter(v => v.id !== id));
             toast.success('Đã xóa phiếu');
+            // Immediately notify parent to refetch contract
+            ContractService.recalculateCompletionDate(contract.id)
+                .then(() => window.dispatchEvent(new CustomEvent('payment-changed', { detail: { record: { contract_id: contract.id }, source: 'local' } })))
+                .catch(() => window.dispatchEvent(new CustomEvent('payment-changed', { detail: { record: { contract_id: contract.id }, source: 'local' } })));
         } catch (error) {
             console.error('Delete voucher error', error);
             toast.error('Xóa thất bại');

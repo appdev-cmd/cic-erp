@@ -1115,6 +1115,58 @@ export const ContractService = {
     },
 
     /**
+     * Recalculate completed_date for a single contract based on its payments.
+     * Called after voucher save/delete for immediate update.
+     * Also auto-transitions to 'Completed' if conditions are met.
+     */
+    recalculateCompletionDate: async (contractId: string): Promise<void> => {
+        try {
+            const { data: contract, error } = await supabase
+                .from('contracts')
+                .select('id, value, status, completed_date, payments(amount, paid_amount, status, payment_type, due_date, voucher_type, vat_invoice_items, payment_date, invoice_date)')
+                .eq('id', contractId)
+                .single();
+
+            if (error || !contract) return;
+
+            const payments = contract.payments || [];
+            const totalCash = calculateCashReceived(payments);
+            const totalInvoiced = calculateInvoicedFromPayments(payments);
+            const contractValue = contract.value || 0;
+
+            // Calculate completion date = max(last VAT invoice date, last receipt date)
+            const vatDates = payments
+                .filter((p: any) => p.voucher_type === 'VAT_INVOICE' && ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về'].includes(p.status))
+                .map((p: any) => p.invoice_date || p.payment_date || p.due_date)
+                .filter(Boolean);
+            const receiptDates = payments
+                .filter((p: any) => p.voucher_type === 'RECEIPT' && ['Tạm ứng', 'Tiền về'].includes(p.status))
+                .map((p: any) => p.payment_date)
+                .filter(Boolean);
+            const allDates = [...vatDates, ...receiptDates].sort();
+            const newCompletedDate = allDates.length > 0 ? allDates[allDates.length - 1] : null;
+
+            // Auto-transition to Completed if VAT >= value AND cash >= value
+            if (contractValue > 0 && totalInvoiced >= contractValue && totalCash >= contractValue && contract.status !== 'Completed') {
+                await supabase
+                    .from('contracts')
+                    .update({ status: 'Completed', completed_date: newCompletedDate || new Date().toISOString().split('T')[0] })
+                    .eq('id', contractId);
+                console.log(`[recalcCompletionDate] ${contractId}: → Completed (date: ${newCompletedDate})`);
+            } else if (contract.status === 'Completed' && newCompletedDate && newCompletedDate !== contract.completed_date) {
+                // Already Completed but date changed
+                await supabase
+                    .from('contracts')
+                    .update({ completed_date: newCompletedDate })
+                    .eq('id', contractId);
+                console.log(`[recalcCompletionDate] ${contractId}: Updated completed_date ${contract.completed_date} → ${newCompletedDate}`);
+            }
+        } catch (e) {
+            console.error('[recalcCompletionDate] Error:', e);
+        }
+    },
+
+    /**
      * Auto-transition logic — runs on Dashboard load.
      * Only 1 rule: Completed — tổng giá trị sau thuế VAT invoices ≥ giá trị ký VÀ tiền về ≥ giá trị ký
      * Also backfills completed_date for contracts already Completed but missing the date.
@@ -1588,12 +1640,15 @@ export const ContractService = {
 
     /**
      * CHECK EXISTS - Verify if a contract code already exists
+     * Checks both contract_code AND id columns, because new contracts
+     * use contractCode as their PK (id). If a user edits the code
+     * (e.g. HĐ → VV), only contract_code is updated but id (PK) stays.
      */
     exists: async (contractCode: string): Promise<boolean> => {
         const { count, error } = await supabase
             .from('contracts')
             .select('*', { count: 'exact', head: true })
-            .eq('contract_code', contractCode);
+            .or(`contract_code.eq.${contractCode},id.eq.${contractCode}`);
 
         if (error) {
             console.error('ContractService.exists:', error.message);
