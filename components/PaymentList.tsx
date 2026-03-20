@@ -21,8 +21,8 @@ import {
     TrendingUp,
     RotateCcw
 } from 'lucide-react';
-import { Payment, PaymentStatus, Customer, Unit, VoucherType } from '../types';
-import { PaymentService, ContractService, CustomerService, UnitService } from '../services';
+import { Payment, PaymentStatus, Unit, VoucherType } from '../types';
+import { PaymentService, ContractService, UnitService } from '../services';
 import { useLayoutContext } from './layout/MainLayout';
 import PaymentForm from './PaymentForm';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
@@ -34,6 +34,7 @@ import { useImpersonation } from '../contexts/ImpersonationContext';
 import { formatNumber } from '../lib/utils';
 import { formatDate } from '../utils/formatters';
 import { useColumnResize } from '../hooks/useColumnResize';
+import { useSlidePanelSafe } from '../contexts/SlidePanelContext';
 
 interface PaymentListProps {
     onSelectContract?: (id: string) => void;
@@ -70,15 +71,16 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const { can } = usePermissionCheck();
     const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
 
+    const [voucherTab, setVoucherTab] = useState<VoucherType>('VAT_INVOICE');
+
     // === Resizable columns ===
     const PAYMENT_TABLE_COLUMNS = useMemo(() => [
         { key: 'stt', defaultWidth: 45, minWidth: 35 },
         { key: 'extra', defaultWidth: 130, minWidth: 70 },
-        { key: 'customer', defaultWidth: 200, minWidth: 100 },
-        { key: 'contract', defaultWidth: 160, minWidth: 80 },
+        { key: 'customer', defaultWidth: 280, minWidth: 120 },
+        { key: 'contract', defaultWidth: 200, minWidth: 100 },
         { key: 'date', defaultWidth: 110, minWidth: 70 },
         { key: 'amount', defaultWidth: 140, minWidth: 80 },
-        { key: 'status', defaultWidth: 120, minWidth: 70 },
         { key: 'actions', defaultWidth: 45, minWidth: 35 },
     ], []);
 
@@ -93,8 +95,6 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [voucherTab, setVoucherTab] = useState<VoucherType>('VAT_INVOICE');
-    const [customers, setCustomers] = useState<Customer[]>([]);
     const [units, setUnits] = useState<Unit[]>([]);
     const [stats, setStats] = useState<any>(null);
 
@@ -103,6 +103,9 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingPayment, setEditingPayment] = useState<Payment | undefined>(undefined);
+
+    // Slide panel support for ear-style tab opening
+    const slidePanelCtx = useSlidePanelSafe();
 
     useEffect(() => {
         const timer = setTimeout(() => { setDebouncedSearch(searchQuery); }, 500);
@@ -115,7 +118,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     }, [voucherTab]);
 
     const fetchPaymentPage = useCallback(async (page: number) => {
-        const [listRes, statsRes, customersData, unitsData] = await Promise.all([
+        const [listRes, statsRes, unitsData] = await Promise.all([
             PaymentService.list({
                 page,
                 limit: PAGE_SIZE,
@@ -129,15 +132,10 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter],
                 year: yearFilter
             }) : Promise.resolve(null),
-            page === 1 && customers.length === 0 ? CustomerService.getAll({ pageSize: 200 }) : Promise.resolve(null),
             page === 1 && units.length === 0 ? UnitService.getAll() : Promise.resolve(null)
         ]);
 
         if (statsRes) setStats(statsRes);
-        if (customersData) {
-            const incoming = (customersData as any).data || customersData;
-            setCustomers(incoming as Customer[]);
-        }
         if (unitsData) setUnits(unitsData as Unit[]);
 
         return {
@@ -145,7 +143,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             hasMore: listRes.data.length >= PAGE_SIZE,
             totalCount: listRes.count
         };
-    }, [debouncedSearch, voucherTab, statusFilter, unitFilter, visibleUnits, yearFilter, customers.length, units.length]);
+    }, [debouncedSearch, voucherTab, statusFilter, unitFilter, visibleUnits, yearFilter, units.length]);
 
     const {
         items: payments,
@@ -184,9 +182,8 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
         }
     };
 
-    const getCustomerName = (customerId: string | null) => {
-        if (!customerId) return '—';
-        return customers.find(c => c.id === customerId)?.name || '—';
+    const getCustomerName = (payment: Payment & { customerName?: string }) => {
+        return (payment as any).customerName || '—';
     };
 
     const getUnitName = (unitId?: string) => {
@@ -195,18 +192,6 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     };
 
     // CRUD
-    const handleAdd = () => { setEditingPayment(undefined); setIsFormOpen(true); };
-    const handleEdit = (payment: Payment) => {
-        if (can('payments', 'update')) {
-            setEditingPayment(payment);
-            setIsFormOpen(true);
-        } else {
-            // View-only: still open form but would need read-only mode
-            setEditingPayment(payment);
-            setIsFormOpen(true);
-        }
-    };
-
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
     const handleDeleteConfirm = async () => {
@@ -223,6 +208,11 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
         }
     };
 
+    const handleFormClose = () => {
+        setIsFormOpen(false);
+        setEditingPayment(undefined);
+    };
+
     const handleSave = async (paymentData: any) => {
         try {
             if (paymentData.id) {
@@ -232,7 +222,12 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 const created = await PaymentService.create(paymentData);
                 setPayments([created, ...payments]);
             }
-            setIsFormOpen(false);
+            // Close slide panel if opened there
+            if (slidePanelCtx) {
+                slidePanelCtx.closePanel();
+            } else {
+                setIsFormOpen(false);
+            }
             setEditingPayment(undefined);
             resetInfiniteScroll();
             toast.success(paymentData.id ? "Cập nhật thành công" : "Tạo phiếu thành công");
@@ -242,11 +237,63 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
         }
     };
 
+    const handleCancel = () => {
+        if (slidePanelCtx) {
+            slidePanelCtx.closePanel();
+        } else {
+            handleFormClose();
+        }
+    };
+
+    const openPaymentInPanel = (payment?: Payment) => {
+        const vType = payment?.voucherType || voucherTab;
+        const typeLabel = vType === 'VAT_INVOICE' ? 'HĐ VAT' : vType === 'RECEIPT' ? 'Phiếu thu' : 'Phiếu chi';
+        const title = payment
+            ? `${typeLabel}: ${payment.invoiceNumber || payment.expenseCategory || formatNumber(payment.amount)}`
+            : `Thêm ${typeLabel}`;
+
+        if (slidePanelCtx) {
+            const icon = vType === 'VAT_INVOICE'
+                ? <FileText size={14} />
+                : vType === 'RECEIPT'
+                    ? <ArrowDownCircle size={14} />
+                    : <ArrowUpCircle size={14} />;
+            slidePanelCtx.openPanel({
+                title,
+                icon,
+                component: (
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <PaymentForm
+                            payment={payment}
+                            initialVoucherType={voucherTab}
+                            isInsidePanel={true}
+                            onSave={handleSave}
+                            onCancel={() => slidePanelCtx.closePanel()}
+                        />
+                    </div>
+                ),
+            });
+        } else {
+            // Fallback: open as modal
+            setEditingPayment(payment);
+            setIsFormOpen(true);
+        }
+    };
+
+    const handleAdd = () => { openPaymentInPanel(undefined); };
+    const handleEdit = (payment: Payment) => {
+        if (can('payments', 'update')) {
+            openPaymentInPanel(payment);
+        } else {
+            openPaymentInPanel(payment);
+        }
+    };
+
     // Status filter options per tab
     const getStatusOptions = (): { value: string; label: string }[] => {
         const opts: { value: string; label: string }[] = [{ value: 'all', label: 'Tất cả' }];
         switch (voucherTab) {
-            case 'VAT_INVOICE': opts.push({ value: 'Đã xuất HĐ', label: 'Đã xuất HĐ' }, { value: 'Đã giao KH', label: 'Đã giao KH' }); break;
+            case 'VAT_INVOICE': break; // VAT invoices have no status filter
             case 'RECEIPT': opts.push({ value: 'Tạm ứng', label: 'Tạm ứng' }, { value: 'Tiền về', label: 'Tiền về' }); break;
             case 'EXPENSE': opts.push({ value: 'Đề nghị chi', label: 'Đề nghị chi' }, { value: 'Đã chi', label: 'Đã chi' }); break;
         }
@@ -261,7 +308,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const getExtraColumnHeader = () => {
         switch (voucherTab) {
             case 'VAT_INVOICE': return 'Số HĐ';
-            case 'RECEIPT': return 'Phương thức';
+            case 'RECEIPT': return 'Số Phiếu thu';
             case 'EXPENSE': return 'Hạng mục';
         }
     };
@@ -269,7 +316,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const getExtraColumnValue = (p: Payment) => {
         switch (voucherTab) {
             case 'VAT_INVOICE': return p.invoiceNumber || '—';
-            case 'RECEIPT': return p.method || '—';
+            case 'RECEIPT': return p.reference || '—';
             case 'EXPENSE': return p.expenseCategory || '—';
         }
     };
@@ -301,15 +348,15 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 )}
             </div>
 
-            {/* === 3 TABS === */}
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl gap-1">
+            {/* === 3 TABS (ear-style) === */}
+            <div className="flex border-b border-slate-200 dark:border-slate-700 gap-0">
                 {VOUCHER_TABS.map(tab => (
                     <button
                         key={tab.type}
                         onClick={() => setVoucherTab(tab.type)}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${voucherTab === tab.type
-                            ? tab.activeClass
-                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                        className={`flex items-center justify-center gap-2 px-5 py-3 text-xs font-bold transition-all relative ${voucherTab === tab.type
+                            ? `${tab.color} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 border-b-white dark:border-b-slate-900 rounded-t-xl -mb-px z-10`
+                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-t-xl'
                             }`}
                     >
                         {tab.icon}
@@ -376,18 +423,6 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                     />
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
-                    <Filter size={16} className="text-slate-400" />
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="bg-transparent text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none"
-                    >
-                        {getStatusOptions().map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                    </select>
-                </div>
             </div>
 
             {/* Table */}
@@ -408,7 +443,6 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                     { key: 'contract', label: 'Hợp đồng', align: 'left' },
                                     { key: 'date', label: 'Ngày', align: 'left' },
                                     { key: 'amount', label: 'Số tiền', align: 'right' },
-                                    { key: 'status', label: 'Trạng thái', align: 'center' },
                                     ...(canDelete ? [{ key: 'actions', label: '', align: 'center' }] : []),
                                 ].map((col, idx, arr) => (
                                     <th key={col.key} className={`sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 py-3 px-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase relative group/th ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}`}>
@@ -455,8 +489,8 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                         <td className="py-3 px-3 hidden lg:table-cell">
                                             <div className="flex items-center gap-1.5">
                                                 <Building2 size={12} className="text-slate-400 flex-shrink-0" />
-                                                <span className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate max-w-[160px]" title={getCustomerName(payment.customerId)}>
-                                                    {getCustomerName(payment.customerId)}
+                                                <span className="text-xs text-slate-700 dark:text-slate-300 font-medium" title={getCustomerName(payment)}>
+                                                    {getCustomerName(payment)}
                                                 </span>
                                             </div>
                                         </td>
@@ -466,7 +500,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                                 className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
                                             >
                                                 <FileText size={12} />
-                                                <span className="text-xs font-medium truncate max-w-[120px]">{payment.contractId}</span>
+                                                <span className="text-xs font-medium">{(payment as any).contractCode || payment.contractId}</span>
                                             </button>
                                         </td>
                                         <td className="py-3 px-3 hidden sm:table-cell">
@@ -480,12 +514,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                         <td className="py-3 px-3 text-right">
                                             <p className="font-black text-slate-900 dark:text-slate-100 text-xs">{formatCurrency(payment.amount)}</p>
                                         </td>
-                                        <td className="py-3 px-3 text-center">
-                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${statusConfig.color}`}>
-                                                <StatusIcon size={11} />
-                                                {statusConfig.label}
-                                            </span>
-                                        </td>
+
                                         {canDelete && (
                                             <td className="py-3 px-2 text-center">
                                                 <button
@@ -547,13 +576,13 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 )}
             </div>
 
-            {/* Payment Form Modal */}
-            {isFormOpen && (
+            {/* Payment Form Modal (fallback when no slide panel available) */}
+            {isFormOpen && !slidePanelCtx && (
                 <PaymentForm
                     payment={editingPayment}
                     initialVoucherType={voucherTab}
                     onSave={handleSave}
-                    onCancel={() => { setIsFormOpen(false); setEditingPayment(undefined); }}
+                    onCancel={handleCancel}
                 />
             )}
 

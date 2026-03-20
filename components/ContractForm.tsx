@@ -320,7 +320,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     const unit = units.find(u => u.id === unitId);
     const unitCode = unit?.code || 'UNIT';
     const year = new Date(signedDate).getFullYear();
-    const newId = `${contractType}_${contractNumberStt}/${unitCode}_CIC_${year}`;
+    const suffix = contractType === 'VV' ? `${unitCode}_${year}` : `${unitCode}_CIC_${year}`;
+    const newId = `${contractType}_${contractNumberStt}/${suffix}`;
     setFormContractId(newId);
   }, [contractType, contractNumberStt, unitId, signedDate, units]);
 

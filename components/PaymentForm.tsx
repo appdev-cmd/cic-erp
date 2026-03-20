@@ -35,6 +35,7 @@ interface PaymentFormProps {
     existingInvoiceTotal?: number;    // Tổng HĐ VAT đã xuất
     existingReceiptTotal?: number;    // Tổng tiền đã thu (Tiền về)
     editingVoucherAmount?: number;    // Giá trị phiếu đang sửa (exclude from total)
+    isInsidePanel?: boolean;          // Render without modal wrapper when inside SlidePanel
 }
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Đặt hàng NCC', 'Công tác phí', 'Lắp đặt', 'Cài đặt', 'Đào tạo', 'Chuyển giao', 'Khác'];
@@ -63,7 +64,7 @@ const VOUCHER_CONFIG: Record<VoucherType, { label: string; icon: React.ReactNode
     },
 };
 
-const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType = 'RECEIPT', initialContractId, initialCustomerId, onSave, onCancel, contractValue, existingInvoiceTotal, existingReceiptTotal, editingVoucherAmount }) => {
+const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType = 'RECEIPT', initialContractId, initialCustomerId, onSave, onCancel, contractValue, existingInvoiceTotal, existingReceiptTotal, editingVoucherAmount, isInsidePanel }) => {
     // Voucher type
     const [voucherType, setVoucherType] = useState<VoucherType>(payment?.voucherType || initialVoucherType);
 
@@ -412,9 +413,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
 
     const isExceedingLimit = financialLimit ? amount > financialLimit.remaining : false;
 
-    return (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-300">
+    // Panel mode: render form content directly (no modal wrapper)
+    const formContent = (
+        <>
+            <div className={isInsidePanel ? 'bg-white dark:bg-slate-900 flex flex-col h-full' : 'bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-300'}>
                 {/* Header */}
                 <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                     <div className="flex items-center gap-4">
@@ -457,7 +459,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                 )}
 
                 {/* Form */}
-                <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(92vh-180px)]">
+                <div className={`p-6 space-y-6 overflow-y-auto ${isInsidePanel ? 'flex-1' : 'max-h-[calc(92vh-180px)]'}`}>
                     {/* Voucher Type Selector (only for new) — compact pills */}
                     {!payment && (
                         <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
@@ -978,6 +980,18 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                     }}
                 />
             )}
+        </>
+    );
+
+    // If inside panel, render form directly without modal wrapper
+    if (isInsidePanel) {
+        return formContent;
+    }
+
+    // Modal mode: wrap in backdrop
+    return (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+            {formContent}
         </div>
     );
 };

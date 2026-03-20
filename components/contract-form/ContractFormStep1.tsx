@@ -205,7 +205,7 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                             />
                             {/* Suffix: /unitCode_CIC_year — same style as prefix */}
                             <span className="px-2.5 py-2 text-sm font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border-l border-slate-200 dark:border-slate-700 select-none whitespace-nowrap">
-                                /{units.find(u => u.id === unitId)?.code || '...'}_CIC_{signedDate ? new Date(signedDate).getFullYear() : new Date().getFullYear()}
+                                /{units.find(u => u.id === unitId)?.code || '...'}{contractType === 'HĐ' ? '_CIC' : ''}_{signedDate ? new Date(signedDate).getFullYear() : new Date().getFullYear()}
                             </span>
                         </div>
                         {duplicateWarning && (

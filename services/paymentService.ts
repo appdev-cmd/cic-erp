@@ -3,7 +3,7 @@ import { Payment, VoucherType } from '../types';
 import { TelegramNotificationService } from './telegramNotificationService';
 
 // Helper to map DB Payment to Frontend Payment
-const mapPayment = (p: any): Payment & { unitId?: string } => ({
+const mapPayment = (p: any): Payment & { unitId?: string; customerName?: string; contractCode?: string } => ({
     id: p.id,
     contractId: p.contract_id,
     customerId: p.customer_id,
@@ -27,7 +27,9 @@ const mapPayment = (p: any): Payment & { unitId?: string } => ({
     vatAmount: p.vat_amount || 0,
     vatInvoiceItems: p.vat_invoice_items || [],
     createdBy: p.created_by || undefined,
-    unitId: p.contracts?.unit_id || undefined
+    unitId: p.contracts?.unit_id || undefined,
+    customerName: p.customers?.name || undefined,
+    contractCode: p.contracts?.contract_code || undefined
 });
 
 // Auto-derive payment_type from voucher_type
@@ -37,7 +39,7 @@ const derivePaymentType = (voucherType: VoucherType): 'Revenue' | 'Expense' => {
 
 export const PaymentService = {
     getAll: async (): Promise<Payment[]> => {
-        const { data, error } = await supabase.from('payments').select('*').order('due_date', { ascending: true });
+        const { data, error } = await supabase.from('payments').select('*, customers(name)').order('due_date', { ascending: true });
         if (error) throw error;
         return data.map(mapPayment);
     },
@@ -45,7 +47,7 @@ export const PaymentService = {
     getByContractId: async (contractId: string): Promise<Payment[]> => {
         const { data, error } = await supabase
             .from('payments')
-            .select('*, contracts!inner(unit_id)')
+            .select('*, contracts!inner(unit_id), customers(name)')
             .eq('contract_id', contractId)
             .order('created_at', { ascending: false });
         if (error) throw error;
@@ -68,7 +70,7 @@ export const PaymentService = {
 
         let query = supabase
             .from('payments')
-            .select('*, contracts(unit_id)', { count: 'exact' });
+            .select('*, contracts(unit_id, contract_code), customers(name)', { count: 'exact' });
 
         // Filters
         if (search) {
