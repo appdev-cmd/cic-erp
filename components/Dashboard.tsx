@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   XAxis,
@@ -131,6 +131,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
   // Realtime: silent refresh counter — incremented by realtime events to re-trigger data fetch
   const [realtimeRefreshCounter, setRealtimeRefreshCounter] = useState(0);
+  const hasRunAutoTransitions = useRef(false);
   useEffect(() => {
     const handleRealtimeRefresh = () => {
       setRealtimeRefreshCounter(c => c + 1);
@@ -160,7 +161,9 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
     const fetchDashboardData = async () => {
       console.log('[Dashboard] fetchDashboardData starting...');
-      setLoadingConfig(true);
+      // Only show loading on initial load, not realtime refetches
+      const isRealtimeRefresh = hasRunAutoTransitions.current;
+      if (!isRealtimeRefresh) setLoadingConfig(true);
 
       const unitId = selectedUnit ? selectedUnit.id : 'all';
       const year = yearFilter;
@@ -174,11 +177,15 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
       });
 
       try {
-        // STEP 0: Auto-check status transitions
-        console.log('[Dashboard] Step 0: Auto-checking status transitions...');
-        const autoResult = await ContractService.checkAutoStatusTransitions();
-        if (autoResult.updated > 0) {
-          console.log(`[Dashboard] Auto-transitions: ${autoResult.updated} contracts updated`, autoResult.details);
+        // STEP 0: Auto-check status transitions — only on first load, NOT on realtime refetches
+        // (to avoid infinite loop: checkAuto → updates contracts → realtime fires contract-changed → refetch → checkAuto …)
+        if (!hasRunAutoTransitions.current) {
+          console.log('[Dashboard] Step 0: Auto-checking status transitions...');
+          const autoResult = await ContractService.checkAutoStatusTransitions();
+          if (autoResult.updated > 0) {
+            console.log(`[Dashboard] Auto-transitions: ${autoResult.updated} contracts updated`, autoResult.details);
+          }
+          hasRunAutoTransitions.current = true;
         }
 
         // STEP 1: Fetch Stats via ContractService (now uses dataClient)
