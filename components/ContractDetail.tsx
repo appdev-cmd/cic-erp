@@ -466,7 +466,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                                   onBack={() => closeP()}
                                   onViewContract={(contractId) => {
                                     openP({
-                                      title: `Hợp đồng ${contractId}`,
+                                      title: contractId,
                                       url: `/contracts/${contractId}`,
                                       component: (
                                         <div className="p-4 md:p-6 lg:p-8">

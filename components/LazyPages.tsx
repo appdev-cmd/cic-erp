@@ -86,11 +86,37 @@ const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) =>
 export const LazyDashboardPage: React.FC = () => {
     const navigate = useNavigate();
     const { selectedUnit, setSelectedUnit, yearFilter } = useLayoutContext();
+    const openPersonnelPanel = useOpenPersonnelPanel();
+    const { openPanel, closePanel } = useSlidePanel();
+    const openContractPanel = useOpenContractPanel();
+
+    const handleSelectPerformanceUnit = useCallback((unitId: string) => {
+        openPanel({
+            title: 'Chi tiết Đơn vị',
+            url: ROUTES.UNIT_DETAIL(unitId),
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <UnitDetail
+                            unitId={unitId}
+                            onBack={() => closePanel()}
+                            onViewContract={openContractPanel}
+                            onViewPersonnel={openPersonnelPanel}
+                            yearFilter={yearFilter}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel, openContractPanel, openPersonnelPanel, yearFilter]);
+
     return withSuspense(
         <Dashboard
             selectedUnit={selectedUnit}
             onSelectUnit={setSelectedUnit}
             onSelectContract={(id) => navigate(ROUTES.CONTRACT_DETAIL(id))}
+            onSelectEmployee={openPersonnelPanel}
+            onSelectPerformanceUnit={handleSelectPerformanceUnit}
             yearFilter={yearFilter}
         />,
         <DashboardSkeleton />
@@ -109,7 +135,7 @@ export const LazyContractListPage: React.FC = () => {
 
     const handleSelectContract = useCallback((id: string) => {
         openPanel({
-            title: `Hợp đồng ${id}`,
+            title: id,
             url: ROUTES.CONTRACT_DETAIL(id),
             component: (
                 <Suspense fallback={<DetailPageSkeleton />}>
@@ -407,7 +433,7 @@ function useOpenContractPanel() {
     const { openPanel, closePanel } = useSlidePanel();
     return useCallback((contractId: string) => {
         openPanel({
-            title: `Hợp đồng ${contractId}`,
+            title: contractId,
             url: ROUTES.CONTRACT_DETAIL(contractId),
             component: (
                 <Suspense fallback={<DetailPageSkeleton />}>
@@ -443,19 +469,19 @@ function useOpenContractPanel() {
     }, [openPanel, closePanel]);
 }
 
-// Opens a Personnel detail in a slide panel (used by Unit)
+// Opens a Personnel detail in a slide panel (used by Unit, Dashboard)
 function useOpenPersonnelPanel() {
     const { openPanel, closePanel } = useSlidePanel();
     const openContractPanel = useOpenContractPanel();
-    return useCallback((personnelId: string) => {
+    return useCallback((personnelIdOrSlug: string) => {
         openPanel({
             title: 'Chi tiết Nhân viên',
-            url: ROUTES.PERSONNEL_DETAIL(personnelId),
+            url: ROUTES.PERSONNEL_DETAIL(personnelIdOrSlug),
             component: (
                 <Suspense fallback={<DetailPageSkeleton />}>
                     <div className="p-4 md:p-6 lg:p-8">
                         <PersonnelDetail
-                            personnelId={personnelId}
+                            personnelId={personnelIdOrSlug}
                             onBack={() => closePanel()}
                             onViewContract={openContractPanel}
                         />

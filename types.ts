@@ -54,6 +54,7 @@ export interface Employee {
   roleCode?: string; // Mã role hệ thống
   dateJoined?: string; // Ngày vào công ty
   employeeCode?: string; // Mã nhân viên
+  slug?: string; // URL-friendly slug (auto-generated from name)
   // HR fields
   dateOfBirth?: string; // Ngày sinh
   gender?: 'male' | 'female' | 'other';

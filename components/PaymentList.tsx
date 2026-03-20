@@ -417,7 +417,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input
                         type="text"
-                        placeholder="Tìm kiếm theo mã, hợp đồng, hóa đơn..."
+                        placeholder="Tìm theo Số HĐ, khách hàng, hợp đồng, số chứng từ..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"

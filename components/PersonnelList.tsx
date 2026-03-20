@@ -524,7 +524,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                 {filteredPersonnel.map((person) => (
                                     <tr
                                         key={person.id}
-                                        onClick={() => onSelectPersonnel(person.id)}
+                                        onClick={() => onSelectPersonnel(person.slug || person.id)}
                                         className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
                                     >
                                         {/* Name & Position */}

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   XAxis,
@@ -51,6 +52,8 @@ interface DashboardProps {
   selectedUnit: Unit;
   onSelectUnit: (unit: Unit) => void;
   onSelectContract: (id: string) => void;
+  onSelectEmployee?: (id: string) => void;
+  onSelectPerformanceUnit?: (id: string) => void;
   yearFilter: string;
 }
 
@@ -83,7 +86,8 @@ const DashboardSkeleton = () => (
   </div>
 );
 
-const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSelectContract, yearFilter }) => {
+const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSelectContract, onSelectEmployee, onSelectPerformanceUnit, yearFilter }) => {
+  const navigate = useNavigate();
   const [activeMetric, setActiveMetric] = useState<keyof KPIPlan>('signing');
   const [previousYear, setPreviousYear] = useState<string>((new Date().getFullYear() - 1).toString());
 
@@ -375,6 +379,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
       // For Specific Unit: map employee data
       perfData = rawDistData.map(e => ({
         id: e.id,
+        slug: e.slug || e.id,
         name: e.name,
         subText: e.employeeCode || 'NVKD',
         avatar: e.avatar || '',
@@ -751,7 +756,17 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                 </thead>
                 <tbody>
                   {performanceTableData.map((row) => (
-                    <tr key={row.id} className="group cursor-pointer transition-colors">
+                    <tr
+                      key={row.id}
+                      className="group cursor-pointer transition-colors"
+                      onClick={() => {
+                        if (safeUnit?.id === 'all') {
+                          (onSelectPerformanceUnit || ((id: string) => navigate(`/units/${id}`)))(row.id);
+                        } else {
+                          (onSelectEmployee || ((id: string) => navigate(`/personnel/${id}`)))(row.slug || row.id);
+                        }
+                      }}
+                    >
                       <td className="py-4 pl-4 rounded-l-3xl bg-slate-50 dark:bg-slate-900 group-hover:bg-slate-100 dark:group-hover:bg-slate-800 border-y border-l border-transparent transition-colors">
                         <div className="flex items-center gap-4">
                           {row.avatar ? (

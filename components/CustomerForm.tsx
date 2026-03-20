@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Save, Loader2, ChevronDown, X, Star, Search } from 'lucide-react';
+import { Save, Loader2, ChevronDown, X, Star, Search, AlertTriangle } from 'lucide-react';
 import Modal from './ui/Modal';
 import { Customer } from '../types';
 import { INDUSTRIES } from '../constants';
 import AICustomerFill from './ui/AICustomerFill';
 import { TaxLookupService } from '../services/taxLookupService';
-import { CustomerService } from '../services/customerService';
+import { CustomerService, DuplicateMatch } from '../services/customerService';
 
 interface CustomerFormProps {
     isOpen: boolean;
@@ -20,7 +20,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
     const [isLookingUp, setIsLookingUp] = useState(false);
-    const [duplicateError, setDuplicateError] = useState<string | null>(null);
+    const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([]);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [formData, setFormData] = useState({
         name: '',
@@ -146,7 +146,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setDuplicateError(null);
+        setDuplicateMatches([]);
 
         // Validate tax code required for Customer type
         if ((formData.type === 'Customer' || formData.type === 'Both') && !formData.taxCode.trim()) {
@@ -156,16 +156,18 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
 
         setIsSubmitting(true);
         try {
-            // Duplicate check by tax code
-            if (formData.taxCode.trim()) {
-                const existing = await CustomerService.findByTaxCode(formData.taxCode.trim());
-                if (existing && existing.id !== customer?.id) {
-                    const msg = `Mã số DN "${formData.taxCode}" đã tồn tại — Đối tác: ${existing.name} (${existing.shortName})`;
-                    setDuplicateError(msg);
-                    toast.error(msg);
-                    setIsSubmitting(false);
-                    return;
-                }
+            // Comprehensive duplicate check: tax_code + name + short_name
+            const matches = await CustomerService.checkDuplicate({
+                taxCode: formData.taxCode.trim() || undefined,
+                name: formData.name.trim() || undefined,
+                shortName: formData.shortName.trim() || undefined,
+                excludeId: customer?.id,
+            });
+            if (matches.length > 0) {
+                setDuplicateMatches(matches);
+                toast.error(`Phát hiện ${matches.length} đối tác trùng lặp`);
+                setIsSubmitting(false);
+                return;
             }
 
             if (customer) {
@@ -244,10 +246,10 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
                             type="text"
                             required={formData.type === 'Customer' || formData.type === 'Both'}
                             value={formData.taxCode}
-                            onChange={e => { setFormData(prev => ({ ...prev, taxCode: e.target.value })); setDuplicateError(null); }}
+                            onChange={e => { setFormData(prev => ({ ...prev, taxCode: e.target.value })); setDuplicateMatches([]); }}
                             placeholder="VD: 0101234567"
                             className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm ${
-                                duplicateError ? 'border-rose-400 dark:border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                                duplicateMatches.length > 0 ? 'border-rose-400 dark:border-rose-500' : 'border-slate-200 dark:border-slate-800'
                             }`}
                         />
                     </div>
@@ -273,8 +275,26 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
                         />
                     </div>
                 </div>
-                {duplicateError && (
-                    <p className="-mt-3 text-xs text-rose-500 dark:text-rose-400">{duplicateError}</p>
+                {duplicateMatches.length > 0 && (
+                    <div className="-mt-3 p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle size={14} className="text-rose-500" />
+                            <span className="text-xs font-bold text-rose-600 dark:text-rose-400">Phát hiện đối tác trùng lặp:</span>
+                        </div>
+                        <ul className="space-y-1">
+                            {duplicateMatches.map((m) => (
+                                <li key={m.id} className="text-xs text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+                                    <span className="shrink-0">•</span>
+                                    <span>
+                                        <strong>{m.name}</strong> ({m.shortName})
+                                        {m.matchReason === 'tax_code' && <span className="ml-1 px-1.5 py-0.5 bg-rose-200 dark:bg-rose-800 rounded text-[10px] font-bold">Trùng MST</span>}
+                                        {m.matchReason === 'name' && <span className="ml-1 px-1.5 py-0.5 bg-amber-200 dark:bg-amber-800 rounded text-[10px] font-bold">Trùng tên</span>}
+                                        {m.matchReason === 'short_name' && <span className="ml-1 px-1.5 py-0.5 bg-orange-200 dark:bg-orange-800 rounded text-[10px] font-bold">Trùng viết tắt</span>}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
                 )}
 
                 {/* Row 2: Tên công ty */}

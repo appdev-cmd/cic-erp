@@ -1,5 +1,6 @@
 import { dataClient as supabase } from '../lib/dataClient';
 import { Employee } from '../types';
+import { removeDiacritics } from '../utils/formatters';
 
 // Helper to map DB Employee to Frontend Employee
 const mapEmployee = (s: any): Employee => {
@@ -23,6 +24,7 @@ const mapEmployee = (s: any): Employee => {
         dateJoined: s.date_joined || '',
         avatar: s.avatar || '',
         target: s.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
+        slug: s.slug || '',
         // HR fields
         dateOfBirth: s.date_of_birth || '',
         gender: s.gender || '',
@@ -56,6 +58,22 @@ export const EmployeeService = {
         return mapEmployee(data);
     },
 
+    getBySlug: async (slug: string): Promise<Employee | undefined> => {
+        const { data, error } = await supabase.from('employees').select('*').eq('slug', slug).single();
+        if (error) return undefined;
+        return mapEmployee(data);
+    },
+
+    /** Resolve by UUID or slug — auto-detect format */
+    getBySlugOrId: async (idOrSlug: string): Promise<Employee | undefined> => {
+        // UUID pattern: 8-4-4-4-12 hex chars
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+        if (isUUID) {
+            return EmployeeService.getById(idOrSlug);
+        }
+        return EmployeeService.getBySlug(idOrSlug);
+    },
+
     getByUnitId: async (unitId: string): Promise<Employee[]> => {
         let query = supabase.from('employees').select('*');
         if (unitId !== 'all') {
@@ -73,7 +91,25 @@ export const EmployeeService = {
             query = query.eq('unit_id', params.unitId);
         }
         if (params.search) {
-            query = query.ilike('name', `%${params.search}%`);
+            // Vietnamese diacritics-insensitive search via RPC
+            let matchedIds: string[] | undefined;
+            try {
+                const { data: rpcData } = await supabase.rpc('search_employees_unaccent', { search_term: params.search });
+                if (rpcData && rpcData.length > 0) {
+                    matchedIds = rpcData.map((r: any) => r.id);
+                } else if (rpcData) {
+                    matchedIds = []; // RPC ok, no results
+                }
+            } catch (e) {
+                console.warn('[EmployeeService] unaccent RPC failed, falling back to ilike:', e);
+            }
+            if (matchedIds && matchedIds.length > 0) {
+                query = query.in('id', matchedIds);
+            } else if (matchedIds && matchedIds.length === 0) {
+                return { data: [], total: 0 };
+            } else {
+                query = query.ilike('name', `%${params.search}%`);
+            }
         }
 
         const page = params.page || 1;
@@ -180,42 +216,113 @@ export const EmployeeService = {
 
     getStats: async (id: string, year?: number | null): Promise<any> => {
         try {
-            // Fetch KPI stats and employee target in parallel
-            const [rpcResult, employee] = await Promise.all([
-                supabase.rpc('get_kpi_stats', {
-                    p_entity_id: id,
-                    p_type: 'employee',
-                    p_year: year !== undefined ? year : new Date().getFullYear()
-                }),
-                EmployeeService.getById(id)
-            ]);
-
-            if (rpcResult.error) {
-                return {
-                    contractCount: 0,
-                    totalSigning: 0,
-                    totalRevenue: 0,
-                    activeContracts: 0,
-                    completedContracts: 0,
-                    signingProgress: 0,
-                    revenueProgress: 0
-                };
+            const employee = await EmployeeService.getById(id);
+            
+            // Fetch KPI target from dedicated employee_targets table (per year)
+            const effectiveYear = year !== undefined && year !== null ? year : new Date().getFullYear();
+            let target = { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+            
+            if (employee?.unitId) {
+                const { data: targetData } = await supabase
+                    .from('employee_targets')
+                    .select('*')
+                    .eq('employee_id', id)
+                    .eq('year', effectiveYear)
+                    .maybeSingle();
+                
+                if (targetData) {
+                    target = {
+                        signing: Number(targetData.signing) || 0,
+                        revenue: Number(targetData.revenue) || 0,
+                        adminProfit: Number(targetData.admin_profit) || 0,
+                        revProfit: Number(targetData.rev_profit) || 0,
+                        cash: Number(targetData.cash) || 0,
+                    };
+                }
+            }
+            
+            // Fallback to old employees.target if employee_targets has no data
+            if (target.signing === 0 && target.revenue === 0 && employee?.target) {
+                const legacyTarget = employee.target;
+                if (legacyTarget.signing > 0 || legacyTarget.revenue > 0) {
+                    target = legacyTarget;
+                }
+            }
+            
+            // If revProfit target not set, fallback to adminProfit target
+            if (target.revProfit === 0 && target.adminProfit > 0) {
+                target.revProfit = target.adminProfit;
             }
 
-            const data = rpcResult.data;
-            const totalSigning = data.totalSigning || 0;
-            const totalRevenue = data.totalRevenue || 0;
-            const target = employee?.target || { signing: 0, revenue: 0 };
+            // Fetch contracts where this employee is primary or in allocations
+            let query = supabase
+                .from('contracts')
+                .select('id, value, actual_revenue, admin_profit, rev_profit, estimated_cost, status, employee_id, employee_allocations, signed_date');
+
+            if (effectiveYear) {
+                query = query.gte('signed_date', `${effectiveYear}-01-01`)
+                             .lte('signed_date', `${effectiveYear}-12-31`);
+            }
+
+            const { data: contracts, error } = await query;
+            if (error) throw error;
+
+            // Filter to contracts involving this employee, compute allocation fraction
+            let totalSigning = 0;
+            let totalRevenue = 0;
+            let totalProfit = 0;
+            let totalRevenueProfit = 0;
+            let contractCount = 0;
+            let activeContracts = 0;
+            let completedContracts = 0;
+
+            (contracts || []).forEach((c: any) => {
+                let fraction = 0;
+
+                // Check if primary employee
+                if (c.employee_id === id) {
+                    // Check if allocations exist
+                    const allocs: any[] = c.employee_allocations || [];
+                    if (allocs.length > 0) {
+                        const myAlloc = allocs.find((a: any) => a.employeeId === id);
+                        fraction = myAlloc ? (myAlloc.percent || 0) / 100 : 0;
+                    } else {
+                        fraction = 1; // No allocations, 100% for primary
+                    }
+                } else {
+                    // Check in allocations as member
+                    const allocs: any[] = c.employee_allocations || [];
+                    const myAlloc = allocs.find((a: any) => a.employeeId === id);
+                    if (myAlloc) {
+                        fraction = (myAlloc.percent || 0) / 100;
+                    }
+                }
+
+                if (fraction <= 0) return;
+
+                contractCount++;
+                totalSigning += (c.value || 0) * fraction;
+                totalRevenue += (c.actual_revenue || 0) * fraction;
+                totalProfit += (c.admin_profit || 0) * fraction;
+                totalRevenueProfit += (c.rev_profit || 0) * fraction;
+
+                if (c.status === 'Processing') activeContracts++;
+                if (c.status === 'Completed') completedContracts++;
+            });
 
             return {
-                contractCount: data.contractCount || 0,
+                contractCount,
                 totalSigning,
                 totalRevenue,
-                totalProfit: data.totalProfit || 0,
-                activeContracts: data.activeContracts || 0,
-                completedContracts: data.completedContracts || 0,
+                totalProfit,
+                totalRevenueProfit,
+                activeContracts,
+                completedContracts,
+                target, // Return the resolved target so UI can display it
                 signingProgress: target.signing > 0 ? (totalSigning / target.signing) * 100 : 0,
-                revenueProgress: target.revenue > 0 ? (totalRevenue / target.revenue) * 100 : 0
+                revenueProgress: target.revenue > 0 ? (totalRevenue / target.revenue) * 100 : 0,
+                profitProgress: target.adminProfit > 0 ? (totalProfit / target.adminProfit) * 100 : 0,
+                revProfitProgress: target.revProfit > 0 ? (totalRevenueProfit / target.revProfit) * 100 : 0
             };
         } catch (error) {
             console.error('Error in getStats:', error);
@@ -223,10 +330,14 @@ export const EmployeeService = {
                 contractCount: 0,
                 totalSigning: 0,
                 totalRevenue: 0,
+                totalProfit: 0,
+                totalRevenueProfit: 0,
                 activeContracts: 0,
                 completedContracts: 0,
                 signingProgress: 0,
-                revenueProgress: 0
+                revenueProgress: 0,
+                profitProgress: 0,
+                revProfitProgress: 0
             };
         }
     },
@@ -248,8 +359,8 @@ export const EmployeeService = {
                     employees = await EmployeeService.getAll();
                 }
                 if (search) {
-                    const lowerSearch = search.toLowerCase();
-                    employees = employees.filter(e => e.name.toLowerCase().includes(lowerSearch));
+                    const lowerSearch = removeDiacritics(search.toLowerCase());
+                    employees = employees.filter(e => removeDiacritics(e.name.toLowerCase()).includes(lowerSearch));
                 }
                 return employees.map(e => ({
                     ...e,

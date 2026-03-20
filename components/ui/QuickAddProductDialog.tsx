@@ -10,6 +10,7 @@ import { UnitService, CustomerService } from '../../services';
 import { Product, ProductCategory, LicenseType, Brand, Unit, Customer } from '../../types';
 import QuickAddBrandDialog from './QuickAddBrandDialog';
 import QuickAddSupplierDialog from './QuickAddSupplierDialog';
+import { removeDiacritics } from '../../utils/formatters';
 
 interface QuickAddProductDialogProps {
     isOpen: boolean;
@@ -68,7 +69,8 @@ const ComboboxInput: React.FC<{
 
     const filtered = useMemo(() => {
         if (!search) return options;
-        return options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
+        const q = removeDiacritics(search.toLowerCase());
+        return options.filter(o => removeDiacritics(o.toLowerCase()).includes(q));
     }, [options, search]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,7 +144,8 @@ const BrandComboboxQuick: React.FC<{
 
     const filtered = useMemo(() => {
         if (!search) return brands;
-        return brands.filter(b => b.name.toLowerCase().includes(search.toLowerCase()));
+        const q = removeDiacritics(search.toLowerCase());
+        return brands.filter(b => removeDiacritics(b.name.toLowerCase()).includes(q));
     }, [brands, search]);
 
     const displayValue = value ? (brandName || brands.find(b => b.id === value)?.name || '') : search;

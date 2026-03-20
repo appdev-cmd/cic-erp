@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { X, Upload, Download, AlertCircle, CheckCircle, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { X, Upload, Download, AlertCircle, CheckCircle, FileSpreadsheet, Loader2, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { CustomerService } from '../services';
+import { DuplicateMatch } from '../services/customerService';
 import { INDUSTRIES } from '../constants';
 import { toast } from 'sonner';
 
@@ -27,6 +28,7 @@ interface ParsedRow extends ImportRow {
     rowIndex: number;
     errors: string[];
     isValid: boolean;
+    dbDuplicates?: DuplicateMatch[];
 }
 
 const VALID_INDUSTRIES = [...INDUSTRIES];
@@ -159,10 +161,38 @@ const ImportCustomerModal: React.FC<ImportCustomerModalProps> = ({ isOpen, onClo
         }
 
         setIsImporting(true);
+
+        // Phase 1: Check all rows against DB for duplicates
+        let hasDbDuplicates = false;
+        const checked = await Promise.all(
+            parsedData.map(async (row) => {
+                if (!row.isValid) return row;
+                const matches = await CustomerService.checkDuplicate({
+                    taxCode: row.taxCode || undefined,
+                    name: row.name || undefined,
+                    shortName: row.shortName || undefined,
+                });
+                if (matches.length > 0) {
+                    hasDbDuplicates = true;
+                    return { ...row, dbDuplicates: matches, isValid: false, errors: [...row.errors, `Trùng với DB: ${matches.map(m => m.name).join(', ')}`] };
+                }
+                return row;
+            })
+        );
+
+        if (hasDbDuplicates) {
+            setParsedData(checked);
+            toast.error('Phát hiện bản ghi trùng với dữ liệu hiện có. Vui lòng kiểm tra lại.');
+            setIsImporting(false);
+            return;
+        }
+
+        // Phase 2: Import valid rows
+        const validAfterCheck = checked.filter(r => r.isValid);
         let successCount = 0;
         const errors: string[] = [];
 
-        for (const row of validRows) {
+        for (const row of validAfterCheck) {
             try {
                 await CustomerService.create({
                     name: row.name,
@@ -184,7 +214,7 @@ const ImportCustomerModal: React.FC<ImportCustomerModalProps> = ({ isOpen, onClo
         setIsImporting(false);
 
         if (successCount > 0) {
-            toast.success(`Đã import thành công ${successCount}/${validRows.length} khách hàng`);
+            toast.success(`Đã import thành công ${successCount}/${validAfterCheck.length} khách hàng`);
             onSuccess();
             handleClose();
         }
@@ -333,6 +363,13 @@ const ImportCustomerModal: React.FC<ImportCustomerModalProps> = ({ isOpen, onClo
                                                     <td className="px-4 py-3 text-center">
                                                         {row.isValid ? (
                                                             <CheckCircle size={18} className="inline text-emerald-500" />
+                                                        ) : row.dbDuplicates && row.dbDuplicates.length > 0 ? (
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <AlertTriangle size={18} className="text-amber-500" />
+                                                                <span className="text-xs text-amber-600 dark:text-amber-400 max-w-[200px] truncate" title={row.dbDuplicates.map(d => `${d.name} (${d.matchReason === 'tax_code' ? 'MST' : d.matchReason === 'name' ? 'Tên' : 'Viết tắt'})`).join(', ')}>
+                                                                    Trùng DB: {row.dbDuplicates[0].name}
+                                                                </span>
+                                                            </div>
                                                         ) : (
                                                             <div className="flex items-center justify-center gap-1">
                                                                 <AlertCircle size={18} className="text-rose-500" />

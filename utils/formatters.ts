@@ -120,3 +120,15 @@ export function removeDiacritics(str: string): string {
         .replace(/đ/g, 'd')
         .replace(/Đ/g, 'D');
 }
+
+/**
+ * Tạo URL-friendly slug từ tên tiếng Việt
+ * Ví dụ: "Trần Ngọc Quỳnh" → "tran_ngoc_quynh"
+ */
+export function toSlug(str: string): string {
+    return removeDiacritics(str)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, '_');
+}

@@ -179,7 +179,27 @@ export const TaskService = {
         if (assigneeId) query = query.contains('assignees', [assigneeId]);
         if (status) query = query.eq('status_id', status);
         if (priority) query = query.eq('priority', priority);
-        if (search) query = query.ilike('title', `%${search}%`);
+        if (search) {
+            // Vietnamese diacritics-insensitive search via RPC
+            let matchedIds: string[] | undefined;
+            try {
+                const { data: rpcData } = await supabase.rpc('search_tasks_unaccent', { search_term: search });
+                if (rpcData && rpcData.length > 0) {
+                    matchedIds = rpcData.map((r: any) => r.id);
+                } else if (rpcData) {
+                    matchedIds = [];
+                }
+            } catch (e) {
+                console.warn('[TaskService] unaccent RPC failed, falling back to ilike:', e);
+            }
+            if (matchedIds && matchedIds.length > 0) {
+                query = query.in('id', matchedIds);
+            } else if (matchedIds && matchedIds.length === 0) {
+                return { data: [], count: 0 };
+            } else {
+                query = query.ilike('title', `%${search}%`);
+            }
+        }
 
         // If filtering by space, need to join via lists
         if (spaceId && !listId) {

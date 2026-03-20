@@ -1,6 +1,15 @@
 import { dataClient as supabase } from '../lib/dataClient';
 import { Customer, CustomerContact } from '../types';
 
+export interface DuplicateMatch {
+    id: string;
+    name: string;
+    shortName: string;
+    taxCode: string;
+    type: string;
+    matchReason: 'tax_code' | 'name' | 'short_name';
+}
+
 // Normalize industry: DB may store string or JSON array string
 const normalizeIndustry = (raw: any): string[] => {
     if (!raw) return [];
@@ -205,17 +214,75 @@ export const CustomerService = {
     },
 
     /**
+     * Check for duplicate customers by tax_code, name, or short_name.
+     * Uses DB RPC with unaccent + case-insensitive matching.
+     * Returns list of matching records with the reason they match.
+     */
+    checkDuplicate: async (params: {
+        taxCode?: string;
+        name?: string;
+        shortName?: string;
+        excludeId?: string;
+    }): Promise<DuplicateMatch[]> => {
+        try {
+            const { data, error } = await supabase.rpc('check_customer_duplicate', {
+                p_tax_code: params.taxCode?.trim() || null,
+                p_name: params.name?.trim() || null,
+                p_short_name: params.shortName?.trim() || null,
+                p_exclude_id: params.excludeId || null,
+            });
+            if (error) {
+                console.error('[CustomerService.checkDuplicate] RPC error:', error);
+                return [];
+            }
+            return (data || []).map((r: any) => ({
+                id: r.id,
+                name: r.name,
+                shortName: r.short_name,
+                taxCode: r.tax_code,
+                type: r.type,
+                matchReason: r.match_reason as 'tax_code' | 'name' | 'short_name',
+            }));
+        } catch (err) {
+            console.error('[CustomerService.checkDuplicate] Error:', err);
+            return [];
+        }
+    },
+
+    /**
      * Lightweight search for dropdowns - returns max 20 results
      */
     search: async (query: string, limit: number = 20): Promise<Customer[]> => {
         if (!query || query.length < 2) return [];
 
-        const { data, error } = await supabase
-            .from('customers')
-            .select('id, name, short_name, industry, type, rating')
-            .or(`name.ilike.%${query}%,short_name.ilike.%${query}%`)
-            .limit(limit);
+        // Vietnamese diacritics-insensitive search via RPC
+        let matchedIds: string[] | undefined;
+        try {
+            const { data: rpcData } = await supabase.rpc('search_customers_unaccent', { search_term: query });
+            if (rpcData && rpcData.length > 0) {
+                matchedIds = rpcData.map((r: any) => r.id);
+            } else if (rpcData) {
+                matchedIds = [];
+            }
+        } catch (e) {
+            // RPC not available — fall back to ilike
+        }
 
+        let dbQuery = supabase
+            .from('customers')
+            .select('id, name, short_name, industry, type, rating');
+
+        if (matchedIds && matchedIds.length > 0) {
+            dbQuery = dbQuery.in('id', matchedIds);
+        } else if (matchedIds && matchedIds.length === 0) {
+            return [];
+        } else {
+            dbQuery = dbQuery.or(`name.ilike.%${query}%,short_name.ilike.%${query}%`);
+        }
+
+        dbQuery = dbQuery.limit(limit);
+
+        const { data, error } = await dbQuery;
         if (error) {
             console.error('[CustomerService.search] Error:', error);
             return [];

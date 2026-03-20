@@ -67,11 +67,30 @@ export async function searchMentionsByType(
 // ─── Individual search functions ──────────────────────────
 
 async function searchUsers(q: string, excludeUserId?: string): Promise<MentionResult[]> {
+    // Vietnamese diacritics-insensitive search via RPC
+    let matchedIds: string[] | undefined;
+    try {
+        const { data: rpcData } = await dataClient.rpc('search_mentions_unaccent', { search_term: q });
+        if (rpcData && rpcData.length > 0) {
+            matchedIds = rpcData.map((r: any) => r.id);
+        }
+    } catch (e) {
+        // RPC not available — fall back to ilike
+    }
+
     let query = dataClient
         .from('profiles')
-        .select('id, full_name, email, avatar_url')
-        .ilike('full_name', `%${q}%`)
-        .limit(5);
+        .select('id, full_name, email, avatar_url');
+
+    if (matchedIds && matchedIds.length > 0) {
+        query = query.in('id', matchedIds);
+    } else if (!matchedIds) {
+        query = query.ilike('full_name', `%${q}%`);
+    } else {
+        return []; // RPC ok, no results
+    }
+
+    query = query.limit(5);
 
     if (excludeUserId) {
         query = query.neq('id', excludeUserId);

@@ -72,9 +72,51 @@ export const PaymentService = {
             .from('payments')
             .select('*, contracts(unit_id, contract_code), customers(name)', { count: 'exact' });
 
-        // Filters
+        // Multi-field search: Số HĐ, khách hàng, hợp đồng, số chứng từ, số tiền
+        // Uses RPC for Vietnamese diacritics-insensitive search (e.g. "cong ty" matches "Công ty")
         if (search) {
-            query = query.ilike('invoice_number', `%${search}%`);
+            let matchedIds: string[] | undefined;
+            try {
+                const { data: rpcData } = await supabase.rpc('search_payments_unaccent', { search_term: search });
+                if (rpcData && rpcData.length > 0) {
+                    matchedIds = rpcData.map((r: any) => r.id);
+                }
+            } catch (e) {
+                console.warn('[PaymentService] unaccent RPC failed, falling back to ilike:', e);
+            }
+
+            if (matchedIds && matchedIds.length > 0) {
+                query = query.in('id', matchedIds);
+            } else if (matchedIds) {
+                // RPC succeeded but no results
+                return { data: [], count: 0 };
+            } else {
+                // RPC failed — fallback to plain ilike search
+                const [customerRes, contractRes] = await Promise.all([
+                    supabase.from('customers').select('id').ilike('name', `%${search}%`),
+                    supabase.from('contracts').select('id').ilike('contract_code', `%${search}%`),
+                ]);
+                const matchCustomerIds = customerRes.data?.map(c => c.id) || [];
+                const matchContractIds = contractRes.data?.map(c => c.id) || [];
+
+                const orParts: string[] = [
+                    `invoice_number.ilike.%${search}%`,
+                    `reference.ilike.%${search}%`,
+                    `expense_category.ilike.%${search}%`,
+                    `notes.ilike.%${search}%`,
+                ];
+                const numSearch = search.replace(/[.,\s]/g, '');
+                if (/^\d+$/.test(numSearch)) {
+                    orParts.push(`amount.eq.${numSearch}`);
+                }
+                if (matchCustomerIds.length > 0) {
+                    orParts.push(`customer_id.in.(${matchCustomerIds.join(',')})`);
+                }
+                if (matchContractIds.length > 0) {
+                    orParts.push(`contract_id.in.(${matchContractIds.join(',')})`);
+                }
+                query = query.or(orParts.join(','));
+            }
         }
         // New: filter by voucher_type
         if (voucherType) {

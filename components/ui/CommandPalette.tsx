@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { ROUTES } from '../../routes/routes';
 import { ContractService, CustomerService, EmployeeService, ProductService, UnitService } from '../../services';
+import { removeDiacritics } from '../../utils/formatters';
 
 interface SearchResult {
     id: string;
@@ -95,11 +96,11 @@ const CommandPalette: React.FC = () => {
         }
 
         setIsLoading(true);
-        const q = searchQuery.toLowerCase();
+        const q = removeDiacritics(searchQuery.toLowerCase());
 
-        // Filter static pages
+        // Filter static pages (diacritics-insensitive)
         const pageResults = staticPages.filter(p =>
-            p.title.toLowerCase().includes(q)
+            removeDiacritics(p.title.toLowerCase()).includes(q)
         );
 
         const dynamicResults: SearchResult[] = [];
@@ -116,7 +117,7 @@ const CommandPalette: React.FC = () => {
 
             // Search contracts
             contracts
-                .filter(c => c.contractCode?.toLowerCase().includes(q) || c.title?.toLowerCase().includes(q) || c.partyA?.toLowerCase().includes(q))
+                .filter(c => removeDiacritics(c.contractCode?.toLowerCase() || '').includes(q) || removeDiacritics(c.title?.toLowerCase() || '').includes(q) || removeDiacritics(c.partyA?.toLowerCase() || '').includes(q))
                 .slice(0, 5)
                 .forEach(c => {
                     dynamicResults.push({
@@ -131,14 +132,14 @@ const CommandPalette: React.FC = () => {
 
             // Search customers
             (customersRes.data || [])
-                .filter(c => c.name?.toLowerCase().includes(q) || c.taxCode?.includes(q))
+                .filter(c => removeDiacritics(c.name?.toLowerCase() || '').includes(q) || c.taxCode?.includes(searchQuery))
                 .slice(0, 3)
                 .forEach(c => {
                     dynamicResults.push({
                         id: c.id,
                         type: 'customer',
                         title: c.name,
-                        subtitle: c.industry || c.taxCode || '',
+                        subtitle: (Array.isArray(c.industry) ? c.industry.join(', ') : c.industry) || c.taxCode || '',
                         icon: <Building2 size={16} className="text-blue-500" />,
                         route: ROUTES.CUSTOMER_DETAIL(c.id),
                     });
@@ -146,7 +147,7 @@ const CommandPalette: React.FC = () => {
 
             // Search personnel
             personnel
-                .filter(p => p.name?.toLowerCase().includes(q) || p.employeeCode?.toLowerCase().includes(q))
+                .filter(p => removeDiacritics(p.name?.toLowerCase() || '').includes(q) || p.employeeCode?.toLowerCase().includes(searchQuery.toLowerCase()))
                 .slice(0, 3)
                 .forEach(p => {
                     dynamicResults.push({
@@ -161,7 +162,7 @@ const CommandPalette: React.FC = () => {
 
             // Search products
             products
-                .filter(p => p.name?.toLowerCase().includes(q) || p.code?.toLowerCase().includes(q))
+                .filter(p => removeDiacritics(p.name?.toLowerCase() || '').includes(q) || p.code?.toLowerCase().includes(searchQuery.toLowerCase()))
                 .slice(0, 3)
                 .forEach(p => {
                     dynamicResults.push({
@@ -176,7 +177,7 @@ const CommandPalette: React.FC = () => {
 
             // Search units
             units
-                .filter(u => u.name?.toLowerCase().includes(q) || u.code?.toLowerCase().includes(q))
+                .filter(u => removeDiacritics(u.name?.toLowerCase() || '').includes(q) || u.code?.toLowerCase().includes(searchQuery.toLowerCase()))
                 .slice(0, 3)
                 .forEach(u => {
                     dynamicResults.push({
