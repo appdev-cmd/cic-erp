@@ -847,11 +847,11 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
 
         {/* Content - Discussion tab */}
         {activeTab === 'discussion' && contract && (
-          <div className="-mt-6 -mb-12" style={{ height: 'calc(100vh - 240px)', minHeight: '400px' }}>
+          <div className="relative -mt-6 -mx-4 md:-mx-6 lg:-mx-8 -mb-12 md:-mb-14 lg:-mb-24" style={{ height: 'calc(100vh - 200px)', minHeight: '400px' }}>
             <DiscussionBox
               entityType="contract"
               entityId={contract.id}
-              className="border-0 rounded-none h-full"
+              className="border-0 rounded-none h-full absolute inset-0"
               maxHeight="100%"
               showHeader={false}
             />
