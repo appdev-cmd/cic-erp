@@ -11,6 +11,8 @@ import {
   Download,
   Edit3,
   History as HistoryIcon,
+  MessageCircle,
+  CheckSquare,
   Paperclip,
   ShieldCheck,
   AlertCircle,
@@ -42,6 +44,9 @@ import { analyzeContractWithDeepSeek } from '../services/openaiService';
 import Tooltip from './ui/Tooltip';
 import ContractBusinessPlanTab from './ContractBusinessPlanTab';
 import ContractOverviewTab from './contract-detail/ContractOverviewTab';
+import ContractHistoryTab from './contract-detail/ContractHistoryTab';
+import DiscussionBox from './ui/DiscussionBox';
+import EntityTaskList from './tasks/EntityTaskList';
 import ErrorBoundary from './ErrorBoundary';
 import { useAuth } from '../contexts/AuthContext';
 import { useImpersonation } from '../contexts/ImpersonationContext';
@@ -70,7 +75,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [contract, setContract] = useState<Contract | null>(initialContract || null);
   const [loading, setLoading] = useState(!initialContract);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'pakd'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'pakd' | 'discussion' | 'tasks' | 'history'>('overview');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAcceptanceDialog, setShowAcceptanceDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -778,18 +783,39 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
         {/* CRM: Contract approval panel hidden — will be re-enabled in CRM module */}
 
         {/* TABS */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800">
+        <div className="flex border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'overview' ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${activeTab === 'overview' ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
             Tổng quan
           </button>
           <button
             onClick={() => setActiveTab('pakd')}
-            className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'pakd' ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+            className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'pakd' ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
             PAKD & Dòng tiền
+          </button>
+          <button
+            onClick={() => setActiveTab('discussion')}
+            className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'discussion' ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            <MessageCircle size={15} />
+            Trao đổi
+          </button>
+          <button
+            onClick={() => setActiveTab('tasks')}
+            className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'tasks' ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            <CheckSquare size={15} />
+            Công việc
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'history' ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+          >
+            <HistoryIcon size={15} />
+            Lịch sử
           </button>
         </div>
 
@@ -817,6 +843,37 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
             setShowDocLinkDialog={setShowDocLinkDialog}
             getPaymentStatusBadge={getPaymentStatusBadge}
           />
+        )}
+
+        {/* Content - Discussion tab */}
+        {activeTab === 'discussion' && contract && (
+          <div className="-mt-6 -mb-12" style={{ height: 'calc(100vh - 240px)', minHeight: '400px' }}>
+            <DiscussionBox
+              entityType="contract"
+              entityId={contract.id}
+              className="border-0 rounded-none h-full"
+              maxHeight="100%"
+              showHeader={false}
+            />
+          </div>
+        )}
+
+        {/* Content - Tasks tab */}
+        {activeTab === 'tasks' && contract && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+              <EntityTaskList
+                entityType="contract"
+                entityId={contract.id}
+                entityLabel={contract.contractCode || contract.title}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Content - History tab */}
+        {activeTab === 'history' && contract && (
+          <ContractHistoryTab contractId={contract.id} />
         )}
       </div>
 
