@@ -508,6 +508,9 @@ export const TaskService = {
       if (filters.tags && filters.tags.length > 0) {
         query = query.overlaps('tags', filters.tags);
       }
+      if (filters.project_id) {
+        query = query.eq('project_id', filters.project_id);
+      }
     }
 
     const { data, error } = await query;

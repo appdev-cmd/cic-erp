@@ -1,9 +1,10 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { ArrowLeft, MapPin, Building2, Calendar, FileText, TrendingUp, Clock, Edit, Trash2, CheckSquare, Loader2 } from 'lucide-react';
-import { ProjectService } from '../services';
+import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
+import { ArrowLeft, MapPin, Building2, Calendar, FileText, TrendingUp, Clock, Edit, Trash2, CheckSquare, Loader2, FileSignature, ExternalLink } from 'lucide-react';
+import { ProjectService, ContractService } from '../services';
 import { BIMProject, BIM_PROJECT_STATUS_LABELS, BIMProjectStatus } from '../types';
 import { toast } from 'sonner';
 import { formatDate } from '../utils/formatters';
+import { useSlidePanel } from '../contexts/SlidePanelContext';
 
 const ProjectTasksTab = lazy(() => import('./ProjectTasksTab'));
 
@@ -37,6 +38,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'tasks'>('info');
+  const [contractInfo, setContractInfo] = useState<{ id: string; contractCode: string; name?: string } | null>(null);
+  const { openPanel, closePanel } = useSlidePanel();
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -52,6 +55,36 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
     };
     fetchProject();
   }, [projectId]);
+
+  // Fetch contract info when project has a linked contract
+  useEffect(() => {
+    if (!project?.contractId) { setContractInfo(null); return; }
+    ContractService.getById(project.contractId)
+      .then((c: any) => {
+        if (c) setContractInfo({ id: c.id, contractCode: c.contractCode || c.contract_code, name: c.name || c.tenCongTrinh });
+      })
+      .catch(() => setContractInfo(null));
+  }, [project?.contractId]);
+
+  // Open contract detail in slide panel
+  const handleOpenContract = useCallback(() => {
+    if (!contractInfo) return;
+    import('./ContractDetail').then(({ default: ContractDetailComponent }) => {
+      openPanel({
+        title: `Hợp đồng ${contractInfo.contractCode}`,
+        component: (
+          <div className="p-4 md:p-6 lg:p-8">
+            <ContractDetailComponent
+              contractId={contractInfo.id}
+              onBack={() => closePanel()}
+              onEdit={() => {}}
+              onDelete={async () => { closePanel(); }}
+            />
+          </div>
+        ),
+      });
+    });
+  }, [contractInfo, openPanel, closePanel]);
 
   if (loading) {
     return (
@@ -230,6 +263,32 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
               </div>
             </div>
           )}
+
+          {/* Linked Contract */}
+          {contractInfo ? (
+            <div className="flex items-start gap-3">
+              <FileSignature size={16} className="text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Hợp đồng</p>
+                <button
+                  onClick={handleOpenContract}
+                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold flex items-center gap-1 hover:underline transition-colors"
+                >
+                  {contractInfo.contractCode}
+                  {contractInfo.name && <span className="text-slate-500 dark:text-slate-400 font-normal">— {contractInfo.name}</span>}
+                  <ExternalLink size={12} className="shrink-0 opacity-60" />
+                </button>
+              </div>
+            </div>
+          ) : project.contractId ? (
+            <div className="flex items-start gap-3">
+              <FileSignature size={16} className="text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Hợp đồng</p>
+                <p className="text-sm text-slate-400 dark:text-slate-500 italic">Đang tải...</p>
+              </div>
+            </div>
+          ) : null}
 
           {(project.startDate || project.endDate) && (
             <div className="flex items-start gap-3">

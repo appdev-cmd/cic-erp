@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, LayoutGrid, List, CheckSquare, Filter, Search,
   Clock, AlertTriangle, Calendar, ChevronDown, X,
-  MessageSquare, Link2, MoreHorizontal, Tag, Copy
+  MessageSquare, Link2, MoreHorizontal, Tag, Copy, FolderKanban
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
 import { useLayoutContext } from '../layout/MainLayout';
 import { TaskService } from '../../services/taskService';
+import { dataClient } from '../../lib/dataClient';
 import TaskDetailPanel from './TaskDetailPanel';
 import CreateTaskPanel from './CreateTaskPanel';
 import CalendarView from './CalendarView';
@@ -90,6 +91,14 @@ const TaskCard: React.FC<{
             {task.source_module && (
               <span className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
                 {task.source_module}
+              </span>
+            )}
+
+            {/* Project badge */}
+            {(task as any)._projectName && (
+              <span className="text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <FolderKanban size={10} />
+                {(task as any)._projectName}
               </span>
             )}
 
@@ -343,10 +352,23 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('my-tasks');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all');
+  const [filterProjectId, setFilterProjectId] = useState<string>('all');
+  const [projects, setProjects] = useState<{id: string; name: string}[]>([]);
 
   const { getVisibleTasks, getMyTasks, isAdmin, visibilityContext } = useTaskVisibility();
   const { openPanel, closePanel } = useSlidePanel();
   const { selectedUnit } = useLayoutContext();
+
+  // Load projects list
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const { data } = await dataClient.from('projects').select('id, name').order('name');
+        if (data) setProjects(data.map((p: any) => ({ id: p.id, name: p.name })));
+      } catch { /* ignore */ }
+    };
+    loadProjects();
+  }, []);
 
   // Load data
   const loadData = useCallback(async () => {
@@ -359,7 +381,19 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
           : getVisibleTasks(),
       ]);
       setStatuses(statusList);
-      setTasks(taskList);
+
+      // Enrich tasks with project names
+      const projectIds = [...new Set(taskList.filter(t => t.project_id).map(t => t.project_id!))];
+      let projectMap: Record<string, string> = {};
+      if (projectIds.length > 0) {
+        const { data: projData } = await dataClient.from('projects').select('id, name').in('id', projectIds);
+        if (projData) projData.forEach((p: any) => { projectMap[p.id] = p.name; });
+      }
+      const enriched = taskList.map(t => ({
+        ...t,
+        _projectName: t.project_id ? projectMap[t.project_id] : undefined,
+      }));
+      setTasks(enriched);
     } catch (err: any) {
       console.error('Failed to load tasks:', err);
       toast.error('Lỗi tải công việc: ' + (err.message || err));
@@ -386,8 +420,11 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
     if (filterPriority !== 'all') {
       result = result.filter(t => t.priority === filterPriority);
     }
+    if (filterProjectId !== 'all') {
+      result = result.filter(t => t.project_id === filterProjectId);
+    }
     return result;
-  }, [tasks, searchQuery, filterPriority, selectedUnit]);
+  }, [tasks, searchQuery, filterPriority, selectedUnit, filterProjectId]);
 
   // Handlers
 
@@ -551,6 +588,18 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
           <option value="high">🟠 Cao</option>
           <option value="medium">🔵 Trung bình</option>
           <option value="low">⚪ Thấp</option>
+        </select>
+
+        {/* Project filter */}
+        <select
+          value={filterProjectId}
+          onChange={(e) => setFilterProjectId(e.target.value)}
+          className="px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 max-w-[220px] truncate"
+        >
+          <option value="all">Tất cả dự án</option>
+          {projects.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
         </select>
       </div>
 

@@ -181,6 +181,7 @@ export interface TaskFilterOptions {
   due_after?: string;
   is_overdue?: boolean;
   search?: string;
+  project_id?: string;
 }
 
 export interface TaskVisibilityContext {

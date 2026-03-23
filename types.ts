@@ -850,6 +850,7 @@ export interface BIMProject {
   constructionGrade?: string;  // Cấp công trình (I, II)
   area?: number;               // Diện tích (m²)
   projectPhase?: string;       // Giai đoạn dự án
+  contractId?: string;         // ID hợp đồng gắn với dự án
   createdAt?: string;
   updatedAt?: string;
 }

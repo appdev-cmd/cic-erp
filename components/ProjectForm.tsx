@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Save, X, MapPin, Building2, Calendar, TrendingUp, FileText, Loader2 } from 'lucide-react';
-import { ProjectService } from '../services';
+import { Save, X, MapPin, Building2, Calendar, TrendingUp, FileText, Loader2, FileSignature } from 'lucide-react';
+import { ProjectService, ContractService } from '../services';
 import { BIMProject, BIMProjectStatus, BIM_PROJECT_STATUS_LABELS } from '../types';
 import { toast } from 'sonner';
 
@@ -39,6 +39,21 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [description, setDescription] = useState(project?.description || '');
   const [thumbnailUrl, setThumbnailUrl] = useState(project?.thumbnailUrl || '');
   const [notes, setNotes] = useState(project?.notes || '');
+  const [contractId, setContractId] = useState(project?.contractId || '');
+  const [contracts, setContracts] = useState<{ id: string; code: string; title: string }[]>([]);
+
+  // Fetch contracts for dropdown
+  useEffect(() => {
+    ContractService.getAll()
+      .then((list: any[]) => {
+        setContracts(list.map(c => ({
+          id: c.id,
+          code: c.contractCode || c.contract_code || '',
+          title: c.title || c.tenCongTrinh || c.name || '',
+        })));
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +76,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         description: description.trim() || undefined,
         thumbnailUrl: thumbnailUrl.trim() || undefined,
         notes: notes.trim() || undefined,
+        contractId: contractId || undefined,
       };
 
       let result: BIMProject;
@@ -272,8 +288,26 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
           <Building2 size={16} className="text-indigo-500" />
           Thông tin bổ sung
         </h3>
-        <div className="grid grid-cols-1 gap-4">
-          <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className={labelCls}>
+              <FileSignature size={12} className="inline mr-1" />
+              Hợp đồng liên kết
+            </label>
+            <select
+              value={contractId}
+              onChange={e => setContractId(e.target.value)}
+              className={inputCls + ' appearance-none cursor-pointer'}
+            >
+              <option value="">— Chưa gắn hợp đồng —</option>
+              {contracts.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-2">
             <label className={labelCls}>URL ảnh thumbnail</label>
             <input
               type="url"
