@@ -405,7 +405,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit, onSelectUnit }) => 
                                     {units.filter(u => u.name !== 'Toàn công ty' &&
                                         (u.type === 'Center' || u.type === 'Branch') &&
                                         (visibleUnits === 'all' || visibleUnits.includes(u.id))
-                                    ).map(u => (
+                                    ).sort((a, b) => a.name.localeCompare(b.name, 'vi')).map(u => (
                                         <button key={u.id} onClick={() => { onSelectUnit(u); setShowUnitSelector(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-sm text-slate-700 dark:text-slate-200 transition-colors">{u.name}</button>
                                     ))}
                                 </div>
