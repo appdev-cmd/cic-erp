@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Save, X, MapPin, Building2, Calendar, TrendingUp, FileText, Loader2, FileSignature } from 'lucide-react';
-import { ProjectService, ContractService } from '../services';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Save, X, MapPin, Building2, Calendar, TrendingUp, FileText, Loader2, FileSignature, Image, Clipboard, Upload } from 'lucide-react';
+import { ProjectService, ContractService, CustomerService } from '../services';
 import { BIMProject, BIMProjectStatus, BIM_PROJECT_STATUS_LABELS } from '../types';
 import { toast } from 'sonner';
+import SearchableSelect from './ui/SearchableSelect';
+import { dataClient as supabase } from '../lib/dataClient';
 
 interface ProjectFormProps {
   project?: BIMProject | null;
@@ -12,14 +14,14 @@ interface ProjectFormProps {
 
 const ALL_STATUSES: BIMProjectStatus[] = ['10_XUCTIEN', '20_BAOGIA', '30_CHUANBI', '40_TRINHTHAMDINH', '50_HOTROQLDA', '60_THANHQUYETTOAN', '70_LUUTRU'];
 
-const STATUS_COLORS: Record<BIMProjectStatus, string> = {
-  '10_XUCTIEN': 'bg-amber-500',
-  '20_BAOGIA': 'bg-cyan-500',
-  '30_CHUANBI': 'bg-orange-500',
-  '40_TRINHTHAMDINH': 'bg-blue-500',
-  '50_HOTROQLDA': 'bg-purple-500',
-  '60_THANHQUYETTOAN': 'bg-emerald-500',
-  '70_LUUTRU': 'bg-teal-500',
+const STATUS_COLORS: Record<BIMProjectStatus, { bg: string; text: string; border: string; dot: string }> = {
+  '10_XUCTIEN':       { bg: 'bg-amber-50 dark:bg-amber-900/20',   text: 'text-amber-700 dark:text-amber-400',     border: 'border-amber-200 dark:border-amber-700',   dot: 'bg-amber-500' },
+  '20_BAOGIA':        { bg: 'bg-cyan-50 dark:bg-cyan-900/20',     text: 'text-cyan-700 dark:text-cyan-400',       border: 'border-cyan-200 dark:border-cyan-700',     dot: 'bg-cyan-500' },
+  '30_CHUANBI':       { bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-400',   border: 'border-orange-200 dark:border-orange-700', dot: 'bg-orange-500' },
+  '40_TRINHTHAMDINH': { bg: 'bg-blue-50 dark:bg-blue-900/20',     text: 'text-blue-700 dark:text-blue-400',       border: 'border-blue-200 dark:border-blue-700',     dot: 'bg-blue-500' },
+  '50_HOTROQLDA':     { bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-400',   border: 'border-purple-200 dark:border-purple-700', dot: 'bg-purple-500' },
+  '60_THANHQUYETTOAN':{ bg: 'bg-emerald-50 dark:bg-emerald-900/20',text:'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-700',dot: 'bg-emerald-500' },
+  '70_LUUTRU':        { bg: 'bg-teal-50 dark:bg-teal-900/20',     text: 'text-teal-700 dark:text-teal-400',       border: 'border-teal-200 dark:border-teal-700',     dot: 'bg-teal-500' },
 };
 
 const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) => {
@@ -31,6 +33,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [name, setName] = useState(project?.name || '');
   const [status, setStatus] = useState<BIMProjectStatus>(project?.status || '10_XUCTIEN');
   const [location, setLocation] = useState(project?.location || '');
+  const [customerId, setCustomerId] = useState(project?.customerId || '');
   const [clientName, setClientName] = useState(project?.clientName || '');
   const [progress, setProgress] = useState(project?.progress || 0);
   const [contractValue, setContractValue] = useState(project?.contractValue || 0);
@@ -40,9 +43,11 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [thumbnailUrl, setThumbnailUrl] = useState(project?.thumbnailUrl || '');
   const [notes, setNotes] = useState(project?.notes || '');
   const [contractId, setContractId] = useState(project?.contractId || '');
-  const [contracts, setContracts] = useState<{ id: string; code: string; title: string }[]>([]);
+  const [contracts, setContracts] = useState<{ id: string; code: string; title: string; customerName?: string }[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const thumbnailDropRef = useRef<HTMLDivElement>(null);
 
-  // Fetch contracts for dropdown
+  // Fetch contracts for search
   useEffect(() => {
     ContractService.getAll()
       .then((list: any[]) => {
@@ -50,10 +55,115 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
           id: c.id,
           code: c.contractCode || c.contract_code || '',
           title: c.title || c.tenCongTrinh || c.name || '',
+          customerName: c.partyA || '',
         })));
       })
       .catch(() => {});
   }, []);
+
+  // ── Search customers ────────────────────────────────────────────────
+  const handleSearchCustomers = useCallback(async (query: string) => {
+    const results = await CustomerService.search(query, 20);
+    return results.map(c => ({
+      id: c.id,
+      name: c.name,
+      subText: c.shortName || c.address || '',
+    }));
+  }, []);
+
+  // Get display value for customer
+  const getCustomerDisplay = useCallback((id: string) => {
+    return clientName || undefined;
+  }, [clientName]);
+
+  // ── Search contracts ────────────────────────────────────────────────
+  const handleSearchContracts = useCallback(async (query: string) => {
+    const q = query.toLowerCase();
+    return contracts
+      .filter(c =>
+        c.code.toLowerCase().includes(q) ||
+        c.title.toLowerCase().includes(q) ||
+        (c.customerName && c.customerName.toLowerCase().includes(q))
+      )
+      .slice(0, 20)
+      .map(c => ({
+        id: c.id,
+        name: `${c.code} — ${c.title}`,
+        subText: c.customerName || undefined,
+      }));
+  }, [contracts]);
+
+  // Get display value for contract
+  const getContractDisplay = useCallback((id: string) => {
+    const c = contracts.find(x => x.id === id);
+    return c ? `${c.code} — ${c.title}` : undefined;
+  }, [contracts]);
+
+  // ── Upload image to Supabase Storage ─────────────────────────────────
+  const uploadImageToStorage = useCallback(async (file: File | Blob, fileName?: string) => {
+    setUploadingImage(true);
+    try {
+      const ext = file instanceof File ? file.name.split('.').pop() || 'png' : 'png';
+      const path = `project-thumbnails/${Date.now()}_${fileName || 'clipboard'}.${ext}`;
+
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .upload(path, file, { contentType: file.type || 'image/png', upsert: false });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path);
+      if (urlData?.publicUrl) {
+        setThumbnailUrl(urlData.publicUrl);
+        toast.success('Đã upload ảnh thành công!');
+      }
+    } catch (err: any) {
+      // Fallback: convert to data URL if storage fails
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setThumbnailUrl(e.target?.result as string);
+        toast.success('Đã dán ảnh (lưu dạng inline)');
+      };
+      reader.readAsDataURL(file as Blob);
+    } finally {
+      setUploadingImage(false);
+    }
+  }, []);
+
+  // ── Handle clipboard paste ──────────────────────────────────────────
+  const handlePaste = useCallback(async (e: React.ClipboardEvent | ClipboardEvent) => {
+    const items = (e as any).clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          await uploadImageToStorage(file, 'screenshot');
+        }
+        return;
+      }
+    }
+  }, [uploadImageToStorage]);
+
+  // ── Handle file input change ──────────────────────────────────────────
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      uploadImageToStorage(file, file.name);
+    }
+    e.target.value = '';
+  }, [uploadImageToStorage]);
+
+  // Listen for paste on the thumbnail area
+  useEffect(() => {
+    const el = thumbnailDropRef.current;
+    if (!el) return;
+    const handler = (e: Event) => handlePaste(e as ClipboardEvent);
+    el.addEventListener('paste', handler);
+    return () => el.removeEventListener('paste', handler);
+  }, [handlePaste]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +178,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         name: name.trim(),
         status,
         location: location.trim() || undefined,
+        customerId: customerId || undefined,
         clientName: clientName.trim() || undefined,
         progress,
         contractValue,
@@ -140,17 +251,26 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
           </div>
           <div>
             <label className={labelCls}>Trạng thái</label>
-            <div className="relative">
-              <select
-                value={status}
-                onChange={e => setStatus(e.target.value as BIMProjectStatus)}
-                className={inputCls + ' appearance-none cursor-pointer'}
-              >
-                {ALL_STATUSES.map(s => (
-                  <option key={s} value={s}>{BIM_PROJECT_STATUS_LABELS[s]}</option>
-                ))}
-              </select>
-              <span className={`absolute left-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full ${STATUS_COLORS[status]}`} />
+            <div className="flex flex-wrap gap-1.5">
+              {ALL_STATUSES.map(s => {
+                const c = STATUS_COLORS[s];
+                const isActive = status === s;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatus(s)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                      isActive
+                        ? `${c.bg} ${c.text} ${c.border} ring-2 ring-current/20`
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${isActive ? c.dot : 'bg-slate-300 dark:bg-slate-600'}`} />
+                    {BIM_PROJECT_STATUS_LABELS[s]}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="md:col-span-2">
@@ -195,13 +315,20 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
             />
           </div>
           <div className="md:col-span-2">
-            <label className={labelCls}>Chủ đầu tư</label>
-            <input
-              type="text"
-              value={clientName}
-              onChange={e => setClientName(e.target.value)}
-              placeholder="VD: Sở Y tế TP.HCM"
-              className={inputCls}
+            <label className={labelCls}>
+              <Building2 size={12} className="inline mr-1" />
+              Chủ đầu tư
+            </label>
+            <SearchableSelect
+              value={customerId || null}
+              onChange={(id, option) => {
+                setCustomerId(id || '');
+                setClientName(option?.name || '');
+              }}
+              onSearch={handleSearchCustomers}
+              placeholder="Gõ tên chủ đầu tư để tìm..."
+              getDisplayValue={getCustomerDisplay}
+              size="md"
             />
           </div>
         </div>
@@ -289,40 +416,96 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
           Thông tin bổ sung
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Contract SearchableSelect */}
           <div className="md:col-span-2">
             <label className={labelCls}>
               <FileSignature size={12} className="inline mr-1" />
               Hợp đồng liên kết
             </label>
-            <select
-              value={contractId}
-              onChange={e => setContractId(e.target.value)}
-              className={inputCls + ' appearance-none cursor-pointer'}
-            >
-              <option value="">— Chưa gắn hợp đồng —</option>
-              {contracts.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.code} — {c.title}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="md:col-span-2">
-            <label className={labelCls}>URL ảnh thumbnail</label>
-            <input
-              type="url"
-              value={thumbnailUrl}
-              onChange={e => setThumbnailUrl(e.target.value)}
-              placeholder="https://images.unsplash.com/..."
-              className={inputCls}
+            <SearchableSelect
+              value={contractId || null}
+              onChange={(id) => setContractId(id || '')}
+              onSearch={handleSearchContracts}
+              placeholder="Gõ mã, tên HĐ hoặc tên khách hàng..."
+              getDisplayValue={getContractDisplay}
+              size="md"
+              initialOptions={contracts.slice(0, 10).map(c => ({
+                id: c.id,
+                name: `${c.code} — ${c.title}`,
+                subText: c.customerName || undefined,
+              }))}
             />
-            {thumbnailUrl && (
-              <div className="mt-2 h-32 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                <img src={thumbnailUrl} alt="Preview" className="w-full h-full object-cover" onError={e => (e.target as HTMLImageElement).style.display = 'none'} />
-              </div>
-            )}
           </div>
-          <div>
+
+          {/* Thumbnail with clipboard paste */}
+          <div className="md:col-span-2">
+            <label className={labelCls}>
+              <Image size={12} className="inline mr-1" />
+              Ảnh thumbnail
+            </label>
+            <div
+              ref={thumbnailDropRef}
+              tabIndex={0}
+              onPaste={handlePaste}
+              className="relative group"
+            >
+              {thumbnailUrl ? (
+                <div className="relative h-40 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                  <img src={thumbnailUrl} alt="Preview" className="w-full h-full object-cover" onError={e => (e.target as HTMLImageElement).style.display = 'none'} />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setThumbnailUrl('')}
+                      className="px-3 py-1.5 bg-white/90 rounded-lg text-xs font-bold text-rose-600 hover:bg-white transition-colors"
+                    >
+                      <X size={14} className="inline mr-1" />
+                      Xóa ảnh
+                    </button>
+                    <label className="px-3 py-1.5 bg-white/90 rounded-lg text-xs font-bold text-indigo-600 hover:bg-white transition-colors cursor-pointer">
+                      <Upload size={14} className="inline mr-1" />
+                      Đổi ảnh
+                      <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                    </label>
+                  </div>
+                  {uploadingImage && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Loader2 size={24} className="animate-spin text-white" />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="h-36 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors flex flex-col items-center justify-center gap-2 cursor-pointer focus-within:ring-2 focus-within:ring-indigo-500">
+                  {uploadingImage ? (
+                    <Loader2 size={24} className="animate-spin text-indigo-500" />
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500">
+                        <Clipboard size={20} />
+                        <span className="text-sm font-semibold">Ctrl+V để dán ảnh</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <label className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors cursor-pointer">
+                          <Upload size={14} className="inline mr-1" />
+                          Chọn file
+                          <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                        </label>
+                        <span className="text-xs text-slate-400 dark:text-slate-500">hoặc</span>
+                        <input
+                          type="url"
+                          value={thumbnailUrl}
+                          onChange={e => setThumbnailUrl(e.target.value)}
+                          placeholder="Dán URL ảnh..."
+                          className="flex-1 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent outline-none"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="md:col-span-2">
             <label className={labelCls}>Ghi chú</label>
             <textarea
               value={notes}
