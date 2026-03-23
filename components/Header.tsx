@@ -139,7 +139,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 >
                   <option value="all">Toàn công ty</option>
-                  {filteredUnits.filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch')).map(u => (
+                  {filteredUnits
+                    .filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch'))
+                    .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+                    .map(u => (
                     <option key={u.id} value={u.id}>{u.name}</option>
                   ))}
                 </select>
