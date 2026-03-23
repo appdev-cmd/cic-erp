@@ -40,6 +40,30 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
   const [activeTab, setActiveTab] = useState<'info' | 'tasks'>('info');
   const [contractInfo, setContractInfo] = useState<{ id: string; contractCode: string; name?: string } | null>(null);
   const { openPanel, closePanel } = useSlidePanel();
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<BIMProjectStatus | null>(null);
+
+  // ── Handle status change ─────────────────────────────────────────────
+  const handleStatusChange = useCallback((newStatus: BIMProjectStatus) => {
+    if (!project || newStatus === project.status || updatingStatus) return;
+    setPendingStatus(newStatus);
+  }, [project, updatingStatus]);
+
+  const confirmStatusChange = useCallback(async () => {
+    if (!project || !pendingStatus) return;
+    const label = BIM_PROJECT_STATUS_LABELS[pendingStatus];
+    setUpdatingStatus(true);
+    setPendingStatus(null);
+    try {
+      const updated = await ProjectService.update(project.id, { status: pendingStatus });
+      setProject(updated);
+      toast.success(`Đã chuyển sang: ${label}`);
+    } catch (err: any) {
+      toast.error('Lỗi cập nhật trạng thái: ' + (err.message || err));
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }, [project, pendingStatus]);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -203,7 +227,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
       <>
       {/* Workflow Progress */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-        <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4">Tiến trình dự án</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Tiến trình dự án</h2>
+          {updatingStatus && (
+            <span className="flex items-center gap-1.5 text-xs text-indigo-500 dark:text-indigo-400 font-semibold">
+              <Loader2 size={14} className="animate-spin" /> Đang cập nhật...
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1 overflow-x-auto pb-2">
           {allStatuses.map((s, idx) => {
             const isCompleted = idx < currentIdx;
@@ -211,18 +242,22 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
             const cfg = STATUS_COLORS[s];
             return (
               <React.Fragment key={s}>
-                <div className={`flex flex-col items-center min-w-[80px] ${isCurrent ? 'scale-105' : ''}`}>
+                <div
+                  className={`flex flex-col items-center min-w-[80px] transition-all ${isCurrent ? 'scale-105' : 'cursor-pointer group'}`}
+                  onClick={() => !isCurrent && handleStatusChange(s)}
+                  title={isCurrent ? 'Trạng thái hiện tại' : `Chuyển sang: ${BIM_PROJECT_STATUS_LABELS[s]}`}
+                >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                     isCompleted 
-                      ? 'bg-emerald-500 text-white' 
+                      ? 'bg-emerald-500 text-white group-hover:bg-emerald-600 group-hover:scale-110' 
                       : isCurrent 
                         ? `${cfg.bg} ${cfg.text} ring-2 ring-current`
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:scale-110'
                   }`}>
                     {isCompleted ? '✓' : idx + 1}
                   </div>
-                  <span className={`text-[10px] font-semibold mt-1 text-center leading-tight ${
-                    isCurrent ? cfg.text : isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'
+                  <span className={`text-[10px] font-semibold mt-1 text-center leading-tight transition-colors ${
+                    isCurrent ? cfg.text : isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
                   }`}>
                     {BIM_PROJECT_STATUS_LABELS[s]}
                   </span>
@@ -235,6 +270,50 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
               </React.Fragment>
             );
           })}
+        </div>
+        {/* Confirm banner */}
+        {pendingStatus && (
+          <div className="mt-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg flex items-center justify-between animate-in slide-in-from-top-2 duration-200">
+            <p className="text-sm text-indigo-700 dark:text-indigo-300 font-semibold">
+              Chuyển sang <span className="font-black">"{BIM_PROJECT_STATUS_LABELS[pendingStatus]}"</span>?
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPendingStatus(null)}
+                className="px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmStatusChange}
+                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all shadow-sm"
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        )}
+        {/* Action buttons */}
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <button
+            disabled={currentIdx <= 0 || updatingStatus}
+            onClick={() => handleStatusChange(allStatuses[currentIdx - 1])}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
+          >
+            <ArrowLeft size={14} />
+            {currentIdx > 0 ? BIM_PROJECT_STATUS_LABELS[allStatuses[currentIdx - 1]] : 'Bước trước'}
+          </button>
+          <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
+            Bước {currentIdx + 1} / {allStatuses.length}
+          </span>
+          <button
+            disabled={currentIdx >= allStatuses.length - 1 || updatingStatus}
+            onClick={() => handleStatusChange(allStatuses[currentIdx + 1])}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm"
+          >
+            {currentIdx < allStatuses.length - 1 ? BIM_PROJECT_STATUS_LABELS[allStatuses[currentIdx + 1]] : 'Bước tiếp'}
+            <TrendingUp size={14} />
+          </button>
         </div>
       </div>
 
@@ -330,7 +409,10 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
               <div>
                 <p className="text-[11px] font-semibold text-indigo-500 dark:text-indigo-400 uppercase">Giá trị hợp đồng</p>
                 <p className="text-xl font-black text-indigo-700 dark:text-indigo-300">
-                  {(project.contractValue / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} <span className="text-sm font-bold">Tỷ</span>
+                  {project.contractValue >= 1_000_000_000
+                    ? <>{(project.contractValue / 1_000_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} <span className="text-sm font-bold">Tỷ</span></>
+                    : <>{(project.contractValue / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 0 })} <span className="text-sm font-bold">Triệu</span></>
+                  }
                 </p>
               </div>
             </div>

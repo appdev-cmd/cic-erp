@@ -64,6 +64,19 @@ export function canViewUnits(role: UserRole): boolean {
     return role === 'Admin' || role === 'Leadership' || role === 'UnitLeader' || role === 'AdminUnit';
 }
 
+/** BIM unit code */
+const BIM_UNIT_CODE = 'BIM';
+
+/**
+ * Can VIEW the BIM Projects section?
+ * Only: Admin, Leadership, and users belonging to BIM center
+ */
+export function canViewProjects(role: UserRole, userUnitCode?: string): boolean {
+    if (role === 'Admin' || role === 'Leadership') return true;
+    if (userUnitCode === BIM_UNIT_CODE) return true;
+    return false;
+}
+
 /**
  * Items that should be hidden from sidebar based on role + DB permissions.
  * Returns Set of nav item IDs to HIDE.
@@ -106,6 +119,14 @@ export function getHiddenNavItems(
     const TOOLS_ALLOWED_EMAILS = ['anhnq@cic.com.vn'];
     if (!userEmail || !TOOLS_ALLOWED_EMAILS.includes(userEmail.toLowerCase())) {
         hidden.add('tools');
+    }
+
+    // BIM Projects: only Admin, Leadership, BIM center members
+    const hasProjectsViewInDB = dbPermissions?.get('projects')?.has('view');
+    if (hasProjectsViewInDB === undefined) {
+        if (!canViewProjects(role, userUnitCode)) hidden.add('projects');
+    } else if (!hasProjectsViewInDB) {
+        hidden.add('projects');
     }
 
     return hidden;

@@ -43,7 +43,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [thumbnailUrl, setThumbnailUrl] = useState(project?.thumbnailUrl || '');
   const [notes, setNotes] = useState(project?.notes || '');
   const [contractId, setContractId] = useState(project?.contractId || '');
-  const [contracts, setContracts] = useState<{ id: string; code: string; title: string; customerName?: string }[]>([]);
+  const [contracts, setContracts] = useState<{ id: string; code: string; title: string; customerName?: string; value?: number; startDate?: string; endDate?: string }[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const thumbnailDropRef = useRef<HTMLDivElement>(null);
 
@@ -56,6 +56,9 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
           code: c.contractCode || c.contract_code || '',
           title: c.title || c.tenCongTrinh || c.name || '',
           customerName: c.partyA || '',
+          value: c.value ? Number(c.value) : undefined,
+          startDate: c.startDate || c.start_date || '',
+          endDate: c.endDate || c.end_date || '',
         })));
       })
       .catch(() => {});
@@ -342,18 +345,25 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className={labelCls}>Giá trị hợp đồng (triệu đồng)</label>
+            <label className={labelCls}>Giá trị hợp đồng (VNĐ)</label>
             <input
-              type="number"
-              value={contractValue || ''}
-              onChange={e => setContractValue(Number(e.target.value) || 0)}
-              placeholder="VD: 319900"
+              type="text"
+              value={contractValue ? contractValue.toLocaleString('vi-VN') : ''}
+              onChange={e => {
+                const raw = e.target.value.replace(/\./g, '').replace(/,/g, '');
+                setContractValue(Number(raw) || 0);
+              }}
+              placeholder="VD: 734.191.500"
               className={inputCls}
-              min={0}
             />
-            {contractValue > 0 && (
+            {contractValue >= 1_000_000_000 && (
               <p className="text-xs text-indigo-600 dark:text-indigo-400 font-bold mt-1">
-                = {(contractValue / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} Tỷ
+                = {(contractValue / 1_000_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} Tỷ
+              </p>
+            )}
+            {contractValue >= 1_000_000 && contractValue < 1_000_000_000 && (
+              <p className="text-xs text-indigo-600 dark:text-indigo-400 font-bold mt-1">
+                = {(contractValue / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} Triệu
               </p>
             )}
           </div>
@@ -424,7 +434,25 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
             </label>
             <SearchableSelect
               value={contractId || null}
-              onChange={(id) => setContractId(id || '')}
+              onChange={(id) => {
+                setContractId(id || '');
+                // Auto-fill giá trị và ngày từ hợp đồng
+                if (id) {
+                  const selected = contracts.find(c => c.id === id);
+                  if (selected) {
+                    if (selected.value && selected.value > 0) {
+                      setContractValue(Math.round(selected.value));
+                    }
+                    if (selected.startDate) {
+                      setStartDate(selected.startDate);
+                    }
+                    if (selected.endDate) {
+                      setEndDate(selected.endDate);
+                    }
+                    toast.success('Đã tự động nhận giá trị và thời gian từ hợp đồng');
+                  }
+                }
+              }}
               onSearch={handleSearchContracts}
               placeholder="Gõ mã, tên HĐ hoặc tên khách hàng..."
               getDisplayValue={getContractDisplay}

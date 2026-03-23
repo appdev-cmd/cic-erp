@@ -146,7 +146,10 @@ const ProjectCard: React.FC<{ project: BIMProject; index: number; onClick: () =>
             <div>
               <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Giá trị HĐ</p>
               <p className="text-base font-black text-indigo-600 dark:text-indigo-400">
-                {(project.contractValue / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} <span className="text-[11px] font-bold">Tỷ</span>
+                {project.contractValue >= 1_000_000_000
+                  ? <>{(project.contractValue / 1_000_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} <span className="text-[11px] font-bold">Tỷ</span></>
+                  : <>{(project.contractValue / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 0 })} <span className="text-[11px] font-bold">Triệu</span></>
+                }
               </p>
             </div>
           ) : (
