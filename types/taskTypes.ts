@@ -59,6 +59,8 @@ export interface Task {
   completion_trigger?: string;
 
   // Metadata
+  project_id?: string;
+  unit_id?: string;
   custom_fields: Record<string, any>;
   is_private: boolean;
   created_by?: string;
@@ -145,6 +147,7 @@ export interface CreateTaskInput {
   action_label?: string;
   completion_trigger?: string;
   created_by?: string;
+  project_id?: string;
 }
 
 export type UpdateTaskInput = Partial<Omit<Task, 'id' | 'created_at' | 'updated_at'>>;

@@ -30,6 +30,8 @@ import {
     LazyToolsPage as ToolsPage,
     LazyChatPage as ChatPage,
     LazyTasksPage as TasksPage,
+    LazyProjectListPage as ProjectListPage,
+    LazyProjectDetailPage as ProjectDetailPage,
 } from '../components/LazyPages';
 
 // Route Configuration
@@ -84,6 +86,10 @@ export const router = createBrowserRouter([
 
             // Tasks
             { path: 'tasks', element: <TasksPage /> },
+
+            // Projects (BIM)
+            { path: 'projects', element: <ProjectListPage /> },
+            { path: 'projects/:id', element: <ProjectDetailPage /> },
 
             // Settings
             { path: 'settings', element: <SettingsPage /> },

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
+import { useLayoutContext } from '../layout/MainLayout';
 import { TaskService } from '../../services/taskService';
 import TaskDetailPanel from './TaskDetailPanel';
 import CreateTaskPanel from './CreateTaskPanel';
@@ -186,13 +187,13 @@ const BoardView: React.FC<{
   const columns = statuses.filter(s => !s.space_id).sort((a, b) => a.sort_order - b.sort_order);
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: '60vh' }}>
+    <div className="flex gap-3 pb-4" style={{ minHeight: '60vh' }}>
       {columns.map(status => {
         const columnTasks = tasks.filter(t => t.status_id === status.id);
         return (
           <div
             key={status.id}
-            className="flex-shrink-0 w-72 bg-slate-50 dark:bg-slate-800 rounded-xl p-3"
+            className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-800 rounded-xl p-3"
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => {
               if (dragTaskId) {
@@ -345,6 +346,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
 
   const { getVisibleTasks, getMyTasks, isAdmin, visibilityContext } = useTaskVisibility();
   const { openPanel, closePanel } = useSlidePanel();
+  const { selectedUnit } = useLayoutContext();
 
   // Load data
   const loadData = useCallback(async () => {
@@ -373,6 +375,10 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   // Filter tasks
   const filteredTasks = useMemo(() => {
     let result = tasks;
+    // Filter by selected unit
+    if (selectedUnit && selectedUnit.id !== 'all') {
+      result = result.filter(t => t.unit_id === selectedUnit.id);
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(t => t.title.toLowerCase().includes(q));
@@ -381,7 +387,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
       result = result.filter(t => t.priority === filterPriority);
     }
     return result;
-  }, [tasks, searchQuery, filterPriority]);
+  }, [tasks, searchQuery, filterPriority, selectedUnit]);
 
   // Handlers
 

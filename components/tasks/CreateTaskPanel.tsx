@@ -34,6 +34,8 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
   const [supporters, setSupporters] = useState<string[]>([]);
   const [supporterProfiles, setSupporterProfiles] = useState<{id: string, name: string, avatar: string}[]>([]);
   const [saving, setSaving] = useState(false);
+  const [projectId, setProjectId] = useState<string>(initialData?.project_id || '');
+  const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
   
   const [openPicker, setOpenPicker] = useState<'assignees' | 'supporters' | null>(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
@@ -41,6 +43,17 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
   const { lockPanel, unlockPanel, setOnCloseBlocked, forceClosePanel } = useSlidePanel();
 
   const hasUnsavedChanges = title.trim() !== '' || description.trim() !== '' || dueDate !== '' || assignees[0] !== currentUserId || supporters.length > 0;
+
+  // Load projects list
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const { data } = await dataClient.from('projects').select('id, name').order('name');
+        if (data) setProjects(data.map((p: any) => ({ id: p.id, name: p.name })));
+      } catch { /* ignore */ }
+    };
+    loadProjects();
+  }, []);
 
   useEffect(() => {
     if (hasUnsavedChanges && !saving) {
@@ -87,6 +100,7 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
         assignees,
         supporters,
         created_by: currentUserId,
+        project_id: projectId || undefined,
       });
       
       toast.success('Đã tạo công việc thành công');
@@ -141,6 +155,22 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl pl-9 pr-10 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               />
             </div>
+          </div>
+          
+          {/* Dự án */}
+          <div className="col-span-2">
+            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Dự án BIM</label>
+            <select
+              value={projectId}
+              onChange={e => setProjectId(e.target.value)}
+              disabled={!!initialData?.project_id}
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60"
+            >
+              <option value="">— Không gắn dự án —</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
           </div>
           
           <div className="col-span-2 grid grid-cols-2 gap-6 relative">

@@ -1,7 +1,7 @@
 // Lazy-loaded page components for code splitting
 // This reduces initial bundle size by loading components on demand
 
-import React, { Suspense, lazy, useCallback } from 'react';
+import React, { Suspense, lazy, useCallback, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useLayoutContext } from './layout/MainLayout';
 import { ROUTES } from '../routes/routes';
@@ -69,6 +69,9 @@ const DocumentManager = lazyWithRetry(() => import('./DocumentManager'));
 const ToolsPage = lazyWithRetry(() => import('./ToolsPage'));
 const ChatPageComponent = lazyWithRetry(() => import('./chat/ChatPage'));
 const TasksPageComponent = lazyWithRetry(() => import('./tasks/TasksPage'));
+const ProjectList = lazyWithRetry(() => import('./ProjectList'));
+const ProjectDetail = lazyWithRetry(() => import('./ProjectDetail'));
+const ProjectForm = lazyWithRetry(() => import('./ProjectForm'));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
@@ -724,3 +727,101 @@ export const LazyChatPage: React.FC = () => withSuspense(<ChatPageComponent />);
 // Tasks
 export const LazyTasksPage: React.FC = () => withSuspense(<TasksPageComponent />);
 
+// ═══════════════════════════════════════════════════════════════════════
+// PROJECT MODULE (BIM) — Slide Panel Integration
+// ═══════════════════════════════════════════════════════════════════════
+
+export const LazyProjectListPage: React.FC = () => {
+    const { openPanel, closePanel } = useSlidePanel();
+    const [refreshKey, setRefreshKey] = useState(0);
+    const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
+
+    const handleSelectProject = useCallback((id: string) => {
+        openPanel({
+            title: 'Chi tiết Dự án',
+            url: ROUTES.PROJECT_DETAIL(id),
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <ProjectDetail
+                            projectId={id}
+                            onBack={() => closePanel()}
+                            onEdit={(project) => {
+                                closePanel();
+                                setTimeout(() => handleEditProject(project), 100);
+                            }}
+                            onDelete={() => {
+                                closePanel();
+                                refresh();
+                            }}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel, refresh]);
+
+    const handleCreateProject = useCallback(() => {
+        openPanel({
+            title: 'Tạo dự án mới',
+            url: '/projects/new',
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <ProjectForm
+                            onSave={() => {
+                                closePanel();
+                                refresh();
+                            }}
+                            onCancel={() => closePanel()}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel, refresh]);
+
+    const handleEditProject = useCallback((project: any) => {
+        openPanel({
+            title: 'Chỉnh sửa dự án',
+            url: `/projects/${project.id}/edit`,
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <ProjectForm
+                            project={project}
+                            onSave={() => {
+                                closePanel();
+                                refresh();
+                            }}
+                            onCancel={() => closePanel()}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel, refresh]);
+
+    return withSuspense(
+        <ProjectList
+            onSelectProject={handleSelectProject}
+            onCreateProject={handleCreateProject}
+            refreshKey={refreshKey}
+        />,
+        <ListPageSkeleton />
+    );
+};
+
+export const LazyProjectDetailPage: React.FC = () => {
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    if (!id) return <div>Project not found</div>;
+    return withSuspense(
+        <ProjectDetail
+            projectId={id}
+            onBack={() => navigate(ROUTES.PROJECTS)}
+            onDelete={() => navigate(ROUTES.PROJECTS)}
+        />,
+        <DetailPageSkeleton />
+    );
+};

@@ -26,6 +26,9 @@ export * from './entityRegistryService';
 export * from './autoTaskEngine';
 export * from './discussionService';
 
+// BIM Projects
+export * from './projectService';
+
 // Re-export specific APIs as legacy aliases if needed, or prefer using *Service naming.
 // To maintain compatibility with existing 'api.ts' consumers, we might want to update 'api.ts' to re-export these,
 // or update consumers.

@@ -13,7 +13,8 @@ import {
   Wrench,
   MessageCircle,
   Handshake,
-  CheckSquare
+  CheckSquare,
+  Landmark
 } from 'lucide-react';
 import { UserRole, PlanStatus } from './types';
 
@@ -71,6 +72,7 @@ export const CONTRACT_STATUS_LABELS: Record<string, string> = {
 export const NAV_ITEMS = [
   { id: 'dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
   { id: 'tasks', label: 'Công việc', icon: <CheckSquare size={20} /> },
+  { id: 'projects', label: 'Dự án BIM', icon: <Landmark size={20} /> },
   { id: 'contracts', label: 'Hợp đồng', icon: <FileText size={20} /> },
   { id: 'payments', label: 'Tài chính', icon: <Package size={20} /> },
   { id: 'analytics', label: 'Thống kê', icon: <PieChart size={20} /> },

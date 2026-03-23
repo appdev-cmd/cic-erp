@@ -7,8 +7,9 @@ import {
 import { vi } from 'date-fns/locale';
 import {
   Calendar, ChevronDown, ChevronRight, Crosshair,
-  AlertTriangle, Layers
+  AlertTriangle, Layers, User
 } from 'lucide-react';
+import { dataClient } from '../../lib/dataClient';
 
 // ═══════════════════════════════════════
 // TYPES & CONSTANTS
@@ -136,6 +137,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses 
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [isResizing, setIsResizing] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [profiles, setProfiles] = useState<Record<string, { name: string; avatar: string | null }>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ─── Prepare Gantt tasks (only those with dates) ───
@@ -159,6 +161,20 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses 
     });
     return { ganttTasks: gt, noDateCount: noDate };
   }, [tasks, statuses]);
+
+  // ─── Fetch profiles for assignees ───
+  useEffect(() => {
+    const ids = new Set<string>();
+    ganttTasks.forEach(gt => gt.task.assignees?.forEach(id => ids.add(id)));
+    if (ids.size === 0) return;
+    dataClient.from('profiles').select('id, full_name, avatar_url').in('id', Array.from(ids))
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, { name: string; avatar: string | null }> = {};
+        data.forEach((p: any) => { map[p.id] = { name: p.full_name || '', avatar: p.avatar_url }; });
+        setProfiles(map);
+      });
+  }, [ganttTasks]);
 
   // ─── Date range with padding ───
   const { rangeStart, rangeEnd, totalDays } = useMemo(() => {
@@ -352,12 +368,12 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses 
                     style={{ width: h.width, minWidth: h.width }}>{h.label}</div>
                 ))}
               </div>
-              <div className="flex h-7 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex h-7 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                 {bottomHeaders.map((h, i) => (
                   <div key={i}
-                    className={`text-[10px] font-semibold flex items-center justify-center border-r border-slate-100 dark:border-slate-800
-                      ${h.isToday ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold'
-                        : h.isWeekend ? 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500'
+                    className={`text-[10px] font-semibold flex items-center justify-center border-r border-slate-200 dark:border-slate-700
+                      ${h.isToday ? 'bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-bold'
+                        : h.isWeekend ? 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
                         : 'text-slate-500 dark:text-slate-400'}`}
                     style={{ width: h.width, minWidth: h.width }}
                   >{h.label}</div>
@@ -386,7 +402,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses 
                       <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{row.groupLabel}</span>
                       <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded-full">{row.groupCount}</span>
                     </div>
-                    <div className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30" style={{ width: timelineWidth }} />
+                    <div className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800" style={{ width: timelineWidth }} />
                   </div>
                 );
               }
@@ -397,10 +413,10 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses 
               const isOverdue = gt.task.due_date && new Date(gt.task.due_date) < new Date() && !gt.task.completed_at;
 
               return (
-                <div key={gt.task.id} className={`flex group/row ${idx % 2 === 0 ? '' : 'bg-slate-50/30 dark:bg-slate-800/20'}`} style={{ height: ROW_HEIGHT }}>
+                <div key={gt.task.id} className={`flex group/row ${idx % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'}`} style={{ height: ROW_HEIGHT }}>
                   {/* Sidebar cell */}
                   <div
-                    className="sticky left-0 z-10 bg-inherit border-b border-r border-slate-200 dark:border-slate-700 flex items-center gap-2 px-3 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 transition-colors cursor-pointer"
+                    className={`sticky left-0 z-10 border-b border-r border-slate-200 dark:border-slate-700 flex items-center gap-2 px-3 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer ${idx % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'}`}
                     style={{ width: sidebarWidth, minWidth: sidebarWidth }}
                     onClick={() => onSelect(gt.task.id)}
                   >
@@ -408,11 +424,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses 
                     <span className={`text-xs font-medium truncate flex-1 ${isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'}`}>
                       {gt.task.title}
                     </span>
-                    {gt.task.priority !== 'none' && (
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${PRIORITY_COLORS[gt.task.priority].bg} ${PRIORITY_COLORS[gt.task.priority].text}`}>
-                        {PRIORITY_LABELS[gt.task.priority]}
-                      </span>
-                    )}
+
                     {isOverdue && <AlertTriangle size={12} className="text-red-500 dark:text-red-400 flex-shrink-0" />}
                   </div>
 
@@ -430,10 +442,48 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses 
                       {gt.progress > 0 && gt.progress < 100 && (
                         <div className="absolute inset-y-0 left-0 rounded-l-md bg-white/25" style={{ width: `${gt.progress}%` }} />
                       )}
-                      {bar.width > 60 && (
-                        <span className="absolute inset-0 flex items-center px-2 text-[10px] font-semibold text-white truncate z-[1] drop-shadow-sm">
-                          {gt.task.title}
-                        </span>
+                      {/* Priority label on bar */}
+                      {gt.task.priority !== 'none' && bar.width > 40 && (
+                        <div className="absolute left-1 inset-y-0 flex items-center z-[1]">
+                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-sm leading-none
+                            ${gt.task.priority === 'urgent' ? 'bg-red-900/40 text-white' : ''}
+                            ${gt.task.priority === 'high' ? 'bg-orange-900/30 text-white' : ''}
+                            ${gt.task.priority === 'medium' ? 'bg-white/20 text-white/90' : ''}
+                            ${gt.task.priority === 'low' ? 'bg-white/15 text-white/70' : ''}`}
+                          >
+                            {gt.task.priority === 'urgent' && '⚡ Khẩn'}
+                            {gt.task.priority === 'high' && '↑ Cao'}
+                            {gt.task.priority === 'medium' && '— TB'}
+                            {gt.task.priority === 'low' && '↓ Thấp'}
+                          </span>
+                        </div>
+                      )}
+                      {/* Assignee avatars */}
+                      {gt.task.assignees?.length > 0 && (
+                        <div className="absolute right-1 inset-y-0 flex items-center z-[2] -space-x-1">
+                          {gt.task.assignees.slice(0, 2).map(id => {
+                            const p = profiles[id];
+                            return (
+                              <div key={id}
+                                className="w-5 h-5 rounded-full border-[1.5px] border-white/80 dark:border-white/40 bg-white/30 dark:bg-white/20 flex items-center justify-center overflow-hidden shadow-sm"
+                                title={p?.name || id}
+                              >
+                                {p?.avatar ? (
+                                  <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-[8px] font-bold text-white drop-shadow-sm">
+                                    {p?.name?.charAt(0)?.toUpperCase() || <User size={9} />}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {gt.task.assignees.length > 2 && (
+                            <div className="w-5 h-5 rounded-full border-[1.5px] border-white/80 dark:border-white/40 bg-white/30 dark:bg-white/20 flex items-center justify-center shadow-sm">
+                              <span className="text-[7px] font-bold text-white drop-shadow-sm">+{gt.task.assignees.length - 2}</span>
+                            </div>
+                          )}
+                        </div>
                       )}
                       <div className="absolute inset-0 rounded-md opacity-0 group-hover/bar:opacity-100 transition-opacity" style={{ boxShadow: `0 4px 14px ${gt.statusColor}50` }} />
                     </div>

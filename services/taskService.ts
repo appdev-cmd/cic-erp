@@ -295,6 +295,27 @@ export const TaskService = {
     return this._queryTasks(undefined, taskIds);
   },
 
+  /**
+   * Get tasks linked to a specific BIM project (via project_id column).
+   */
+  async getByProjectId(projectId: string, filters?: TaskFilterOptions): Promise<Task[]> {
+    let query = supabase
+      .from('tasks')
+      .select(TASK_SELECT)
+      .eq('project_id', projectId)
+      .is('parent_id', null)
+      .order('sort_order')
+      .order('created_at', { ascending: false });
+
+    if (filters?.search) {
+      query = query.ilike('title', `%${filters.search}%`);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map(mapTask);
+  },
+
   // ═══════════════════════════════════════
   // TASK LINKS
   // ═══════════════════════════════════════

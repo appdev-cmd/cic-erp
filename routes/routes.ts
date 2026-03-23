@@ -20,6 +20,8 @@ export const ROUTES = {
     UNIT_DETAIL: (id: string) => `/units/${id}`,
     TASKS: '/tasks',
     TASK_DETAIL: (id: string) => `/tasks/${id}`,
+    PROJECTS: '/projects',
+    PROJECT_DETAIL: (id: string) => `/projects/${id}`,
     TOOLS: '/tools',
     CHAT: '/chat',
     USER_GUIDE: '/user-guide',
