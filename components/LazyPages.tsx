@@ -68,8 +68,7 @@ const UserGuide = lazyWithRetry(() => import('./UserGuide'));
 const DocumentManager = lazyWithRetry(() => import('./DocumentManager'));
 const ToolsPage = lazyWithRetry(() => import('./ToolsPage'));
 const ChatPageComponent = lazyWithRetry(() => import('./chat/ChatPage'));
-const TaskListPage = lazyWithRetry(() => import('./tasks/TaskList'));
-const MyTasksPage = lazyWithRetry(() => import('./tasks/MyTasks'));
+const TasksPageComponent = lazyWithRetry(() => import('./tasks/TasksPage'));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
@@ -722,12 +721,6 @@ export const LazyToolsPage: React.FC = () => withSuspense(<ToolsPage />);
 // Chat
 export const LazyChatPage: React.FC = () => withSuspense(<ChatPageComponent />);
 
-// Task Management
-export const LazyTaskListPage: React.FC = () => {
-    const { selectedUnit } = useLayoutContext();
-    return withSuspense(<TaskListPage selectedUnit={typeof selectedUnit === 'string' ? selectedUnit : selectedUnit?.id} />);
-};
+// Tasks
+export const LazyTasksPage: React.FC = () => withSuspense(<TasksPageComponent />);
 
-export const LazyMyTasksPage: React.FC = () => {
-    return withSuspense(<MyTasksPage />);
-};

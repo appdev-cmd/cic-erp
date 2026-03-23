@@ -26,6 +26,7 @@ interface NotifyPayload {
 
 type ContractEventType = 'created' | 'updated' | 'deleted' | 'status_changed';
 type PaymentEventType = 'created' | 'updated' | 'deleted';
+type TaskEventType = 'assigned' | 'completed' | 'commented';
 
 interface ContractNotifyData {
     eventType: ContractEventType;
@@ -50,6 +51,19 @@ interface PaymentNotifyData {
     oldStatus?: string;
     newStatus?: string;
     changedBy?: string;
+}
+
+export interface TaskNotifyData {
+    eventType: TaskEventType;
+    taskId: string;
+    taskTitle: string;
+    assigneeId?: string;
+    assigneeName?: string;
+    contractTitle?: string;
+    priority?: string;
+    dueDate?: string;
+    changedBy?: string;
+    content?: string;
 }
 
 // ============================================================================
@@ -305,6 +319,50 @@ function buildPaymentMessage(data: PaymentNotifyData): string {
     }
 }
 
+function buildTaskMessage(data: TaskNotifyData): string {
+    const time = vnTimestamp();
+
+    switch (data.eventType) {
+        case 'assigned':
+            return [
+                `🎯 <b>Nhiệm vụ mới được giao</b>`,
+                ``,
+                `📌 <b>${data.taskTitle}</b>`,
+                data.contractTitle ? `🏢 Hợp đồng: <b>${data.contractTitle}</b>` : '',
+                data.assigneeName ? `👤 Người thực hiện: ${data.assigneeName}` : '',
+                data.priority ? `⚡ Ưu tiên: ${data.priority}` : '',
+                data.dueDate ? `📅 Hạn chót: ${data.dueDate.substring(0, 10)}` : '',
+                ``,
+                `🕐 ${time}`,
+                data.changedBy ? `✍️ Giao bởi: ${data.changedBy}` : '',
+            ].filter(Boolean).join('\n');
+
+        case 'completed':
+            return [
+                `✅ <b>Hoàn thành nhiệm vụ</b>`,
+                ``,
+                `📌 <b>${data.taskTitle}</b>`,
+                data.contractTitle ? `🏢 Hợp đồng: <b>${data.contractTitle}</b>` : '',
+                ``,
+                `🕐 ${time}`,
+                data.changedBy ? `✍️ Bởi: ${data.changedBy}` : '',
+            ].filter(Boolean).join('\n');
+
+        case 'commented':
+            return [
+                `💬 <b>Bình luận mới trong nhiệm vụ</b>`,
+                ``,
+                `📌 <b>${data.taskTitle}</b>`,
+                `🗣️ ${data.changedBy || 'Ai đó'}: <i>${data.content || ''}</i>`,
+                ``,
+                `🕐 ${time}`,
+            ].filter(Boolean).join('\n');
+
+        default:
+            return `🎯 Cập nhật nhiệm vụ: ${data.taskTitle}`;
+    }
+}
+
 // ============================================================================
 // SEND TO EDGE FUNCTION
 // ============================================================================
@@ -407,6 +465,35 @@ export const TelegramNotificationService = {
             await Promise.allSettled([telegramPromise, inAppPromise]);
         } catch (err) {
             console.warn('[TelegramNotify] Payment notification failed:', err);
+        }
+    },
+
+    /**
+     * Thông báo thay đổi Nhiệm vụ (Task).
+     */
+    async notifyTaskChange(data: TaskNotifyData): Promise<void> {
+        try {
+            const chatIds = new Set<string>();
+
+            // For tests, if assigneeId is present, notify them
+            if (data.assigneeId) {
+                const { data: emp } = await supabase.from('employees').select('telegram').eq('id', data.assigneeId).single();
+                if (emp?.telegram) chatIds.add(emp.telegram);
+            }
+
+            if (chatIds.size === 0) return;
+
+            const message = buildTaskMessage(data);
+
+            const telegramPromise = sendNotification({ 
+                chat_ids: Array.from(chatIds), 
+                message, 
+                parse_mode: 'HTML' 
+            });
+
+            await Promise.allSettled([telegramPromise]);
+        } catch (err) {
+            console.warn('[TelegramNotify] Task notification failed:', err);
         }
     },
 };

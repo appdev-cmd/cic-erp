@@ -60,6 +60,7 @@ import { formatDate } from '../utils/formatters';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
 import CustomerDetail from './CustomerDetail';
 import AcceptanceDialog from './ui/AcceptanceDialog';
+import DatePromptDialog from './ui/DatePromptDialog';
 import { generateBusinessPlanPdf } from '../utils/businessPlanPdf';
 
 interface ContractDetailProps {
@@ -78,6 +79,8 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [activeTab, setActiveTab] = useState<'overview' | 'pakd' | 'discussion' | 'tasks' | 'history'>('overview');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAcceptanceDialog, setShowAcceptanceDialog] = useState(false);
+  const [showHandoverDialog, setShowHandoverDialog] = useState(false);
+  const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
@@ -739,35 +742,24 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                     Handover: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400 hover:bg-cyan-200 dark:hover:bg-cyan-900/50 border-cyan-200 dark:border-cyan-800',
                     Acceptance: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 border-blue-200 dark:border-blue-800',
                   };
-                  const datePromptMap: Record<string, string> = { Handover: 'Nhập ngày bàn giao (dd/mm/yyyy):', Suspended: 'Nhập ngày tạm dừng (dd/mm/yyyy):' };
-                  const dateFieldMap: Record<string, string> = { Handover: 'handoverDate', Suspended: 'suspendedDate' };
                   return (
                     <button
                       key={targetStatus}
-                      onClick={async () => {
-                        // Acceptance: mở dialog thay vì prompt
+                      onClick={() => {
                         if (targetStatus === 'Acceptance') {
                           setShowAcceptanceDialog(true);
-                          return;
-                        }
-                        let updateData: Record<string, any> = { status: targetStatus };
-                        if (datePromptMap[targetStatus]) {
-                          const today = new Date();
-                          const defaultDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
-                          const inputDate = prompt(datePromptMap[targetStatus], defaultDate);
-                          if (!inputDate) return;
-                          const parts = inputDate.split('/');
-                          if (parts.length === 3) {
-                            const isoDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                            updateData[dateFieldMap[targetStatus]] = isoDate;
-                          }
-                        }
-                        try {
-                          await ContractService.update(contract.id, updateData as any);
-                          setContract(prev => prev ? { ...prev, ...updateData } as any : prev);
-                          toast.success(`Đã chuyển trạng thái → ${labels[targetStatus]}`);
-                        } catch (err: any) {
-                          toast.error('Lỗi: ' + (err.message || err));
+                        } else if (targetStatus === 'Handover') {
+                          setShowHandoverDialog(true);
+                        } else if (targetStatus === 'Suspended') {
+                          setShowSuspendedDialog(true);
+                        } else {
+                          // Processing: chuyển thẳng không cần ngày
+                          ContractService.update(contract.id, { status: targetStatus } as any)
+                            .then(() => {
+                              setContract(prev => prev ? { ...prev, status: targetStatus } as any : prev);
+                              toast.success(`Đã chuyển trạng thái → ${labels[targetStatus]}`);
+                            })
+                            .catch((err: any) => toast.error('Lỗi: ' + (err.message || err)));
                         }
                       }}
                       className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${colors[targetStatus]}`}
@@ -981,6 +973,46 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
           }}
         />
       )}
+      {/* Handover Date Dialog */}
+      <DatePromptDialog
+        isOpen={showHandoverDialog}
+        onClose={() => setShowHandoverDialog(false)}
+        title="Bàn giao hợp đồng"
+        description="Nhập ngày bàn giao hợp đồng cho khách hàng"
+        confirmLabel="Xác nhận bàn giao"
+        colorScheme="cyan"
+        onConfirm={async (isoDate) => {
+          setShowHandoverDialog(false);
+          const updateData: Record<string, any> = { status: 'Handover', handoverDate: isoDate };
+          try {
+            await ContractService.update(contract!.id, updateData as any);
+            setContract(prev => prev ? { ...prev, ...updateData } as any : prev);
+            toast.success('Đã chuyển trạng thái → Bàn giao');
+          } catch (err: any) {
+            toast.error('Lỗi: ' + (err.message || err));
+          }
+        }}
+      />
+      {/* Suspended Date Dialog */}
+      <DatePromptDialog
+        isOpen={showSuspendedDialog}
+        onClose={() => setShowSuspendedDialog(false)}
+        title="Tạm dừng hợp đồng"
+        description="Nhập ngày tạm dừng thực hiện hợp đồng"
+        confirmLabel="Xác nhận tạm dừng"
+        colorScheme="rose"
+        onConfirm={async (isoDate) => {
+          setShowSuspendedDialog(false);
+          const updateData: Record<string, any> = { status: 'Suspended', suspendedDate: isoDate };
+          try {
+            await ContractService.update(contract!.id, updateData as any);
+            setContract(prev => prev ? { ...prev, ...updateData } as any : prev);
+            toast.success('Đã chuyển trạng thái → Tạm dừng');
+          } catch (err: any) {
+            toast.error('Lỗi: ' + (err.message || err));
+          }
+        }}
+      />
     </ErrorBoundary>
   );
 };

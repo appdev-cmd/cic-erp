@@ -12,9 +12,8 @@ import {
   FolderOpen,
   Wrench,
   MessageCircle,
-  CheckSquare,
-  ListTodo,
-  Handshake
+  Handshake,
+  CheckSquare
 } from 'lucide-react';
 import { UserRole, PlanStatus } from './types';
 
@@ -71,14 +70,14 @@ export const CONTRACT_STATUS_LABELS: Record<string, string> = {
 
 export const NAV_ITEMS = [
   { id: 'dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
+  { id: 'tasks', label: 'Công việc', icon: <CheckSquare size={20} /> },
   { id: 'contracts', label: 'Hợp đồng', icon: <FileText size={20} /> },
   { id: 'payments', label: 'Tài chính', icon: <Package size={20} /> },
   { id: 'analytics', label: 'Thống kê', icon: <PieChart size={20} /> },
   { id: 'ai-assistant', label: 'AI Phân tích', icon: <BrainCircuit size={20} /> },
   { id: 'tools', label: 'Công cụ', icon: <Wrench size={20} /> },
   { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
-  { id: 'tasks', label: 'Công việc', icon: <CheckSquare size={20} /> },
-  { id: 'my-tasks', label: 'Việc của tôi', icon: <ListTodo size={20} /> },
+
   { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} /> },
 
   // Danh mục
@@ -91,21 +90,3 @@ export const NAV_ITEMS = [
   { id: 'settings', label: 'Cài đặt', icon: <Settings size={20} /> },
 ];
 
-export const TASK_STATUS_LABELS: Record<string, { label: string; color: string; group: string }> = {
-  status_pending: { label: 'Chờ xử lý', color: '#808080', group: 'not_started' },
-  status_approval: { label: 'Đang chờ duyệt', color: '#F59E0B', group: 'not_started' },
-  status_in_progress: { label: 'Đang làm', color: '#2196F3', group: 'in_progress' },
-  status_review: { label: 'Đang xem xét', color: '#9C27B0', group: 'in_progress' },
-  status_revision: { label: 'Cần chỉnh sửa', color: '#F97316', group: 'in_progress' },
-  status_paused: { label: 'Tạm dừng', color: '#94A3B8', group: 'in_progress' },
-  status_done: { label: 'Hoàn thành', color: '#4CAF50', group: 'completed' },
-  status_cancelled: { label: 'Hủy bỏ', color: '#F44336', group: 'completed' },
-};
-
-export const TASK_PRIORITY_LABELS: Record<string, { label: string; color: string; icon: string }> = {
-  urgent: { label: 'Khẩn cấp', color: '#EF4444', icon: '🔴' },
-  high: { label: 'Cao', color: '#F97316', icon: '🟠' },
-  medium: { label: 'Trung bình', color: '#EAB308', icon: '🟡' },
-  low: { label: 'Thấp', color: '#3B82F6', icon: '🔵' },
-  none: { label: 'Không', color: '#94A3B8', icon: '⚪' },
-};

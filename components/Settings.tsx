@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3, Bot } from 'lucide-react';
+import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3, Bot, Crown } from 'lucide-react';
 import PilotRunner from './admin/PilotRunner';
 import PermissionManager from './settings/PermissionManager';
 import RoleDefaultsManager from './settings/RoleDefaultsManager';
 import UserImpersonator from './settings/UserImpersonator';
 import DriveSettings from './settings/DriveSettings';
 import AIPermissionManager from './settings/AIPermissionManager';
+import ManagementRankManager from './settings/ManagementRankManager';
 import HistoricalProductionManager from './settings/HistoricalProductionManager';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 
-type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'ai-api' | 'historical' | 'drive' | 'testing';
+type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'task-mgmt' | 'ai-api' | 'historical' | 'drive' | 'testing';
 
 const Settings: React.FC = () => {
     const { theme, setTheme, accent, setAccent } = useLayoutContext();
@@ -23,6 +24,7 @@ const Settings: React.FC = () => {
         { id: 'system', label: 'Cài đặt hệ thống', icon: <Settings2 size={18} /> },
         { id: 'role-defaults', label: 'Quyền theo Role', icon: <ShieldCheck size={18} />, adminOnly: true },
         { id: 'permissions', label: 'Phân quyền User', icon: <Shield size={18} />, adminOnly: true },
+        { id: 'task-mgmt', label: 'Cấp quản lý', icon: <Crown size={18} />, adminOnly: true },
         { id: 'historical', label: 'Sản lượng lịch sử', icon: <BarChart3 size={18} />, adminOnly: true },
         { id: 'ai-api', label: 'AI API', icon: <Bot size={18} />, adminOnly: true },
         { id: 'drive', label: 'Google Drive', icon: <HardDrive size={18} />, adminOnly: true },
@@ -151,6 +153,21 @@ const Settings: React.FC = () => {
                             </div>
                         </div>
                         <RoleDefaultsManager />
+                    </div>
+                )}
+
+                {activeTab === 'task-mgmt' && isAdmin && (
+                    <div>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center">
+                                <Crown size={20} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-slate-200">Cấp quản lý & Phạm vi</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Thiết lập cấp quản lý và đơn vị phụ trách cho mỗi nhân viên (ảnh hưởng phân quyền xem Công việc)</p>
+                            </div>
+                        </div>
+                        <ManagementRankManager />
                     </div>
                 )}
 

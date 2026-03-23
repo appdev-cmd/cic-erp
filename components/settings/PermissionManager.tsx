@@ -26,7 +26,6 @@ const RESOURCE_LABELS: Record<PermissionResource, string> = {
     units: 'Đơn vị',
     settings: 'Cài đặt',
     permissions: 'Phân quyền',
-    tasks: 'Công việc',
 };
 
 const ACTION_LABELS: Record<PermissionAction, string> = {
@@ -62,7 +61,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
 
 const ALL_ROLES: UserRole[] = ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD', 'NVKT', 'Accountant', 'ChiefAccountant', 'Legal'];
 const ACTIONS: PermissionAction[] = ['view', 'create', 'update', 'delete'];
-const RESOURCES: PermissionResource[] = ['contracts', 'customers', 'products', 'payments', 'employees', 'units', 'settings', 'permissions', 'tasks'];
+const RESOURCES: PermissionResource[] = ['contracts', 'customers', 'products', 'payments', 'employees', 'units', 'settings', 'permissions'];
 
 // Global view roles
 const GLOBAL_ROLES: UserRole[] = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];

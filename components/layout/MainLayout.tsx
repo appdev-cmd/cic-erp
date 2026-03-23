@@ -18,6 +18,8 @@ import { NON_BUSINESS_UNIT_CODES } from '../../constants';
 import { useCurrentUserVisibleUnits } from '../../hooks';
 import { useImpersonation } from '../../contexts/ImpersonationContext';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
+import { useAutoTaskEngine } from '../../hooks/useAutoTaskEngine';
+import { TaskActionHandler } from '../tasks/TaskActionHandler';
 
 const MainLayout: React.FC = () => {
     const navigate = useNavigate();
@@ -28,6 +30,7 @@ const MainLayout: React.FC = () => {
 
     // ═══ Global Realtime Subscriptions ═══
     useRealtimeSync();
+    useAutoTaskEngine();
 
     // Sidebar state
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -135,6 +138,7 @@ const MainLayout: React.FC = () => {
     const getActiveTab = () => {
         const path = location.pathname;
         if (path === '/' || path === '/dashboard') return 'dashboard';
+        if (path.startsWith('/tasks')) return 'tasks';
         if (path.startsWith('/contracts')) return 'contracts';
         if (path.startsWith('/payments')) return 'payments';
         if (path.startsWith('/analytics')) return 'analytics';
@@ -145,8 +149,6 @@ const MainLayout: React.FC = () => {
         if (path.startsWith('/products')) return 'products';
         if (path.startsWith('/units')) return 'units';
         if (path.startsWith('/settings')) return 'settings';
-        if (path.startsWith('/tasks')) return 'tasks';
-        if (path.startsWith('/my-tasks')) return 'my-tasks';
         return 'dashboard';
     };
 
@@ -221,6 +223,8 @@ const MainLayout: React.FC = () => {
 
                     {/* ═══ Slide Panel System (Bitrix24-style) ═══ */}
                     <SlidePanelContainer isSidebarCollapsed={isSidebarCollapsed} />
+
+                    <TaskActionHandler />
 
                     {/* Development Tools */}
                     {profile?.role === 'Admin' && !isImpersonating && <RoleSwitcher />}

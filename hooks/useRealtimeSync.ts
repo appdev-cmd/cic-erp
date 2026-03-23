@@ -22,11 +22,12 @@ const TABLE_EVENT_MAP: Record<string, string> = {
   brands: 'brand',
   product_lines: 'product-line',
   product_editions: 'product-edition',
-  tasks: 'task',
   employee_targets: 'employee-target',
   contract_documents: 'document',
   user_permissions: 'permission',
   cross_unit_visibility: 'visibility',
+  discussions: 'discussion',
+  tasks: 'task',
 };
 
 // Tables that use legacy contract-created/updated/deleted events

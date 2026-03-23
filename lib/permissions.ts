@@ -108,17 +108,6 @@ export function getHiddenNavItems(
         hidden.add('tools');
     }
 
-    // Task Management: allowed for specific emails OR local dev
-    const TASKS_ALLOWED_EMAILS = ['hoangha@cic.com.vn', 'anhnq@cic.com.vn', 'haith@cic.com.vn'];
-    const isLocalDev = typeof window !== 'undefined'
-        && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        && import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
-    const isTaskAllowed = isLocalDev || (userEmail && TASKS_ALLOWED_EMAILS.includes(userEmail.toLowerCase()));
-    if (!isTaskAllowed) {
-        hidden.add('tasks');
-        hidden.add('my-tasks');
-    }
-
     return hidden;
 }
 

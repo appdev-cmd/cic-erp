@@ -18,11 +18,10 @@ export const ROUTES = {
     PRODUCT_DETAIL: (id: string) => `/products/${id}`,
     UNITS: '/units',
     UNIT_DETAIL: (id: string) => `/units/${id}`,
-    TOOLS: '/tools',
-    CHAT: '/chat',
     TASKS: '/tasks',
     TASK_DETAIL: (id: string) => `/tasks/${id}`,
-    MY_TASKS: '/my-tasks',
+    TOOLS: '/tools',
+    CHAT: '/chat',
     USER_GUIDE: '/user-guide',
     SETTINGS: '/settings',
 } as const;

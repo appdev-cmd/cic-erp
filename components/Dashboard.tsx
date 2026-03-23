@@ -14,10 +14,12 @@ import {
   Pie,
   Cell,
   Line,
+  Area,
   ComposedChart,
 } from 'recharts';
 import ChatWidget from './ChatWidget';
 import OnlineUsers from './dashboard/OnlineUsers';
+import TaskDashboardWidget from './tasks/TaskDashboardWidget';
 import {
   FileText,
   CreditCard,
@@ -619,11 +621,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
               <div className="flex gap-6 text-xs font-bold uppercase text-slate-400">
                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-indigo-600 rounded-full shadow-lg shadow-indigo-200"></div> {yearFilter === 'All' ? new Date().getFullYear() : yearFilter}</div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-cyan-400 border-t-[3px] border-dashed border-cyan-400"></div>
+                  <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-lg shadow-cyan-200"></div>
                   {(yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter)) - 1}
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-0.5 bg-pink-400 border-t-[3px] border-dotted border-pink-400"></div>
+                  <div className="w-3 h-3 rounded-full bg-pink-400 shadow-lg shadow-pink-200"></div>
                   {(yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter)) - 2}
                 </div>
               </div>
@@ -632,6 +634,16 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
               {/* Chart Component - Same as before */}
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={monthlyData} barGap={0}>
+                  <defs>
+                    <linearGradient id="colorLastYear" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorPrevYear" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f472b6" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#f472b6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} dy={10} />
                   <YAxis hide />
@@ -641,9 +653,9 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                     itemStyle={{ fontSize: '13px', fontWeight: 600, padding: '4px 0' }}
                     formatter={(value: any, name: any) => [formatCurrency(value as number), name]}
                   />
+                  <Area type="monotone" dataKey="prevYearLine" name={`Năm ${(yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter)) - 2}`} stroke="#f472b6" strokeWidth={2.5} fillOpacity={1} fill="url(#colorPrevYear)" activeDot={{ r: 5, strokeWidth: 2, fill: '#f472b6' }} connectNulls />
+                  <Area type="monotone" dataKey="lastYearLine" name={`Năm ${(yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter)) - 1}`} stroke="#22d3ee" strokeWidth={3} fillOpacity={1} fill="url(#colorLastYear)" activeDot={{ r: 5, strokeWidth: 2, fill: '#22d3ee' }} connectNulls />
                   <Bar dataKey="current" name={yearFilter === 'All' ? 'Năm nay' : `Năm ${yearFilter}`} fill={getAccentColor()} radius={[6, 6, 0, 0]} barSize={32} />
-                  <Line type="monotone" dataKey="lastYearLine" name={`Năm ${(yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter)) - 1}`} stroke="#22d3ee" strokeWidth={2.5} dot={{ r: 3, fill: '#22d3ee' }} strokeDasharray="6 4" connectNulls />
-                  <Line type="monotone" dataKey="prevYearLine" name={`Năm ${(yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter)) - 2}`} stroke="#f472b6" strokeWidth={2} dot={{ r: 3, fill: '#f472b6' }} strokeDasharray="3 3" connectNulls />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -799,6 +811,9 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
             </div>
           </div>
         )}
+
+        {/* Task Hub Widget */}
+        <TaskDashboardWidget />
 
         {/* AI Chat Widget */}
         <ChatWidget contextData={{

@@ -22,6 +22,7 @@ import SearchableSelect from './ui/SearchableSelect';
 import QuickAddCustomerDialog from './ui/QuickAddCustomerDialog';
 import DateInput from './ui/DateInput';
 import { formatNumber } from '../lib/utils';
+import { SlidePanelHeader } from './ui/SlidePanelHeader';
 
 interface PaymentFormProps {
     payment?: Payment;
@@ -418,22 +419,38 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
         <>
             <div className={isInsidePanel ? 'bg-white dark:bg-slate-900 flex flex-col h-full' : 'bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-300'}>
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${voucherType === 'VAT_INVOICE' ? 'bg-blue-600 text-white' : voucherType === 'RECEIPT' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'}`}>
-                            {config.icon}
+                {isInsidePanel ? (
+                    <SlidePanelHeader>
+                        <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${voucherType === 'VAT_INVOICE' ? 'bg-blue-600 text-white' : voucherType === 'RECEIPT' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'}`}>
+                                {config.icon}
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">
+                                    {payment ? 'Sửa phiếu' : 'Thêm phiếu tài chính'}
+                                </h2>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{config.description}</p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">
-                                {payment ? 'Sửa phiếu' : 'Thêm phiếu tài chính'}
-                            </h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{config.description}</p>
+                    </SlidePanelHeader>
+                ) : (
+                    <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900">
+                        <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${voucherType === 'VAT_INVOICE' ? 'bg-blue-600 text-white' : voucherType === 'RECEIPT' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'}`}>
+                                {config.icon}
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">
+                                    {payment ? 'Sửa phiếu' : 'Thêm phiếu tài chính'}
+                                </h2>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">{config.description}</p>
+                            </div>
                         </div>
+                        <button onClick={onCancel} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                            <X size={20} className="text-slate-500" />
+                        </button>
                     </div>
-                    <button onClick={onCancel} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                        <X size={20} className="text-slate-500" />
-                    </button>
-                </div>
+                )}
 
                 {/* Financial Limit Banner */}
                 {financialLimit && (

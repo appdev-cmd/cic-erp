@@ -1,6 +1,12 @@
 
 # CIC ERP Contract - Project Rules
 
+## 🇻🇳 Ngôn ngữ (BẮT BUỘC)
+
+> Mọi tài liệu kế hoạch triển khai (implementation plan), ý tưởng (ideation), walkthrough, báo cáo, và artifact khác **PHẢI viết bằng tiếng Việt**.
+> Code, comments trong code, tên biến/hàm/file vẫn dùng tiếng Anh.
+> ❌ KHÔNG viết implementation plan, ideation, hay báo cáo bằng tiếng Anh.
+
 ## ⚠️ Git Push (BẮT BUỘC mỗi khi user nói "push", "push github", "đẩy code"):
 Luôn tuân thủ đúng quy trình, KHÔNG ĐƯỢC bỏ bước nào:
 ```
