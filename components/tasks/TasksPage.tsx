@@ -16,6 +16,7 @@ import CreateTaskPanel from './CreateTaskPanel';
 import CalendarView from './CalendarView';
 import { GanttView } from './GanttView';
 import TaskTemplateManagerPanel from './TaskTemplateManagerPanel';
+import PeoplePickerPopover from './PeoplePickerPopover';
 import { useTaskVisibility } from '../../hooks/useTaskVisibility';
 import { formatDate, formatDateShort, formatDateTime } from '../../utils/formatters';
 import type {
@@ -121,6 +122,224 @@ const QuickTaskInput: React.FC<{
 };
 
 // ═══════════════════════════════════════
+// STATUS DROPDOWN (inline edit)
+// ═══════════════════════════════════════
+const StatusDropdown: React.FC<{
+  statuses: TaskStatus[];
+  currentStatusId: string;
+  onSelect: (statusId: string) => void;
+  onClose: () => void;
+}> = ({ statuses, currentStatusId, onSelect, onClose }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [onClose]);
+
+  return (
+    <div ref={ref} className="absolute left-0 top-full mt-1 z-50 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 py-1 overflow-hidden">
+      {statuses.map(s => (
+        <button
+          key={s.id}
+          onClick={() => onSelect(s.id)}
+          className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${
+            s.id === currentStatusId
+              ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+          }`}
+        >
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+          {s.name}
+          {s.id === currentStatusId && <span className="ml-auto text-[10px]">✓</span>}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════
+// DEADLINE INPUT (inline date-time picker)
+// ═══════════════════════════════════════
+const DeadlineInput: React.FC<{
+  currentValue: string;
+  onSave: (value: string) => void;
+  onClose: () => void;
+}> = ({ currentValue, onSave, onClose }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const toLocalFormat = (isoStr: string) => {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + 'T' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    } catch { return ''; }
+  };
+  const [val, setVal] = useState(toLocalFormat(currentValue));
+
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [onClose]);
+
+  return (
+    <div ref={ref} className="flex items-center gap-1">
+      <input
+        type="datetime-local"
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1.5 border border-indigo-300 dark:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-400 w-full"
+        autoFocus
+        onKeyDown={e => {
+          if (e.key === 'Enter') { onSave(val ? new Date(val).toISOString() : ''); }
+          if (e.key === 'Escape') onClose();
+        }}
+      />
+      <button
+        onClick={() => onSave(val ? new Date(val).toISOString() : '')}
+        className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-2 py-1.5 rounded-lg cursor-pointer flex-shrink-0 transition-colors"
+      >OK</button>
+      {currentValue && (
+        <button
+          onClick={() => onSave('')}
+          className="text-xs text-red-500 hover:text-red-600 dark:text-red-400 px-1 cursor-pointer"
+          title="Xóa deadline"
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════
+// PROJECT PICKER DROPDOWN (inline edit for "Liên kết")
+// ═══════════════════════════════════════
+const ProjectPickerDropdown: React.FC<{
+  projects: { id: string; name: string }[];
+  currentProjectId?: string;
+  onSelect: (projectId: string | null) => void;
+  onClose: () => void;
+}> = ({ projects, currentProjectId, onSelect, onClose }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [onClose]);
+
+  const filtered = projects.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div ref={ref} className="absolute left-0 top-full mt-1 z-50 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div className="p-2 border-b border-slate-200 dark:border-slate-700">
+        <input
+          autoFocus
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Tìm dự án..."
+          className="w-full text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2.5 py-1.5 border-none outline-none placeholder-slate-400 dark:placeholder-slate-500"
+        />
+      </div>
+      <div className="max-h-48 overflow-y-auto">
+        {currentProjectId && (
+          <button
+            onClick={() => onSelect(null)}
+            className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
+          >
+            <X size={12} /> Bỏ liên kết
+          </button>
+        )}
+        {filtered.length === 0 ? (
+          <div className="text-center py-4 text-xs text-slate-400 dark:text-slate-500">Không tìm thấy</div>
+        ) : filtered.map(p => (
+          <button
+            key={p.id}
+            onClick={() => onSelect(p.id)}
+            className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${
+              p.id === currentProjectId
+                ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+            }`}
+          >
+            <FolderKanban size={12} className="flex-shrink-0" />
+            <span className="truncate">{p.name}</span>
+            {p.id === currentProjectId && <span className="ml-auto text-[10px]">✓</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════
+// TAG INPUT (inline add tag)
+// ═══════════════════════════════════════
+const InlineTagInput: React.FC<{
+  currentTags: string[];
+  onSave: (tags: string[]) => void;
+  onClose: () => void;
+}> = ({ currentTags, onSave, onClose }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [val, setVal] = useState('');
+
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [onClose]);
+
+  const handleAdd = () => {
+    const tag = val.replace(/^#/, '').trim();
+    if (tag && !currentTags.includes(tag)) {
+      onSave([...currentTags, tag]);
+    }
+    setVal('');
+  };
+
+  const handleRemove = (tag: string) => {
+    onSave(currentTags.filter(t => t !== tag));
+  };
+
+  return (
+    <div ref={ref} className="absolute right-0 top-full mt-1 z-50 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-2">
+      <div className="flex flex-wrap gap-1 mb-2">
+        {currentTags.map(tag => (
+          <span key={tag} className="flex items-center gap-0.5 text-[10px] bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded">
+            #{tag}
+            <button onClick={() => handleRemove(tag)} className="hover:text-red-500 cursor-pointer"><X size={10} /></button>
+          </span>
+        ))}
+      </div>
+      <div className="flex items-center gap-1">
+        <input
+          autoFocus
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') onClose(); }}
+          placeholder="Nhập tag..."
+          className="flex-1 text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1.5 border border-indigo-300 dark:border-indigo-500 outline-none placeholder-slate-400 dark:placeholder-slate-500"
+        />
+        <button onClick={handleAdd} className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-2 py-1.5 rounded-lg cursor-pointer flex-shrink-0 transition-colors">+</button>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════
 // COLUMN CONFIG & RESIZABLE COLUMNS
 // ═══════════════════════════════════════
 const COLUMN_KEYS = ['status', 'deadline', 'created_at', 'assigner', 'assignee', 'project', 'tags'] as const;
@@ -220,8 +439,16 @@ const BitrixListView: React.FC<{
   onStartTask: (task: Task) => void;
   onQuickCreate: (title: string, tags: string[]) => Promise<void>;
   onTagClick: (tag: string) => void;
-}> = ({ tasks, statuses, employees, selectedIds, onToggleSelect, onSelectAll, onSelect, onToggleComplete, onTogglePin, onStartTask, onQuickCreate, onTagClick }) => {
+  onUpdateStatus: (taskId: string, statusId: string) => void;
+  onUpdateDeadline: (taskId: string, deadline: string | null) => void;
+  onUpdateAssignee: (taskId: string, assigneeIds: string[]) => void;
+  onUpdateProject: (taskId: string, projectId: string | null) => void;
+  onUpdateTags: (taskId: string, tags: string[]) => void;
+  projects: { id: string; name: string }[];
+}> = ({ tasks, statuses, employees, selectedIds, onToggleSelect, onSelectAll, onSelect, onToggleComplete, onTogglePin, onStartTask, onQuickCreate, onTagClick, onUpdateStatus, onUpdateDeadline, onUpdateAssignee, onUpdateProject, onUpdateTags, projects }) => {
   const [colWidths, setColWidths] = useState<Record<ColumnKey, number>>(loadColWidths);
+  // Inline edit state: which cell is being edited
+  const [editingCell, setEditingCell] = useState<{ taskId: string; col: 'status' | 'deadline' | 'assignee' | 'project' | 'tag' } | null>(null);
 
   const handleWidthChange = useCallback((col: ColumnKey, width: number) => {
     setColWidths(prev => ({ ...prev, [col]: width }));
@@ -369,27 +596,38 @@ const BitrixListView: React.FC<{
                   </div>
                 </td>
 
-                {/* Status — clickable to quick change */}
-                <td className="px-3 py-2.5" onClick={() => onSelect(task.id)}>
-                  {status ? (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer hover:opacity-80 transition-opacity"
-                      title="Bấm để thay đổi trạng thái"
-                    >
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
-                      <span className="text-slate-600 dark:text-slate-400 truncate">{status.name}</span>
-                    </button>
-                  ) : (
-                    <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
+                {/* Status — inline dropdown */}
+                <td className="px-3 py-2.5 relative" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'status' ? null : { taskId: task.id, col: 'status' })}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer hover:opacity-80 transition-opacity"
+                    title="Bấm để thay đổi trạng thái"
+                  >
+                    {status && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />}
+                    <span className="text-slate-600 dark:text-slate-400 truncate">{status?.name || '—'}</span>
+                  </button>
+                  {/* Status dropdown popover */}
+                  {editingCell?.taskId === task.id && editingCell?.col === 'status' && (
+                    <StatusDropdown
+                      statuses={statuses}
+                      currentStatusId={task.status_id}
+                      onSelect={(statusId) => { onUpdateStatus(task.id, statusId); setEditingCell(null); }}
+                      onClose={() => setEditingCell(null)}
+                    />
                   )}
                 </td>
 
-                {/* Deadline — clickable to set/change */}
-                <td className="px-3 py-2.5" onClick={() => onSelect(task.id)}>
-                  {task.due_date ? (
+                {/* Deadline — inline date picker */}
+                <td className="px-3 py-2.5 relative" onClick={e => e.stopPropagation()}>
+                  {editingCell?.taskId === task.id && editingCell?.col === 'deadline' ? (
+                    <DeadlineInput
+                      currentValue={task.due_date || ''}
+                      onSave={(val) => { onUpdateDeadline(task.id, val || null); setEditingCell(null); }}
+                      onClose={() => setEditingCell(null)}
+                    />
+                  ) : task.due_date ? (
                     <button
-                      onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
+                      onClick={() => setEditingCell({ taskId: task.id, col: 'deadline' })}
                       className={`text-xs font-medium px-2 py-1 rounded-lg inline-block cursor-pointer hover:opacity-80 transition-opacity ${
                         isOverdue
                           ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
@@ -402,7 +640,7 @@ const BitrixListView: React.FC<{
                     </button>
                   ) : (
                     <button
-                      onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
+                      onClick={() => setEditingCell({ taskId: task.id, col: 'deadline' })}
                       className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
                       title="Bấm để đặt deadline"
                     >
@@ -430,11 +668,11 @@ const BitrixListView: React.FC<{
                   )}
                 </td>
 
-                {/* Người thực hiện — hover shows + */}
-                <td className="px-3 py-2.5" onClick={() => onSelect(task.id)}>
+                {/* Người thực hiện — inline people picker */}
+                <td className="px-3 py-2.5 relative" onClick={e => e.stopPropagation()}>
                   {assignee ? (
                     <button
-                      onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
+                      onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'assignee' ? null : { taskId: task.id, col: 'assignee' })}
                       className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                       title="Bấm để thay đổi"
                     >
@@ -443,20 +681,30 @@ const BitrixListView: React.FC<{
                     </button>
                   ) : (
                     <button
-                      onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
+                      onClick={() => setEditingCell({ taskId: task.id, col: 'assignee' })}
                       className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors flex items-center gap-1 opacity-0 group-hover:opacity-100"
                       title="Chọn người thực hiện"
                     >
                       <Plus size={12} />
                     </button>
                   )}
+                  {/* People picker popover */}
+                  {editingCell?.taskId === task.id && editingCell?.col === 'assignee' && (
+                    <PeoplePickerPopover
+                      currentIds={task.assignees || []}
+                      onChange={(newIds) => { onUpdateAssignee(task.id, newIds); setEditingCell(null); }}
+                      onClose={() => setEditingCell(null)}
+                      align="left"
+                      minSelections={0}
+                    />
+                  )}
                 </td>
 
-                {/* Liên kết — hover shows + */}
-                <td className="px-3 py-2.5 hidden lg:table-cell" onClick={() => onSelect(task.id)}>
+                {/* Liên kết — inline project picker */}
+                <td className="px-3 py-2.5 hidden lg:table-cell relative" onClick={e => e.stopPropagation()}>
                   {(task as any)._projectName ? (
                     <button
-                      onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
+                      onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'project' ? null : { taskId: task.id, col: 'project' })}
                       className="text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded-full truncate inline-block max-w-[120px] cursor-pointer hover:opacity-80 transition-opacity"
                       title="Bấm để thay đổi liên kết"
                     >
@@ -464,17 +712,25 @@ const BitrixListView: React.FC<{
                     </button>
                   ) : (
                     <button
-                      onClick={(e) => { e.stopPropagation(); onSelect(task.id); }}
+                      onClick={() => setEditingCell({ taskId: task.id, col: 'project' })}
                       className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors flex items-center gap-1 opacity-0 group-hover:opacity-100"
                       title="Gắn vào Dự án/Hợp đồng/Gói thầu"
                     >
                       <Plus size={12} />
                     </button>
                   )}
+                  {editingCell?.taskId === task.id && editingCell?.col === 'project' && (
+                    <ProjectPickerDropdown
+                      projects={projects}
+                      currentProjectId={task.project_id || undefined}
+                      onSelect={(projId) => { onUpdateProject(task.id, projId); setEditingCell(null); }}
+                      onClose={() => setEditingCell(null)}
+                    />
+                  )}
                 </td>
 
-                {/* Tags — clickable to search + hover shows add */}
-                <td className="px-3 py-2.5 hidden lg:table-cell" onClick={e => e.stopPropagation()}>
+                {/* Tags — clickable to search + inline add */}
+                <td className="px-3 py-2.5 hidden lg:table-cell relative" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center gap-1 flex-wrap">
                     {task.tags.slice(0, 2).map(tag => (
                       <button
@@ -491,13 +747,20 @@ const BitrixListView: React.FC<{
                     )}
                     {/* + button to add tag (hover only) */}
                     <button
-                      onClick={() => onSelect(task.id)}
+                      onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'tag' ? null : { taskId: task.id, col: 'tag' })}
                       className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-all opacity-0 group-hover:opacity-100 flex items-center"
                       title="Thêm tag"
                     >
                       <Plus size={11} />
                     </button>
                   </div>
+                  {editingCell?.taskId === task.id && editingCell?.col === 'tag' && (
+                    <InlineTagInput
+                      currentTags={task.tags}
+                      onSave={(newTags) => { onUpdateTags(task.id, newTags); setEditingCell(null); }}
+                      onClose={() => setEditingCell(null)}
+                    />
+                  )}
                 </td>
               </tr>
             );
@@ -966,6 +1229,57 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
     }
   }, [visibilityContext.userId, loadData]);
 
+  // Inline update handlers
+  const handleUpdateStatus = useCallback(async (taskId: string, statusId: string) => {
+    try {
+      await TaskService.update(taskId, { status_id: statusId });
+      toast.success('Đã cập nhật trạng thái');
+      loadData();
+    } catch (err: any) {
+      toast.error('Lỗi: ' + (err.message || err));
+    }
+  }, [loadData]);
+
+  const handleUpdateDeadline = useCallback(async (taskId: string, deadline: string | null) => {
+    try {
+      await TaskService.update(taskId, { due_date: deadline || undefined });
+      toast.success(deadline ? 'Đã cập nhật deadline' : 'Đã xóa deadline');
+      loadData();
+    } catch (err: any) {
+      toast.error('Lỗi: ' + (err.message || err));
+    }
+  }, [loadData]);
+
+  const handleUpdateAssignee = useCallback(async (taskId: string, assigneeIds: string[]) => {
+    try {
+      await TaskService.update(taskId, { assignees: assigneeIds });
+      toast.success('Đã cập nhật người thực hiện');
+      loadData();
+    } catch (err: any) {
+      toast.error('Lỗi: ' + (err.message || err));
+    }
+  }, [loadData]);
+
+  const handleUpdateProject = useCallback(async (taskId: string, projectId: string | null) => {
+    try {
+      await TaskService.update(taskId, { project_id: projectId || undefined });
+      toast.success(projectId ? 'Đã gắn liên kết' : 'Đã bỏ liên kết');
+      loadData();
+    } catch (err: any) {
+      toast.error('Lỗi: ' + (err.message || err));
+    }
+  }, [loadData]);
+
+  const handleUpdateTags = useCallback(async (taskId: string, tags: string[]) => {
+    try {
+      await TaskService.update(taskId, { tags });
+      toast.success('Đã cập nhật tags');
+      loadData();
+    } catch (err: any) {
+      toast.error('Lỗi: ' + (err.message || err));
+    }
+  }, [loadData]);
+
   // Selection
   const handleToggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -1183,6 +1497,12 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
               onStartTask={handleStartTask}
               onQuickCreate={handleQuickCreate}
               onTagClick={handleTagClick}
+              onUpdateStatus={handleUpdateStatus}
+              onUpdateDeadline={handleUpdateDeadline}
+              onUpdateAssignee={handleUpdateAssignee}
+              onUpdateProject={handleUpdateProject}
+              onUpdateTags={handleUpdateTags}
+              projects={projects}
             />
           )}
           {viewMode === 'deadline' && (

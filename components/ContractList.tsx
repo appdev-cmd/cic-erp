@@ -1071,8 +1071,21 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       </div>
                       <div>
                         <p
-                          className="text-xs font-black text-slate-900 dark:text-slate-100 leading-none hover:text-indigo-600 transition-colors"
-                        >{contract.contractCode}</p>
+                          className="text-xs font-black text-slate-900 dark:text-slate-100 leading-none hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-1"
+                        >
+                          <span className="truncate">{contract.contractCode}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(contract.contractCode || contract.id);
+                              toast.success(`Đã copy: ${contract.contractCode}`);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer flex-shrink-0"
+                            title="Copy số HĐ"
+                          >
+                            <Copy size={11} />
+                          </button>
+                        </p>
                         <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-tighter">
                           {contract.signedDate ? formatDate(contract.signedDate) : 'Chưa ký'}
                         </p>
