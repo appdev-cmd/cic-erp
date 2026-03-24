@@ -71,9 +71,12 @@ const BIM_UNIT_CODE = 'BIM';
  * Can VIEW the BIM Projects section?
  * Only: Admin, Leadership, and users belonging to BIM center
  */
-export function canViewProjects(role: UserRole, userUnitCode?: string): boolean {
-    if (role === 'Admin' || role === 'Leadership') return true;
-    if (userUnitCode === BIM_UNIT_CODE) return true;
+export function canViewProjects(role: UserRole, userUnitCode?: string, userEmail?: string): boolean {
+    const DEV_EMAILS = ['anhnq@cic.com.vn', 'hoangha@cic.com.vn'];
+    const isLocalhost = typeof window !== 'undefined' && 
+                        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    if (isLocalhost) return true;
+    if (userEmail && DEV_EMAILS.includes(userEmail.toLowerCase())) return true;
     return false;
 }
 
@@ -121,12 +124,17 @@ export function getHiddenNavItems(
         hidden.add('tools');
     }
 
-    // BIM Projects: only Admin, Leadership, BIM center members
+    // BIM Projects: only Devs or localhost
     const hasProjectsViewInDB = dbPermissions?.get('projects')?.has('view');
     if (hasProjectsViewInDB === undefined) {
-        if (!canViewProjects(role, userUnitCode)) hidden.add('projects');
+        if (!canViewProjects(role, userUnitCode, userEmail)) hidden.add('projects');
     } else if (!hasProjectsViewInDB) {
         hidden.add('projects');
+    }
+
+    // Tasks: only Devs or localhost (same logic as BIM projects)
+    if (!canViewProjects(role, userUnitCode, userEmail)) {
+        hidden.add('tasks');
     }
 
     return hidden;
