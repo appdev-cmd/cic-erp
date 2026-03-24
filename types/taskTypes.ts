@@ -3,6 +3,9 @@
 
 export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low' | 'none';
 
+// Bitrix24-style role filter tabs
+export type TaskRoleFilter = 'all' | 'ongoing' | 'assisting' | 'set_by_me' | 'following' | 'supervising';
+
 export interface TaskStatus {
   id: string;
   space_id?: string;
@@ -63,6 +66,7 @@ export interface Task {
   unit_id?: string;
   custom_fields: Record<string, any>;
   is_private: boolean;
+  is_pinned: boolean;
   created_by?: string;
   created_at: string;
   updated_at: string;

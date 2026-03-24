@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Check, Clock, AlertCircle, FileText, CheckCircle, PackageCheck, X, RotateCcw } from 'lucide-react';
 import { ContractService, EmployeeService, UnitService } from '../services';
-import { ContractStatus, Unit, Contract, Employee, UserRole } from '../types';
+import { ContractStatus, Unit, Contract, Employee, UserRole, ContractClassification } from '../types';
 import { CONTRACT_STATUS_LABELS } from '../constants';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import ImportContractModal from './ImportContractModal';
@@ -55,6 +55,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [unitFilter, setUnitFilter] = useState<string>(savedFilters.unitFilter || 'All');
   const [searchTerm, setSearchTerm] = useState(savedFilters.searchTerm || '');
   const [salespersonFilter, setSalespersonFilter] = useState<string>(savedFilters.salespersonFilter || 'All');
+  const [classificationFilter, setClassificationFilter] = useState<ContractClassification | 'All'>(savedFilters.classificationFilter || 'All');
   const [debouncedSearch, setDebouncedSearch] = useState(savedFilters.searchTerm || '');
 
   // Helper: compute dateFrom/dateTo from period + year (pure function)
@@ -129,9 +130,9 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
   // ── Auto-save filters to localStorage ──
   useEffect(() => {
-    const filters = { statusFilter, unitFilter, searchTerm, salespersonFilter, sortBy, sortDir, dateFrom, dateTo };
+    const filters = { statusFilter, unitFilter, searchTerm, salespersonFilter, classificationFilter, sortBy, sortDir, dateFrom, dateTo };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
-  }, [statusFilter, unitFilter, searchTerm, salespersonFilter, sortBy, sortDir, dateFrom, dateTo]);
+  }, [statusFilter, unitFilter, searchTerm, salespersonFilter, classificationFilter, sortBy, sortDir, dateFrom, dateTo]);
 
   // Quick status change state
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
@@ -501,6 +502,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       dateFrom: computedDates.from || undefined,
       dateTo: computedDates.to || undefined,
       salespersonId: currentSalesperson !== 'All' ? currentSalesperson : undefined,
+      classification: classificationFilter !== 'All' ? classificationFilter : undefined,
       sortBy: sortBy || undefined,
       sortDir: sortBy ? sortDir : undefined,
       matchingCustomerIds
@@ -518,7 +520,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       hasMore: listRes.data.length >= PAGE_SIZE,
       totalCount: listRes.count
     };
-  }, [debouncedSearch, statusFilter, effectiveUnitId, periodFilter, yearFilter, sortBy, sortDir, matchingCustomerIds]);
+  }, [debouncedSearch, statusFilter, effectiveUnitId, periodFilter, yearFilter, classificationFilter, sortBy, sortDir, matchingCustomerIds]);
 
   const {
     items: contracts,
@@ -533,7 +535,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   } = useInfiniteScroll<Contract>({
     fetchFn: fetchContractPage,
     pageSize: PAGE_SIZE,
-    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, effectiveUnitId, periodFilter, yearFilter, sortBy, sortDir, matchingCustomerIds]
+    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, classificationFilter, effectiveUnitId, periodFilter, yearFilter, sortBy, sortDir, matchingCustomerIds]
   });
 
   // Auto-refresh list when contracts are created, updated, or deleted
@@ -812,6 +814,23 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               <X size={16} />
             </button>
           )}
+        </div>
+
+        {/* Classification Filter */}
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
+          <Filter size={18} className="text-slate-500" />
+          <select
+            className="bg-transparent py-3 text-sm font-black text-slate-900 dark:text-slate-100 outline-none max-w-[180px]"
+            value={classificationFilter}
+            onChange={(e) => setClassificationFilter(e.target.value as ContractClassification | 'All')}
+          >
+            <option value="All">Tất cả phân loại</option>
+            <option value="Thông thường">Thông thường</option>
+            <option value="Bán qua đại lý">Bán qua đại lý</option>
+            <option value="Khách bị LC">Khách bị LC</option>
+            <option value="Hỗ trợ đối tác">Hỗ trợ đối tác</option>
+            <option value="Khác">Khác</option>
+          </select>
         </div>
 
         {/* Salesperson Filter */}

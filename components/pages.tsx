@@ -161,11 +161,13 @@ const ContractFormInPanel: React.FC<{ contractId?: string; cloneFrom?: any; onSu
     );
 };
 
-// ── ContractDetailPage — for direct URL access (/contracts/:id) ──────────────
+// ── ContractDetailPage — for direct URL access (/contracts/:id or /contracts/:id/:subId) ──
 export const ContractDetailPage: React.FC = () => {
     const navigate = useNavigate();
-    const { id: rawId } = useParams<{ id: string }>();
-    const id = rawId ? decodeURIComponent(rawId) : undefined;
+    const { id: rawId, subId } = useParams<{ id: string; subId: string }>();
+    // Handle contract IDs containing slashes (e.g., VV_038/DCS_2026)
+    const rawFullId = rawId && subId ? `${rawId}/${subId}` : rawId;
+    const id = rawFullId ? decodeURIComponent(rawFullId) : undefined;
     const { openPanel, closePanel } = useSlidePanel();
     const [refreshKey, setRefreshKey] = React.useState(0);
     const [latestContract, setLatestContract] = React.useState<any>(null);

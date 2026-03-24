@@ -58,8 +58,9 @@ export const router = createBrowserRouter([
             // Contracts
             { path: 'contracts', element: <ContractListPage /> },
             { path: 'contracts/new', element: <ContractFormPage /> },
-            { path: 'contracts/:id', element: <ContractDetailPage /> },
             { path: 'contracts/:id/edit', element: <ContractFormPage /> },
+            { path: 'contracts/:id', element: <ContractDetailPage /> },
+            { path: 'contracts/:id/:subId', element: <ContractDetailPage /> },
 
             // Payments
             { path: 'payments', element: <PaymentListPage /> },
