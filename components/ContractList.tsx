@@ -661,9 +661,9 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
             <button
               onClick={onAdd}
               title="Thêm hợp đồng mới (Alt+N)"
-              className="flex items-center justify-center gap-2 bg-indigo-700 text-white px-6 py-3 rounded-lg font-black hover:bg-indigo-800 transition-all shadow-xl shadow-indigo-100 dark:shadow-none"
+              className="flex items-center justify-center gap-2 bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-800 transition-all shadow-xl shadow-indigo-100 dark:shadow-none text-sm cursor-pointer"
             >
-              <Plus size={22} /> Thêm mới
+              <Plus size={16} /> Thêm mới
             </button>
           )}
           {/* Stats toggle — compact pill in header */}
@@ -801,8 +801,17 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
             placeholder="Tìm mã HĐ, tên khách hàng, tên viết tắt KH, nội dung, end user, số HĐ KH..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold text-slate-900 dark:text-slate-100"
+            className="w-full pl-12 pr-10 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold text-slate-900 dark:text-slate-100"
           />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors cursor-pointer"
+              title="Xoá tìm kiếm"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
 
         {/* Salesperson Filter */}

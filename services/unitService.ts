@@ -1,4 +1,5 @@
 import { dataClient as supabase } from '../lib/dataClient';
+import { getUnitSharePct } from './contractService';
 import { Unit } from '../types';
 
 // Helper to map DB Unit to Frontend Unit
@@ -149,38 +150,93 @@ export const UnitService = {
         }
     },
 
-    getWithStats: async (year?: number | null): Promise<Unit[]> => {
+    getWithStats: async (year?: number | null, periodFilter?: string): Promise<Unit[]> => {
         try {
-            const { data, error } = await supabase.rpc('get_units_with_stats', {
-                p_year: year !== undefined ? year : new Date().getFullYear()
-            });
+            if (!periodFilter) {
+                const { data, error } = await supabase.rpc('get_units_with_stats', {
+                    p_year: year !== undefined && year !== null ? year : new Date().getFullYear()
+                });
 
-            if (error) {
-                console.error('[UnitService.getWithStats] RPC failed, falling back:', error);
-                const allUnits = await UnitService.getAll();
-                return allUnits.map(u => ({
-                    ...u,
-                    stats: { contractCount: 0, totalSigning: 0, totalRevenue: 0, totalProfit: 0 }
-                }));
+                if (!error && data) {
+                    return data.map((u: any) => ({
+                        ...mapUnit(u),
+                        functions: u.functions || '',
+                        stats: {
+                            contractCount: u.contract_count || 0,
+                            totalSigning: u.total_signing,
+                            totalRevenue: u.total_revenue,
+                            totalProfit: u.total_profit,
+                            totalCash: u.total_cash
+                        }
+                    }));
+                }
             }
 
-            return data.map((u: any) => ({
-                ...mapUnit(u),
-                functions: u.functions || '',
-                stats: {
-                    contractCount: u.contract_count || 0,
-                    totalSigning: u.total_signing,
-                    totalRevenue: u.total_revenue,
-                    totalProfit: u.total_profit,
-                    totalCash: u.total_cash
+            // Fallback / PeriodFilter JS aggregation
+            const allUnits = await UnitService.getAll();
+
+            const effectiveYear = year !== undefined && year !== null ? year : new Date().getFullYear();
+            let startDate = `${effectiveYear}-01-01`;
+            let endDate = `${effectiveYear}-12-31`;
+
+            if (periodFilter) {
+                if (periodFilter.startsWith('M')) {
+                    const month = parseInt(periodFilter.substring(1));
+                    startDate = `${effectiveYear}-${month.toString().padStart(2, '0')}-01`;
+                    endDate = new Date(effectiveYear, month, 0).toISOString().split('T')[0];
+                } else if (periodFilter.startsWith('Q')) {
+                    const quarter = parseInt(periodFilter.substring(1));
+                    const startMonth = (quarter - 1) * 3 + 1;
+                    const endMonth = quarter * 3;
+                    startDate = `${effectiveYear}-${startMonth.toString().padStart(2, '0')}-01`;
+                    endDate = new Date(effectiveYear, endMonth, 0).toISOString().split('T')[0];
                 }
-            }));
+            }
+
+            const { data: contracts, error } = await supabase
+                .from('contracts')
+                .select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, unit_id, unit_allocations')
+                .gte('signed_date', startDate)
+                .lte('signed_date', endDate);
+
+            if (error) throw error;
+
+            return allUnits.map(u => {
+                let contractCount = 0;
+                let totalSigning = 0;
+                let totalRevenue = 0;
+                let totalProfit = 0;
+                let totalCash = 0;
+
+                (contracts || []).forEach((c: any) => {
+                    const sharePct = getUnitSharePct(c, u.id);
+                    if (sharePct === 0) return;
+
+                    const fraction = sharePct / 100;
+                    contractCount++;
+                    totalSigning += (Number(c.value) || 0) * fraction;
+                    totalRevenue += (Number(c.actual_revenue) || 0) * fraction;
+                    totalProfit += (Number(c.admin_profit) || 0) * fraction;
+                    totalCash += (Number(c.cash_received) || 0) * fraction;
+                });
+
+                return {
+                    ...u,
+                    stats: {
+                        contractCount,
+                        totalSigning,
+                        totalRevenue,
+                        totalProfit,
+                        totalCash
+                    }
+                };
+            });
         } catch (error) {
             console.error('[UnitService.getWithStats] Exception, falling back:', error);
             const allUnits = await UnitService.getAll();
             return allUnits.map(u => ({
                 ...u,
-                stats: { contractCount: 0, totalSigning: 0, totalRevenue: 0, totalProfit: 0 }
+                stats: { contractCount: 0, totalSigning: 0, totalRevenue: 0, totalProfit: 0, totalCash: 0 }
             }));
         }
     }

@@ -73,9 +73,9 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
       return;
     }
     const loadProfiles = async () => {
-      const { data } = await dataClient.from('profiles').select('id, full_name, avatar_url').in('id', allIds);
+      const { data } = await dataClient.from('employees').select('id, name, avatar').in('id', allIds);
       if (data) {
-        const mapped = data.map(p => ({ id: p.id, name: p.full_name || '...', avatar: p.avatar_url }));
+        const mapped = data.map(p => ({ id: p.id, name: p.name || '...', avatar: p.avatar }));
         setAssigneeProfiles(mapped.filter(p => assignees.includes(p.id)));
         setSupporterProfiles(mapped.filter(p => supporters.includes(p.id)));
       }

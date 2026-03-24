@@ -9,6 +9,7 @@ export interface FormData {
     email: string;
     phone: string;
     telegram: string;
+    telegram_verified?: boolean;
     dateJoined: string;
     avatar_url: string;
     dateOfBirth: string;
@@ -32,4 +33,6 @@ export interface FormSectionProps {
     formData: FormData;
     setFormData: React.Dispatch<React.SetStateAction<FormData>>;
     units?: Unit[];
+    readOnly?: boolean; // When true, most fields are disabled (used in Personal Settings)
+    isPersonalSettings?: boolean; // Special mode for Personal Settings dialog
 }

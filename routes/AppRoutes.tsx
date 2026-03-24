@@ -34,7 +34,18 @@ import {
     LazyProjectDetailPage as ProjectDetailPage,
 } from '../components/LazyPages';
 
+// ═══════════════════════════════════════════════════════════════════════
 // Route Configuration
+// 
+// QUAN TRỌNG: Bảo vệ phân quyền được xử lý TẬP TRUNG bởi RouteGuard
+// trong MainLayout.tsx (sử dụng config từ routePermissions.ts).
+// KHÔNG CẦN bọc RequirePermission thủ công ở đây nữa.
+//
+// Khi thêm route mới: chỉ cần thêm entry vào routePermissions.ts
+// (hoặc PUBLIC_ROUTES nếu không cần quyền).
+// Nếu quên → route sẽ bị TỰ ĐỘNG CHẶN (deny by default).
+// ═══════════════════════════════════════════════════════════════════════
+
 export const router = createBrowserRouter([
     {
         path: '/',
@@ -96,8 +107,6 @@ export const router = createBrowserRouter([
 
             // User Guide
             { path: 'user-guide', element: <UserGuidePage /> },
-
-
 
             // 404 Fallback
             { path: '*', element: <Navigate to="/" replace /> },

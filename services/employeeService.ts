@@ -342,53 +342,127 @@ export const EmployeeService = {
         }
     },
 
-    getWithStats: async (unitId?: string, search?: string, year?: number | null): Promise<Employee[]> => {
+    getWithStats: async (unitId?: string, search?: string, year?: number | null, periodFilter?: string): Promise<Employee[]> => {
         try {
-            const { data, error } = await supabase.rpc('get_employees_with_stats', {
-                p_unit_id: unitId === 'all' ? null : unitId,
-                p_year: year !== undefined ? year : new Date().getFullYear(),
-                p_search: search || null
-            });
+            if (!periodFilter) {
+                const { data, error } = await supabase.rpc('get_employees_with_stats', {
+                    p_unit_id: unitId === 'all' ? null : unitId,
+                    p_year: year !== undefined && year !== null ? year : new Date().getFullYear(),
+                    p_search: search || null
+                });
 
-            if (error) {
-                // Fallback to regular getAll
-                let employees: Employee[];
-                if (unitId && unitId !== 'all') {
-                    employees = await EmployeeService.getByUnitId(unitId);
-                } else {
-                    employees = await EmployeeService.getAll();
+                if (!error && data) {
+                    return data.map((e: any) => ({
+                        ...mapEmployee(e),
+                        stats: {
+                            totalSigning: e.total_signing,
+                            totalRevenue: e.total_revenue,
+                            totalProfit: e.total_profit,
+                            totalRevenueProfit: e.total_revenue_profit || 0,
+                            totalCash: e.total_cash
+                        }
+                    }));
                 }
-                if (search) {
-                    const lowerSearch = removeDiacritics(search.toLowerCase());
-                    employees = employees.filter(e => removeDiacritics(e.name.toLowerCase()).includes(lowerSearch));
-                }
-                return employees.map(e => ({
-                    ...e,
-                    stats: { contractCount: 0, totalSigning: 0, totalRevenue: 0 }
-                }));
             }
 
-            return data.map((e: any) => ({
-                ...mapEmployee(e),
-                stats: {
-                    totalSigning: e.total_signing,
-                    totalRevenue: e.total_revenue,
-                    totalProfit: e.total_profit,
-                    totalRevenueProfit: e.total_revenue_profit || 0,
-                    totalCash: e.total_cash
-                }
-            }));
-        } catch (error) {
-            console.error('[EmployeeService.getWithStats] Fallback to getAll:', error);
+            // Fallback / PeriodFilter JS aggregation
             let employees: Employee[];
             if (unitId && unitId !== 'all') {
                 employees = await EmployeeService.getByUnitId(unitId);
             } else {
                 employees = await EmployeeService.getAll();
             }
+            if (search) {
+                const lowerSearch = removeDiacritics(search.toLowerCase());
+                employees = employees.filter(e => removeDiacritics(e.name.toLowerCase()).includes(lowerSearch));
+            }
+
+            const effectiveYear = year !== undefined && year !== null ? year : new Date().getFullYear();
+            let startDate = `${effectiveYear}-01-01`;
+            let endDate = `${effectiveYear}-12-31`;
+
+            if (periodFilter) {
+                if (periodFilter.startsWith('M')) {
+                    const month = parseInt(periodFilter.substring(1));
+                    startDate = `${effectiveYear}-${month.toString().padStart(2, '0')}-01`;
+                    endDate = new Date(effectiveYear, month, 0).toISOString().split('T')[0];
+                } else if (periodFilter.startsWith('Q')) {
+                    const quarter = parseInt(periodFilter.substring(1));
+                    const startMonth = (quarter - 1) * 3 + 1;
+                    const endMonth = quarter * 3;
+                    startDate = `${effectiveYear}-${startMonth.toString().padStart(2, '0')}-01`;
+                    endDate = new Date(effectiveYear, endMonth, 0).toISOString().split('T')[0];
+                }
+            }
+
+            const { data: contracts, error } = await supabase
+                .from('contracts')
+                .select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, employee_id, employee_allocations')
+                .gte('signed_date', startDate)
+                .lte('signed_date', endDate);
+
+            if (error) throw error;
+
+            return employees.map(emp => {
+                let totalSigning = 0;
+                let totalRevenue = 0;
+                let totalProfit = 0;
+                let totalRevenueProfit = 0;
+                let totalCash = 0;
+
+                (contracts || []).forEach((c: any) => {
+                    let fraction = 0;
+                    if (c.employee_id === emp.id) {
+                        const allocs: any[] = c.employee_allocations || [];
+                        if (allocs.length > 0) {
+                            const myAlloc = allocs.find((a: any) => a.employeeId === emp.id);
+                            fraction = myAlloc ? (myAlloc.percent || 0) / 100 : 0;
+                        } else {
+                            fraction = 1;
+                        }
+                    } else {
+                        const allocs: any[] = c.employee_allocations || [];
+                        const myAlloc = allocs.find((a: any) => a.employeeId === emp.id);
+                        if (myAlloc) {
+                            fraction = (myAlloc.percent || 0) / 100;
+                        }
+                    }
+
+                    if (fraction > 0) {
+                        totalSigning += (Number(c.value) || 0) * fraction;
+                        totalRevenue += (Number(c.actual_revenue) || 0) * fraction;
+                        totalProfit += (Number(c.admin_profit) || 0) * fraction;
+                        totalRevenueProfit += (Number(c.rev_profit) || 0) * fraction;
+                        totalCash += (Number(c.cash_received) || 0) * fraction;
+                    }
+                });
+
+                return {
+                    ...emp,
+                    stats: {
+                        totalSigning,
+                        totalRevenue,
+                        totalProfit,
+                        totalRevenueProfit,
+                        totalCash
+                    }
+                };
+            });
+        } catch (error) {
+            console.error('[EmployeeService.getWithStats] Fallback logic error:', error);
+            let employees: Employee[];
+            if (unitId && unitId !== 'all') {
+                employees = await EmployeeService.getByUnitId(unitId);
+            } else {
+                employees = await EmployeeService.getAll();
+            }
+            if (search) {
+                const lowerSearch = removeDiacritics(search.toLowerCase());
+                employees = employees.filter(e => removeDiacritics(e.name.toLowerCase()).includes(lowerSearch));
+            }
             return employees.map(e => ({
                 ...e,
-                stats: { contractCount: 0, totalSigning: 0, totalRevenue: 0 }
+                stats: { totalSigning: 0, totalRevenue: 0, totalProfit: 0, totalRevenueProfit: 0, totalCash: 0 }
             }));
         }
     }

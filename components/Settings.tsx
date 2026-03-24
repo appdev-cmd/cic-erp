@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3, Bot, Crown } from 'lucide-react';
+import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3, Bot, Crown, ScanLine } from 'lucide-react';
 import PilotRunner from './admin/PilotRunner';
 import PermissionManager from './settings/PermissionManager';
 import RoleDefaultsManager from './settings/RoleDefaultsManager';
@@ -8,10 +8,11 @@ import DriveSettings from './settings/DriveSettings';
 import AIPermissionManager from './settings/AIPermissionManager';
 import ManagementRankManager from './settings/ManagementRankManager';
 import HistoricalProductionManager from './settings/HistoricalProductionManager';
+import RouteAuditPanel from './settings/RouteAuditPanel';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 
-type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'task-mgmt' | 'ai-api' | 'historical' | 'drive' | 'testing';
+type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'task-mgmt' | 'ai-api' | 'historical' | 'drive' | 'route-audit' | 'testing';
 
 const Settings: React.FC = () => {
     const { theme, setTheme, accent, setAccent } = useLayoutContext();
@@ -28,6 +29,7 @@ const Settings: React.FC = () => {
         { id: 'historical', label: 'Sản lượng lịch sử', icon: <BarChart3 size={18} />, adminOnly: true },
         { id: 'ai-api', label: 'AI API', icon: <Bot size={18} />, adminOnly: true },
         { id: 'drive', label: 'Google Drive', icon: <HardDrive size={18} />, adminOnly: true },
+        { id: 'route-audit', label: 'Route & Phân quyền', icon: <ScanLine size={18} />, adminOnly: true },
         { id: 'testing', label: 'Kiểm thử', icon: <FlaskConical size={18} /> },
     ];
 
@@ -191,6 +193,21 @@ const Settings: React.FC = () => {
                             </div>
                         </div>
                         <AIPermissionManager />
+                    </div>
+                )}
+
+                {activeTab === 'route-audit' && isAdmin && (
+                    <div>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+                                <ScanLine size={20} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-slate-200">Kiểm tra Route & Phân quyền</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Rà soát trực quan tất cả URL và trạng thái bảo vệ phân quyền</p>
+                            </div>
+                        </div>
+                        <RouteAuditPanel />
                     </div>
                 )}
 

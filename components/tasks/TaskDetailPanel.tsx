@@ -421,7 +421,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
         setChecklist(taskData.custom_fields.checklist);
       }
 
-      // Resolve people from profiles table (auth user IDs)
+      // Resolve people from employees table (full company directory)
       const ids = new Set<string>();
       if (taskData?.created_by) ids.add(taskData.created_by);
       taskData?.assignees?.forEach((id: string) => ids.add(id));
@@ -432,36 +432,20 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
       if (ids.size > 0) {
         try {
           const { dataClient } = await import('../../lib/dataClient');
-          const { data: profiles } = await dataClient
-            .from('profiles')
-            .select('id, full_name, avatar_url, employee_id')
+          const { data: employees } = await dataClient
+            .from('employees')
+            .select('id, name, avatar, position')
             .in('id', Array.from(ids));
 
           const map: Record<string, PersonInfo> = {};
-          if (profiles) {
-            for (const p of profiles) {
-              map[p.id] = {
-                id: p.id,
-                name: p.full_name || p.id.substring(0, 8) + '...',
-                avatar: p.avatar_url || undefined,
+          if (employees) {
+            for (const e of employees) {
+              map[e.id] = {
+                id: e.id,
+                name: e.name || e.id.substring(0, 8) + '...',
+                avatar: e.avatar || undefined,
+                position: e.position || undefined,
               };
-            }
-
-            // Try enrich with employee position
-            const empIds = profiles.map((p: any) => p.employee_id).filter(Boolean);
-            if (empIds.length > 0) {
-              const { data: employees } = await dataClient
-                .from('employees')
-                .select('id, position')
-                .in('id', empIds);
-              if (employees) {
-                const empMap = new Map(employees.map((e: any) => [e.id, e.position]));
-                for (const p of profiles) {
-                  if (p.employee_id && empMap.has(p.employee_id) && map[p.id]) {
-                    map[p.id].position = empMap.get(p.employee_id) || undefined;
-                  }
-                }
-              }
             }
           }
           setPeople(map);
@@ -505,17 +489,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
        if (missingIds.length > 0) {
          try {
            const { dataClient } = await import('../../lib/dataClient');
-           const { data: profs } = await dataClient.from('profiles').select('id, full_name, employee_id').in('id', missingIds);
-           if (profs) {
-             const empIds = profs.map((p: any) => p.employee_id).filter(Boolean);
-             const empMap = new Map();
-             if (empIds.length > 0) {
-               const { data: employees } = await dataClient.from('employees').select('id, name').in('id', empIds);
-               if (employees) employees.forEach((e: any) => empMap.set(e.id, e.name));
-             }
-             profs.forEach((p: any) => {
-               const employeeName = p.employee_id ? empMap.get(p.employee_id) : null;
-               people[p.id] = { id: p.id, name: employeeName || p.full_name || p.id.substring(0,8) + '...' };
+           const { data: emps } = await dataClient.from('employees').select('id, name').in('id', missingIds);
+           if (emps) {
+             emps.forEach((e: any) => {
+               people[e.id] = { id: e.id, name: e.name || e.id.substring(0,8) + '...' };
              });
            }
          } catch { /* ignore */ }

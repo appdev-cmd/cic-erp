@@ -48,34 +48,21 @@ const PeoplePickerPopover: React.FC<PeoplePickerPopoverProps> = ({
     return () => document.removeEventListener('mousedown', handle);
   }, [onClose]);
 
-  // Load all profiles once
+  // Load all employees (full company directory)
   useEffect(() => {
     (async () => {
       setLoading(true);
       const { data } = await dataClient
-        .from('profiles')
-        .select('id, full_name, avatar_url, employee_id')
-        .order('full_name', { ascending: true });
+        .from('employees')
+        .select('id, name, avatar, position')
+        .order('name', { ascending: true });
 
       if (data) {
-        // Enrich with employee position
-        const empIds = data.map((p: any) => p.employee_id).filter(Boolean);
-        let posMap = new Map<string, string>();
-        if (empIds.length > 0) {
-          const { data: employees } = await dataClient
-            .from('employees')
-            .select('id, position')
-            .in('id', empIds);
-          if (employees) {
-            posMap = new Map(employees.map((e: any) => [e.id, e.position]));
-          }
-        }
-
-        setProfiles(data.map((p: any) => ({
-          id: p.id,
-          full_name: p.full_name || p.id.substring(0, 8),
-          avatar_url: p.avatar_url,
-          position: p.employee_id ? posMap.get(p.employee_id) : undefined,
+        setProfiles(data.map((e: any) => ({
+          id: e.id,
+          full_name: e.name || e.id.substring(0, 8),
+          avatar_url: e.avatar,
+          position: e.position || undefined,
         })));
       }
       setLoading(false);

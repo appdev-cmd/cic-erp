@@ -49,6 +49,7 @@ export interface Employee {
   email?: string;
   phone?: string;
   telegram?: string; // Tài khoản Telegram
+  telegram_verified?: boolean;
   position?: string; // Chức vụ
   department?: string; // Phòng ban / Khối
   roleCode?: string; // Mã role hệ thống

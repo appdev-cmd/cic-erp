@@ -1013,7 +1013,7 @@ export const ContractService = {
     },
 
     // OPTIMIZED RPC-BASED STATS with fallback
-    getStatsRPC: async (unitId: string = 'all', year: string = 'all'): Promise<{
+    getStatsRPC: async (unitId: string = 'all', year: string = 'all', periodFilter?: string): Promise<{
         totalContracts: number,
         totalValue: number,
         totalRevenue: number,
@@ -1028,17 +1028,18 @@ export const ContractService = {
         console.log(`${logPrefix} START (Forcing DIRECT QUERY)`, {
             unitId,
             year,
+            periodFilter,
             typeUnit: typeof unitId,
             typeYear: typeof year
         });
 
         // FORCE FALLBACK - Bypass RPC due to timeout issues
-        return ContractService.getStatsFallback(unitId, year);
+        return ContractService.getStatsFallback(unitId, year, periodFilter);
 
     },
 
 
-    getStatsFallback: async (unitId: string = 'all', year: string = 'all'): Promise<{
+    getStatsFallback: async (unitId: string = 'all', year: string = 'all', periodFilter?: string): Promise<{
         totalContracts: number,
         totalValue: number,
         totalRevenue: number,
@@ -1061,8 +1062,39 @@ export const ContractService = {
 
         // Only apply year filter at query level (unit filter is done in JS for allocation support)
         if (year && year !== 'All' && year !== 'all') {
-            const startDate = `${year}-01-01`;
-            const endDate = `${year}-12-31`;
+            let startDate = `${year}-01-01`;
+            let endDate = `${year}-12-31`;
+
+            if (periodFilter) {
+                if (periodFilter.startsWith('M')) {
+                    const month = parseInt(periodFilter.substring(1));
+                    startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+                    endDate = new Date(parseInt(year), month, 0).toISOString().split('T')[0];
+                } else if (periodFilter.startsWith('Q')) {
+                    const quarter = parseInt(periodFilter.substring(1));
+                    const startMonth = (quarter - 1) * 3 + 1;
+                    const endMonth = quarter * 3;
+                    startDate = `${year}-${startMonth.toString().padStart(2, '0')}-01`;
+                    endDate = new Date(parseInt(year), endMonth, 0).toISOString().split('T')[0];
+                }
+            }
+            query = query.gte('signed_date', startDate).lte('signed_date', endDate);
+        } else if (periodFilter) {
+            const currentYear = new Date().getFullYear();
+            let startDate = `${currentYear}-01-01`;
+            let endDate = `${currentYear}-12-31`;
+
+            if (periodFilter.startsWith('M')) {
+                const month = parseInt(periodFilter.substring(1));
+                startDate = `${currentYear}-${month.toString().padStart(2, '0')}-01`;
+                endDate = new Date(currentYear, month, 0).toISOString().split('T')[0];
+            } else if (periodFilter.startsWith('Q')) {
+                const quarter = parseInt(periodFilter.substring(1));
+                const startMonth = (quarter - 1) * 3 + 1;
+                const endMonth = quarter * 3;
+                startDate = `${currentYear}-${startMonth.toString().padStart(2, '0')}-01`;
+                endDate = new Date(currentYear, endMonth, 0).toISOString().split('T')[0];
+            }
             query = query.gte('signed_date', startDate).lte('signed_date', endDate);
         }
 

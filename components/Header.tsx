@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, Bell, Menu, LogOut, ChevronDown, User as UserIcon, Building2, Calendar, Sun, Moon, Palette } from 'lucide-react';
+import { Search, Bell, Menu, LogOut, ChevronDown, User as UserIcon, Building2, Calendar, Settings } from 'lucide-react';
+import PersonalSettingsDialog from './PersonalSettingsDialog';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { Unit, NotificationItem as NotificationItemType } from '../types';
@@ -29,6 +30,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
   const { signOut, user, profile } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const { visibleUnits } = useCurrentUserVisibleUnits();
@@ -100,7 +102,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
           <Menu size={20} />
         </button>
 
-        {/* Search Trigger - Opens CommandPalette */}
+        {/* Search Trigger - Tạm ẩn theo yêu cầu
         <button
           onClick={() => {
             // Trigger CommandPalette
@@ -114,6 +116,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
             Ctrl+K
           </kbd>
         </button>
+        */}
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3 ml-2">
@@ -282,8 +285,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
 
           {/* Dropdown Menu */}
           {showUserMenu && (
-            <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-50 dark-dropdown-accent">
-              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-2 z-50 dark-dropdown-accent">
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
                 <div className="flex items-center gap-3">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt={displayName} className="w-10 h-10 rounded-full object-cover" referrerPolicy="no-referrer" />
@@ -308,67 +311,17 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
                 )}
               </div>
 
-              {/* ═══ Theme Picker ═══ */}
-              {setTheme && setAccent && (
-                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 space-y-3">
-                  {/* Light / Dark Mode */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Giao diện</span>
-                    <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-700 rounded-lg">
-                      <button
-                        onClick={() => setTheme('light')}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${theme === 'light'
-                          ? 'bg-white dark:bg-slate-600 text-orange-600 dark:text-orange-400 shadow-sm'
-                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
-                          }`}
-                      >
-                        <Sun size={13} />
-                        Sáng
-                      </button>
-                      <button
-                        onClick={() => setTheme('dark')}
-                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${theme === 'dark'
-                          ? 'bg-slate-800 dark:bg-slate-600 text-orange-400 shadow-sm'
-                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
-                          }`}
-                      >
-                        <Moon size={13} />
-                        Tối
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Accent Color */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Màu chủ đạo</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setAccent('orange')}
-                        title="Cam"
-                        style={accent === 'orange'
-                          ? { backgroundColor: '#f97316', '--tw-ring-color': '#f97316' } as React.CSSProperties
-                          : { backgroundColor: '#f97316' }}
-                        className={`w-6 h-6 rounded-full transition-all cursor-pointer ring-offset-2 ring-offset-white dark:ring-offset-slate-800 ${accent === 'orange' ? 'ring-2 scale-110' : 'hover:scale-110 opacity-70 hover:opacity-100'
-                          }`}
-                      />
-                      <button
-                        onClick={() => setAccent('blue')}
-                        title="CIC Blue"
-                        style={accent === 'blue'
-                          ? { backgroundColor: '#0ea5e9', '--tw-ring-color': '#0ea5e9' } as React.CSSProperties
-                          : { backgroundColor: '#0ea5e9' }}
-                        className={`w-6 h-6 rounded-full transition-all cursor-pointer ring-offset-2 ring-offset-white dark:ring-offset-slate-800 ${accent === 'blue' ? 'ring-2 scale-110' : 'hover:scale-110 opacity-70 hover:opacity-100'
-                          }`}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
               <div className="py-1">
                 <button
+                  onClick={() => { setShowSettings(true); setShowUserMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                >
+                  <Settings size={16} />
+                  Thiết lập cá nhân
+                </button>
+                <button
                   onClick={handleSignOut}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
                 >
                   <LogOut size={16} />
                   Đăng xuất
@@ -378,6 +331,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
           )}
         </div>
       </div>
+      {/* Personal Settings Dialog */}
+      <PersonalSettingsDialog
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        theme={theme}
+        setTheme={setTheme}
+        accent={accent}
+        setAccent={setAccent}
+      />
     </header>
   );
 };

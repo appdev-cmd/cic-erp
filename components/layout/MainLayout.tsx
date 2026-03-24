@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { SlidePanelProvider } from '../../contexts/SlidePanelContext';
 import Auth from '../Auth';
 import ErrorBoundary from '../ErrorBoundary';
+import RouteGuard from '../auth/RouteGuard';
 import { Unit, UserRole } from '../../types';
 import { UnitService } from '../../services';
 import { NON_BUSINESS_UNIT_CODES } from '../../constants';
@@ -215,8 +216,10 @@ const MainLayout: React.FC = () => {
                         {/* Page Content */}
                         <main className={`mt-16 p-4 md:p-6 lg:p-8 ${isImpersonating ? 'pb-20' : ''}`}>
                             <div className={`${contentMaxWidthClass} mx-auto`}>
-                                {/* Pass context to child routes via Outlet */}
-                                <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, periodFilter, setPeriodFilter, theme, setTheme, accent, setAccent }} />
+                                {/* Pass context to child routes via Outlet — wrapped by RouteGuard for deny-by-default protection */}
+                                <RouteGuard>
+                                    <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, periodFilter, setPeriodFilter, theme, setTheme, accent, setAccent }} />
+                                </RouteGuard>
                             </div>
                         </main>
                     </div>

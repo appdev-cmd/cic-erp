@@ -87,7 +87,7 @@ const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) =>
 // Dashboard
 export const LazyDashboardPage: React.FC = () => {
     const navigate = useNavigate();
-    const { selectedUnit, setSelectedUnit, yearFilter } = useLayoutContext();
+    const { selectedUnit, setSelectedUnit, yearFilter, periodFilter } = useLayoutContext();
     const openPersonnelPanel = useOpenPersonnelPanel();
     const { openPanel, closePanel } = useSlidePanel();
     const openContractPanel = useOpenContractPanel();
@@ -120,6 +120,7 @@ export const LazyDashboardPage: React.FC = () => {
             onSelectEmployee={openPersonnelPanel}
             onSelectPerformanceUnit={handleSelectPerformanceUnit}
             yearFilter={yearFilter}
+            periodFilter={periodFilter}
         />,
         <DashboardSkeleton />
     );

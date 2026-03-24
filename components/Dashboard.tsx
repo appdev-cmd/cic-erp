@@ -57,6 +57,7 @@ interface DashboardProps {
   onSelectEmployee?: (id: string) => void;
   onSelectPerformanceUnit?: (id: string) => void;
   yearFilter: string;
+  periodFilter?: string;
 }
 
 
@@ -88,7 +89,7 @@ const DashboardSkeleton = () => (
   </div>
 );
 
-const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSelectContract, onSelectEmployee, onSelectPerformanceUnit, yearFilter }) => {
+const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSelectContract, onSelectEmployee, onSelectPerformanceUnit, yearFilter, periodFilter }) => {
   const navigate = useNavigate();
   const [activeMetric, setActiveMetric] = useState<keyof KPIPlan>('signing');
   const [previousYear, setPreviousYear] = useState<string>((new Date().getFullYear() - 1).toString());
@@ -178,6 +179,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
       console.log('[Dashboard] Fetching with:', {
         unitId,
         year,
+        periodFilter,
         typeUnitId: typeof unitId,
         typeYear: typeof year
       });
@@ -196,7 +198,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
         // STEP 1: Fetch Stats via ContractService (now uses dataClient)
         console.log('[Dashboard] Step 1: Fetching stats via ContractService...');
-        const statsData = await ContractService.getStatsRPC(unitId, year);
+        const statsData = await ContractService.getStatsRPC(unitId, year, periodFilter);
         console.log('[Dashboard] Stats received:', statsData);
 
         if (!isCancelled) {
@@ -283,9 +285,9 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         let distData: any[] = [];
         const yearParam = yearFilter === 'All' ? null : parseInt(yearFilter);
         if (unitId === 'all') {
-          distData = await UnitService.getWithStats(yearParam);
+          distData = await UnitService.getWithStats(yearParam, periodFilter);
         } else {
-          distData = await EmployeeService.getWithStats(unitId, undefined, yearParam);
+          distData = await EmployeeService.getWithStats(unitId, undefined, yearParam, periodFilter);
         }
         if (!isCancelled) setRawDistData(distData || []);
 
@@ -320,7 +322,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
     fetchDashboardData();
 
     return () => { isCancelled = true; };
-  }, [selectedUnit, yearFilter, realtimeRefreshCounter]); // Always fetch when these change or on realtime events
+  }, [selectedUnit, yearFilter, periodFilter, realtimeRefreshCounter]); // Always fetch when these change or on realtime events
 
 
   // Local effect to recalculate Performance/Pie data when activeMetric changes or data updates
@@ -416,11 +418,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
       }));
     }
 
-    setPerformanceTableData(perfData);
+    setPerformanceTableData(perfData.sort((a, b) => b.actual - a.actual));
     setDistributionData(perfData.map(p => ({
       name: p.name,
       value: p.value
-    })).filter(p => p.value > 0));
+    })).filter(p => p.value > 0).sort((a, b) => b.value - a.value));
 
   }, [rawDistData, activeMetric, selectedUnit]);
 

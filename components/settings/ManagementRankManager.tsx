@@ -10,8 +10,8 @@ interface EmployeeRow {
   id: string;
   name: string;
   email: string;
-  role: string;
-  unit_code: string;
+  position: string;
+  unit_id: string;
   management_rank: number;
   managed_unit_ids: string[];
 }
@@ -73,7 +73,7 @@ const EmployeeRankRow: React.FC<{
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{emp.name}</div>
-          <div className="text-xs text-slate-400 dark:text-slate-500">{emp.role} · {emp.unit_code || '—'}</div>
+          <div className="text-xs text-slate-400 dark:text-slate-500">{emp.position || '—'} · {units.find(u => u.id === emp.unit_id)?.name || '—'}</div>
         </div>
 
         {/* Rank badge */}
@@ -177,7 +177,7 @@ const ManagementRankManager: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       const [empResult, unitResult] = await Promise.all([
-        supabase.from('employees').select('id, name, email, role, unit_code, management_rank, managed_unit_ids').order('name'),
+        supabase.from('employees').select('id, name, email, position, unit_id, management_rank, managed_unit_ids').order('name'),
         supabase.from('units').select('id, name, code').order('name'),
       ]);
 

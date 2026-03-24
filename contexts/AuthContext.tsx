@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 role: 'Admin',
                 unitId: 'all',
                 avatarUrl: undefined,
-                employeeId: undefined
+                employeeId: '51bb76f8-5c7f-4413-835b-3f88bea13c9b' // TGĐ Nguyễn Hoàng Hà — for dev testing
             });
             setIsLoading(false);
             // Still try to get real session below so Google-token etc. work if available

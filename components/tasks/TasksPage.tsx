@@ -494,6 +494,28 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* View mode toggle */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
+          {([
+            { mode: 'my-tasks' as ViewMode, icon: <CheckSquare size={16} />, label: 'Của tôi' },
+            { mode: 'board' as ViewMode, icon: <LayoutGrid size={16} />, label: 'Board' },
+            { mode: 'table' as ViewMode, icon: <List size={16} />, label: 'Bảng' },
+            { mode: 'calendar' as ViewMode, icon: <Calendar size={16} />, label: 'Lịch' },
+            { mode: 'gantt' as ViewMode, icon: <Clock size={16} />, label: 'Gantt' },
+          ]).map(v => (
+            <button
+              key={v.mode}
+              onClick={() => setViewMode(v.mode)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode === v.mode
+                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
+            >
+              {v.icon} {v.label}
+            </button>
+          ))}
+        </div>
+
           <button
             onClick={() => {
               openPanel({
@@ -517,29 +539,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
           >
             <Plus size={16} /> Thêm công việc
           </button>
-
-          {/* View mode toggle */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
-          {([
-            { mode: 'my-tasks' as ViewMode, icon: <CheckSquare size={16} />, label: 'Của tôi' },
-            { mode: 'board' as ViewMode, icon: <LayoutGrid size={16} />, label: 'Board' },
-            { mode: 'table' as ViewMode, icon: <List size={16} />, label: 'Bảng' },
-            { mode: 'calendar' as ViewMode, icon: <Calendar size={16} />, label: 'Lịch' },
-            { mode: 'gantt' as ViewMode, icon: <Clock size={16} />, label: 'Gantt' },
-          ]).map(v => (
-            <button
-              key={v.mode}
-              onClick={() => setViewMode(v.mode)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode === v.mode
-                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                }`}
-            >
-              {v.icon} {v.label}
-            </button>
-          ))}
         </div>
-      </div>
     </div>
 
     {/* Quick Stats */}
