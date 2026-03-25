@@ -208,11 +208,13 @@ export const LazyContractListPage: React.FC = () => {
     );
 };
 
-// Contract Detail — for direct URL access (/contracts/:id)
+// Contract Detail — for direct URL access (/contracts/:id or /contracts/:id/:subId)
 export const LazyContractDetailPage: React.FC = () => {
     const navigate = useNavigate();
-    const { id: rawId } = useParams<{ id: string }>();
-    const id = rawId ? decodeURIComponent(rawId) : undefined;
+    const { id: rawId, subId } = useParams<{ id: string; subId: string }>();
+    // Handle contract IDs containing slashes (e.g., VV_038/DCS_2026)
+    const rawFullId = rawId && subId ? `${rawId}/${subId}` : rawId;
+    const id = rawFullId ? decodeURIComponent(rawFullId) : undefined;
     const { openPanel, closePanel } = useSlidePanel();
     if (!id) return <div>Contract not found</div>;
     return withSuspense(

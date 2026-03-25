@@ -568,11 +568,12 @@ export const ContractService = {
         dateFrom?: string;
         dateTo?: string;
         salespersonId?: string;
+        classification?: string;
         sortBy?: string;
         sortDir?: 'asc' | 'desc';
         matchingCustomerIds?: string[];
     }): Promise<{ data: Contract[]; count: number }> => {
-        const { page, limit, search, status, unitId, year, dateFrom, dateTo, salespersonId, sortBy, sortDir, matchingCustomerIds } = params;
+        const { page, limit, search, status, unitId, year, dateFrom, dateTo, salespersonId, classification, sortBy, sortDir, matchingCustomerIds } = params;
 
         // Build search OR filter including customer short name matches AND unaccent matches
         // PostgREST .or() filter: IDs must be double-quoted if they contain special chars (/, commas, etc.)
@@ -618,6 +619,9 @@ export const ContractService = {
             }
             if (status && status !== 'All') {
                 query = query.eq('status', status);
+            }
+            if (classification && classification !== 'All') {
+                query = query.eq('classification', classification);
             }
             if (dateFrom || dateTo) {
                 if (dateFrom) query = query.gte('signed_date', dateFrom);
@@ -713,6 +717,9 @@ export const ContractService = {
             }
             if (status && status !== 'All') {
                 query = query.eq('status', status);
+            }
+            if (classification && classification !== 'All') {
+                query = query.eq('classification', classification);
             }
             if (unitId && unitId !== 'All' && unitId !== 'all') {
                 if (unitId.includes(',')) {
@@ -830,6 +837,7 @@ export const ContractService = {
         dateFrom?: string;
         dateTo?: string;
         salespersonId?: string;
+        classification?: string;
         matchingCustomerIds?: string[];
     }): Promise<{
         totalContracts: number,
@@ -845,7 +853,7 @@ export const ContractService = {
         acceptanceCount: number,
         completedCount: number
     }> => {
-        const { search, status, unitId, year, dateFrom, dateTo, salespersonId, matchingCustomerIds } = params;
+        const { search, status, unitId, year, dateFrom, dateTo, salespersonId, classification, matchingCustomerIds } = params;
 
         // Build search OR filter including customer short name matches AND unaccent matches
         // PostgREST .or() filter: IDs must be double-quoted if they contain special chars (/, commas, etc.)
@@ -885,6 +893,9 @@ export const ContractService = {
         }
         if (status && status !== 'All') {
             query = query.eq('status', status);
+        }
+        if (classification && classification !== 'All') {
+            query = query.eq('classification', classification);
         }
         // NOTE: Unit filter is NOT applied at SQL level — done in JS below for allocation support
         if (dateFrom || dateTo) {

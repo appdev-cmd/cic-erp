@@ -55,6 +55,7 @@ export const ROUTE_PERMISSION_MAP: RoutePermissionEntry[] = [
     // ── Hợp đồng ──
     { pattern: '/contracts', resource: 'contracts', action: 'view', label: 'Danh sách hợp đồng', module: 'Hợp đồng' },
     { pattern: '/contracts/new', resource: 'contracts', action: 'create', label: 'Tạo hợp đồng mới', module: 'Hợp đồng' },
+    { pattern: '/contracts/:id/:subId', resource: 'contracts', action: 'view', label: 'Chi tiết hợp đồng', module: 'Hợp đồng' },
     { pattern: '/contracts/:id', resource: 'contracts', action: 'view', label: 'Chi tiết hợp đồng', module: 'Hợp đồng' },
     { pattern: '/contracts/:id/edit', resource: 'contracts', action: 'update', label: 'Chỉnh sửa hợp đồng', module: 'Hợp đồng' },
 

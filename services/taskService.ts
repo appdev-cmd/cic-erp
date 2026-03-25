@@ -35,6 +35,7 @@ function mapTask(row: any): Task {
     custom_fields: row.custom_fields || {},
     auto_generated: row.auto_generated || false,
     is_private: row.is_private || false,
+    is_pinned: row.is_pinned || false,
     time_spent: row.time_spent || 0,
     sort_order: row.sort_order || 0,
   };
@@ -459,6 +460,7 @@ export const TaskService = {
       .from('tasks')
       .select(TASK_SELECT)
       .is('parent_id', null) // Top-level tasks only
+      .order('is_pinned', { ascending: false }) // Pinned tasks first
       .order('sort_order')
       .order('created_at', { ascending: false });
 
@@ -516,5 +518,153 @@ export const TaskService = {
     const { data, error } = await query;
     if (error) throw error;
     return (data || []).map(mapTask);
+  },
+
+  // ═══════════════════════════════════════
+  // BITRIX24-STYLE ROLE FILTERING
+  // ═══════════════════════════════════════
+
+  /**
+   * Get tasks filtered by user role (Bitrix24 top-tabs style).
+   * - 'all': all my tasks (assigned/watching/supporting/created)
+   * - 'ongoing': tasks in progress where I'm assigned
+   * - 'assisting': tasks where I'm a supporter
+   * - 'set_by_me': tasks I created/assigned to others
+   * - 'following': tasks where I'm a watcher
+   * - 'supervising': tasks of subordinates (uses visibility context)
+   */
+  async getTasksByRole(
+    userId: string,
+    role: string,
+    filters?: TaskFilterOptions
+  ): Promise<Task[]> {
+    let query = supabase
+      .from('tasks')
+      .select(TASK_SELECT)
+      .is('parent_id', null)
+      .order('is_pinned', { ascending: false })
+      .order('sort_order')
+      .order('created_at', { ascending: false });
+
+    switch (role) {
+      case 'ongoing': {
+        // Tasks assigned to me that are in progress (not done)
+        query = query.contains('assignees', [userId]);
+        const statuses = await this.getStatuses();
+        const doneIds = statuses.filter(s => s.is_done).map(s => s.id);
+        for (const doneId of doneIds) {
+          query = query.neq('status_id', doneId);
+        }
+        break;
+      }
+      case 'assisting':
+        query = query.contains('supporters', [userId]);
+        break;
+      case 'set_by_me':
+        query = query.eq('created_by', userId);
+        break;
+      case 'following':
+        query = query.contains('watchers', [userId]);
+        break;
+      default: // 'all'
+        query = query.or(
+          `assignees.cs.{${userId}},watchers.cs.{${userId}},supporters.cs.{${userId}},approvers.cs.{${userId}},created_by.eq.${userId}`
+        );
+        break;
+    }
+
+    // Apply additional filters
+    if (filters?.search) {
+      query = query.ilike('title', `%${filters.search}%`);
+    }
+    if (filters?.project_id) {
+      query = query.eq('project_id', filters.project_id);
+    }
+    if (filters?.tags && filters.tags.length > 0) {
+      query = query.overlaps('tags', filters.tags);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map(mapTask);
+  },
+
+  /**
+   * Get role-based task counts for badge counters on tabs.
+   */
+  async getRoleCounts(userId: string): Promise<Record<string, number>> {
+    const roles = ['all', 'ongoing', 'assisting', 'set_by_me', 'following'];
+    const counts: Record<string, number> = {};
+    
+    // Batch: get all user tasks, then filter in-memory for counts
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('id, assignees, watchers, supporters, approvers, created_by, status_id')
+      .is('parent_id', null)
+      .or(
+        `assignees.cs.{${userId}},watchers.cs.{${userId}},supporters.cs.{${userId}},approvers.cs.{${userId}},created_by.eq.${userId}`
+      );
+
+    if (error || !data) return { all: 0, ongoing: 0, assisting: 0, set_by_me: 0, following: 0 };
+
+    const statuses = await this.getStatuses();
+    const doneIds = new Set(statuses.filter(s => s.is_done).map(s => s.id));
+
+    counts.all = data.length;
+    counts.ongoing = data.filter(t => 
+      (t.assignees || []).includes(userId) && !doneIds.has(t.status_id)
+    ).length;
+    counts.assisting = data.filter(t => (t.supporters || []).includes(userId)).length;
+    counts.set_by_me = data.filter(t => t.created_by === userId).length;
+    counts.following = data.filter(t => (t.watchers || []).includes(userId)).length;
+
+    return counts;
+  },
+
+  // ═══════════════════════════════════════
+  // BULK OPERATIONS
+  // ═══════════════════════════════════════
+
+  /**
+   * Bulk update status for multiple tasks.
+   */
+  async bulkUpdateStatus(taskIds: string[], statusId: string, userId?: string): Promise<void> {
+    const status = (await this.getStatuses()).find(s => s.id === statusId);
+    const updates: any = { status_id: statusId };
+    if (status?.is_done) {
+      updates.completed_at = new Date().toISOString();
+      updates.completed_by = userId;
+    }
+
+    const { error } = await supabase
+      .from('tasks')
+      .update(updates)
+      .in('id', taskIds);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Bulk set deadline for multiple tasks.
+   */
+  async bulkSetDeadline(taskIds: string[], dueDate: string): Promise<void> {
+    const { error } = await supabase
+      .from('tasks')
+      .update({ due_date: dueDate })
+      .in('id', taskIds);
+
+    if (error) throw error;
+  },
+
+  /**
+   * Toggle pin state for a task.
+   */
+  async togglePin(taskId: string): Promise<boolean> {
+    const task = await this.getById(taskId);
+    if (!task) throw new Error('Task not found');
+    
+    const newPinned = !task.is_pinned;
+    await this.update(taskId, { is_pinned: newPinned } as any);
+    return newPinned;
   },
 };

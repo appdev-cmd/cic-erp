@@ -20,7 +20,7 @@ interface RouteGuardProps {
 const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { can, isLoading } = usePermissionCheck();
+    const { can, isLoading, role } = usePermissionCheck();
     const [showSpinner, setShowSpinner] = useState(false);
 
     // Prevent flash of loading spinner for fast permission checks
@@ -64,7 +64,11 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
     const permEntry = getRoutePermission(pathname);
 
     // ── 4. Unknown route (not public, not in map) → DENY by default ──
+    //       Admin & Leadership bypass: these roles can access ALL routes
     if (!permEntry) {
+        if (role === 'Admin' || role === 'Leadership') {
+            return <>{children}</>;
+        }
         return <AccessDeniedScreen reason="unregistered" pathname={pathname} />;
     }
 
