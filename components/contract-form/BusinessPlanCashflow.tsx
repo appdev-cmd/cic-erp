@@ -1,6 +1,8 @@
 // BusinessPlanCashflow: Dòng tiền dự kiến (Revenue + Supplier schedules)
 import React from 'react';
 import { X, Plus, Wallet, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import DateInput from '../ui/DateInput';
+import { formatDate } from '../../utils/formatters';
 import { PaymentSchedule } from '../../types';
 
 interface BusinessPlanCashflowProps {
@@ -51,14 +53,13 @@ const BusinessPlanCashflow: React.FC<BusinessPlanCashflowProps> = ({
                     {schedules === paymentSchedules ? 'Ngày thanh toán' : 'Hạn thanh toán'}
                 </label>
                 {isEditing ? (
-                    <input
-                        type="date"
+                    <DateInput
                         value={pay.date}
-                        onChange={(e) => updateSchedule(schedules, setter, idx, 'date', e.target.value)}
+                        onChange={(val) => updateSchedule(schedules, setter, idx, 'date', val)}
                         className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-white"
                     />
                 ) : (
-                    <p className="text-[11px] font-bold text-slate-800 dark:text-white">{pay.date || '-'}</p>
+                    <p className="text-[11px] font-bold text-slate-800 dark:text-white">{pay.date ? formatDate(pay.date) : '-'}</p>
                 )}
             </div>
             <div className="col-span-4 space-y-1">

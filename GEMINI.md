@@ -127,3 +127,23 @@ import { formatDate, formatDateShort } from '../utils/formatters';
 - [ ] KHÔNG dùng `toLocaleDateString()` trực tiếp
 - [ ] Truyền giá trị fallback nếu date có thể null/undefined
 
+### Date Picker / Date Input Rules (BẮT BUỘC):
+> ❌ KHÔNG BAO GIỜ dùng `<input type="date">` hoặc `<input type="datetime-local">` trực tiếp.
+> ✅ LUÔN dùng component `DateInput` từ `components/ui/DateInput.tsx` (cho date-only).
+> ✅ Với datetime, dùng text input hiển thị `dd/mm/yyyy HH:mm` + hidden native picker.
+
+```tsx
+// ✅ ĐÚNG — Date-only picker
+import DateInput from '../ui/DateInput';
+<DateInput value={startDate} onChange={setStartDate} className={inputCls} />
+
+// ❌ SAI — Native date input (hiển thị yyyy-mm-dd trên một số browser)
+<input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+```
+
+### Checklist khi viết component có date picker:
+- [ ] Dùng `DateInput` component thay vì native `type="date"`
+- [ ] Nếu cần datetime, tạo text input dd/mm/yyyy HH:mm + hidden `datetime-local`
+- [ ] Hiển thị ngày đã chọn phải dùng `formatDate()` hoặc `formatDateTime()`
+
+

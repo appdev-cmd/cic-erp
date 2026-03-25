@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Save, X, MapPin, Building2, Calendar, TrendingUp, FileText, Loader2, FileSignature, Image, Clipboard, Upload } from 'lucide-react';
+import DateInput from './ui/DateInput';
 import { ProjectService, ContractService, CustomerService } from '../services';
 import { BIMProject, BIMProjectStatus, BIM_PROJECT_STATUS_LABELS } from '../types';
 import { toast } from 'sonner';
@@ -400,19 +401,17 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Ngày bắt đầu</label>
-            <input
-              type="date"
+            <DateInput
               value={startDate}
-              onChange={e => setStartDate(e.target.value)}
+              onChange={setStartDate}
               className={inputCls}
             />
           </div>
           <div>
             <label className={labelCls}>Ngày kết thúc</label>
-            <input
-              type="date"
+            <DateInput
               value={endDate}
-              onChange={e => setEndDate(e.target.value)}
+              onChange={setEndDate}
               className={inputCls}
             />
           </div>

@@ -2,6 +2,11 @@ import { dataClient as supabase } from '../lib/dataClient';
 import { TaskService } from './taskService';
 import type { TaskPriority, CreateTaskInput } from '../types/taskTypes';
 
+// ═══════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════
+export type AssigneeRole = 'creator' | 'unit_leader' | 'specific';
+
 export interface TemplateTaskItem {
   id: string; // temp id for UI
   title: string;
@@ -9,7 +14,11 @@ export interface TemplateTaskItem {
   duration_days: number;
   priority: TaskPriority;
   status_type: 'todo' | 'in_progress' | 'done';
-  depends_on?: string; // id of the precursor task
+  sort_order: number;
+  assignee_id?: string;      // profile_id khi role = 'specific'
+  assignee_role?: AssigneeRole; // creator | unit_leader | specific
+  depends_on?: string;       // id of the precursor task
+  tags?: string[];
 }
 
 export interface TaskTemplate {
@@ -17,10 +26,16 @@ export interface TaskTemplate {
   name: string;
   description?: string;
   tasks_json: TemplateTaskItem[];
+  applicable_entity_types: string[];
+  category: string;
+  is_active: boolean;
   created_at: string;
   created_by?: string;
 }
 
+// ═══════════════════════════════════════
+// SERVICE
+// ═══════════════════════════════════════
 export const TaskTemplateService = {
   async getAll(): Promise<TaskTemplate[]> {
     const { data, error } = await supabase
@@ -29,11 +44,27 @@ export const TaskTemplateService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    // ensure tasks_json is typed correctly
-    return (data || []).map(t => ({
-      ...t,
-      tasks_json: Array.isArray(t.tasks_json) ? t.tasks_json : []
-    })) as TaskTemplate[];
+    return (data || []).map(normalizeTemplate);
+  },
+
+  /**
+   * Lọc templates theo entity type (vd: 'contract', 'project', ...)
+   * Trả về templates có chứa entityType hoặc không giới hạn entity (rỗng)
+   */
+  async getByEntityType(entityType: string): Promise<TaskTemplate[]> {
+    const { data, error } = await supabase
+      .from('task_templates')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || [])
+      .map(normalizeTemplate)
+      .filter(t => {
+        // Template áp dụng cho mọi entity hoặc chứa entityType cụ thể
+        return !t.applicable_entity_types.length || t.applicable_entity_types.includes(entityType);
+      });
   },
 
   async create(template: Omit<TaskTemplate, 'id' | 'created_at'>): Promise<TaskTemplate> {
@@ -42,14 +73,38 @@ export const TaskTemplateService = {
     const { data, error } = await supabase
       .from('task_templates')
       .insert({
-        ...template,
-        created_by: template.created_by || userData.user?.id
+        name: template.name,
+        description: template.description,
+        tasks_json: template.tasks_json,
+        applicable_entity_types: template.applicable_entity_types || [],
+        category: template.category || 'general',
+        is_active: template.is_active ?? true,
+        created_by: template.created_by || userData.user?.id,
       })
       .select()
       .single();
 
     if (error) throw error;
-    return { ...data, tasks_json: Array.isArray(data.tasks_json) ? data.tasks_json : [] };
+    return normalizeTemplate(data);
+  },
+
+  async update(id: string, template: Partial<Omit<TaskTemplate, 'id' | 'created_at'>>): Promise<TaskTemplate> {
+    const { data, error } = await supabase
+      .from('task_templates')
+      .update({
+        ...(template.name !== undefined && { name: template.name }),
+        ...(template.description !== undefined && { description: template.description }),
+        ...(template.tasks_json !== undefined && { tasks_json: template.tasks_json }),
+        ...(template.applicable_entity_types !== undefined && { applicable_entity_types: template.applicable_entity_types }),
+        ...(template.category !== undefined && { category: template.category }),
+        ...(template.is_active !== undefined && { is_active: template.is_active }),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return normalizeTemplate(data);
   },
 
   async delete(id: string): Promise<void> {
@@ -61,11 +116,21 @@ export const TaskTemplateService = {
     if (error) throw error;
   },
 
+  /**
+   * Áp dụng template — tạo tasks với đầy đủ thông tin:
+   * - assignee theo role (creator/unit_leader/specific)
+   * - deadline cascade: task B bắt đầu khi task A hoàn thành
+   * - dependencies (task_links type 'blocks')
+   */
   async applyTemplate(
     templateId: string,
     sourceModule: string,
     sourceEntityId: string,
-    spaceId?: string
+    options?: {
+      spaceId?: string;
+      creatorUserId?: string;   // user đang thao tác → dùng cho role "creator"
+      unitId?: string;          // unit liên quan → dùng cho role "unit_leader"
+    }
   ): Promise<number> {
     // 1. Get the template
     const { data, error } = await supabase
@@ -79,37 +144,62 @@ export const TaskTemplateService = {
     const tasks: TemplateTaskItem[] = Array.isArray(data.tasks_json) ? data.tasks_json : [];
     if (tasks.length === 0) return 0;
 
+    // Sort by sort_order
+    const sortedTasks = [...tasks].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
     // 2. Map status_type to actual status_id
-    const statuses = await TaskService.getStatuses(spaceId);
+    const statuses = await TaskService.getStatuses(options?.spaceId);
     const todoStatus = statuses.find(s => !s.is_done && s.name !== 'Đang thực hiện') || statuses[0];
     const inProgressStatus = statuses.find(s => s.name === 'Đang thực hiện') || todoStatus;
     const doneStatus = statuses.find(s => s.is_done) || todoStatus;
 
-    // 3. Create tasks
-    const today = new Date();
-    const newTasks = tasks.map(t => {
+    // 3. Resolve assignees
+    const resolvedAssignees = await resolveAssignees(sortedTasks, options);
+
+    // 4. Calculate cascading deadlines
+    // Build dependency map: taskId → dependsOnTaskId
+    const baseDate = new Date();
+    const taskStartDates: Record<string, Date> = {};
+    const taskEndDates: Record<string, Date> = {};
+
+    for (const t of sortedTasks) {
+      let startDate: Date;
+      if (t.depends_on && taskEndDates[t.depends_on]) {
+        // Task bắt đầu khi task phụ thuộc kết thúc
+        startDate = new Date(taskEndDates[t.depends_on]);
+      } else {
+        startDate = new Date(baseDate);
+      }
+      taskStartDates[t.id] = startDate;
+
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + (t.duration_days || 0));
+      taskEndDates[t.id] = endDate;
+    }
+
+    // 5. Create tasks
+    const newTasks = sortedTasks.map(t => {
       let statusId = todoStatus.id;
       if (t.status_type === 'in_progress') statusId = inProgressStatus.id;
       if (t.status_type === 'done') statusId = doneStatus.id;
 
-      const dueDate = new Date();
-      dueDate.setDate(today.getDate() + (t.duration_days || 0));
-
       return {
         title: t.title,
-        description: t.description,
+        description: t.description || '',
         priority: t.priority || 'medium',
         status_id: statusId,
         source_module: sourceModule,
         source_entity_id: sourceEntityId,
-        space_id: spaceId,
+        space_id: options?.spaceId,
         auto_generated: true,
-        due_date: dueDate.toISOString(),
-        custom_fields: { template_task_id: t.id }, // temp ID for linking dependencies
+        start_date: taskStartDates[t.id]?.toISOString(),
+        due_date: taskEndDates[t.id]?.toISOString(),
+        assignees: resolvedAssignees[t.id] ? [resolvedAssignees[t.id]] : [],
+        tags: t.tags || [],
+        custom_fields: { template_task_id: t.id },
       };
     });
 
-    // Supabase JS insert accepts array
     const { data: insertedTasks, error: insertError } = await supabase
       .from('tasks')
       .insert(newTasks)
@@ -117,9 +207,9 @@ export const TaskTemplateService = {
 
     if (insertError) throw insertError;
 
-    // 4. Create dependencies (task_links)
+    // 6. Create dependencies (task_links)
     const linksToCreate: any[] = [];
-    tasks.forEach(t => {
+    sortedTasks.forEach(t => {
       if (t.depends_on) {
         const thisInserted = insertedTasks?.find(it => it.custom_fields?.template_task_id === t.id);
         const precursorInserted = insertedTasks?.find(it => it.custom_fields?.template_task_id === t.depends_on);
@@ -145,3 +235,50 @@ export const TaskTemplateService = {
     return newTasks.length;
   }
 };
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function normalizeTemplate(t: any): TaskTemplate {
+  return {
+    ...t,
+    tasks_json: Array.isArray(t.tasks_json) ? t.tasks_json : [],
+    applicable_entity_types: Array.isArray(t.applicable_entity_types) ? t.applicable_entity_types : [],
+    category: t.category || 'general',
+    is_active: t.is_active ?? true,
+  };
+}
+
+/**
+ * Resolve assignee IDs dựa trên role trong template
+ */
+async function resolveAssignees(
+  tasks: TemplateTaskItem[],
+  options?: { creatorUserId?: string; unitId?: string }
+): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
+
+  for (const t of tasks) {
+    if (!t.assignee_role) continue;
+
+    if (t.assignee_role === 'creator' && options?.creatorUserId) {
+      result[t.id] = options.creatorUserId;
+    } else if (t.assignee_role === 'unit_leader' && options?.unitId) {
+      try {
+        const { data: employees } = await supabase
+          .from('employees')
+          .select('profile_id')
+          .eq('unit_id', options.unitId)
+          .eq('is_leader', true)
+          .limit(1);
+        if (employees?.[0]?.profile_id) {
+          result[t.id] = employees[0].profile_id;
+        }
+      } catch { /* ignore */ }
+    } else if (t.assignee_role === 'specific' && t.assignee_id) {
+      result[t.id] = t.assignee_id;
+    }
+  }
+
+  return result;
+}

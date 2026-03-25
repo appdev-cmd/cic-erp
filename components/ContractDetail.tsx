@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CONTRACT_STATUS_LABELS } from '../constants';
 import { toast } from 'sonner';
@@ -62,6 +62,7 @@ import CustomerDetail from './CustomerDetail';
 import AcceptanceDialog from './ui/AcceptanceDialog';
 import DatePromptDialog from './ui/DatePromptDialog';
 import { generateBusinessPlanPdf } from '../utils/businessPlanPdf';
+import ContractTagsWidget from './contract-detail/ContractTagsWidget';
 
 interface ContractDetailProps {
   contract?: Contract;
@@ -71,6 +72,61 @@ interface ContractDetailProps {
   onEdit: (contract: Contract) => void;
   onDelete: () => Promise<void>;
 }
+
+// ── Discussion Tab Container: fills remaining viewport, locks parent scroll ──
+const DiscussionTabContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    // Find nearest scrollable ancestor and LOCK its scroll
+    let scrollParent: HTMLElement | null = null;
+    let originalOverflow = '';
+    let parent = el.parentElement;
+    while (parent) {
+      const style = getComputedStyle(parent);
+      if (/(auto|scroll)/.test(style.overflowY || '')) {
+        scrollParent = parent;
+        originalOverflow = parent.style.overflowY;
+        // Lock scroll — prevent tabs from being scrolled out of view
+        parent.style.overflowY = 'hidden';
+        break;
+      }
+      parent = parent.parentElement;
+    }
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      const available = window.innerHeight - rect.top;
+      setHeight(prev => Math.abs(prev - available) > 1 ? Math.max(available, 200) : prev);
+    };
+
+    // Measure after paint
+    requestAnimationFrame(measure);
+    window.addEventListener('resize', measure);
+
+    return () => {
+      window.removeEventListener('resize', measure);
+      // Restore scroll on parent when leaving discussion tab
+      if (scrollParent) {
+        scrollParent.style.overflowY = originalOverflow;
+      }
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative -mx-4 md:-mx-6 lg:-mx-8 -mb-12 md:-mb-14 lg:-mb-24 overflow-hidden"
+      style={{ height: height > 0 ? `${height}px` : 'calc(100vh - 320px)', minHeight: '300px' }}
+    >
+      {children}
+    </div>
+  );
+};
 
 const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContract, contractId, onBack, onEdit, onDelete }) => {
   const [contract, setContract] = useState<Contract | null>(initialContract || null);
@@ -453,6 +509,13 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                 )}
               </div>
               <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight">{contract?.title}</h1>
+
+              {/* Personal Tags */}
+              {contract?.id && (
+                <div className="mt-2">
+                  <ContractTagsWidget contractId={contract.id} />
+                </div>
+              )}
 
               {/* Khách hàng & thông tin phụ */}
               <div className="flex flex-wrap gap-4 mt-3">
@@ -839,7 +902,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
 
         {/* Content - Discussion tab */}
         {activeTab === 'discussion' && contract && (
-          <div className="relative -mt-6 -mx-4 md:-mx-6 lg:-mx-8 -mb-12 md:-mb-14 lg:-mb-24" style={{ height: 'calc(100vh - 200px)', minHeight: '400px' }}>
+          <DiscussionTabContainer>
             <DiscussionBox
               entityType="contract"
               entityId={contract.id}
@@ -847,7 +910,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
               maxHeight="100%"
               showHeader={false}
             />
-          </div>
+          </DiscussionTabContainer>
         )}
 
         {/* Content - Tasks tab */}

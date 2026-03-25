@@ -162,7 +162,7 @@ const StatusDropdown: React.FC<{
 };
 
 // ═══════════════════════════════════════
-// DEADLINE INPUT (inline date-time picker)
+// DEADLINE INPUT (inline date-time picker — dd/mm/yyyy HH:mm)
 // ═══════════════════════════════════════
 const DeadlineInput: React.FC<{
   currentValue: string;
@@ -170,6 +170,23 @@ const DeadlineInput: React.FC<{
   onClose: () => void;
 }> = ({ currentValue, onSave, onClose }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const hiddenRef = useRef<HTMLInputElement>(null);
+
+  // ISO → dd/mm/yyyy HH:mm for display
+  const toDisplay = (isoStr: string) => {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+    } catch { return ''; }
+  };
+
+  // ISO → yyyy-MM-ddTHH:mm for hidden input
   const toLocalFormat = (isoStr: string) => {
     if (!isoStr) return '';
     try {
@@ -177,7 +194,54 @@ const DeadlineInput: React.FC<{
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + 'T' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     } catch { return ''; }
   };
-  const [val, setVal] = useState(toLocalFormat(currentValue));
+
+  const [displayVal, setDisplayVal] = useState(toDisplay(currentValue));
+  const [hiddenVal, setHiddenVal] = useState(toLocalFormat(currentValue));
+
+  // Auto-format as user types: dd/mm/yyyy HH:mm
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 12); // max 12 digits
+    let formatted = '';
+    for (let i = 0; i < digits.length; i++) {
+      if (i === 2 || i === 4) formatted += '/';
+      if (i === 8) formatted += ' ';
+      if (i === 10) formatted += ':';
+      formatted += digits[i];
+    }
+    setDisplayVal(formatted);
+  };
+
+  // Parse dd/mm/yyyy HH:mm → ISO
+  const parseDisplayToISO = (text: string): string => {
+    const match = text.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+    if (match) {
+      const [, dd, mm, yyyy, hh, min] = match;
+      return new Date(+yyyy, +mm - 1, +dd, +hh, +min).toISOString();
+    }
+    // Also try dd/mm/yyyy without time
+    const dateOnly = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (dateOnly) {
+      const [, dd, mm, yyyy] = dateOnly;
+      return new Date(+yyyy, +mm - 1, +dd).toISOString();
+    }
+    return '';
+  };
+
+  const handleSave = () => {
+    const iso = parseDisplayToISO(displayVal);
+    onSave(iso || (hiddenVal ? new Date(hiddenVal).toISOString() : ''));
+  };
+
+  // Handle native picker change — auto-save immediately
+  const handlePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setHiddenVal(v);
+    if (v) {
+      const d = new Date(v);
+      setDisplayVal(toDisplay(d.toISOString()));
+      onSave(d.toISOString());
+    }
+  };
 
   useEffect(() => {
     const handle = (e: MouseEvent) => {
@@ -189,25 +253,41 @@ const DeadlineInput: React.FC<{
 
   return (
     <div ref={ref} className="flex items-center gap-1">
-      <input
-        type="datetime-local"
-        value={val}
-        onChange={e => setVal(e.target.value)}
-        className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1.5 border border-indigo-300 dark:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-400 w-full"
-        autoFocus
-        onKeyDown={e => {
-          if (e.key === 'Enter') { onSave(val ? new Date(val).toISOString() : ''); }
-          if (e.key === 'Escape') onClose();
-        }}
-      />
-      <button
-        onClick={() => onSave(val ? new Date(val).toISOString() : '')}
-        className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-2 py-1.5 rounded-lg cursor-pointer flex-shrink-0 transition-colors"
-      >OK</button>
+      <div className="relative flex-1">
+        <input
+          type="text"
+          value={displayVal}
+          onChange={handleTextChange}
+          placeholder="dd/mm/yyyy HH:mm"
+          className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg pl-2 pr-7 py-1.5 border border-indigo-300 dark:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-400 w-full"
+          autoFocus
+          onKeyDown={e => {
+            if (e.key === 'Enter') handleSave();
+            if (e.key === 'Escape') onClose();
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => { try { hiddenRef.current?.showPicker(); } catch { hiddenRef.current?.focus(); } }}
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+          tabIndex={-1}
+        >
+          <Calendar size={12} />
+        </button>
+        <input
+          ref={hiddenRef}
+          type="datetime-local"
+          value={hiddenVal}
+          onChange={handlePickerChange}
+          className="absolute w-0 h-0 opacity-0 overflow-hidden"
+          style={{ left: 'calc(100% - 24px)', top: '50%' }}
+          tabIndex={-1}
+        />
+      </div>
       {currentValue && (
         <button
           onClick={() => onSave('')}
-          className="text-xs text-red-500 hover:text-red-600 dark:text-red-400 px-1 cursor-pointer"
+          className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 p-0.5 cursor-pointer transition-colors"
           title="Xóa deadline"
         >
           <X size={14} />
@@ -463,7 +543,7 @@ const BitrixListView: React.FC<{
   const thClass = "text-left px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider relative select-none";
   
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" style={{ overflow: 'visible' }}>
       <table className="w-full text-sm table-fixed">
         <thead>
           <tr className="border-b border-slate-200 dark:border-slate-700">
@@ -641,10 +721,10 @@ const BitrixListView: React.FC<{
                   ) : (
                     <button
                       onClick={() => setEditingCell({ taskId: task.id, col: 'deadline' })}
-                      className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
+                      className="text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
                       title="Bấm để đặt deadline"
                     >
-                      <Plus size={12} className="inline" /> Chọn
+                      <Calendar size={14} />
                     </button>
                   )}
                 </td>
@@ -688,7 +768,7 @@ const BitrixListView: React.FC<{
                       <Plus size={12} />
                     </button>
                   )}
-                  {/* People picker popover */}
+                  {/* People picker popover — opens upward, wider */}
                   {editingCell?.taskId === task.id && editingCell?.col === 'assignee' && (
                     <PeoplePickerPopover
                       currentIds={task.assignees || []}
@@ -696,6 +776,7 @@ const BitrixListView: React.FC<{
                       onClose={() => setEditingCell(null)}
                       align="left"
                       minSelections={0}
+                      singleSelect
                     />
                   )}
                 </td>
@@ -780,8 +861,10 @@ const BitrixListView: React.FC<{
 };
 
 // ═══════════════════════════════════════
-// DEADLINE VIEW (Kanban by deadline)
+// DEADLINE VIEW (Kanban by deadline — with drag & drop)
 // ═══════════════════════════════════════
+type DeadlineColumnKey = 'overdue_2w' | 'overdue' | 'today' | 'this_week' | 'next_week' | 'no_deadline';
+
 const DeadlineView: React.FC<{
   tasks: Task[];
   statuses: TaskStatus[];
@@ -789,71 +872,180 @@ const DeadlineView: React.FC<{
   onSelect: (id: string) => void;
   onToggleComplete: (task: Task) => void;
   onQuickCreate: (title: string, tags: string[], dueDate?: string) => Promise<void>;
-}> = ({ tasks, statuses, employees, onSelect, onToggleComplete, onQuickCreate }) => {
+  onUpdateDeadline: (taskId: string, deadline: string | null) => void;
+  onUpdateAssignee: (taskId: string, assigneeIds: string[]) => void;
+}> = ({ tasks, statuses, employees, onSelect, onToggleComplete, onQuickCreate, onUpdateDeadline, onUpdateAssignee }) => {
+  // Helper: format Date to local YYYY-MM-DD (avoids UTC shift from toISOString)
+  const localDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = localDateStr(today);
   
   const endOfWeek = new Date(today);
   endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
-  const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
+  const endOfWeekStr = localDateStr(endOfWeek);
   
   const endOfNextWeek = new Date(endOfWeek);
   endOfNextWeek.setDate(endOfWeek.getDate() + 7);
-  const endOfNextWeekStr = endOfNextWeek.toISOString().split('T')[0];
+  const endOfNextWeekStr = localDateStr(endOfNextWeek);
 
   const doneStatusIds = new Set(statuses.filter(s => s.is_done).map(s => s.id));
   const activeTasks = tasks.filter(t => !doneStatusIds.has(t.status_id || ''));
 
-  const columns = [
+  // Helper: extract local YYYY-MM-DD from any ISO timestamp
+  const toDateStr = (d?: string) => {
+    if (!d) return '';
+    const dt = new Date(d);
+    return localDateStr(dt);
+  };
+
+  // Drag state
+  const [dragOverCol, setDragOverCol] = useState<DeadlineColumnKey | null>(null);
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [editingAssigneeTaskId, setEditingAssigneeTaskId] = useState<string | null>(null);
+
+  // Compute target deadline for a drop or quick-create
+  const getDeadlineForColumn = (colKey: DeadlineColumnKey): string | null => {
+    const now = new Date();
+    now.setHours(9, 0, 0, 0); // default 09:00
+    switch (colKey) {
+      case 'overdue': return null;
+      case 'today':
+        now.setFullYear(today.getFullYear(), today.getMonth(), today.getDate());
+        return now.toISOString();
+      case 'this_week': {
+        const wed = new Date(today);
+        const dayOfWeek = today.getDay();
+        const daysToWed = dayOfWeek <= 3 ? 3 - dayOfWeek : 7 - dayOfWeek + 3;
+        wed.setDate(today.getDate() + Math.max(daysToWed, 1));
+        wed.setHours(9, 0, 0, 0);
+        return wed.toISOString();
+      }
+      case 'next_week': {
+        const monday = new Date(endOfWeek);
+        monday.setDate(endOfWeek.getDate() + 1);
+        monday.setHours(9, 0, 0, 0);
+        return monday.toISOString();
+      }
+      case 'no_deadline':
+        return null;
+      default: return null;
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData('text/plain', taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingTaskId(taskId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingTaskId(null);
+    setDragOverCol(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, colKey: DeadlineColumnKey) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverCol !== colKey) setDragOverCol(colKey);
+  };
+
+  const handleDragLeave = (e: React.DragEvent, colKey: DeadlineColumnKey) => {
+    const relatedTarget = e.relatedTarget as Node | null;
+    const currentTarget = e.currentTarget as Node;
+    if (!currentTarget.contains(relatedTarget)) {
+      if (dragOverCol === colKey) setDragOverCol(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, colKey: DeadlineColumnKey) => {
+    e.preventDefault();
+    setDragOverCol(null);
+    setDraggingTaskId(null);
+    const taskId = e.dataTransfer.getData('text/plain');
+    if (!taskId) return;
+
+    if (colKey === 'no_deadline') {
+      onUpdateDeadline(taskId, null);
+    } else if (colKey !== 'overdue') {
+      const newDeadline = getDeadlineForColumn(colKey);
+      if (newDeadline) onUpdateDeadline(taskId, newDeadline);
+    }
+  };
+
+  const twoWeeksAgo = new Date(today);
+  twoWeeksAgo.setDate(today.getDate() - 14);
+  const twoWeeksAgoStr = localDateStr(twoWeeksAgo);
+
+  const columns: { key: DeadlineColumnKey; title: string; headerBg: string; tasks: Task[] }[] = [
     {
+      key: 'overdue',
       title: 'Quá hạn',
-      color: 'bg-red-500',
       headerBg: 'bg-red-500',
-      tasks: activeTasks.filter(t => t.due_date && t.due_date < todayStr),
+      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) >= twoWeeksAgoStr && toDateStr(t.due_date) < todayStr),
     },
     {
+      key: 'today',
       title: 'Hôm nay',
-      color: 'bg-amber-500',
       headerBg: 'bg-amber-500',
-      tasks: activeTasks.filter(t => t.due_date === todayStr),
+      tasks: activeTasks.filter(t => toDateStr(t.due_date) === todayStr),
     },
     {
+      key: 'this_week',
       title: 'Tuần này',
-      color: 'bg-emerald-500',
       headerBg: 'bg-emerald-500',
-      tasks: activeTasks.filter(t => t.due_date && t.due_date > todayStr && t.due_date <= endOfWeekStr),
+      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) > todayStr && toDateStr(t.due_date) <= endOfWeekStr),
     },
     {
+      key: 'next_week',
       title: 'Tuần sau',
-      color: 'bg-blue-500',
       headerBg: 'bg-blue-500',
-      tasks: activeTasks.filter(t => t.due_date && t.due_date > endOfWeekStr && t.due_date <= endOfNextWeekStr),
+      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) > endOfWeekStr && toDateStr(t.due_date) <= endOfNextWeekStr),
     },
     {
+      key: 'no_deadline',
       title: 'Không có deadline',
-      color: 'bg-slate-400',
       headerBg: 'bg-slate-400',
       tasks: activeTasks.filter(t => !t.due_date),
+    },
+    {
+      key: 'overdue_2w',
+      title: 'Quá hạn trên 2 tuần',
+      headerBg: 'bg-red-700',
+      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) < twoWeeksAgoStr),
     },
   ];
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: '60vh' }}>
+    <div className="flex gap-2 pb-4" style={{ minHeight: '60vh' }}>
       {columns.map(col => (
-        <div key={col.title} className="flex-1 min-w-[240px] sm:min-w-[260px] max-w-[340px]">
+        <div
+          key={col.key}
+          className={`flex-1 min-w-0 transition-all duration-200 ${
+            dragOverCol === col.key ? 'scale-[1.02]' : ''
+          }`}
+          onDragOver={(e) => handleDragOver(e, col.key)}
+          onDragLeave={(e) => handleDragLeave(e, col.key)}
+          onDrop={(e) => handleDrop(e, col.key)}
+        >
           {/* Column header */}
           <div className={`${col.headerBg} text-white text-sm font-bold px-3 py-2 rounded-t-xl flex items-center justify-between`}>
             <span>{col.title}</span>
             <span className="bg-white/20 text-xs px-2 py-0.5 rounded-full">{col.tasks.length}</span>
           </div>
 
-          {/* Cards */}
-          <div className="bg-slate-50 dark:bg-slate-800 rounded-b-xl p-2 space-y-2 min-h-[200px]">
+          {/* Cards + drop zone */}
+          <div className={`bg-slate-50 dark:bg-slate-800 rounded-b-xl p-2 space-y-2 min-h-[200px] transition-all duration-200 ${
+            dragOverCol === col.key
+              ? 'ring-2 ring-indigo-400 dark:ring-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/10'
+              : ''
+          }`}>
             {/* Quick add */}
             <div className="bg-white dark:bg-slate-900 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 px-3 py-1.5">
               <QuickTaskInput
-                onCreateTask={(title, tags) => onQuickCreate(title, tags, col.title === 'Hôm nay' ? todayStr : undefined)}
+                onCreateTask={(title, tags) => onQuickCreate(title, tags, getDeadlineForColumn(col.key) || undefined)}
                 placeholder="+ Thêm nhanh"
               />
             </div>
@@ -861,12 +1053,18 @@ const DeadlineView: React.FC<{
             {col.tasks.map(task => {
               const assignee = task.assignees?.[0] ? employees[task.assignees[0]] : null;
               const isOverdue = task.due_date && task.due_date < todayStr;
+              const isDragging = draggingTaskId === task.id;
 
               return (
                 <div
                   key={task.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, task.id)}
+                  onDragEnd={handleDragEnd}
                   onClick={() => onSelect(task.id)}
-                  className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-3 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-sm transition-all group"
+                  className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-3 cursor-grab hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-sm transition-all group active:cursor-grabbing ${
+                    isDragging ? 'opacity-40 scale-95' : ''
+                  }`}
                 >
                   <div className="flex items-start gap-2">
                     <button
@@ -897,20 +1095,57 @@ const DeadlineView: React.FC<{
                       )}
                     </div>
                   </div>
-                  {/* Footer: assignees */}
-                  {task.assignees.length > 0 && (
-                    <div className="flex items-center gap-1 mt-2 -ml-1">
-                      {task.assignees.slice(0, 3).map(id => {
+                  {/* Footer: assignees — clickable to change */}
+                  <div className="flex items-center gap-1 mt-2 -ml-1 relative" onClick={e => e.stopPropagation()}>
+                    {task.assignees.length > 0 ? (
+                      task.assignees.slice(0, 3).map(id => {
                         const emp = employees[id];
                         return emp ? (
-                          <PersonAvatar key={id} name={emp.name} avatar={emp.avatar} size={22} />
+                          <button
+                            key={id}
+                            onClick={() => setEditingAssigneeTaskId(editingAssigneeTaskId === task.id ? null : task.id)}
+                            className="cursor-pointer hover:ring-2 hover:ring-indigo-400 rounded-full transition-all"
+                            title="Bấm để đổi người phụ trách"
+                          >
+                            <PersonAvatar name={emp.name} avatar={emp.avatar} size={22} />
+                          </button>
                         ) : null;
-                      })}
-                    </div>
-                  )}
+                      })
+                    ) : (
+                      <button
+                        onClick={() => setEditingAssigneeTaskId(editingAssigneeTaskId === task.id ? null : task.id)}
+                        className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors flex items-center gap-0.5"
+                      >
+                        <Plus size={10} /> Giao việc
+                      </button>
+                    )}
+                    {editingAssigneeTaskId === task.id && (
+                      <PeoplePickerPopover
+                        currentIds={task.assignees || []}
+                        onChange={(newIds) => { onUpdateAssignee(task.id, newIds); setEditingAssigneeTaskId(null); }}
+                        onClose={() => setEditingAssigneeTaskId(null)}
+                        align="left"
+                        minSelections={0}
+                        singleSelect
+                      />
+                    )}
+                  </div>
                 </div>
               );
             })}
+
+            {/* Drop placeholder when empty and dragging */}
+            {col.tasks.length === 0 && !draggingTaskId && (
+              <div className="text-center py-8 text-slate-400 dark:text-slate-500">
+                <Clock size={28} className="mx-auto mb-2 opacity-50" />
+                <p className="text-xs">Chưa có công việc</p>
+              </div>
+            )}
+            {draggingTaskId && col.tasks.length === 0 && (
+              <div className="text-center py-8 text-slate-400 dark:text-slate-500 border-2 border-dashed border-indigo-300 dark:border-indigo-600 rounded-lg">
+                <p className="text-xs font-medium text-indigo-500 dark:text-indigo-400">Thả vào đây</p>
+              </div>
+            )}
           </div>
         </div>
       ))}
@@ -1047,6 +1282,125 @@ const BulkActionsBar: React.FC<{
 
 // ═══════════════════════════════════════
 // MAIN TASKS PAGE (Bitrix24-style)
+// ═══════════════════════════════════════
+// SEARCH WITH TAG AUTOCOMPLETE
+// ═══════════════════════════════════════
+const SearchWithTagAutocomplete: React.FC<{
+  value: string;
+  onChange: (val: string) => void;
+  onClear: () => void;
+}> = ({ value, onChange, onClear }) => {
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [loadedTags, setLoadedTags] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Load all tags on first focus
+  const loadTags = useCallback(async () => {
+    if (loadedTags) return;
+    try {
+      const tags = await TaskService.getAllTags();
+      setAllTags(tags);
+      setLoadedTags(true);
+    } catch { /* ignore */ }
+  }, [loadedTags]);
+
+  // Detect if user is typing a #tag pattern at cursor position
+  const getTagFragment = (): string | null => {
+    const input = inputRef.current;
+    if (!input) return null;
+    const pos = input.selectionStart ?? value.length;
+    const textBefore = value.substring(0, pos);
+    const match = textBefore.match(/#(\S*)$/);
+    return match ? match[1] : null;
+  };
+
+  const tagFragment = getTagFragment();
+  const suggestions = (tagFragment !== null && loadedTags)
+    ? allTags.filter(t =>
+        t.toLowerCase().includes(tagFragment.toLowerCase()) &&
+        !value.includes(`#${t}`)
+      ).slice(0, 8)
+    : [];
+
+  const handleSelectTag = (tag: string) => {
+    const input = inputRef.current;
+    if (!input) return;
+    const pos = input.selectionStart ?? value.length;
+    const textBefore = value.substring(0, pos);
+    const textAfter = value.substring(pos);
+    // Replace the #fragment with #tag
+    const newBefore = textBefore.replace(/#\S*$/, `#${tag}`);
+    const newValue = newBefore + (textAfter.startsWith(' ') ? textAfter : ' ' + textAfter);
+    onChange(newValue.trimEnd());
+    setShowSuggestions(false);
+    setTimeout(() => {
+      if (inputRef.current) {
+        const newPos = newBefore.length + 1;
+        inputRef.current.setSelectionRange(newPos, newPos);
+        inputRef.current.focus();
+      }
+    }, 0);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      <input
+        ref={inputRef}
+        autoFocus
+        value={value}
+        onChange={e => {
+          onChange(e.target.value);
+          setShowSuggestions(true);
+          loadTags();
+        }}
+        onFocus={() => { loadTags(); setShowSuggestions(true); }}
+        placeholder="Tìm kiếm... (gõ #tag để lọc)"
+        className="pl-9 pr-8 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+      />
+      {value && (
+        <button onClick={onClear} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
+          <X size={14} />
+        </button>
+      )}
+
+      {/* Tag suggestions dropdown */}
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700">
+            Tags gợi ý
+          </div>
+          {suggestions.map(tag => (
+            <button
+              key={tag}
+              onClick={() => handleSelectTag(tag)}
+              className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <Tag size={12} className="text-indigo-400 dark:text-indigo-500 flex-shrink-0" />
+              <span className="font-medium">#{tag}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════
+// TASKS PAGE (main)
 // ═══════════════════════════════════════
 interface TasksPageProps {
   onSelectTask?: (taskId: string) => void;
@@ -1186,27 +1540,27 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   const handleTogglePin = useCallback(async (taskId: string) => {
     try {
       const pinned = await TaskService.togglePin(taskId);
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, is_pinned: pinned } : t));
       toast.success(pinned ? 'Đã ghim công việc' : 'Đã bỏ ghim');
-      loadData();
     } catch (err: any) {
       toast.error('Lỗi: ' + (err.message || err));
     }
-  }, [loadData]);
+  }, []);
 
   const handleStartTask = useCallback(async (task: Task) => {
     try {
       const inProgressStatus = statuses.find(s => s.name?.includes('Đang') || s.name?.includes('In Progress'));
       if (inProgressStatus) {
         await TaskService.update(task.id, { status_id: inProgressStatus.id });
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status_id: inProgressStatus.id, status: inProgressStatus } : t));
         toast.success('Đã bắt đầu công việc');
-        loadData();
       } else {
         toast.error('Không tìm thấy trạng thái "Đang thực hiện"');
       }
     } catch (err: any) {
       toast.error('Lỗi: ' + (err.message || err));
     }
-  }, [statuses, loadData]);
+  }, [statuses]);
 
   const handleTagClick = useCallback((tag: string) => {
     setSearchQuery(`#${tag}`);
@@ -1229,54 +1583,69 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
     }
   }, [visibilityContext.userId, loadData]);
 
-  // Inline update handlers
+  // Inline update handlers — optimistic: update local state immediately, no full reload
   const handleUpdateStatus = useCallback(async (taskId: string, statusId: string) => {
+    const status = statuses.find(s => s.id === statusId);
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status_id: statusId, status: status || t.status } : t));
     try {
       await TaskService.update(taskId, { status_id: statusId });
-      toast.success('Đã cập nhật trạng thái');
-      loadData();
     } catch (err: any) {
       toast.error('Lỗi: ' + (err.message || err));
+      loadData(); // rollback on error
     }
-  }, [loadData]);
+  }, [statuses, loadData]);
 
   const handleUpdateDeadline = useCallback(async (taskId: string, deadline: string | null) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, due_date: deadline || undefined } : t));
     try {
-      await TaskService.update(taskId, { due_date: deadline || undefined });
-      toast.success(deadline ? 'Đã cập nhật deadline' : 'Đã xóa deadline');
-      loadData();
+      await TaskService.update(taskId, { due_date: deadline ?? null } as any);
     } catch (err: any) {
       toast.error('Lỗi: ' + (err.message || err));
+      loadData();
     }
   }, [loadData]);
 
   const handleUpdateAssignee = useCallback(async (taskId: string, assigneeIds: string[]) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, assignees: assigneeIds } : t));
+    // Ensure new assignee info is in the employees map
+    const missingIds = assigneeIds.filter(id => !employees[id]);
+    if (missingIds.length > 0) {
+      try {
+        const { data: empData } = await dataClient.from('employees').select('id, name, avatar').in('id', missingIds);
+        if (empData) {
+          setEmployees(prev => {
+            const next = { ...prev };
+            empData.forEach((e: any) => { next[e.id] = { name: e.name || e.id.substring(0, 8), avatar: e.avatar }; });
+            return next;
+          });
+        }
+      } catch { /* ignore */ }
+    }
     try {
       await TaskService.update(taskId, { assignees: assigneeIds });
-      toast.success('Đã cập nhật người thực hiện');
-      loadData();
     } catch (err: any) {
       toast.error('Lỗi: ' + (err.message || err));
+      loadData();
     }
-  }, [loadData]);
+  }, [employees, loadData]);
 
   const handleUpdateProject = useCallback(async (taskId: string, projectId: string | null) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, project_id: projectId || undefined } : t));
     try {
       await TaskService.update(taskId, { project_id: projectId || undefined });
-      toast.success(projectId ? 'Đã gắn liên kết' : 'Đã bỏ liên kết');
-      loadData();
     } catch (err: any) {
       toast.error('Lỗi: ' + (err.message || err));
+      loadData();
     }
   }, [loadData]);
 
   const handleUpdateTags = useCallback(async (taskId: string, tags: string[]) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, tags } : t));
     try {
       await TaskService.update(taskId, { tags });
-      toast.success('Đã cập nhật tags');
-      loadData();
     } catch (err: any) {
       toast.error('Lỗi: ' + (err.message || err));
+      loadData();
     }
   }, [loadData]);
 
@@ -1380,16 +1749,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
             <Plus size={16} /> CÔNG VIỆC MỚI
           </button>
 
-          {/* Filter chips */}
-          {filterProjectId !== 'all' && (
-            <span className="flex items-center gap-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-3 py-1.5 rounded-full text-xs font-semibold">
-              <FolderKanban size={12} />
-              {projects.find(p => p.id === filterProjectId)?.name || 'Dự án'}
-              <button onClick={() => setFilterProjectId('all')} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer">
-                <X size={12} />
-              </button>
-            </span>
-          )}
+
 
           {/* Search toggle */}
           <button
@@ -1400,37 +1760,15 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
           </button>
 
           {showSearch && (
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                autoFocus
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Tìm kiếm..."
-                className="pl-9 pr-8 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-56"
-              />
-              {searchQuery && (
-                <button onClick={() => { setSearchQuery(''); setShowSearch(false); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
-                  <X size={14} />
-                </button>
-              )}
-            </div>
+            <SearchWithTagAutocomplete
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onClear={() => { setSearchQuery(''); setShowSearch(false); }}
+            />
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Project filter */}
-          <select
-            value={filterProjectId}
-            onChange={e => setFilterProjectId(e.target.value)}
-            className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[180px] truncate cursor-pointer"
-          >
-            <option value="all">Tất cả dự án</option>
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-
           {/* Template manager */}
           <button
             onClick={() => {
@@ -1513,6 +1851,8 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
               onSelect={handleSelectTask}
               onToggleComplete={handleToggleComplete}
               onQuickCreate={handleQuickCreate}
+              onUpdateDeadline={handleUpdateDeadline}
+              onUpdateAssignee={handleUpdateAssignee}
             />
           )}
           {viewMode === 'planner' && (

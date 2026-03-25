@@ -2,6 +2,16 @@
 // All task-related types for the task management module
 
 export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low' | 'none';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type ApprovalMode = 'all' | 'any';
+
+// Multi-level approval step
+export interface ApprovalStep {
+  level: number;           // 1, 2, 3...
+  label: string;           // "Trưởng phòng", "Ban Giám đốc"
+  approver_ids: string[];  // employee IDs
+  mode: ApprovalMode;      // 'all' = tất cả phải duyệt, 'any' = chỉ cần 1
+}
 
 // Bitrix24-style role filter tabs
 export type TaskRoleFilter = 'all' | 'ongoing' | 'assisting' | 'set_by_me' | 'following' | 'supervising';
@@ -60,6 +70,12 @@ export interface Task {
   action_config?: Record<string, any>;
   action_label?: string;
   completion_trigger?: string;
+
+  // Approval
+  approval_status?: ApprovalStatus;
+  approval_parent_id?: string;
+  approval_mode: ApprovalMode;
+  approval_comment?: string;
 
   // Metadata
   project_id?: string;
@@ -152,6 +168,10 @@ export interface CreateTaskInput {
   completion_trigger?: string;
   created_by?: string;
   project_id?: string;
+  approval_status?: ApprovalStatus;
+  approval_parent_id?: string;
+  approval_mode?: ApprovalMode;
+  approval_comment?: string;
 }
 
 export type UpdateTaskInput = Partial<Omit<Task, 'id' | 'created_at' | 'updated_at'>>;

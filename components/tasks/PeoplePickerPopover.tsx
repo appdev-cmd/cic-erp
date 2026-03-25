@@ -1,5 +1,7 @@
 // PeoplePickerPopover — Search & assign people to task roles
-import React, { useState, useEffect, useRef } from 'react';
+// Uses a React Portal to avoid parent overflow clipping
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X, Check } from 'lucide-react';
 import { dataClient } from '../../lib/dataClient';
 
@@ -23,6 +25,8 @@ interface PeoplePickerPopoverProps {
   minSelections?: number;
   /** Whether to render inline instead of absolute positioned (prevents clipping in overflow containers) */
   inline?: boolean;
+  /** Single-select mode: clicking a person replaces selection and auto-closes */
+  singleSelect?: boolean;
 }
 
 const PeoplePickerPopover: React.FC<PeoplePickerPopoverProps> = ({
@@ -32,12 +36,14 @@ const PeoplePickerPopover: React.FC<PeoplePickerPopoverProps> = ({
   align = 'right',
   minSelections = 0,
   inline = false,
+  singleSelect = false,
 }) => {
   const [search, setSearch] = useState('');
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [verticalPos, setVerticalPos] = useState<'top' | 'bottom'>('bottom');
   const ref = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
 
   // Click outside to close
   useEffect(() => {
@@ -75,18 +81,71 @@ const PeoplePickerPopover: React.FC<PeoplePickerPopoverProps> = ({
     (p.position || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  // Check position after render
-  useEffect(() => {
-    if (ref.current) {
-      const rect = ref.current.getBoundingClientRect();
-      const isOffBottom = rect.bottom > window.innerHeight - 20;
-      if (isOffBottom) {
-        setVerticalPos('top');
-      }
+  // Calculate position for portal-based rendering
+  const updatePosition = useCallback(() => {
+    if (inline || !anchorRef.current) return;
+    const anchorRect = anchorRef.current.getBoundingClientRect();
+    const popoverWidth = 400; // w-[400px]
+    const popoverMaxHeight = 440; // max-h-96 + search bar
+    const margin = 4;
+    const edgePadding = 8;
+
+    // Vertical: prefer below, flip to above if not enough space
+    const spaceBelow = window.innerHeight - anchorRect.bottom - margin;
+    const spaceAbove = anchorRect.top - margin;
+    const goUp = spaceBelow < popoverMaxHeight && spaceAbove > spaceBelow;
+
+    // Horizontal: try to align to start of anchor, clamp to viewport
+    let left: number;
+    if (align === 'right') {
+      // Align right edge of popover to right edge of anchor
+      left = anchorRect.right - popoverWidth;
+    } else {
+      // Align left edge of popover to left edge of anchor
+      left = anchorRect.left;
     }
-  }, [filtered.length]);
+
+    // Clamp to viewport
+    if (left + popoverWidth > window.innerWidth - edgePadding) {
+      left = window.innerWidth - popoverWidth - edgePadding;
+    }
+    if (left < edgePadding) {
+      left = edgePadding;
+    }
+
+    setPopoverStyle({
+      position: 'fixed',
+      top: goUp ? undefined : anchorRect.bottom + margin,
+      bottom: goUp ? window.innerHeight - anchorRect.top + margin : undefined,
+      left,
+      width: popoverWidth,
+      zIndex: 9999,
+    });
+  }, [align, inline]);
+
+  useEffect(() => {
+    updatePosition();
+  }, [updatePosition, filtered.length]);
+
+  // Reposition on scroll / resize
+  useEffect(() => {
+    if (inline) return;
+    const handleScrollResize = () => updatePosition();
+    window.addEventListener('scroll', handleScrollResize, true);
+    window.addEventListener('resize', handleScrollResize);
+    return () => {
+      window.removeEventListener('scroll', handleScrollResize, true);
+      window.removeEventListener('resize', handleScrollResize);
+    };
+  }, [inline, updatePosition]);
 
   const togglePerson = (id: string) => {
+    if (singleSelect) {
+      // Single-select: replace and close
+      onChange([id]);
+      onClose();
+      return;
+    }
     if (currentIds.includes(id)) {
       if (currentIds.length <= minSelections) {
         alert(`Bắt buộc phải chọn ít nhất ${minSelections} người`);
@@ -98,10 +157,11 @@ const PeoplePickerPopover: React.FC<PeoplePickerPopoverProps> = ({
     }
   };
 
-  return (
+  const popoverContent = (
     <div
       ref={ref}
-      className={`${inline ? 'mt-2 w-full relative' : `absolute ${align === 'right' ? 'right-0' : 'left-0'} ${verticalPos === 'bottom' ? 'top-full mt-1' : 'bottom-full mb-1'} z-50 w-72`} bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden`}
+      className={`${inline ? 'mt-2 w-full relative' : ''} bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden`}
+      style={inline ? undefined : popoverStyle}
     >
       {/* Search input */}
       <div className="p-2 border-b border-slate-200 dark:border-slate-700">
@@ -123,7 +183,7 @@ const PeoplePickerPopover: React.FC<PeoplePickerPopoverProps> = ({
       </div>
 
       {/* Profile list */}
-      <div className="max-h-56 overflow-y-auto">
+      <div className="max-h-96 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-6">
             <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -166,6 +226,19 @@ const PeoplePickerPopover: React.FC<PeoplePickerPopoverProps> = ({
         )}
       </div>
     </div>
+  );
+
+  // For inline mode, render directly without portal
+  if (inline) {
+    return popoverContent;
+  }
+
+  // For non-inline, render an invisible anchor + portal
+  return (
+    <>
+      <div ref={anchorRef} className="absolute top-full left-0 w-0 h-0" />
+      {createPortal(popoverContent, document.body)}
+    </>
   );
 };
 

@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
-import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Check, Clock, AlertCircle, FileText, CheckCircle, PackageCheck, X, RotateCcw } from 'lucide-react';
+import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Check, Clock, AlertCircle, AlertTriangle, FileText, CheckCircle, PackageCheck, X, RotateCcw, Hash } from 'lucide-react';
 import { ContractService, EmployeeService, UnitService } from '../services';
+import { ContractTagService } from '../services/contractTagService';
 import { ContractStatus, Unit, Contract, Employee, UserRole, ContractClassification } from '../types';
 import { CONTRACT_STATUS_LABELS } from '../constants';
 import { useImpersonation } from '../contexts/ImpersonationContext';
@@ -56,7 +57,14 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [searchTerm, setSearchTerm] = useState(savedFilters.searchTerm || '');
   const [salespersonFilter, setSalespersonFilter] = useState<string>(savedFilters.salespersonFilter || 'All');
   const [classificationFilter, setClassificationFilter] = useState<ContractClassification | 'All'>(savedFilters.classificationFilter || 'All');
+  const [warningFilter, setWarningFilter] = useState<'none' | 'overdueAdvance' | 'overduePayment' | 'acceptedNoInvoice'>('none');
   const [debouncedSearch, setDebouncedSearch] = useState(savedFilters.searchTerm || '');
+
+  // Personal tag filter
+  const [tagFilter, setTagFilter] = useState<string>('All');
+  const [allUserTags, setAllUserTags] = useState<string[]>([]);
+  const [tagFilterIds, setTagFilterIds] = useState<string[] | undefined>(undefined);
+  const [contractTagsMap, setContractTagsMap] = useState<Map<string, string[]>>(new Map());
 
   // Helper: compute dateFrom/dateTo from period + year (pure function)
   const computeDatesFromPeriodYear = (period: string, year: string): { from: string; to: string } => {
@@ -374,6 +382,24 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     fetchLookups();
   }, []);
 
+  // Fetch user's personal tags for filter dropdown
+  useEffect(() => {
+    ContractTagService.getAllUserTags()
+      .then(setAllUserTags)
+      .catch(() => {});
+  }, []);
+
+  // When tag filter changes, fetch matching contract IDs
+  useEffect(() => {
+    if (tagFilter === 'All') {
+      setTagFilterIds(undefined);
+      return;
+    }
+    ContractTagService.getContractIdsByTag(tagFilter)
+      .then(ids => setTagFilterIds(ids.length > 0 ? ids : ['__no_match__']))
+      .catch(() => setTagFilterIds(undefined));
+  }, [tagFilter]);
+
   // Compute effective unit ID for fetching
   const effectiveUnitId = useMemo(() => {
     const GLOBAL_VIEW_ROLES: UserRole[] = ['Legal', 'Accountant', 'ChiefAccountant', 'Leadership', 'Admin'];
@@ -505,7 +531,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       classification: classificationFilter !== 'All' ? classificationFilter : undefined,
       sortBy: sortBy || undefined,
       sortDir: sortBy ? sortDir : undefined,
-      matchingCustomerIds
+      matchingCustomerIds,
+      filterByIds: tagFilterIds
     };
 
     const [listRes, statsRes] = await Promise.all([
@@ -520,7 +547,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       hasMore: listRes.data.length >= PAGE_SIZE,
       totalCount: listRes.count
     };
-  }, [debouncedSearch, statusFilter, effectiveUnitId, periodFilter, yearFilter, classificationFilter, sortBy, sortDir, matchingCustomerIds]);
+  }, [debouncedSearch, statusFilter, effectiveUnitId, periodFilter, yearFilter, classificationFilter, sortBy, sortDir, matchingCustomerIds, tagFilterIds]);
 
   const {
     items: contracts,
@@ -535,8 +562,17 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   } = useInfiniteScroll<Contract>({
     fetchFn: fetchContractPage,
     pageSize: PAGE_SIZE,
-    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, classificationFilter, effectiveUnitId, periodFilter, yearFilter, sortBy, sortDir, matchingCustomerIds]
+    resetDeps: [debouncedSearch, statusFilter, salespersonFilter, classificationFilter, effectiveUnitId, periodFilter, yearFilter, sortBy, sortDir, matchingCustomerIds, tagFilterIds]
   });
+
+  // Fetch tags for current page of contracts (for inline display)
+  useEffect(() => {
+    if (contracts.length === 0) return;
+    const ids = contracts.map(c => c.id);
+    ContractTagService.getTagsForContracts(ids)
+      .then(setContractTagsMap)
+      .catch(() => {});
+  }, [contracts]);
 
   // Auto-refresh list when contracts are created, updated, or deleted
   useEffect(() => {
@@ -576,6 +612,29 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const formatCompactNumber = (number: number) => {
     return new Intl.NumberFormat('vi-VN', { notation: "compact", maximumFractionDigits: 1 }).format(number);
   };
+
+  // ── Warning filter: đếm số cảnh báo từ loaded contracts ──
+  const warningCounts = useMemo(() => {
+    let overdueAdvance = 0, overduePayment = 0, acceptedNoInvoice = 0;
+    contracts.forEach(c => {
+      if (c.warnings?.isOverdueAdvance) overdueAdvance++;
+      if (c.warnings?.isOverduePayment) overduePayment++;
+      if (c.warnings?.isAcceptedNoInvoice) acceptedNoInvoice++;
+    });
+    return { overdueAdvance, overduePayment, acceptedNoInvoice };
+  }, [contracts]);
+
+  const hasAnyWarning = warningCounts.overdueAdvance > 0 || warningCounts.overduePayment > 0 || warningCounts.acceptedNoInvoice > 0;
+
+  const displayContracts = useMemo(() => {
+    if (warningFilter === 'none') return contracts;
+    return contracts.filter(c => {
+      if (warningFilter === 'overdueAdvance') return c.warnings?.isOverdueAdvance;
+      if (warningFilter === 'overduePayment') return c.warnings?.isOverduePayment;
+      if (warningFilter === 'acceptedNoInvoice') return c.warnings?.isAcceptedNoInvoice;
+      return true;
+    });
+  }, [contracts, warningFilter]);
 
 
   return (
@@ -833,6 +892,32 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </select>
         </div>
 
+        {/* Personal Tag Filter */}
+        {allUserTags.length > 0 && (
+          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
+            <Hash size={18} className="text-slate-500" />
+            <select
+              className="bg-transparent py-3 text-sm font-black text-slate-900 dark:text-slate-100 outline-none max-w-[150px]"
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+            >
+              <option value="All">Tất cả tags</option>
+              {allUserTags.map(tag => (
+                <option key={tag} value={tag}>#{tag}</option>
+              ))}
+            </select>
+            {tagFilter !== 'All' && (
+              <button
+                onClick={() => setTagFilter('All')}
+                className="p-0.5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                title="Xóa bộ lọc tag"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Salesperson Filter */}
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
           <User size={18} className="text-slate-500" />
@@ -874,6 +959,76 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </button>
         )}
       </div>
+
+      {/* WARNING FILTER CHIPS — chỉ hiện khi có cảnh báo */}
+      {hasAnyWarning && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Cảnh báo:</span>
+          {warningCounts.overdueAdvance > 0 && (
+            <button
+              onClick={() => setWarningFilter(warningFilter === 'overdueAdvance' ? 'none' : 'overdueAdvance')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
+                warningFilter === 'overdueAdvance'
+                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-400 dark:border-amber-600 ring-2 ring-amber-500/40 shadow-sm'
+                  : 'bg-amber-50 dark:bg-amber-900/15 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700'
+              }`}
+            >
+              <AlertTriangle size={13} />
+              QH tạm ứng
+              <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                warningFilter === 'overdueAdvance'
+                  ? 'bg-amber-500 text-white'
+                  : 'bg-amber-200 dark:bg-amber-800 text-amber-700 dark:text-amber-300'
+              }`}>{warningCounts.overdueAdvance}</span>
+            </button>
+          )}
+          {warningCounts.overduePayment > 0 && (
+            <button
+              onClick={() => setWarningFilter(warningFilter === 'overduePayment' ? 'none' : 'overduePayment')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
+                warningFilter === 'overduePayment'
+                  ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-400 dark:border-red-600 ring-2 ring-red-500/40 shadow-sm'
+                  : 'bg-red-50 dark:bg-red-900/15 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 hover:border-red-300 dark:hover:border-red-700'
+              }`}
+            >
+              <AlertCircle size={13} />
+              QH thanh toán
+              <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                warningFilter === 'overduePayment'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-300'
+              }`}>{warningCounts.overduePayment}</span>
+            </button>
+          )}
+          {warningCounts.acceptedNoInvoice > 0 && (
+            <button
+              onClick={() => setWarningFilter(warningFilter === 'acceptedNoInvoice' ? 'none' : 'acceptedNoInvoice')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
+                warningFilter === 'acceptedNoInvoice'
+                  ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-400 dark:border-purple-600 ring-2 ring-purple-500/40 shadow-sm'
+                  : 'bg-purple-50 dark:bg-purple-900/15 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/30 hover:border-purple-300 dark:hover:border-purple-700'
+              }`}
+            >
+              <FileText size={13} />
+              Chưa xuất HĐ
+              <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                warningFilter === 'acceptedNoInvoice'
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300'
+              }`}>{warningCounts.acceptedNoInvoice}</span>
+            </button>
+          )}
+          {warningFilter !== 'none' && (
+            <button
+              onClick={() => setWarningFilter('none')}
+              className="p-1.5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
+              title="Bỏ lọc cảnh báo"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* TABLE */}
       <div className={`bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)] ${isResizing ? 'select-none' : ''}`}>
@@ -976,7 +1131,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   Không tìm thấy hợp đồng nào
                 </td>
               </tr>
-            ) : contracts.map((contract, index) => {
+            ) : displayContracts.map((contract, index) => {
               // Allocation info (tagged by ContractService.list for collaborative contracts)
               const allocationRole = (contract as any)._allocationRole as 'lead' | 'support' | undefined;
               const allocationPct = (contract as any)._allocationPct as number | undefined;
@@ -1128,6 +1283,19 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                         </p>
                       )}
                     </div>
+                    {/* Personal tags inline */}
+                    {contractTagsMap.get(contract.id)?.length ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {contractTagsMap.get(contract.id)!.slice(0, 3).map(tag => (
+                          <span key={tag} className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[8px] font-bold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                            <Hash size={7} className="opacity-60" />{tag}
+                          </span>
+                        ))}
+                        {(contractTagsMap.get(contract.id)?.length || 0) > 3 && (
+                          <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500">+{(contractTagsMap.get(contract.id)?.length || 0) - 3}</span>
+                        )}
+                      </div>
+                    ) : null}
                   </td>
                   {/* Ký kết — hiển thị giá trị phân bổ (ĐV% × NV%), hover xem chi tiết */}
                   <td className="px-1.5 py-2 text-right overflow-hidden">
@@ -1342,7 +1510,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
         <div className="flex items-center justify-between">
           <div className="text-sm font-bold text-slate-500">
-            Hiển thị {contracts.length} / {totalCount} kết quả
+            Hiển thị {displayContracts.length}{warningFilter !== 'none' ? ` (lọc từ ${contracts.length})` : ''} / {totalCount} kết quả
           </div>
           <button
             onClick={resetWidths}

@@ -3,7 +3,7 @@ import {
   CheckSquare, X, Calendar, Clock, Tag, Link2, MessageSquare,
   AlertTriangle, Pin, User, Edit3, Save, ExternalLink,
   Play, CheckCircle2, Plus, Trash2, History,
-  Eye, Crown, Users, ShieldCheck
+  Eye, Crown, Users, ShieldCheck, Send, XCircle, RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskService } from '../../services/taskService';
@@ -16,7 +16,7 @@ import { DiscussionService, type Discussion } from '../../services/discussionSer
 import PeoplePickerPopover from './PeoplePickerPopover';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
-import type { Task, TaskStatus, TaskLink, TaskPriority } from '../../types/taskTypes';
+import type { Task, TaskStatus, TaskLink, TaskPriority, ApprovalMode, ApprovalStep } from '../../types/taskTypes';
 import { SlidePanelHeader } from '../ui/SlidePanelHeader';
 
 // ═══════════════════════════════════════
@@ -145,6 +145,102 @@ const PersonBadge: React.FC<{ person: PersonInfo; onRemove?: () => void }> = ({ 
     )}
   </div>
 );
+
+// ═══════════════════════════════════════
+// TAG INPUT WITH AUTOCOMPLETE
+// ═══════════════════════════════════════
+const TagInputWithAutocomplete: React.FC<{
+  currentTags: string[];
+  onAdd: (tag: string) => void;
+}> = ({ currentTags, onAdd }) => {
+  const [input, setInput] = useState('');
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [focused, setFocused] = useState(false);
+  const [loadedOnce, setLoadedOnce] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Load all tags on first focus
+  const loadTags = useCallback(async () => {
+    if (loadedOnce) return;
+    try {
+      const tags = await import('../../services/taskService').then(m => m.TaskService.getAllTags());
+      setAllTags(tags);
+      setLoadedOnce(true);
+    } catch { /* ignore */ }
+  }, [loadedOnce]);
+
+  // Filter suggestions: match input, exclude already-added tags
+  const suggestions = input.trim()
+    ? allTags.filter(t =>
+        t.toLowerCase().includes(input.trim().toLowerCase()) &&
+        !currentTags.includes(t)
+      ).slice(0, 8)
+    : [];
+
+  const handleAdd = (tag: string) => {
+    const cleaned = tag.trim().replace(/^#/, '').toLowerCase().replace(/\s+/g, '_');
+    if (cleaned && !currentTags.includes(cleaned)) {
+      onAdd(cleaned);
+    }
+    setInput('');
+    inputRef.current?.focus();
+  };
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <div className="flex items-center gap-1.5">
+        <Tag size={12} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onFocus={() => { setFocused(true); loadTags(); }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && input.trim()) {
+              e.preventDefault();
+              handleAdd(input);
+            }
+            if (e.key === 'Escape') {
+              setFocused(false);
+              setInput('');
+            }
+          }}
+          placeholder="Thêm tag... (gõ rồi nhấn Enter)"
+          className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-transparent text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-400 dark:focus:border-indigo-500 transition-colors"
+        />
+      </div>
+
+      {/* Autocomplete dropdown */}
+      {focused && suggestions.length > 0 && (
+        <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+          {suggestions.map(tag => (
+            <button
+              key={tag}
+              onClick={() => handleAdd(tag)}
+              className="w-full text-left px-3 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <Tag size={10} className="text-slate-400 dark:text-slate-500" />
+              <span className="font-medium">{tag}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ═══════════════════════════════════════
 // CHECKLIST
@@ -295,6 +391,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   // People picker popover state
   const [openPicker, setOpenPicker] = useState<'assignees' | 'supporters' | 'watchers' | 'approvers' | null>(null);
 
+  // Approval workflow state
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [approvalComment, setApprovalComment] = useState('');
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [approvalLoading, setApprovalLoading] = useState(false);
+  const [editingStepLevel, setEditingStepLevel] = useState<number | null>(null);
+
   // Add Link state
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [selectedLinkType, setSelectedLinkType] = useState<string>('');
@@ -308,21 +412,149 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
     }
   }, [bottomTab, isAddingLink, registryOptions.length]);
 
+  // Entity type → DB config with rich display
+  const ENTITY_SEARCH_CONFIG: Record<string, {
+    table: string;
+    select: string;
+    searchCol: string;
+    format: (item: any) => { id: string; name: string; subText?: string };
+  }> = {
+    task: {
+      table: 'tasks',
+      select: 'id, title, priority, due_date, status_id',
+      searchCol: 'title',
+      format: (item) => ({
+        id: item.id,
+        name: item.title,
+        subText: [
+          item.priority && item.priority !== 'none' ? `Ưu tiên: ${item.priority}` : null,
+          item.due_date ? `Deadline: ${new Date(item.due_date).toLocaleDateString('vi-VN')}` : null,
+        ].filter(Boolean).join(' · ') || undefined,
+      }),
+    },
+    contract: {
+      table: 'contracts',
+      select: 'id, title, contract_code, party_a, value, status',
+      searchCol: 'title',
+      format: (item) => ({
+        id: item.id,
+        name: `${item.contract_code || ''} — ${item.title || ''}`.replace(/^\s*—\s*/, ''),
+        subText: [
+          item.party_a ? `KH: ${item.party_a}` : null,
+          item.value ? `GT: ${Number(item.value).toLocaleString('vi-VN')} đ` : null,
+          item.status || null,
+        ].filter(Boolean).join(' · ') || undefined,
+      }),
+    },
+    customer: {
+      table: 'customers',
+      select: 'id, name, short_name, address, phone',
+      searchCol: 'name',
+      format: (item) => ({
+        id: item.id,
+        name: item.name,
+        subText: [
+          item.short_name || null,
+          item.address || null,
+          item.phone || null,
+        ].filter(Boolean).join(' · ') || undefined,
+      }),
+    },
+    employee: {
+      table: 'employees',
+      select: 'id, name, position, department',
+      searchCol: 'name',
+      format: (item) => ({
+        id: item.id,
+        name: item.name,
+        subText: [item.position, item.department].filter(Boolean).join(' — ') || undefined,
+      }),
+    },
+    unit: {
+      table: 'units',
+      select: 'id, name, code',
+      searchCol: 'name',
+      format: (item) => ({
+        id: item.id,
+        name: item.name,
+        subText: item.code || undefined,
+      }),
+    },
+    pakd: {
+      table: 'contract_business_plans',
+      select: 'id, ten_cong_trinh, contract_id',
+      searchCol: 'ten_cong_trinh',
+      format: (item) => ({
+        id: item.id,
+        name: item.ten_cong_trinh || item.id,
+      }),
+    },
+    receipt: {
+      table: 'payments',
+      select: 'id, description, amount, due_date, payment_type',
+      searchCol: 'description',
+      format: (item) => ({
+        id: item.id,
+        name: item.description || `Phiếu #${item.id.substring(0, 8)}`,
+        subText: [
+          item.payment_type || null,
+          item.amount ? `${Number(item.amount).toLocaleString('vi-VN')} đ` : null,
+          item.due_date ? `Hạn: ${new Date(item.due_date).toLocaleDateString('vi-VN')}` : null,
+        ].filter(Boolean).join(' · ') || undefined,
+      }),
+    },
+    product: {
+      table: 'products',
+      select: 'id, name, code, unit_price',
+      searchCol: 'name',
+      format: (item) => ({
+        id: item.id,
+        name: item.code ? `${item.code} — ${item.name}` : item.name,
+        subText: item.unit_price ? `Đơn giá: ${Number(item.unit_price).toLocaleString('vi-VN')} đ` : undefined,
+      }),
+    },
+  };
+
   const searchEntity = useCallback(async (query: string) => {
     if (!selectedLinkType || query.length < 2) return [];
     try {
       const { dataClient } = await import('../../lib/dataClient');
-      const { data } = await dataClient.from(selectedLinkType).select().limit(50);
+      const config = ENTITY_SEARCH_CONFIG[selectedLinkType];
+      if (!config) {
+        // Fallback: try entity_type directly as table name
+        const { data } = await dataClient.from(selectedLinkType).select('*').limit(50);
+        if (!data) return [];
+        return data.filter((item: any) => {
+          const text = (item.name || item.title || item.contract_name || item.full_name || item.id || '').toLowerCase();
+          return text.includes(query.toLowerCase());
+        }).map((item: any) => ({
+          id: item.id,
+          name: item.name || item.title || item.contract_name || item.full_name || item.id,
+        }));
+      }
+
+      // For contracts, also search by contract_code
+      let data: any[] | null = null;
+      if (selectedLinkType === 'contract') {
+        const { data: d } = await dataClient
+          .from(config.table)
+          .select(config.select)
+          .or(`title.ilike.%${query}%,contract_code.ilike.%${query}%,party_a.ilike.%${query}%`)
+          .limit(20);
+        data = d;
+      } else {
+        const { data: d } = await dataClient
+          .from(config.table)
+          .select(config.select)
+          .ilike(config.searchCol, `%${query}%`)
+          .limit(20);
+        data = d;
+      }
+
       if (!data) return [];
-      
-      return data.filter((item: any) => {
-        const text = (item.name || item.title || item.contract_name || item.full_name || item.id).toLowerCase();
-        return text.includes(query.toLowerCase());
-      }).map((item: any) => ({
-        id: item.id,
-        name: item.name || item.title || item.contract_name || item.full_name || item.id,
-      }));
-    } catch {
+      return data.map(config.format);
+    } catch (err) {
+      console.error('searchEntity error:', err);
       return [];
     }
   }, [selectedLinkType]);
@@ -428,6 +660,12 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
       taskData?.watchers?.forEach((id: string) => ids.add(id));
       taskData?.supporters?.forEach((id: string) => ids.add(id));
       taskData?.approvers?.forEach((id: string) => ids.add(id));
+      // Also collect approver IDs from multi-level approval_steps
+      if (taskData?.custom_fields?.approval_steps) {
+        for (const step of taskData.custom_fields.approval_steps) {
+          step.approver_ids?.forEach((id: string) => ids.add(id));
+        }
+      }
 
       if (ids.size > 0) {
         try {
@@ -466,6 +704,28 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
     // Also update the local task state optimistically for instant UI feedback
     setTask(prev => prev ? { ...prev, [field]: value } : prev);
   };
+
+  // ─── Fetch & cache person info for IDs not yet in people map ───
+  const ensurePeopleLoaded = useCallback(async (ids: string[]) => {
+    const missing = ids.filter(id => !people[id] || people[id].name.includes('...'));
+    if (missing.length === 0) return;
+    try {
+      const { dataClient } = await import('../../lib/dataClient');
+      const { data: employees } = await dataClient
+        .from('employees')
+        .select('id, name, avatar, position')
+        .in('id', missing);
+      if (employees && employees.length > 0) {
+        setPeople(prev => {
+          const updated = { ...prev };
+          for (const e of employees) {
+            updated[e.id] = { id: e.id, name: e.name || e.id.substring(0, 8) + '...', avatar: e.avatar || undefined, position: e.position || undefined };
+          }
+          return updated;
+        });
+      }
+    } catch { /* fallback: will show ID */ }
+  }, [people]);
 
   // ─── Generate descriptive history log for a field change ───
   const generateLogDetail = async (field: string, oldVal: any, newVal: any): Promise<string | null> => {
@@ -651,15 +911,16 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
   const handleToggleComplete = async () => {
     if (!task) return;
+    // If task has approvers and user is NOT an approver → should use submitForApproval instead
     if (task.approvers?.length > 0 && currentUserId && !task.approvers.includes(currentUserId) && !task.status?.is_done) {
-      toast.error('Chỉ người phê duyệt mới có quyền xác nhận hoàn thành');
+      toast.error('Task có người phê duyệt. Vui lòng bấm "Gửi phê duyệt" thay vì "Hoàn thành".');
       return;
     }
     try {
       if (task.status?.is_done) {
         const defaultId = await TaskService.getDefaultStatusId();
         if (defaultId) {
-          await TaskService.update(task.id, { status_id: defaultId, completed_at: undefined, completed_by: undefined });
+          await TaskService.update(task.id, { status_id: defaultId, completed_at: undefined, completed_by: undefined, approval_status: undefined } as any);
           if (currentUserId) {
             try {
               const oldVal = task.status_id;
@@ -701,6 +962,59 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
       onUpdate?.();
     } catch (err: any) {
       toast.error('Lỗi: ' + (err.message || err));
+    }
+  };
+
+  // ─── Approval Workflow Handlers ───
+  const handleSubmitForApproval = async () => {
+    if (!task || !currentUserId) return;
+    setApprovalLoading(true);
+    try {
+      await TaskService.submitForApproval(task.id, currentUserId);
+      toast.success('Đã gửi yêu cầu phê duyệt');
+      setPendingChanges({});
+      loadTask();
+      onUpdate?.();
+    } catch (err: any) {
+      toast.error('Lỗi: ' + (err.message || err));
+    } finally {
+      setApprovalLoading(false);
+    }
+  };
+
+  const handleApproveTask = async () => {
+    if (!task || !currentUserId) return;
+    setApprovalLoading(true);
+    try {
+      await TaskService.approveTask(task.id, currentUserId, approvalComment || undefined);
+      toast.success('✅ Đã phê duyệt thành công');
+      setShowApproveDialog(false);
+      setApprovalComment('');
+      setPendingChanges({});
+      loadTask();
+      onUpdate?.();
+    } catch (err: any) {
+      toast.error('Lỗi: ' + (err.message || err));
+    } finally {
+      setApprovalLoading(false);
+    }
+  };
+
+  const handleRejectApproval = async () => {
+    if (!task || !currentUserId || !rejectReason.trim()) return;
+    setApprovalLoading(true);
+    try {
+      await TaskService.rejectApproval(task.id, currentUserId, rejectReason.trim());
+      toast.success('Đã từ chối phê duyệt');
+      setShowRejectDialog(false);
+      setRejectReason('');
+      setPendingChanges({});
+      loadTask();
+      onUpdate?.();
+    } catch (err: any) {
+      toast.error('Lỗi: ' + (err.message || err));
+    } finally {
+      setApprovalLoading(false);
     }
   };
 
@@ -750,6 +1064,16 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   const currentPriority = PRIORITIES.find(p => p.value === task.priority) || PRIORITIES[2];
   const isInProgress = currentStatus?.name === 'Đang tiến hành';
   const overdueDays = isOverdue ? Math.ceil((Date.now() - new Date(task.due_date!).getTime()) / 86400000) : 0;
+
+  // Approval state derivations
+  const hasApprovalSteps = ((task.custom_fields?.approval_steps as ApprovalStep[] | undefined)?.length ?? 0) > 0;
+  const hasApprovers = task.approvers?.length > 0 || hasApprovalSteps;
+  const isApprovalSubtask = !!task.approval_parent_id;
+  const isPendingApproval = task.approval_status === 'pending';
+  const isCurrentUserApprover = currentUserId ? task.approvers?.includes(currentUserId) : false;
+  const isCurrentUserAssignee = currentUserId ? task.assignees?.includes(currentUserId) : false;
+  const canSubmitForApproval = hasApprovers && !isDone && !isPendingApproval && !isApprovalSubtask;
+  const canApproveOrReject = isApprovalSubtask && isPendingApproval && currentUserId && task.assignees?.includes(currentUserId);
   const checkDone = checklist.filter(i => i.done).length;
   const checkTotal = checklist.length;
 
@@ -792,20 +1116,66 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {!isDone && !isInProgress && (
-            <button onClick={handleStartTask} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors cursor-pointer shadow-sm">
-              <Play size={14} /> BẮT ĐẦU
-            </button>
+          {/* Approval subtask buttons */}
+          {canApproveOrReject && (
+            <>
+              <button
+                onClick={() => setShowApproveDialog(true)}
+                disabled={approvalLoading}
+                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                <CheckCircle2 size={14} /> PHÊ DUYỆT
+              </button>
+              <button
+                onClick={() => setShowRejectDialog(true)}
+                disabled={approvalLoading}
+                className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                <XCircle size={14} /> TỪ CHỐI
+              </button>
+            </>
           )}
-          {!isDone && (
-            <button onClick={handleToggleComplete} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer shadow-sm">
-              <CheckCircle2 size={14} /> HOÀN THÀNH
-            </button>
-          )}
-          {isDone && (
-            <button onClick={handleToggleComplete} className="flex items-center gap-1.5 px-4 py-2 bg-slate-500 text-white text-sm font-bold rounded-lg hover:bg-slate-600 transition-colors cursor-pointer shadow-sm">
-              <Play size={14} /> MỞ LẠI
-            </button>
+
+          {/* Normal task buttons (non-approval subtask) */}
+          {!isApprovalSubtask && (
+            <>
+              {!isDone && !isInProgress && !isPendingApproval && (
+                <button onClick={handleStartTask} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors cursor-pointer shadow-sm">
+                  <Play size={14} /> BẮT ĐẦU
+                </button>
+              )}
+
+              {/* Task has approvers → show "Gửi phê duyệt" instead of "Hoàn thành" */}
+              {canSubmitForApproval && (
+                <button
+                  onClick={handleSubmitForApproval}
+                  disabled={approvalLoading}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  <Send size={14} /> {approvalLoading ? 'ĐANG GỬI...' : 'GỬI PHÊ DUYỆT'}
+                </button>
+              )}
+
+              {/* Task without approvers → normal complete */}
+              {!hasApprovers && !isDone && (
+                <button onClick={handleToggleComplete} className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer shadow-sm">
+                  <CheckCircle2 size={14} /> HOÀN THÀNH
+                </button>
+              )}
+
+              {/* Pending approval badge */}
+              {isPendingApproval && !isDone && (
+                <span className="flex items-center gap-1.5 px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm font-bold rounded-lg border border-amber-200 dark:border-amber-800">
+                  <Clock size={14} /> CHỜ PHÊ DUYỆT
+                </span>
+              )}
+
+              {isDone && (
+                <button onClick={handleToggleComplete} className="flex items-center gap-1.5 px-4 py-2 bg-slate-500 text-white text-sm font-bold rounded-lg hover:bg-slate-600 transition-colors cursor-pointer shadow-sm">
+                  <RotateCcw size={14} /> MỞ LẠI
+                </button>
+              )}
+            </>
           )}
           
           <button 
@@ -820,7 +1190,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             <Trash2 size={16} />
           </button>
           
-          {task.action_type && task.action_label && (
+          {task.action_type && task.action_label && !isApprovalSubtask && (
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -983,7 +1353,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 {/* TAGS */}
                 <div>
                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 block">Tags</label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 mb-2">
                     {task.tags.map(tag => (
                       <span key={tag} className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full flex items-center gap-1">
                         <Tag size={10} /> {tag}
@@ -994,6 +1364,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                     ))}
                     {task.tags.length === 0 && <span className="text-xs text-slate-400 dark:text-slate-500 italic">Chưa có tags</span>}
                   </div>
+                  <TagInputWithAutocomplete
+                    currentTags={task.tags}
+                    onAdd={(newTag) => {
+                      if (!task.tags.includes(newTag)) {
+                        bufferChange('tags', [...task.tags, newTag]);
+                      }
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -1212,11 +1590,11 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
             {/* People */}
             <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-              {/* Người tạo */}
+              {/* Người giao việc */}
               {task.created_by && (
                 <div>
                   <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <Crown size={10} /> Người tạo
+                    <Crown size={10} /> Người giao việc
                   </label>
                   <PersonBadge person={getPersonInfo(task.created_by)} />
                 </div>
@@ -1237,16 +1615,21 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 )}
                 {openPicker === 'assignees' && (
                   <PeoplePickerPopover
-                    inline
+                    align="left"
                     currentIds={task.assignees || []}
                     onChange={ids => {
                       const newId = ids[ids.length - 1];
                       if (newId) {
-                        bufferChange('assignees', [newId]);
-                        // Remove from supporters if they swap identities
-                        if (task.supporters?.includes(newId)) {
-                          bufferChange('supporters', task.supporters.filter(id => id !== newId));
+                        // Move current assignee to supporters if being replaced
+                        const oldAssignee = task.assignees?.[0];
+                        const currentSupporters = (task.supporters || []).filter(id => id !== newId);
+                        if (oldAssignee && oldAssignee !== newId && !currentSupporters.includes(oldAssignee)) {
+                          bufferChange('supporters', [...currentSupporters, oldAssignee]);
+                        } else if (currentSupporters.length !== (task.supporters || []).length) {
+                          bufferChange('supporters', currentSupporters);
                         }
+                        bufferChange('assignees', [newId]);
+                        ensurePeopleLoaded([newId]);
                         setOpenPicker(null);
                       }
                     }}
@@ -1268,9 +1651,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 )}
                 {openPicker === 'supporters' && (
                   <PeoplePickerPopover
-                    inline
+                    align="left"
                     currentIds={task.supporters || []}
-                    onChange={ids => bufferChange('supporters', ids)}
+                    onChange={ids => { bufferChange('supporters', ids); ensurePeopleLoaded(ids); }}
                     onClose={() => setOpenPicker(null)}
                   />
                 )}
@@ -1291,31 +1674,221 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   <PeoplePickerPopover
                     inline
                     currentIds={task.watchers || []}
-                    onChange={ids => bufferChange('watchers', ids)}
+                    onChange={ids => { bufferChange('watchers', ids); ensurePeopleLoaded(ids); }}
                     onClose={() => setOpenPicker(null)}
                   />
                 )}
               </div>
 
-              {/* Người phê duyệt (approvers) */}
+              {/* Phê duyệt (approvers / multi-level) */}
               <div className="relative">
-                <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1 justify-between">
-                  <span className="flex items-center gap-1"><ShieldCheck size={10} /> Người phê duyệt</span>
-                  <button onClick={() => setOpenPicker(openPicker === 'approvers' ? null : 'approvers')} className="text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer"><Plus size={12} /></button>
+                <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1 justify-between">
+                  <span className="flex items-center gap-1"><ShieldCheck size={10} /> Phê duyệt</span>
                 </label>
-                {task.approvers?.length > 0 ? (
-                  <>
-                    {task.approvers.map(id => <PersonBadge key={id} person={getPersonInfo(id)} onRemove={() => bufferChange('approvers', task.approvers.filter(x => x !== id))} />)}
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 italic">Chỉ người phê duyệt mới xác nhận hoàn thành</p>
-                  </>
-                ) : (
-                  <span className="text-xs text-slate-400 dark:text-slate-500 italic">Không có</span>
-                )}
+
+                {(() => {
+                  const steps: ApprovalStep[] = task.custom_fields?.approval_steps || [];
+                  const currentLevel: number | undefined = task.custom_fields?.current_approval_level;
+                  const hasMultiLevel = steps.length > 0;
+
+                  // ─── Multi-level stepper ───
+                  if (hasMultiLevel) {
+                    const sortedSteps = [...steps].sort((a, b) => a.level - b.level);
+                    return (
+                      <div className="space-y-2">
+                        {sortedSteps.map((step, idx) => {
+                          // Determine status of this level
+                          const isActive = currentLevel === step.level;
+                          const isDoneLvl = currentLevel !== undefined && step.level < currentLevel;
+                          const isFuture = currentLevel !== undefined && step.level > currentLevel;
+                          const isFullyDone = task.approval_status === 'approved';
+                          const isRejected = task.approval_status === 'rejected';
+
+                          let dotClass = 'bg-slate-300 dark:bg-slate-600';
+                          let lineClass = 'bg-slate-200 dark:bg-slate-700';
+                          if (isDoneLvl || isFullyDone) { dotClass = 'bg-emerald-500'; lineClass = 'bg-emerald-300 dark:bg-emerald-700'; }
+                          else if (isActive && !isRejected) { dotClass = 'bg-amber-500 ring-2 ring-amber-200 dark:ring-amber-800'; }
+                          else if (isRejected && isActive) { dotClass = 'bg-red-500'; }
+
+                          return (
+                            <div key={step.level} className="flex gap-2">
+                              {/* Stepper dot + line */}
+                              <div className="flex flex-col items-center flex-shrink-0 w-4">
+                                <div className={`w-3 h-3 rounded-full ${dotClass} flex items-center justify-center`}>
+                                  {(isDoneLvl || isFullyDone) && <CheckCircle2 size={8} className="text-white" />}
+                                </div>
+                                {idx < sortedSteps.length - 1 && <div className={`w-0.5 flex-1 mt-0.5 min-h-[16px] ${lineClass}`} />}
+                              </div>
+                              {/* Content */}
+                              <div className="flex-1 min-w-0 pb-1">
+                                <div className="flex items-center gap-1">
+                                  <span className={`text-[11px] font-semibold ${
+                                    isDoneLvl || isFullyDone ? 'text-emerald-600 dark:text-emerald-400' :
+                                    isActive && !isRejected ? 'text-amber-600 dark:text-amber-400' :
+                                    isRejected && isActive ? 'text-red-600 dark:text-red-400' :
+                                    'text-slate-400 dark:text-slate-500'
+                                  }`}>{step.label || `Cấp ${step.level}`}</span>
+                                  <span className="text-[9px] text-slate-400 dark:text-slate-500">({step.mode === 'any' ? '1 duyệt' : 'tất cả'})</span>
+                                  {!isPendingApproval && (
+                                    <button
+                                      onClick={() => {
+                                        const newSteps = steps
+                                          .filter(s => s.level !== step.level)
+                                          .sort((a, b) => a.level - b.level)
+                                          .map((s, i) => ({ ...s, level: i + 1, label: `Cấp ${i + 1}` }));
+                                        bufferChange('custom_fields', { ...task.custom_fields, approval_steps: newSteps });
+                                      }}
+                                      className="text-slate-300 dark:text-slate-600 hover:text-red-400 dark:hover:text-red-400 cursor-pointer ml-auto"
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                  {step.approver_ids.map(id => (
+                                    <span key={id} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                      {getPersonInfo(id)?.name || id.slice(0, 6)}
+                                    </span>
+                                  ))}
+                                  {!isPendingApproval && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingStepLevel(step.level);
+                                        setOpenPicker('approvers');
+                                      }}
+                                      className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 cursor-pointer flex items-center gap-0.5"
+                                    >
+                                      <Edit3 size={8} /> sửa
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Add new level button */}
+                        {!isPendingApproval && (
+                          <button
+                            onClick={() => {
+                              const maxLevel = Math.max(0, ...steps.map(s => s.level));
+                              const newStep: ApprovalStep = {
+                                level: maxLevel + 1,
+                                label: `Cấp ${maxLevel + 1}`,
+                                approver_ids: [],
+                                mode: 'all',
+                              };
+                              bufferChange('custom_fields', {
+                                ...task.custom_fields,
+                                approval_steps: [...steps, newStep],
+                              });
+                              setEditingStepLevel(maxLevel + 1);
+                              setOpenPicker('approvers');
+                            }}
+                            className="flex items-center gap-1 text-[10px] text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer ml-6"
+                          >
+                            <Plus size={10} /> Thêm cấp phê duyệt
+                          </button>
+                        )}
+
+                        {/* Approval status */}
+                        {task.approval_status && (
+                          <div className={`mt-1 text-[10px] font-semibold px-2 py-1 rounded-md inline-flex items-center gap-1 ${
+                            task.approval_status === 'pending' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
+                            task.approval_status === 'approved' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                            'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                          }`}>
+                            {task.approval_status === 'pending' && <><Clock size={10} /> Đang chờ — {steps.find(s => s.level === currentLevel)?.label || `Cấp ${currentLevel}`}</>}
+                            {task.approval_status === 'approved' && <><CheckCircle2 size={10} /> Đã phê duyệt</>}
+                            {task.approval_status === 'rejected' && <><XCircle size={10} /> Bị từ chối</>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // ─── Simple mode (flat approvers[]) ───
+                  return (
+                    <>
+                      <div className="flex items-center gap-1 mb-1">
+                        <button onClick={() => setOpenPicker(openPicker === 'approvers' ? null : 'approvers')} className="text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer text-[10px] flex items-center gap-0.5">
+                          <Plus size={10} /> Thêm người
+                        </button>
+                        <button
+                          onClick={() => {
+                            const newStep: ApprovalStep = {
+                              level: 1,
+                              label: 'Cấp 1',
+                              approver_ids: task.approvers || [],
+                              mode: (task.approval_mode || 'all') as ApprovalMode,
+                            };
+                            bufferChange('custom_fields', {
+                              ...task.custom_fields,
+                              approval_steps: [newStep],
+                            });
+                          }}
+                          className="text-amber-500 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 cursor-pointer text-[10px] flex items-center gap-0.5 ml-2"
+                          title="Chuyển sang phê duyệt nhiều cấp"
+                        >
+                          <ShieldCheck size={10} /> Nhiều cấp
+                        </button>
+                      </div>
+                      {task.approvers?.length > 0 ? (
+                        <>
+                          {task.approvers.map(id => <PersonBadge key={id} person={getPersonInfo(id)} onRemove={() => bufferChange('approvers', task.approvers.filter(x => x !== id))} />)}
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">Chế độ:</span>
+                            <select
+                              value={task.approval_mode || 'all'}
+                              onChange={e => bufferChange('approval_mode', e.target.value as ApprovalMode)}
+                              className="text-[11px] px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 outline-none cursor-pointer"
+                            >
+                              <option value="all">Tất cả phải duyệt</option>
+                              <option value="any">Chỉ cần 1 duyệt</option>
+                            </select>
+                          </div>
+                          {task.approval_status && (
+                            <div className={`mt-1.5 text-[10px] font-semibold px-2 py-1 rounded-md inline-flex items-center gap-1 ${
+                              task.approval_status === 'pending' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
+                              task.approval_status === 'approved' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                              'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                            }`}>
+                              {task.approval_status === 'pending' && <><Clock size={10} /> Đang chờ phê duyệt</>}
+                              {task.approval_status === 'approved' && <><CheckCircle2 size={10} /> Đã phê duyệt</>}
+                              {task.approval_status === 'rejected' && <><XCircle size={10} /> Bị từ chối</>}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs text-slate-400 dark:text-slate-500 italic">Không có</span>
+                      )}
+                    </>
+                  );
+                })()}
+
                 {openPicker === 'approvers' && (
                   <PeoplePickerPopover
-                    currentIds={task.approvers || []}
-                    onChange={ids => bufferChange('approvers', ids)}
-                    onClose={() => setOpenPicker(null)}
+                    currentIds={(() => {
+                      const steps: ApprovalStep[] = task.custom_fields?.approval_steps || [];
+                      if (steps.length > 0 && editingStepLevel !== null) {
+                        const targetStep = steps.find(s => s.level === editingStepLevel);
+                        return targetStep?.approver_ids || [];
+                      }
+                      return task.approvers || [];
+                    })()}
+                    onChange={ids => {
+                      const steps: ApprovalStep[] = task.custom_fields?.approval_steps || [];
+                      if (steps.length > 0 && editingStepLevel !== null) {
+                        const updated = steps.map(s =>
+                          s.level === editingStepLevel ? { ...s, approver_ids: ids } : s
+                        );
+                        bufferChange('custom_fields', { ...task.custom_fields, approval_steps: updated });
+                      } else {
+                        bufferChange('approvers', ids);
+                      }
+                      ensurePeopleLoaded(ids);
+                    }}
+                    onClose={() => { setOpenPicker(null); setEditingStepLevel(null); }}
                   />
                 )}
               </div>
@@ -1348,6 +1921,69 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
         confirmText="Xóa"
         isLoading={saving}
       />
+
+      {/* ─── Approve Dialog ─── */}
+      {showApproveDialog && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40" onClick={() => setShowApproveDialog(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+              <CheckCircle2 size={20} className="text-emerald-500" /> Phê duyệt công việc
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Bạn xác nhận phê duyệt công việc này?</p>
+            <textarea
+              value={approvalComment}
+              onChange={e => setApprovalComment(e.target.value)}
+              placeholder="Ghi chú (không bắt buộc)..."
+              rows={3}
+              className="w-full text-sm p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowApproveDialog(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer">
+                Hủy
+              </button>
+              <button
+                onClick={handleApproveTask}
+                disabled={approvalLoading}
+                className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 size={14} /> {approvalLoading ? 'Đang xử lý...' : 'Xác nhận phê duyệt'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Reject Dialog ─── */}
+      {showRejectDialog && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40" onClick={() => setShowRejectDialog(false)}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+              <XCircle size={20} className="text-red-500" /> Từ chối phê duyệt
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Vui lòng nhập lý do từ chối.</p>
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="Lý do từ chối (bắt buộc)..."
+              rows={3}
+              autoFocus
+              className="w-full text-sm p-3 rounded-xl border border-red-200 dark:border-red-800 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowRejectDialog(false)} className="px-4 py-2 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer">
+                Hủy
+              </button>
+              <button
+                onClick={handleRejectApproval}
+                disabled={approvalLoading || !rejectReason.trim()}
+                className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <XCircle size={14} /> {approvalLoading ? 'Đang xử lý...' : 'Xác nhận từ chối'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

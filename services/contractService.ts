@@ -572,8 +572,9 @@ export const ContractService = {
         sortBy?: string;
         sortDir?: 'asc' | 'desc';
         matchingCustomerIds?: string[];
+        filterByIds?: string[];
     }): Promise<{ data: Contract[]; count: number }> => {
-        const { page, limit, search, status, unitId, year, dateFrom, dateTo, salespersonId, classification, sortBy, sortDir, matchingCustomerIds } = params;
+        const { page, limit, search, status, unitId, year, dateFrom, dateTo, salespersonId, classification, sortBy, sortDir, matchingCustomerIds, filterByIds } = params;
 
         // Build search OR filter including customer short name matches AND unaccent matches
         // PostgREST .or() filter: IDs must be double-quoted if they contain special chars (/, commas, etc.)
@@ -613,6 +614,11 @@ export const ContractService = {
             let query = supabase
                 .from('contracts')
                 .select('*, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)');
+
+            // Filter by specific IDs (e.g. from personal tags)
+            if (filterByIds && filterByIds.length > 0) {
+                query = query.in('id', filterByIds);
+            }
 
             if (search) {
                 query = query.or(buildSearchFilter(search, matchingCustomerIds, unaccentMatchIds));
@@ -711,6 +717,11 @@ export const ContractService = {
             let query = supabase
                 .from('contracts')
                 .select('*, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)', { count: 'exact' });
+
+            // Filter by specific IDs (e.g. from personal tags)
+            if (filterByIds && filterByIds.length > 0) {
+                query = query.in('id', filterByIds);
+            }
 
             if (search) {
                 query = query.or(buildSearchFilter(search, matchingCustomerIds, unaccentMatchIds));

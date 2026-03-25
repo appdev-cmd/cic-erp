@@ -105,7 +105,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   const effectiveRole = effectiveProfile?.role;
   const GLOBAL_ROLES = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
   const isGlobalRole = effectiveRole && GLOBAL_ROLES.includes(effectiveRole);
-  const isViewingForeignUnit = !isGlobalRole && selectedUnit?.id !== effectiveProfile?.unitId;
+  const isViewingForeignUnit = !isGlobalRole && selectedUnit?.id !== 'all' && selectedUnit?.id !== effectiveProfile?.unitId;
 
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
@@ -375,10 +375,8 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                 : (u.stats?.totalCash || 0)
       }));
 
-      // Filter by visibility permissions
-      if (visibleUnits !== 'all') {
-        perfData = perfData.filter(p => visibleUnits.includes(p.id));
-      }
+      // Khi xem Toàn công ty: hiện tất cả đơn vị (dữ liệu cấp đơn vị không bảo mật)
+      // Chỉ ẩn chi tiết cá nhân khi xem đơn vị khác
     } else {
       // For Specific Unit: map employee data
       perfData = rawDistData.map(e => ({

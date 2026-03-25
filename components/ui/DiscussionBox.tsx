@@ -395,13 +395,13 @@ const DiscussionBox: React.FC<DiscussionBoxProps> = ({
       )}
 
       {/* Messages area (scrollable) */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-1" style={maxHeight && maxHeight !== '100%' ? { maxHeight } : {}}>
+      <div className={`flex-1 overflow-y-auto p-4 ${comments.length === 0 && !loading ? 'flex items-center justify-center' : 'space-y-1'}`} style={maxHeight && maxHeight !== '100%' ? { maxHeight } : {}}>
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : comments.length === 0 ? (
-          <div className="text-center py-10">
+          <div className="text-center">
             <MessageCircle size={36} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
             <p className="text-sm text-slate-400 dark:text-slate-500">Chưa có trao đổi nào</p>
             <p className="text-xs text-slate-300 dark:text-slate-600 mt-1">Hãy bắt đầu cuộc thảo luận!</p>
