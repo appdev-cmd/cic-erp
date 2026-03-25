@@ -1,3 +1,18 @@
+// --- Report Module Types ---
+export type ReportType = 'html_file' | 'external_link';
+
+export interface Report {
+  id: string;
+  title: string;
+  description?: string;
+  author: string;
+  date: string;
+  type: ReportType;
+  fileUrl: string;
+  filePath?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export type ContractStatus =
   | 'Processing'      // Đang thực hiện (sau khi ký)

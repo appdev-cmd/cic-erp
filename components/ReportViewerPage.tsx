@@ -1,16 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { REPORTS_DATA } from '../data/reports';
+import { reportService } from '../services/reportService';
+import type { Report } from '../types';
 import { ArrowLeft, ExternalLink, Download } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ReportViewerPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const [report, setReport] = useState(REPORTS_DATA.find(r => r.id === id));
+    const [report, setReport] = useState<Report | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setReport(REPORTS_DATA.find(r => r.id === id));
+        const fetchReport = async () => {
+            if (!id) return;
+            try {
+                setLoading(true);
+                const data = await reportService.getById(id);
+                setReport(data);
+            } catch (error) {
+                console.error('Error fetching report:', error);
+                toast.error('Không thể tải dữ liệu báo cáo');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchReport();
     }, [id]);
+
+    if (loading) {
+        return (
+            <div className="flex h-full items-center justify-center p-8 bg-slate-50 dark:bg-slate-950">
+                <div className="flex flex-col items-center gap-4 text-center">
+                    <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <p className="text-slate-500 font-medium">Đang tải báo cáo...</p>
+                </div>
+            </div>
+        );
+    }
 
     if (!report) {
         return (
@@ -55,15 +83,17 @@ const ReportViewerPage: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <a 
-                        href={report.fileUrl}
-                        download
-                        className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-2 text-sm font-semibold"
-                        title="Tải file HTML gốc"
-                    >
-                        <Download size={16} />
-                        <span className="hidden sm:inline">Tải về</span>
-                    </a>
+                    {report.type === 'html_file' && (
+                        <a 
+                            href={report.fileUrl}
+                            download
+                            className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-2 text-sm font-semibold"
+                            title="Tải file gốc"
+                        >
+                            <Download size={16} />
+                            <span className="hidden sm:inline">Tải về</span>
+                        </a>
+                    )}
                     <a 
                         href={report.fileUrl} 
                         target="_blank" 
@@ -84,7 +114,8 @@ const ReportViewerPage: React.FC = () => {
                         src={report.fileUrl}
                         className="absolute inset-0 w-full h-full border-0 bg-white" 
                         title={report.title}
-                        sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                        sandbox={report.type === 'html_file' ? "allow-same-origin allow-scripts allow-popups allow-forms" : undefined}
+                        allowFullScreen
                     />
                 </div>
             </div>
