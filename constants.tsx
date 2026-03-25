@@ -76,13 +76,13 @@ export const NAV_ITEMS = [
   { id: 'contracts', label: 'Hợp đồng', icon: <FileText size={20} /> },
   { id: 'payments', label: 'Tài chính', icon: <Package size={20} /> },
   { id: 'projects', label: 'Dự án', icon: <Landmark size={20} /> },
-  { id: 'analytics', label: 'Thống kê', icon: <PieChart size={20} /> },
-  { id: 'ai-assistant', label: 'AI Phân tích', icon: <BrainCircuit size={20} /> },
+  { id: 'analytics', label: 'Thống kê', icon: <PieChart size={20} />, devOnly: true },
+  { id: 'ai-assistant', label: 'AI Phân tích', icon: <BrainCircuit size={20} />, devOnly: true },
   { id: 'tools', label: 'Công cụ', icon: <Wrench size={20} /> },
   { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
 
-  { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} /> },
-  { id: 'reports', label: 'Báo cáo', icon: <ClipboardList size={20} /> },
+  { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} />, devOnly: true },
+  { id: 'reports', label: 'Báo cáo', icon: <ClipboardList size={20} />, devOnly: true },
 
   // Danh mục
   { id: 'units', label: 'Đơn vị', icon: <Building2 size={20} /> },
