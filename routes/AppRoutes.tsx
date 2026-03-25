@@ -30,6 +30,8 @@ import {
     LazyToolsPage as ToolsPage,
     LazyChatPage as ChatPage,
     LazyTasksPage as TasksPage,
+    LazyReportListPage as ReportListPage,
+    LazyReportViewerPage as ReportViewerPage,
     LazyProjectListPage as ProjectListPage,
     LazyProjectDetailPage as ProjectDetailPage,
 } from '../components/LazyPages';
@@ -70,6 +72,10 @@ export const router = createBrowserRouter([
 
             // Documents
             { path: 'documents', element: <DocumentManagerPage /> },
+
+            // Reports
+            { path: 'reports', element: <ReportListPage /> },
+            { path: 'reports/:id', element: <ReportViewerPage /> },
 
             // AI Assistant
             { path: 'ai-assistant', element: <AIAssistantPage /> },

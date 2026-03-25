@@ -81,6 +81,10 @@ export const ROUTE_PERMISSION_MAP: RoutePermissionEntry[] = [
     // ── Cài đặt ──
     { pattern: '/settings', resource: 'settings', action: 'view', label: 'Cài đặt hệ thống', module: 'Hệ thống' },
 
+    // ── Báo cáo ──
+    { pattern: '/reports', resource: 'reports', action: 'view', label: 'Danh sách báo cáo', module: 'Báo cáo' },
+    { pattern: '/reports/:id', resource: 'reports', action: 'view', label: 'Chi tiết báo cáo', module: 'Báo cáo' },
+
     // ═══════════════════════════════════════════
     // 🔽 THÊM PHÂN HỆ MỚI Ở ĐÂY 🔽
     // Ví dụ:

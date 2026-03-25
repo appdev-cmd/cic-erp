@@ -14,7 +14,8 @@ import {
   MessageCircle,
   Handshake,
   CheckSquare,
-  Landmark
+  Landmark,
+  ClipboardList
 } from 'lucide-react';
 import { UserRole, PlanStatus } from './types';
 
@@ -81,6 +82,7 @@ export const NAV_ITEMS = [
   { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
 
   { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} /> },
+  { id: 'reports', label: 'Báo cáo', icon: <ClipboardList size={20} /> },
 
   // Danh mục
   { id: 'units', label: 'Đơn vị', icon: <Building2 size={20} /> },

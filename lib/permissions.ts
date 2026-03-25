@@ -137,6 +137,14 @@ export function getHiddenNavItems(
         hidden.add('tasks');
     }
 
+    // Reports: only Admin
+    const hasReportsViewInDB = dbPermissions?.get('reports')?.has('view');
+    if (hasReportsViewInDB === undefined) {
+        if (role !== 'Admin') hidden.add('reports');
+    } else if (!hasReportsViewInDB) {
+        hidden.add('reports');
+    }
+
     return hidden;
 }
 

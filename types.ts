@@ -587,7 +587,8 @@ export type PermissionResource =
   | 'products'
   | 'payments'
   | 'settings'
-  | 'permissions';
+  | 'permissions'
+  | 'reports';
 
 export interface UserPermission {
   id?: string;
@@ -610,6 +611,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     payments: ['view', 'create', 'update', 'delete'],
     settings: ['view', 'create', 'update', 'delete'],
     permissions: ['view', 'create', 'update', 'delete'],
+    reports: ['view', 'create', 'update', 'delete'],
   },
   // Ban lãnh đạo — Toàn quyền dữ liệu, KHÔNG settings/permissions, payments chỉ xem
   Leadership: {

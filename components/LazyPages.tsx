@@ -72,6 +72,8 @@ const TasksPageComponent = lazyWithRetry(() => import('./tasks/TasksPage'));
 const ProjectList = lazyWithRetry(() => import('./ProjectList'));
 const ProjectDetail = lazyWithRetry(() => import('./ProjectDetail'));
 const ProjectForm = lazyWithRetry(() => import('./ProjectForm'));
+const ReportListPage = lazyWithRetry(() => import('./ReportListPage'));
+const ReportViewerPage = lazyWithRetry(() => import('./ReportViewerPage'));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
@@ -726,6 +728,10 @@ export const LazyToolsPage: React.FC = () => withSuspense(<ToolsPage />);
 
 // Chat
 export const LazyChatPage: React.FC = () => withSuspense(<ChatPageComponent />);
+
+// Reports
+export const LazyReportListPage: React.FC = () => withSuspense(<ReportListPage />);
+export const LazyReportViewerPage: React.FC = () => withSuspense(<ReportViewerPage />);
 
 // Tasks
 export const LazyTasksPage: React.FC = () => withSuspense(<TasksPageComponent />);
