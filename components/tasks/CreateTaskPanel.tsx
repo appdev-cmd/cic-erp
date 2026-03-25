@@ -159,7 +159,7 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
           
           {/* Dự án */}
           <div className="col-span-2">
-            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Dự án BIM</label>
+            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Dự án</label>
             <select
               value={projectId}
               onChange={e => setProjectId(e.target.value)}

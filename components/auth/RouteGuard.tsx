@@ -36,6 +36,12 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
 
     const pathname = location.pathname;
 
+    // ── 0. Localhost → bypass all permission checks ──
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalhost) {
+        return <>{children}</>;
+    }
+
     // ── 1. Public route → always allow ──
     if (isPublicRoute(pathname)) {
         return <>{children}</>;

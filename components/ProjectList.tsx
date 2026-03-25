@@ -242,7 +242,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Dự án BIM</h1>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Dự án</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1">
             Quản lý dự án tư vấn BIM • <span className="font-bold text-indigo-600 dark:text-indigo-400">{projects.length}</span> dự án
           </p>
@@ -339,7 +339,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {searchTerm || statusFilter !== 'All' 
               ? 'Không tìm thấy dự án phù hợp. Thử thay đổi bộ lọc.'
-              : 'Dự án BIM sẽ hiển thị ở đây khi được tạo.'}
+              : 'Dự án sẽ hiển thị ở đây khi được tạo.'}
           </p>
         </div>
       ) : (
