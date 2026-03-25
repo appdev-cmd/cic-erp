@@ -201,6 +201,7 @@ const PersonalSettingsDialog: React.FC<PersonalSettingsDialogProps> = ({
                 avatar: avatarUrl,
                 phone: formData.phone,
                 telegram: formData.telegram,
+                telegram_verified: formData.telegram_verified || false,
                 // Personal info (all editable)
                 dateOfBirth: formData.dateOfBirth || undefined,
                 gender: formData.gender as any || undefined,

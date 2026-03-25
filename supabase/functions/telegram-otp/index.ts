@@ -94,11 +94,11 @@ Deno.serve(async (req: Request) => {
                 .single();
 
             if (error || !data) {
-                return new Response(JSON.stringify({ error: "Mã OTP không đúng." }), { status: 400, headers: corsHeaders });
+                return new Response(JSON.stringify({ error: "Mã OTP không đúng." }), { headers: corsHeaders });
             }
 
             if (new Date(data.expires_at) < new Date()) {
-                return new Response(JSON.stringify({ error: "Mã OTP đã hết hạn." }), { status: 400, headers: corsHeaders });
+                return new Response(JSON.stringify({ error: "Mã OTP đã hết hạn." }), { headers: corsHeaders });
             }
 
             // Đánh dấu là đã xác thực
