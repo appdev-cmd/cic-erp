@@ -256,10 +256,10 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     return unitFilter === profile.unitId || (unitFilter === 'All' && !isImpersonating && profile.unitId !== 'all');
   }, [profile, isGlobalScope, unitFilter, isImpersonating, can]);
 
-  // Debounce search
+  // Debounce search — ignore # prefix (used for tag suggestions, not text search)
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
+      setDebouncedSearch(searchTerm.startsWith('#') ? '' : searchTerm);
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
@@ -384,10 +384,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
   // Fetch user's personal tags for filter dropdown
   useEffect(() => {
-    ContractTagService.getAllUserTags()
+    if (!realProfile?.id) return;
+    ContractTagService.getAllUserTags(realProfile.id)
       .then(setAllUserTags)
       .catch(() => {});
-  }, []);
+  }, [realProfile?.id]);
 
   // When tag filter changes, fetch matching contract IDs
   useEffect(() => {
@@ -395,10 +396,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       setTagFilterIds(undefined);
       return;
     }
-    ContractTagService.getContractIdsByTag(tagFilter)
+    if (!realProfile?.id) return;
+    ContractTagService.getContractIdsByTag(realProfile.id, tagFilter)
       .then(ids => setTagFilterIds(ids.length > 0 ? ids : ['__no_match__']))
       .catch(() => setTagFilterIds(undefined));
-  }, [tagFilter]);
+  }, [tagFilter, realProfile?.id]);
 
   // Compute effective unit ID for fetching
   const effectiveUnitId = useMemo(() => {
@@ -566,13 +568,26 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   });
 
   // Fetch tags for current page of contracts (for inline display)
-  useEffect(() => {
-    if (contracts.length === 0) return;
+  const refetchTags = useCallback(() => {
+    if (contracts.length === 0 || !realProfile?.id) return;
     const ids = contracts.map(c => c.id);
-    ContractTagService.getTagsForContracts(ids)
+    ContractTagService.getTagsForContracts(realProfile.id, ids)
       .then(setContractTagsMap)
       .catch(() => {});
-  }, [contracts]);
+    // Also refresh the allUserTags for the # search dropdown
+    ContractTagService.getAllUserTags(realProfile.id)
+      .then(setAllUserTags)
+      .catch(() => {});
+  }, [contracts, realProfile?.id]);
+
+  useEffect(() => { refetchTags(); }, [refetchTags]);
+
+  // Listen for tag changes from ContractDetail
+  useEffect(() => {
+    const handler = () => refetchTags();
+    window.addEventListener('contract-tags-changed', handler);
+    return () => window.removeEventListener('contract-tags-changed', handler);
+  }, [refetchTags]);
 
   // Auto-refresh list when contracts are created, updated, or deleted
   useEffect(() => {
@@ -854,12 +869,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       </div>
 
       <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 shadow-md flex flex-wrap gap-3 items-center">
-        {/* Search */}
+        {/* Search + Tag suggestions */}
         <div className="flex-1 min-w-[240px] relative">
           <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             type="text"
-            placeholder="Tìm mã HĐ, tên khách hàng, tên viết tắt KH, nội dung, end user, số HĐ KH..."
+            placeholder="Tìm mã HĐ, tên KH, nội dung... hoặc gõ # để lọc theo tag"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-10 py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-bold text-slate-900 dark:text-slate-100"
@@ -873,7 +888,49 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               <X size={16} />
             </button>
           )}
+
+          {/* Tag suggestions dropdown — shows when input starts with # */}
+          {searchTerm.startsWith('#') && allUserTags.length > 0 && (() => {
+            const query = searchTerm.slice(1).toLowerCase();
+            const filtered = allUserTags.filter(t => !query || t.includes(query));
+            if (filtered.length === 0) return null;
+            return (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 py-1 max-h-[200px] overflow-y-auto">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Lọc theo tag cá nhân</div>
+                {filtered.map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => { setTagFilter(tag); setSearchTerm(''); }}
+                    className={`w-full text-left px-3 py-2 text-sm font-bold transition-colors cursor-pointer flex items-center gap-2 ${
+                      tagFilter === tag
+                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    <Hash size={14} className="opacity-50" />
+                    {tag}
+                    {tagFilter === tag && <Check size={14} className="ml-auto text-indigo-500" />}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
         </div>
+
+        {/* Active tag filter badge — shown inline when filtering by tag */}
+        {tagFilter !== 'All' && (
+          <div className="flex items-center gap-1.5 bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-300 dark:border-indigo-700 rounded-lg px-3 py-2">
+            <Hash size={14} className="text-indigo-600 dark:text-indigo-400" />
+            <span className="text-sm font-black text-indigo-700 dark:text-indigo-400">{tagFilter}</span>
+            <button
+              onClick={() => setTagFilter('All')}
+              className="p-0.5 text-indigo-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
+              title="Xóa bộ lọc tag"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Classification Filter */}
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
@@ -892,31 +949,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </select>
         </div>
 
-        {/* Personal Tag Filter */}
-        {allUserTags.length > 0 && (
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">
-            <Hash size={18} className="text-slate-500" />
-            <select
-              className="bg-transparent py-3 text-sm font-black text-slate-900 dark:text-slate-100 outline-none max-w-[150px]"
-              value={tagFilter}
-              onChange={(e) => setTagFilter(e.target.value)}
-            >
-              <option value="All">Tất cả tags</option>
-              {allUserTags.map(tag => (
-                <option key={tag} value={tag}>#{tag}</option>
-              ))}
-            </select>
-            {tagFilter !== 'All' && (
-              <button
-                onClick={() => setTagFilter('All')}
-                className="p-0.5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                title="Xóa bộ lọc tag"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
-        )}
 
         {/* Salesperson Filter */}
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-lg px-4 border border-slate-200 dark:border-slate-800">

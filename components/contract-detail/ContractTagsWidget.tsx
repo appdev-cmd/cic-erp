@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { X, Hash, Plus, Loader2 } from 'lucide-react';
-import { ContractTagService } from '../../services/contractTagService';
+import { ContractTagService, normalizeTag } from '../../services/contractTagService';
+import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 
 interface ContractTagsWidgetProps {
@@ -8,6 +9,9 @@ interface ContractTagsWidgetProps {
 }
 
 const ContractTagsWidget: React.FC<ContractTagsWidgetProps> = ({ contractId }) => {
+  const { profile } = useAuth();
+  const userId = profile?.id;
+
   const [tags, setTags] = useState<string[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -21,26 +25,28 @@ const ContractTagsWidget: React.FC<ContractTagsWidgetProps> = ({ contractId }) =
 
   // Load tags for this contract
   useEffect(() => {
+    if (!userId) { setLoading(false); return; }
     let mounted = true;
     setLoading(true);
-    ContractTagService.getTagsForContract(contractId)
+    ContractTagService.getTagsForContract(userId, contractId)
       .then(data => { if (mounted) setTags(data); })
       .catch(() => {})
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, [contractId]);
+  }, [contractId, userId]);
 
   // Load all user tags for autocomplete (once)
   useEffect(() => {
-    ContractTagService.getAllUserTags()
+    if (!userId) return;
+    ContractTagService.getAllUserTags(userId)
       .then(setAllUserTags)
       .catch(() => {});
-  }, []);
+  }, [userId]);
 
   // Filter suggestions based on input
   const filteredSuggestions = useMemo(() => {
     if (!input.trim()) return [];
-    const normalized = input.trim().toLowerCase().replace(/^#/, '');
+    const normalized = normalizeTag(input);
     return allUserTags
       .filter(t => t.includes(normalized) && !tags.includes(t))
       .slice(0, 6);
@@ -52,8 +58,9 @@ const ContractTagsWidget: React.FC<ContractTagsWidgetProps> = ({ contractId }) =
   }, [filteredSuggestions]);
 
   const handleAdd = useCallback(async (rawTag?: string) => {
+    if (!userId) { toast.error('Chưa đăng nhập'); return; }
     const tagToAdd = rawTag || input;
-    const normalized = tagToAdd.trim().toLowerCase().replace(/^#/, '');
+    const normalized = normalizeTag(tagToAdd);
     if (!normalized) return;
     if (tags.includes(normalized)) {
       toast.info(`Tag #${normalized} đã tồn tại`);
@@ -62,29 +69,42 @@ const ContractTagsWidget: React.FC<ContractTagsWidgetProps> = ({ contractId }) =
     }
 
     setAdding(true);
-    const ok = await ContractTagService.addTag(contractId, normalized);
-    if (ok) {
-      setTags(prev => [...prev, normalized]);
-      // Update allUserTags cache
-      if (!allUserTags.includes(normalized)) {
-        setAllUserTags(prev => [...prev, normalized].sort());
+    try {
+      const ok = await ContractTagService.addTag(userId, contractId, normalized);
+      if (ok) {
+        setTags(prev => [...prev, normalized]);
+        if (!allUserTags.includes(normalized)) {
+          setAllUserTags(prev => [...prev, normalized].sort());
+        }
+        setInput('');
+        // Notify ContractList to refresh inline tags
+        window.dispatchEvent(new CustomEvent('contract-tags-changed', { detail: { contractId } }));
+      } else {
+        toast.error('Không thể thêm tag');
       }
-      setInput('');
-    } else {
-      toast.error('Không thể thêm tag');
+    } catch (err) {
+      console.error('[ContractTagsWidget] addTag error:', err);
+      toast.error('Lỗi khi thêm tag');
+    } finally {
+      setAdding(false);
+      inputRef.current?.focus();
     }
-    setAdding(false);
-    inputRef.current?.focus();
-  }, [contractId, input, tags, allUserTags]);
+  }, [contractId, input, tags, allUserTags, userId]);
 
   const handleRemove = useCallback(async (tag: string) => {
-    const ok = await ContractTagService.removeTag(contractId, tag);
-    if (ok) {
-      setTags(prev => prev.filter(t => t !== tag));
-    } else {
-      toast.error('Không thể xóa tag');
+    if (!userId) return;
+    try {
+      const ok = await ContractTagService.removeTag(userId, contractId, tag);
+      if (ok) {
+        setTags(prev => prev.filter(t => t !== tag));
+        window.dispatchEvent(new CustomEvent('contract-tags-changed', { detail: { contractId } }));
+      } else {
+        toast.error('Không thể xóa tag');
+      }
+    } catch {
+      toast.error('Lỗi khi xóa tag');
     }
-  }, [contractId]);
+  }, [contractId, userId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -118,11 +138,12 @@ const ContractTagsWidget: React.FC<ContractTagsWidgetProps> = ({ contractId }) =
   ];
 
   const getTagColor = (tag: string) => {
-    // Simple hash to pick consistent color per tag name
     let hash = 0;
     for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
     return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
   };
+
+  if (!userId) return null;
 
   if (loading) {
     return (
@@ -165,10 +186,9 @@ const ContractTagsWidget: React.FC<ContractTagsWidgetProps> = ({ contractId }) =
               ref={inputRef}
               type="text"
               value={input}
-              onChange={e => setInput(e.target.value)}
+              onChange={e => setInput(e.target.value.replace(/\s/g, '_'))}
               onKeyDown={handleKeyDown}
               onBlur={() => {
-                // Delay to allow suggestion click
                 setTimeout(() => {
                   if (!input.trim()) setShowInput(false);
                 }, 200);
