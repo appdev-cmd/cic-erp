@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CheckSquare, X, Calendar, Clock, Tag, Link2, MessageSquare,
   AlertTriangle, Pin, User, Edit3, Save, ExternalLink,
-  Play, CheckCircle2, Plus, Trash2, History,
+  Play, CheckCircle2, Plus, Trash2, History, Lock,
   Eye, Crown, Users, ShieldCheck, Send, XCircle, RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskService } from '../../services/taskService';
+import { TaskPersonalTagService } from '../../services/taskPersonalTagService';
 import { EntityRegistryService } from '../../services/entityRegistryService';
 import { formatDate, formatDateTime } from '../../utils/formatters';
 import DiscussionBox from '../ui/DiscussionBox';
@@ -243,6 +244,100 @@ const TagInputWithAutocomplete: React.FC<{
 };
 
 // ═══════════════════════════════════════
+// PERSONAL TAG INPUT (inline, compact)
+// ═══════════════════════════════════════
+const PersonalTagInput: React.FC<{
+  currentTags: string[];
+  onAdd: (tag: string) => void;
+}> = ({ currentTags, onAdd }) => {
+  const [input, setInput] = useState('');
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [focused, setFocused] = useState(false);
+  const [loadedOnce, setLoadedOnce] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const loadTags = useCallback(async () => {
+    if (loadedOnce) return;
+    try {
+      const { TaskPersonalTagService } = await import('../../services/taskPersonalTagService');
+      const { dataClient } = await import('../../lib/dataClient');
+      const { data: { user } } = await dataClient.auth.getUser();
+      if (user) {
+        const tags = await TaskPersonalTagService.getAllUserTags(user.id);
+        setAllTags(tags);
+      }
+      setLoadedOnce(true);
+    } catch { /* ignore */ }
+  }, [loadedOnce]);
+
+  const suggestions = input.trim()
+    ? allTags.filter(t =>
+        t.toLowerCase().includes(input.trim().toLowerCase()) &&
+        !currentTags.includes(t)
+      ).slice(0, 6)
+    : [];
+
+  const handleAdd = (tag: string) => {
+    const cleaned = tag.trim().replace(/^#/, '').toLowerCase().replace(/\s+/g, '_');
+    if (cleaned && !currentTags.includes(cleaned)) {
+      onAdd(cleaned);
+    }
+    setInput('');
+    inputRef.current?.focus();
+  };
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <input
+        ref={inputRef}
+        type="text"
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onFocus={() => { setFocused(true); loadTags(); }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && input.trim()) {
+            e.preventDefault();
+            handleAdd(input);
+          }
+          if (e.key === 'Escape') {
+            setFocused(false);
+            setInput('');
+          }
+        }}
+        placeholder="#tag..."
+        className="text-[11px] w-20 px-1.5 py-0.5 rounded border border-dashed border-amber-300 dark:border-amber-600 bg-transparent text-amber-700 dark:text-amber-400 placeholder-amber-300 dark:placeholder-amber-600 focus:outline-none focus:border-amber-400 dark:focus:border-amber-500 transition-colors"
+      />
+
+      {focused && suggestions.length > 0 && (
+        <div className="absolute left-0 mt-1 w-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 max-h-32 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
+          {suggestions.map(tag => (
+            <button
+              key={tag}
+              onClick={() => handleAdd(tag)}
+              className="w-full text-left px-3 py-1.5 text-[11px] text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <Lock size={8} className="text-amber-400 dark:text-amber-500" />
+              <span className="font-medium">{tag}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════
 // CHECKLIST
 // ═══════════════════════════════════════
 interface ChecklistItem { id: string; text: string; done: boolean; }
@@ -370,6 +465,7 @@ interface TaskDetailPanelProps {
   onClose?: () => void;
   onUpdate?: () => void;
   currentUserId?: string;
+  initialTab?: 'detail' | 'comments' | 'history' | 'links' | 'time';
 }
 
 const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
@@ -377,6 +473,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   onClose,
   onUpdate,
   currentUserId,
+  initialTab,
 }) => {
   const [task, setTask] = useState<Task | null>(null);
   const [statuses, setStatuses] = useState<TaskStatus[]>([]);
@@ -386,7 +483,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [isEditingDesc, setIsEditingDesc] = useState(false);
-  const [bottomTab, setBottomTab] = useState<'detail' | 'comments' | 'history' | 'links' | 'time'>('detail');
+  const [bottomTab, setBottomTab] = useState<'detail' | 'comments' | 'history' | 'links' | 'time'>(initialTab || 'detail');
 
   // People picker popover state
   const [openPicker, setOpenPicker] = useState<'assignees' | 'supporters' | 'watchers' | 'approvers' | null>(null);
@@ -587,10 +684,12 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
   const originalTaskRef = useRef<Task | null>(null);
 
-  // Checklist
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
   const [showAddCheck, setShowAddCheck] = useState(false);
+
+  // Personal tags
+  const [personalTags, setPersonalTags] = useState<string[]>([]);
 
   // ─── Pending changes (buffered save) ───
   const [pendingChanges, setPendingChanges] = useState<Record<string, any>>({});
@@ -651,6 +750,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
       // Load checklist from custom_fields
       if (taskData?.custom_fields?.checklist) {
         setChecklist(taskData.custom_fields.checklist);
+      }
+
+      // Load personal tags
+      if (currentUserId) {
+        try {
+          const pTags = await TaskPersonalTagService.getTagsForTask(currentUserId, taskId);
+          setPersonalTags(pTags);
+        } catch { /* silent */ }
       }
 
       // Resolve people from employees table (full company directory)
@@ -1353,25 +1460,65 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 {/* TAGS */}
                 <div>
                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 block">Tags</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {task.tags.map(tag => (
-                      <span key={tag} className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full flex items-center gap-1">
-                        <Tag size={10} /> {tag}
-                        <button onClick={() => bufferChange('tags', task.tags.filter(t => t !== tag))} className="ml-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400 cursor-pointer">
-                          <X size={10} />
+                      <span key={tag} className="text-xs text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Tag size={9} /> {tag}
+                        <button onClick={() => bufferChange('tags', task.tags.filter(t => t !== tag))} className="ml-0.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 cursor-pointer">
+                          <X size={9} />
                         </button>
                       </span>
                     ))}
                     {task.tags.length === 0 && <span className="text-xs text-slate-400 dark:text-slate-500 italic">Chưa có tags</span>}
+                    <TagInputWithAutocomplete
+                      currentTags={task.tags}
+                      onAdd={(newTag) => {
+                        if (!task.tags.includes(newTag)) {
+                          bufferChange('tags', [...task.tags, newTag]);
+                        }
+                      }}
+                    />
                   </div>
-                  <TagInputWithAutocomplete
-                    currentTags={task.tags}
-                    onAdd={(newTag) => {
-                      if (!task.tags.includes(newTag)) {
-                        bufferChange('tags', [...task.tags, newTag]);
-                      }
-                    }}
-                  />
+                </div>
+
+                {/* TAGS CÁ NHÂN */}
+                <div>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Lock size={10} className="text-amber-500 dark:text-amber-400" />
+                    Tags cá nhân
+                    <span className="text-[9px] font-normal normal-case text-slate-400 dark:text-slate-500">(chỉ bạn thấy)</span>
+                  </label>
+                  <div className="border border-dashed border-amber-300 dark:border-amber-700 rounded-lg p-2.5 bg-amber-50/30 dark:bg-amber-900/10">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {personalTags.map(tag => (
+                        <span key={tag} className="text-xs text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Lock size={8} /> {tag}
+                          <button
+                            onClick={async () => {
+                              if (!currentUserId) return;
+                              const ok = await TaskPersonalTagService.removeTag(currentUserId, taskId, tag);
+                              if (ok) setPersonalTags(prev => prev.filter(t => t !== tag));
+                            }}
+                            className="ml-0.5 text-amber-400 hover:text-red-500 dark:hover:text-red-400 cursor-pointer"
+                          >
+                            <X size={9} />
+                          </button>
+                        </span>
+                      ))}
+                      {personalTags.length === 0 && <span className="text-[10px] text-amber-400 dark:text-amber-500 italic">Thêm tag riêng của bạn...</span>}
+                      {/* Inline personal tag input */}
+                      <PersonalTagInput
+                        currentTags={personalTags}
+                        onAdd={async (newTag) => {
+                          if (!currentUserId) return;
+                          const ok = await TaskPersonalTagService.addTag(currentUserId, taskId, newTag);
+                          if (ok && !personalTags.includes(newTag)) {
+                            setPersonalTags(prev => [...prev, newTag]);
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

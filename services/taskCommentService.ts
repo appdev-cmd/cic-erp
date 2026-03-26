@@ -189,4 +189,23 @@ export const TaskCommentService = {
     if (error) throw error;
     return count || 0;
   },
+  /**
+   * Get comment counts for multiple tasks (batch — avoids N+1 queries).
+   * Returns a map: taskId → commentCount
+   */
+  async getCommentCountsBatch(taskIds: string[]): Promise<Record<string, number>> {
+    if (taskIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from('task_comments')
+      .select('task_id')
+      .in('task_id', taskIds); console.log('Batch result from DB:', data, error);
+
+    if (error) throw error;
+
+    const counts: Record<string, number> = {};
+    (data || []).forEach(row => {
+      counts[row.task_id] = (counts[row.task_id] || 0) + 1;
+    });
+    return counts;
+  },
 };

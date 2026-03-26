@@ -10,6 +10,8 @@ import { toast } from 'sonner';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
 import { useLayoutContext } from '../layout/MainLayout';
 import { TaskService } from '../../services/taskService';
+import { DiscussionService } from '../../services/discussionService';
+import { TaskPersonalTagService } from '../../services/taskPersonalTagService';
 import { dataClient } from '../../lib/dataClient';
 import TaskDetailPanel from './TaskDetailPanel';
 import CreateTaskPanel from './CreateTaskPanel';
@@ -421,9 +423,48 @@ const InlineTagInput: React.FC<{
 };
 
 // ═══════════════════════════════════════
+// QUICK COMMENT INPUT (inline add comment)
+// ═══════════════════════════════════════
+const InlineCommentInput: React.FC<{
+  onSave: (content: string) => void;
+  onClose: () => void;
+}> = ({ onSave, onClose }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [val, setVal] = useState('');
+
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [onClose]);
+
+  const handleAdd = () => {
+    if (val.trim()) {
+      onSave(val.trim());
+    }
+  };
+
+  return (
+    <div ref={ref} className="absolute right-full top-1/2 -translate-y-1/2 mr-2 z-50 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-2 flex items-center gap-2">
+      <input
+        autoFocus
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') onClose(); }}
+        placeholder="Nhập nội dung trao đổi nhanh..."
+        className="flex-1 text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg px-2 py-1.5 border border-indigo-300 dark:border-indigo-500 outline-none placeholder-slate-400 dark:placeholder-slate-500"
+      />
+      <button onClick={handleAdd} className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg cursor-pointer flex-shrink-0 transition-colors font-medium">Gửi</button>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════
 // COLUMN CONFIG & RESIZABLE COLUMNS
 // ═══════════════════════════════════════
-const COLUMN_KEYS = ['status', 'deadline', 'created_at', 'assigner', 'assignee', 'project', 'tags'] as const;
+const COLUMN_KEYS = ['status', 'deadline', 'created_at', 'assigner', 'assignee', 'project', 'comments'] as const;
 type ColumnKey = typeof COLUMN_KEYS[number];
 
 const DEFAULT_COL_WIDTHS: Record<ColumnKey, number> = {
@@ -433,7 +474,7 @@ const DEFAULT_COL_WIDTHS: Record<ColumnKey, number> = {
   assigner: 140,
   assignee: 140,
   project: 120,
-  tags: 80,
+  comments: 90,
 };
 
 const COL_LABELS: Record<ColumnKey, string> = {
@@ -443,13 +484,13 @@ const COL_LABELS: Record<ColumnKey, string> = {
   assigner: 'Người giao',
   assignee: 'Người thực hiện',
   project: 'Liên kết',
-  tags: 'Tags',
+  comments: 'Bình luận',
 };
 
 const COL_RESPONSIVE: Partial<Record<ColumnKey, string>> = {
   created_at: 'hidden xl:table-cell',
   project: 'hidden lg:table-cell',
-  tags: 'hidden lg:table-cell',
+  comments: 'hidden lg:table-cell',
 };
 
 const STORAGE_KEY_COL_WIDTHS = 'cic_task_col_widths';
@@ -514,7 +555,7 @@ const BitrixListView: React.FC<{
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onSelectAll: () => void;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, initialTab?: 'detail' | 'comments' | 'history' | 'links' | 'time') => void;
   onToggleComplete: (task: Task) => void;
   onTogglePin: (taskId: string) => void;
   onStartTask: (task: Task) => void;
@@ -524,12 +565,22 @@ const BitrixListView: React.FC<{
   onUpdateDeadline: (taskId: string, deadline: string | null) => void;
   onUpdateAssignee: (taskId: string, assigneeIds: string[]) => void;
   onUpdateProject: (taskId: string, projectId: string | null) => void;
-  onUpdateTags: (taskId: string, tags: string[]) => void;
+  onQuickComment: (taskId: string, content: string) => Promise<void>;
   projects: { id: string; name: string }[];
-}> = ({ tasks, statuses, employees, selectedIds, onToggleSelect, onSelectAll, onSelect, onToggleComplete, onTogglePin, onStartTask, onQuickCreate, onTagClick, onUpdateStatus, onUpdateDeadline, onUpdateAssignee, onUpdateProject, onUpdateTags, projects }) => {
+}> = ({ tasks, statuses, employees, selectedIds, onToggleSelect, onSelectAll, onSelect, onToggleComplete, onTogglePin, onStartTask, onQuickCreate, onTagClick, onUpdateStatus, onUpdateDeadline, onUpdateAssignee, onUpdateProject, onQuickComment, projects }) => {
   const [colWidths, setColWidths] = useState<Record<ColumnKey, number>>(loadColWidths);
   // Inline edit state: which cell is being edited
-  const [editingCell, setEditingCell] = useState<{ taskId: string; col: 'status' | 'deadline' | 'assignee' | 'project' | 'tag' } | null>(null);
+  const [editingCell, setEditingCell] = useState<{ taskId: string; col: 'status' | 'deadline' | 'assignee' | 'project' | 'comment' } | null>(null);
+  // Comment counts loaded via batch
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const taskIds = tasks.map(t => t.id);
+    if (taskIds.length === 0) return;
+    DiscussionService.getCountsBatch('task', taskIds)
+      .then(counts => setCommentCounts(counts))
+      .catch((err) => { console.error(err); });
+  }, [tasks]);
 
   const handleWidthChange = useCallback((col: ColumnKey, width: number) => {
     setColWidths(prev => ({ ...prev, [col]: width }));
@@ -691,7 +742,7 @@ const BitrixListView: React.FC<{
                   {editingCell?.taskId === task.id && editingCell?.col === 'status' && (
                     <StatusDropdown
                       statuses={statuses}
-                      currentStatusId={task.status_id}
+                      currentStatusId={task.status_id || ''}
                       onSelect={(statusId) => { onUpdateStatus(task.id, statusId); setEditingCell(null); }}
                       onClose={() => setEditingCell(null)}
                     />
@@ -811,35 +862,43 @@ const BitrixListView: React.FC<{
                   )}
                 </td>
 
-                {/* Tags — clickable to search + inline add */}
+                {/* Bình luận — comment count badge and optional simple comment icon */}
                 <td className="px-3 py-2.5 hidden lg:table-cell relative" onClick={e => e.stopPropagation()}>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {task.tags.slice(0, 2).map(tag => (
+                  <div className="flex items-center justify-center">
+                    {(commentCounts[task.id] || 0) > 0 ? (
+                      <div className="flex items-center gap-1.5 text-xs bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
+                        <button
+                          onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'comment' ? null : { taskId: task.id, col: 'comment' })}
+                          className="flex items-center text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition-colors p-0.5 rounded-sm"
+                          title="Nhắn tin nhanh"
+                        >
+                          <MessageSquare size={13} />
+                        </button>
+                        <button
+                          onClick={() => onSelect(task.id, 'comments')}
+                          className="flex items-center font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 cursor-pointer transition-colors p-0.5 rounded-sm"
+                          title="Xem bình luận"
+                        >
+                          {commentCounts[task.id]}
+                        </button>
+                      </div>
+                    ) : (
                       <button
-                        key={tag}
-                        onClick={() => onTagClick(tag)}
-                        className="text-[10px] text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
-                        title={`Tìm theo #${tag}`}
+                        onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'comment' ? null : { taskId: task.id, col: 'comment' })}
+                        className="flex items-center gap-1 text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors opacity-0 group-hover:opacity-100 p-0.5 rounded"
+                        title="Để lại bình luận"
                       >
-                        #{tag}
+                        <MessageSquare size={14} />
                       </button>
-                    ))}
-                    {task.tags.length > 2 && (
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500">+{task.tags.length - 2}</span>
                     )}
-                    {/* + button to add tag (hover only) */}
-                    <button
-                      onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'tag' ? null : { taskId: task.id, col: 'tag' })}
-                      className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-all opacity-0 group-hover:opacity-100 flex items-center"
-                      title="Thêm tag"
-                    >
-                      <Plus size={11} />
-                    </button>
                   </div>
-                  {editingCell?.taskId === task.id && editingCell?.col === 'tag' && (
-                    <InlineTagInput
-                      currentTags={task.tags}
-                      onSave={(newTags) => { onUpdateTags(task.id, newTags); setEditingCell(null); }}
+                  {editingCell?.taskId === task.id && editingCell?.col === 'comment' && (
+                    <InlineCommentInput
+                      onSave={async (content) => { 
+                        await onQuickComment(task.id, content); 
+                        setEditingCell(null);
+                        setCommentCounts(prev => ({ ...prev, [task.id]: (prev[task.id] || 0) + 1 }));
+                      }}
                       onClose={() => setEditingCell(null)}
                     />
                   )}
@@ -864,7 +923,7 @@ const BitrixListView: React.FC<{
 // ═══════════════════════════════════════
 // DEADLINE VIEW (Kanban by deadline — with drag & drop)
 // ═══════════════════════════════════════
-type DeadlineColumnKey = 'overdue_2w' | 'overdue' | 'today' | 'this_week' | 'next_week' | 'no_deadline';
+type DeadlineColumnKey = 'later' | 'overdue' | 'today' | 'this_week' | 'next_week' | 'no_deadline';
 
 const DeadlineView: React.FC<{
   tasks: Task[];
@@ -930,6 +989,12 @@ const DeadlineView: React.FC<{
         monday.setHours(9, 0, 0, 0);
         return monday.toISOString();
       }
+      case 'later': {
+        const futureMonday = new Date(endOfWeek);
+        futureMonday.setDate(endOfWeek.getDate() + 8);
+        futureMonday.setHours(9, 0, 0, 0);
+        return futureMonday.toISOString();
+      }
       case 'no_deadline':
         return null;
       default: return null;
@@ -976,16 +1041,12 @@ const DeadlineView: React.FC<{
     }
   };
 
-  const twoWeeksAgo = new Date(today);
-  twoWeeksAgo.setDate(today.getDate() - 14);
-  const twoWeeksAgoStr = localDateStr(twoWeeksAgo);
-
   const columns: { key: DeadlineColumnKey; title: string; headerBg: string; tasks: Task[] }[] = [
     {
       key: 'overdue',
       title: 'Quá hạn',
       headerBg: 'bg-red-500',
-      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) >= twoWeeksAgoStr && toDateStr(t.due_date) < todayStr),
+      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) < todayStr),
     },
     {
       key: 'today',
@@ -1012,10 +1073,10 @@ const DeadlineView: React.FC<{
       tasks: activeTasks.filter(t => !t.due_date),
     },
     {
-      key: 'overdue_2w',
-      title: 'Quá hạn trên 2 tuần',
-      headerBg: 'bg-red-700',
-      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) < twoWeeksAgoStr),
+      key: 'later',
+      title: 'Hơn 2 tuần nữa',
+      headerBg: 'bg-purple-500',
+      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) > endOfNextWeekStr),
     },
   ];
 
@@ -1290,22 +1351,11 @@ const SearchWithTagAutocomplete: React.FC<{
   value: string;
   onChange: (val: string) => void;
   onClear: () => void;
-}> = ({ value, onChange, onClear }) => {
-  const [allTags, setAllTags] = useState<string[]>([]);
-  const [loadedTags, setLoadedTags] = useState(false);
+  availableTags: string[];
+}> = ({ value, onChange, onClear, availableTags }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-
-  // Load all tags on first focus
-  const loadTags = useCallback(async () => {
-    if (loadedTags) return;
-    try {
-      const tags = await TaskService.getAllTags();
-      setAllTags(tags);
-      setLoadedTags(true);
-    } catch { /* ignore */ }
-  }, [loadedTags]);
 
   // Detect if user is typing a #tag pattern at cursor position
   const getTagFragment = (): string | null => {
@@ -1318,11 +1368,11 @@ const SearchWithTagAutocomplete: React.FC<{
   };
 
   const tagFragment = getTagFragment();
-  const suggestions = (tagFragment !== null && loadedTags)
-    ? allTags.filter(t =>
+  const suggestions = tagFragment !== null
+    ? availableTags.filter(t =>
         t.toLowerCase().includes(tagFragment.toLowerCase()) &&
         !value.includes(`#${t}`)
-      ).slice(0, 8)
+      ).slice(0, 20)
     : [];
 
   const handleSelectTag = (tag: string) => {
@@ -1366,11 +1416,10 @@ const SearchWithTagAutocomplete: React.FC<{
         onChange={e => {
           onChange(e.target.value);
           setShowSuggestions(true);
-          loadTags();
         }}
-        onFocus={() => { loadTags(); setShowSuggestions(true); }}
+        onFocus={() => { setShowSuggestions(true); }}
         placeholder="Tìm kiếm... (gõ #tag để lọc)"
-        className="pl-9 pr-8 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+        className="pl-9 pr-8 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-72 sm:w-96 transition-all"
       />
       {value && (
         <button onClick={onClear} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
@@ -1417,9 +1466,9 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   const [filterProjectId, setFilterProjectId] = useState<string>('all');
   const [projects, setProjects] = useState<{id: string; name: string}[]>([]);
   const [employees, setEmployees] = useState<Record<string, { name: string; avatar?: string }>>({});
+  const [personalUserTags, setPersonalUserTags] = useState<string[]>([]);
   const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [showSearch, setShowSearch] = useState(false);
 
   const { getVisibleTasks, getMyTasks, isAdmin, isManager, visibilityContext } = useTaskVisibility();
 
@@ -1443,7 +1492,16 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
       } catch { /* ignore */ }
     };
     load();
-  }, []);
+
+    // Load user's personal tags
+    if (visibilityContext.userId) {
+      import('../../services/taskPersonalTagService').then(m => {
+        m.TaskPersonalTagService.getAllUserTags(visibilityContext.userId).then(tags => {
+          setPersonalUserTags(tags);
+        });
+      });
+    }
+  }, [visibilityContext.userId]);
 
   // Load data
   const loadData = useCallback(async () => {
@@ -1477,6 +1535,31 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
         ...t,
         _projectName: t.project_id ? projectMap[t.project_id] : undefined,
       }));
+
+      // If searching by #tag, also include tasks matched by personal tags
+      if (searchTags.length > 0) {
+        try {
+          const personalMatchPromises = searchTags.map(tag => TaskPersonalTagService.getTaskIdsByTag(visibilityContext.userId, tag));
+          const personalMatchArrays = await Promise.all(personalMatchPromises);
+          const personalTaskIds = new Set(personalMatchArrays.flat());
+          // Remove IDs that are already in the result
+          const existingIds = new Set(enriched.map(t => t.id));
+          const missingIds = [...personalTaskIds].filter(id => !existingIds.has(id));
+          if (missingIds.length > 0) {
+            // Fetch those missing tasks
+            const { data: extraTasks } = await dataClient.from('tasks').select('*').in('id', missingIds);
+            if (extraTasks) {
+              for (const t of extraTasks) {
+                enriched.push({
+                  ...t,
+                  _projectName: t.project_id ? projectMap[t.project_id] : undefined,
+                } as any);
+              }
+            }
+          }
+        } catch { /* silent */ }
+      }
+
       setTasks(enriched);
 
       // Load employee info for all referenced people
@@ -1513,6 +1596,27 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
     return result;
   }, [tasks, selectedUnit]);
 
+  const [tabTags, setTabTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Only update the pool of available tags when no search is active,
+    // so suggestions don't instantly disappear when typing partial tags filters the task list.
+    if (!searchQuery) {
+      const tagSet = new Set<string>();
+      tasks.forEach(t => {
+        t.tags?.forEach(tag => tagSet.add(tag));
+      });
+      setTabTags(Array.from(tagSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })));
+    }
+  }, [tasks, searchQuery]);
+
+  // Derive actual unique tags from unfiltered tab tags + personal tags
+  // This ensures that any suggested tag WILL yield result(s) in the current view
+  const actualTags = useMemo(() => {
+    return Array.from(new Set([...tabTags, ...personalUserTags]))
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [tabTags, personalUserTags]);
+
   // Handlers
   const handleToggleComplete = useCallback(async (task: Task) => {
     try {
@@ -1528,7 +1632,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
     }
   }, [visibilityContext.userId, loadData]);
 
-  const handleSelectTask = useCallback((taskId: string) => {
+  const handleSelectTask = useCallback((taskId: string, initialTab?: 'detail' | 'comments' | 'history' | 'links' | 'time') => {
     if (onSelectTask) {
       onSelectTask(taskId);
     } else {
@@ -1539,6 +1643,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
             onUpdate={loadData}
             currentUserId={visibilityContext.userId}
             onClose={closePanel}
+            initialTab={initialTab}
           />
         ),
         title: 'Chi tiết công việc',
@@ -1574,7 +1679,6 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
 
   const handleTagClick = useCallback((tag: string) => {
     setSearchQuery(`#${tag}`);
-    setShowSearch(true);
   }, []);
 
   const handleQuickCreate = useCallback(async (title: string, tags: string[], dueDate?: string) => {
@@ -1649,15 +1753,21 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
     }
   }, [loadData]);
 
-  const handleUpdateTags = useCallback(async (taskId: string, tags: string[]) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, tags } : t));
+  const handleQuickComment = useCallback(async (taskId: string, content: string) => {
+    if (!visibilityContext.userId) return;
     try {
-      await TaskService.update(taskId, { tags });
+      await DiscussionService.add({
+        entity_type: 'task',
+        entity_id: taskId,
+        user_id: visibilityContext.userId,
+        content,
+        comment_type: 'user'
+      });
+      toast.success('Đã gửi bình luận!');
     } catch (err: any) {
-      toast.error('Lỗi: ' + (err.message || err));
-      loadData();
+      toast.error('Lỗi khi gửi bình luận: ' + (err.message || err));
     }
-  }, [loadData]);
+  }, [visibilityContext.userId]);
 
   // Selection
   const handleToggleSelect = (id: string) => {
@@ -1761,21 +1871,13 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
 
 
 
-          {/* Search toggle */}
-          <button
-            onClick={() => setShowSearch(!showSearch)}
-            className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition-colors"
-          >
-            <Search size={14} /> {showSearch ? '' : '+ tìm kiếm'}
-          </button>
-
-          {showSearch && (
-            <SearchWithTagAutocomplete
-              value={searchQuery}
-              onChange={setSearchQuery}
-              onClear={() => { setSearchQuery(''); setShowSearch(false); }}
-            />
-          )}
+          {/* Search Bar - Always Visible */}
+          <SearchWithTagAutocomplete
+            value={searchQuery}
+            onChange={setSearchQuery}
+            onClear={() => { setSearchQuery(''); }}
+            availableTags={actualTags}
+          />
         </div>
 
         <div className="flex items-center gap-2">
@@ -1864,7 +1966,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
               onUpdateDeadline={handleUpdateDeadline}
               onUpdateAssignee={handleUpdateAssignee}
               onUpdateProject={handleUpdateProject}
-              onUpdateTags={handleUpdateTags}
+              onQuickComment={handleQuickComment}
               projects={projects}
             />
           )}

@@ -234,4 +234,26 @@ export const DiscussionService = {
     if (error) throw error;
     return count || 0;
   },
+
+  /**
+   * Get comment counts for multiple entities in batch.
+   * Returns a map: entityId -> commentCount
+   */
+  async getCountsBatch(entityType: string, entityIds: string[]): Promise<Record<string, number>> {
+    if (entityIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from('discussions')
+      .select('entity_id')
+      .eq('entity_type', entityType)
+      .eq('comment_type', 'user')
+      .in('entity_id', entityIds);
+
+    if (error) throw error;
+
+    const counts: Record<string, number> = {};
+    (data || []).forEach(row => {
+      counts[row.entity_id] = (counts[row.entity_id] || 0) + 1;
+    });
+    return counts;
+  },
 };

@@ -855,7 +855,9 @@ export const TaskService = {
     const tagSet = new Set<string>();
     (data || []).forEach((row: any) => {
       if (Array.isArray(row.tags)) {
-        row.tags.forEach((t: string) => tagSet.add(t));
+        row.tags.forEach((t: string) => {
+          if (t && t !== '_test_data') tagSet.add(t);
+        });
       }
     });
     return [...tagSet].sort();
