@@ -645,6 +645,10 @@ const BitrixListView: React.FC<{
             const status = statuses.find(s => s.id === task.status_id);
             const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !task.completed_at;
             const isDone = task.status?.is_done || status?.is_done;
+            const isInProgress = status?.name === 'Đang tiến hành' || status?.name === 'Đang thực hiện';
+            const hasPastStartDate = !!(task.start_date && task.start_date <= new Date().toISOString().split('T')[0]);
+            const isPendingApproval = task.approval_status === 'pending';
+            const showStartButton = !isDone && !isInProgress && !hasPastStartDate && !isPendingApproval;
             const creator = task.created_by ? employees[task.created_by] : null;
             const assignee = task.assignees?.[0] ? employees[task.assignees[0]] : null;
 
@@ -689,7 +693,7 @@ const BitrixListView: React.FC<{
 
                     {/* Hover quick actions: Start + Complete + Pin (pin last) */}
                     <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0 mt-0.5" onClick={e => e.stopPropagation()}>
-                      {!isDone && (
+                      {showStartButton && (
                         <button
                           onClick={() => onStartTask(task)}
                           className="p-1 text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded cursor-pointer transition-colors"
@@ -914,6 +918,11 @@ const BitrixListView: React.FC<{
           <CheckSquare size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-4" />
           <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400">Chưa có công việc nào</h3>
           <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Tạo công việc mới hoặc chờ được giao từ hệ thống</p>
+          
+          <div className="mt-4 text-xs text-left max-w-sm mx-auto bg-slate-100 p-2 rounded overflow-auto">
+             <p>Debug Unit: {(window as any).debugTaskState?.selectedUnit?.id}</p>
+             <p>Debug roleFilter: {(window as any).debugRoleFilter || 'all'}</p>
+          </div>
         </div>
       )}
     </div>
@@ -1820,6 +1829,10 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   const doneStatusIds = statuses.filter(s => s.is_done).map(s => s.id);
   const overdueCount = tasks.filter(t => t.due_date && t.due_date < today && !doneStatusIds.includes(t.status_id || '')).length;
   const commentsCount = 0;
+
+  useEffect(() => {
+    (window as any).debugTaskState = { tasks, filteredTasks, roleCounts, selectedUnit };
+  }, [tasks, filteredTasks, roleCounts, selectedUnit]);
 
   return (
     <div className="space-y-0">

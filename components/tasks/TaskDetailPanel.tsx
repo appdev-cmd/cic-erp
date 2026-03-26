@@ -1127,7 +1127,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
   const handleStartTask = async () => {
     if (!task) return;
-    const inProgressStatus = statuses.find(s => s.name === 'Đang tiến hành');
+    const inProgressStatus = statuses.find(s => s.name === 'Đang tiến hành' || s.name === 'Đang thực hiện');
     if (inProgressStatus) {
       await handleImmediateUpdate('status_id', inProgressStatus.id);
       if (!task.start_date) await handleImmediateUpdate('start_date', new Date().toISOString().split('T')[0]);
@@ -1169,7 +1169,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !isDone;
   const currentStatus = statuses.find(s => s.id === task.status_id);
   const currentPriority = PRIORITIES.find(p => p.value === task.priority) || PRIORITIES[2];
-  const isInProgress = currentStatus?.name === 'Đang tiến hành';
+  const isInProgress = currentStatus?.name === 'Đang tiến hành' || currentStatus?.name === 'Đang thực hiện';
+  const hasPastStartDate = !!(task.start_date && task.start_date <= new Date().toISOString().split('T')[0]);
   const overdueDays = isOverdue ? Math.ceil((Date.now() - new Date(task.due_date!).getTime()) / 86400000) : 0;
 
   // Approval state derivations
@@ -1246,7 +1247,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
           {/* Normal task buttons (non-approval subtask) */}
           {!isApprovalSubtask && (
             <>
-              {!isDone && !isInProgress && !isPendingApproval && (
+              {!isDone && !isInProgress && !hasPastStartDate && !isPendingApproval && (
                 <button onClick={handleStartTask} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors cursor-pointer shadow-sm">
                   <Play size={14} /> BẮT ĐẦU
                 </button>
