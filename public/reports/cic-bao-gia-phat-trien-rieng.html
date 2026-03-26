@@ -186,21 +186,19 @@ footer strong{color:var(--t2)}
         <span class="pbadge sub-only">Thuê bao hằng năm</span>
         <div class="plabel buy-only">Thanh toán 1 lần theo module đã chọn</div>
         <div class="plabel sub-only">Phí năm theo module đã chọn</div>
-        <div class="pamount"><span id="price-main">780.000.000</span> <span id="price-unit">VND</span></div>
-        <p class="pnote buy-only">Vận hành từ năm 2 chỉ 100 triệu/năm — rẻ hơn thuê bao</p>
-        <p class="pnote sub-only">All-in: hạ tầng + hỗ trợ + cập nhật · Giá cố định 3 năm</p>
+        <div class="pamount"><span id="price-main">800.000.000</span> <span id="price-unit">VND</span></div>
+        <p class="pnote">Thanh toán 1 lần — Bao gồm toàn bộ tính năng</p>
         <ul class="pincludes">
-          <li>Toàn bộ tính năng module đã chọn</li>
+          <li>Toàn bộ tính năng quản lý dự án ĐTXD</li>
+          <li>Tài liệu & Công nghệ Cao cấp (CDE, BIM, AI)</li>
           <li>Không giới hạn tài khoản người dùng</li>
           <li>Bảo hành 12 tháng sau triển khai</li>
-          <li class="buy-only">Vận hành từ năm 2: 100.000.000₫/năm</li>
-          <li class="sub-only">Hỗ trợ kỹ thuật 24/7 included</li>
-          <li class="sub-only">Cập nhật tính năng định kỳ</li>
+          <li>Cấu hình, đào tạo & kiểm thử UAT</li>
         </ul>
       </div>
       <div class="price-card setup-card">
         <span class="pbadge">Triển khai & Cài đặt</span>
-        <div class="plabel">Thanh toán 1 lần · Cả 2 hình thức</div>
+        <div class="plabel">Thanh toán 1 lần</div>
         <div class="pamount"><span>100.000.000</span> <span>VND</span></div>
         <p class="pnote">Khảo sát, cài đặt, đào tạo, nghiệm thu</p>
         <ul class="pincludes">
@@ -215,14 +213,11 @@ footer strong{color:var(--t2)}
 
     <!-- Total Summary -->
     <div class="total-box">
-      <div class="trow buy-only"><span class="lbl">💰 Trả trước bản quyền (module đã chọn)</span><span class="val" id="sum-license">780.000.000₫</span></div>
-      <div class="trow sub-only"><span class="lbl">🔄 Phí thuê bao / năm (module đã chọn)</span><span class="val" id="sum-sub">250.000.000₫/năm</span></div>
+      <div class="trow"><span class="lbl">📦 Bản quyền phần mềm (trọn gói)</span><span class="val">800.000.000₫</span></div>
       <div class="trow"><span class="lbl">🚀 Phí triển khai & cài đặt (1 lần)</span><span class="val">100.000.000₫</span></div>
       <div class="trow"><span class="lbl">🎁 Bảo hành năm đầu tiên</span><span class="val" style="color:var(--ok)">Miễn phí</span></div>
-      <div class="trow div grand"><span class="lbl" id="sum-y1-lbl">💰 Tổng chi phí năm đầu</span><span class="val" id="sum-year1">880.000.000₫</span></div>
-      <div class="trow buy-only"><span class="lbl">🔄 Vận hành từ năm 2 (rẻ hơn thuê bao)</span><span class="val" id="sum-maint">100.000.000₫/năm</span></div>
-      <div class="trow div"><span class="lbl">📊 Ước tính tổng 5 năm sử dụng</span><span class="val" style="font-size:16px;font-weight:800" id="sum-5yr">1.280.000.000₫</span></div>
-      <p class="tnote" id="sum-note">📌 Giá chưa VAT · Không giới hạn User · Vận hành rẻ hơn thuê bao</p>
+      <div class="trow div grand"><span class="lbl">💰 Tổng chi phí đầu tư</span><span class="val">900.000.000₫</span></div>
+      <p class="tnote">📌 Giá chưa bao gồm VAT · Không giới hạn User · Bảo hành 12 tháng</p>
     </div>
   </div>
 </section>
@@ -241,78 +236,61 @@ footer strong{color:var(--t2)}
           <th>Giá</th>
         </tr></thead>
         <tbody>
-          <tr class="grp"><td colspan="4">🔐 Nền tảng & Quản trị Hệ thống</td></tr>
-          <tr class="sel mrow" data-buy="40000000" data-sub="13000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked disabled></td><td><div class="mname">🔑 Xác thực & Phân quyền (auth)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Đăng nhập, đăng ký, phân quyền RLS đa cấp, quản lý phiên, Impersonation</td><td class="mprice">40.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">5.1%</td></tr>
-          <tr class="sel mrow" data-buy="30000000" data-sub="10000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked disabled></td><td><div class="mname">🛡️ Quản trị Hệ thống (admin)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Quản lý tài khoản, phân quyền vai trò, audit log, giám sát hoạt động</td><td class="mprice">30.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">3.8%</td></tr>
-          <tr class="sel mrow" data-buy="20000000" data-sub="6000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">⚙️ Cài đặt Hệ thống (settings)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Giao diện sáng/tối, cấu hình cá nhân, quản lý profile, tùy chỉnh thông báo</td><td class="mprice">20.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">2.6%</td></tr>
-
-          <tr class="grp"><td colspan="4">📊 Dashboard & Báo cáo</td></tr>
-          <tr class="sel mrow" data-buy="50000000" data-sub="16000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">📈 Dashboard Tổng hợp & Cá nhân</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Dashboard KPIs tổng hợp, cá nhân, bản đồ dự án, biểu đồ thống kê đa chiều</td><td class="mprice">50.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">6.4%</td></tr>
-          <tr class="sel mrow" data-buy="40000000" data-sub="13000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">📋 Trung tâm Báo cáo (reports)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Báo cáo động, xuất XLSX / DOCX / PDF / PPTX, báo cáo theo dự án, tài chính, tiến độ</td><td class="mprice">40.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">5.1%</td></tr>
-
-          <tr class="grp"><td colspan="4">🏗️ Quản lý Dự án & Hợp đồng</td></tr>
-          <tr class="sel mrow" data-buy="90000000" data-sub="29000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">🏢 Quản lý Dự án (projects)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Danh sách & chi tiết dự án, hồ sơ pháp lý, gói thầu, Gantt chart, mốc tiến độ</td><td class="mprice">90.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">11.5%</td></tr>
-          <tr class="sel mrow" data-buy="50000000" data-sub="16000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">📝 Quản lý Hợp đồng (contracts)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Hợp đồng 5 trạng thái, phụ lục, điều chỉnh giá, variation orders, theo dõi thực hiện</td><td class="mprice">50.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">6.4%</td></tr>
-          <tr class="sel mrow" data-buy="40000000" data-sub="13000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">✅ Quản lý Công việc (tasks)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Danh sách công việc, phân công, theo dõi tiến độ, lọc/sắp xếp, batch operations</td><td class="mprice">40.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">5.1%</td></tr>
-
-          <tr class="grp"><td colspan="4">💰 Tài chính & Đấu thầu</td></tr>
-          <tr class="sel mrow" data-buy="50000000" data-sub="16000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">🏷️ Đấu thầu & Lựa chọn Nhà thầu</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Quản lý gói thầu, quy trình lựa chọn nhà thầu, kết quả đấu thầu, tích hợp hợp đồng</td><td class="mprice">50.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">6.4%</td></tr>
-          <tr class="sel mrow" data-buy="40000000" data-sub="13000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">💳 Thanh toán & Giải ngân</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Đợt thanh toán, giải ngân, đề nghị thanh toán, theo dõi công nợ, đối soát</td><td class="mprice">40.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">5.1%</td></tr>
-          <tr class="sel mrow" data-buy="30000000" data-sub="10000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">📊 Kế hoạch Vốn (capital)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Kế hoạch vốn trung hạn, phân bổ nguồn vốn theo năm, theo dõi giải ngân</td><td class="mprice">30.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">3.8%</td></tr>
-
-          <tr class="grp"><td colspan="4">👥 Nhân sự & Tổ chức</td></tr>
-          <tr class="sel mrow" data-buy="30000000" data-sub="10000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">👤 Quản lý Nhân sự (employees)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Danh sách nhân sự, hồ sơ chi tiết, chuyên môn, chứng chỉ, lịch sử công tác</td><td class="mprice">30.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">3.8%</td></tr>
-          <tr class="sel mrow" data-buy="30000000" data-sub="10000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">🏗️ Quản lý Nhà thầu (contractors)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Danh sách nhà thầu, hồ sơ năng lực, đánh giá, lịch sử hợp đồng, portal nhà thầu</td><td class="mprice">30.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">3.8%</td></tr>
-          <tr class="sel mrow" data-buy="20000000" data-sub="5000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">🏛️ Quy chế Tổ chức (organization)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Sơ đồ tổ chức, quy chế hoạt động, quy trình nghiệp vụ nội bộ, nội quy</td><td class="mprice">20.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">2.6%</td></tr>
+          <tr class="grp"><td colspan="4">📦 Phần mềm Quản lý Dự án ĐTXD — Trọn gói</td></tr>
+          <tr class="sel" style="background:rgba(139,92,246,.04)">
+            <td style="text-align:center"><input type="checkbox" class="cbx" checked disabled></td>
+            <td>
+              <div class="mname" style="font-size:14px">🏗️ Hệ thống Quản lý Dự án ĐTXD (Full Platform)</div>
+              <div style="font-size:12px;color:var(--t3);margin-top:6px;line-height:1.7">
+                Bao gồm toàn bộ tính năng:<br>
+                🔐 Nền tảng & Quản trị (Auth, Admin, Settings)<br>
+                📊 Dashboard & Báo cáo (KPIs, xuất XLSX/DOCX/PDF/PPTX)<br>
+                🏢 Quản lý Dự án, Hợp đồng, Công việc (Gantt, tiến độ, variation orders)<br>
+                💰 Tài chính & Đấu thầu (Gói thầu, thanh toán, giải ngân, kế hoạch vốn)<br>
+                👥 Nhân sự & Tổ chức (Nhân sự, nhà thầu, quy chế, portal)
+              </div>
+            </td>
+            <td class="mdesc" style="vertical-align:middle;font-weight:700;color:var(--t)">14 module quản lý dự án tích hợp đầy đủ, không giới hạn user</td>
+            <td class="mprice" style="font-size:15px;font-weight:900;color:var(--pr)">600.000.000₫</td>
+          </tr>
 
           <tr class="grp"><td colspan="4">📁 Tài liệu & Công nghệ Cao cấp</td></tr>
-          <tr class="sel mrow" data-buy="60000000" data-sub="19000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">📂 CDE — Môi trường Dữ liệu Chung</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Kho lưu trữ số, versioning, phê duyệt ISO 19650, transmittal, WIP/Shared/Published</td><td class="mprice">60.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">7.7%</td></tr>
-          <tr class="sel mrow" data-buy="20000000" data-sub="6000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">⚖️ Tra cứu Văn bản Pháp luật</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Tìm kiếm văn bản pháp luật xây dựng, quy chuẩn, tiêu chuẩn, thông tư, nghị định</td><td class="mprice">20.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">2.6%</td></tr>
-          <tr class="sel mrow" data-buy="50000000" data-sub="16000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">🧊 BIM 3D Viewer</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Xem mô hình IFC 3D trên trình duyệt, điều hướng, đo lường, gắn ghi chú, liên kết dự án</td><td class="mprice">50.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">6.4%</td></tr>
-          <tr class="sel mrow" data-buy="40000000" data-sub="13000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked></td><td><div class="mname">🤖 AI Hub (Google Gemini)</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Trợ lý AI tóm tắt hồ sơ, cảnh báo rủi ro, phân tích dữ liệu, báo cáo nâng cao PPTX</td><td class="mprice">40.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">5.1%</td></tr>
+          <tr class="sel" style="background:rgba(59,130,246,.04)">
+            <td style="text-align:center"><input type="checkbox" class="cbx" checked disabled></td>
+            <td>
+              <div class="mname" style="font-size:14px">🚀 Gói Công nghệ Cao cấp (CDE + BIM + AI)</div>
+              <div style="font-size:12px;color:var(--t3);margin-top:6px;line-height:1.7">
+                📂 CDE — Môi trường Dữ liệu Chung (ISO 19650, versioning, phê duyệt)<br>
+                ⚖️ Tra cứu Văn bản Pháp luật xây dựng (QCVN, TCVN, thông tư, nghị định)<br>
+                🧊 BIM 3D Viewer (Xem IFC 3D trên trình duyệt, đo lường, ghi chú)<br>
+                🤖 AI Hub — Google Gemini (Tóm tắt hồ sơ, cảnh báo rủi ro, phân tích dữ liệu)
+              </div>
+            </td>
+            <td class="mdesc" style="vertical-align:middle;font-weight:700;color:var(--t)">4 module công nghệ tiên tiến cho dự án xây dựng hiện đại</td>
+            <td class="mprice" style="font-size:15px;font-weight:900;color:var(--ac)">200.000.000₫</td>
+          </tr>
 
           <tr class="grp"><td colspan="4">🚀 Dịch vụ Triển khai (Bắt buộc)</td></tr>
-          <tr class="sel mrow" data-buy="50000000" data-sub="16000000"><td style="text-align:center"><input type="checkbox" class="cbx" checked disabled></td><td><div class="mname">🎓 Cấu hình, Đào tạo & Kiểm thử</div><div class="mbar"><div class="mbar-fill"></div></div></td><td class="mdesc">Cấu hình hệ thống, đào tạo quản trị viên & người dùng, kiểm thử UAT, nghiệm thu</td><td class="mprice">50.000.000₫</td><td class="mwgt" style="text-align:right;padding-right:20px">6.4%</td></tr>
+          <tr class="sel" style="background:rgba(34,197,94,.04)">
+            <td style="text-align:center"><input type="checkbox" class="cbx" checked disabled></td>
+            <td>
+              <div class="mname" style="font-size:14px">🎓 Cấu hình, Đào tạo & Kiểm thử</div>
+            </td>
+            <td class="mdesc">Khảo sát nghiệp vụ, cài đặt Cloud, import dữ liệu, đào tạo, UAT, nghiệm thu</td>
+            <td class="mprice" style="font-size:15px;font-weight:900;color:var(--ok)">100.000.000₫</td>
+          </tr>
         </tbody>
         <tfoot><tr>
-          <td colspan="3" id="foot-lbl">TỔNG TRẢ TRƯỚC (1 LẦN)</td>
-          <td id="foot-total">780.000.000₫</td>
+          <td colspan="3">TỔNG CHI PHÍ ĐẦU TƯ (CHƯA VAT)</td>
+          <td style="font-size:16px;font-weight:900;color:var(--pr)">900.000.000₫</td>
         </tr></tfoot>
       </table>
-      <p class="tbl-note">📌 Anh/chị có thể bỏ chọn các module không cần thiết để tối ưu chi phí · Giá có thể điều chỉnh theo yêu cầu cụ thể sau khảo sát thực tế</p>
+      <p class="tbl-note">📌 Giá trọn gói · Không giới hạn User · Bảo hành 12 tháng · Giá có thể điều chỉnh theo yêu cầu cụ thể sau khảo sát thực tế</p>
     </div>
   </div>
 </section>
 
-<!-- PAYMENT -->
-<section class="section">
-  <div class="container">
-    <h2 class="section-title">💳 Điều khoản Thanh toán</h2>
-    <p class="section-sub" id="pay-sub">Thanh toán theo tiến độ triển khai — đảm bảo quyền lợi hai bên</p>
-    <div class="pay-grid sub buy-only" style="margin:0 auto">
-      <div class="pay-card"><div class="pp">Khi ký hợp đồng</div><div class="pn">Trả trước + Triển khai</div><div class="pa" id="pay1">880.000.000₫</div><div class="pc">Trả trước phần mềm + phí setup</div><div class="pnt">Thanh toán 1 lần khi ký hợp đồng</div></div>
-      <div class="pay-card"><div class="pp">Từ năm 2 trở đi</div><div class="pn">Vận hành hàng năm</div><div class="pa" style="color:var(--ok)" id="pay-maint">100.000.000₫/năm</div><div class="pc">Rẻ hơn thuê bao (250tr/năm)</div><div class="pnt">Bao gồm hạ tầng, hỗ trợ kỹ thuật, cập nhật bảo mật</div></div>
-    </div>
-    <div class="pay-grid sub sub-only" style="margin:0 auto">
-      <div class="pay-card" style="border-color:rgba(245,158,11,.3)"><div class="pp" style="color:var(--wa)">Năm 1</div><div class="pn">Ký hợp đồng</div><div class="pa" style="color:var(--wa)" id="spay1">350.000.000₫</div><div class="pc">Phí setup + thuê bao năm 1</div><div class="pnt">Thanh toán 1 lần khi ký</div></div>
-      <div class="pay-card"><div class="pp">Năm 2 trở đi</div><div class="pn">Gia hạn hằng năm</div><div class="pa" id="spay2">250.000.000₫/năm</div><div class="pc">Thanh toán đầu mỗi năm</div><div class="pnt">Thông báo gia hạn trước 30 ngày · Giá cố định 3 năm đầu</div></div>
-    </div>
-
-    <div class="terms-box">
-      <div style="font-size:14px;font-weight:700;margin-bottom:10px">📋 Điều khoản Hợp đồng</div>
-      <div style="font-size:13px;color:var(--t2);line-height:2.1">
-        ✓ Thời gian triển khai: <strong style="color:var(--t)">4–6 tuần</strong> kể từ ngày ký hợp đồng<br>
-        ✓ Bảo hành: <strong style="color:var(--t)">12 tháng</strong> miễn phí sau nghiệm thu chính thức<br>
-        <span class="buy-only">✓ Vận hành hàng năm: <strong style="color:var(--ok)">100.000.000₫/năm</strong> (rẻ hơn thuê bao 250tr)<br>
-        ✓ Bao gồm: hạ tầng Cloud, hỗ trợ kỹ thuật, cập nhật bảo mật<br></span>
-        <span class="sub-only">✓ Thuê bao: <strong style="color:var(--wa)">All-in</strong> bao gồm hạ tầng Cloud, API AI, hỗ trợ kỹ thuật 24/7<br>
-        ✓ Giá cố định trong <strong style="color:var(--t)">3 năm đầu</strong> · Gia hạn linh hoạt, có thể huỷ trước 30 ngày<br></span>
-        ✓ Bảo mật: Cam kết bảo mật thông tin theo NDA<br>
-        📌 <span style="color:var(--t3)">Giá chưa bao gồm VAT · Hiệu lực báo giá: 30 ngày</span>
-      </div>
-    </div>
-  </div>
-</section>
+<!-- PAYMENT section removed per user request -->
 
 <!-- TECH -->
 <section class="section">
