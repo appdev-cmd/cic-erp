@@ -918,11 +918,6 @@ const BitrixListView: React.FC<{
           <CheckSquare size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-4" />
           <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400">Chưa có công việc nào</h3>
           <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Tạo công việc mới hoặc chờ được giao từ hệ thống</p>
-          
-          <div className="mt-4 text-xs text-left max-w-sm mx-auto bg-slate-100 p-2 rounded overflow-auto">
-             <p>Debug Unit: {(window as any).debugTaskState?.selectedUnit?.id}</p>
-             <p>Debug roleFilter: {(window as any).debugRoleFilter || 'all'}</p>
-          </div>
         </div>
       )}
     </div>
@@ -1596,14 +1591,9 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Filter tasks by selected unit
-  const filteredTasks = useMemo(() => {
-    let result = tasks;
-    if (selectedUnit && selectedUnit.id !== 'all') {
-      result = result.filter(t => t.unit_id === selectedUnit.id);
-    }
-    return result;
-  }, [tasks, selectedUnit]);
+  // Tasks are primarily governed by visibilityContext and personal filters
+  // Therefore, we do not filter personal tasks out by the global selectedUnit.
+  const filteredTasks = tasks;
 
   const [tabTags, setTabTags] = useState<string[]>([]);
 
@@ -1829,10 +1819,6 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   const doneStatusIds = statuses.filter(s => s.is_done).map(s => s.id);
   const overdueCount = tasks.filter(t => t.due_date && t.due_date < today && !doneStatusIds.includes(t.status_id || '')).length;
   const commentsCount = 0;
-
-  useEffect(() => {
-    (window as any).debugTaskState = { tasks, filteredTasks, roleCounts, selectedUnit };
-  }, [tasks, filteredTasks, roleCounts, selectedUnit]);
 
   return (
     <div className="space-y-0">
