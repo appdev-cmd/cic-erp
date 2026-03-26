@@ -31,19 +31,35 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
                     employeeId: profile?.employeeId 
                 }
             });
-            if (error) throw error;
-            if (data?.error === "BOT_NOT_STARTED") {
-                toast.error("Bạn chưa kết nối với bot. Vui lòng gửi /start cho @cic_vn_bot trước.");
+            // Extract actual error from Edge Function response body
+            if (error) {
+                let msg = error.message || 'Không thể gửi OTP';
+                try {
+                    const ctx = (error as any).context;
+                    if (ctx && typeof ctx.json === 'function') {
+                        const body = await ctx.json();
+                        if (body?.error) msg = body.error;
+                    }
+                } catch { /* use default msg */ }
+                if (msg === 'BOT_NOT_STARTED') {
+                    toast.error('Bạn chưa kết nối với bot. Vui lòng gửi /start cho @cic_vn_bot trước.');
+                    setShowTelegramGuide(true);
+                    return;
+                }
+                throw new Error(msg);
+            }
+            if (data?.error === 'BOT_NOT_STARTED') {
+                toast.error('Bạn chưa kết nối với bot. Vui lòng gửi /start cho @cic_vn_bot trước.');
                 setShowTelegramGuide(true);
                 return;
             }
             if (data?.error) throw new Error(data.error);
             
-            toast.success("Mã OTP đã được gửi đến Telegram của bạn");
+            toast.success('Mã OTP đã được gửi đến Telegram của bạn');
             setShowOtpInput(true);
             setOtpCode('');
         } catch (err: any) {
-             toast.error(err.message || "Không thể gửi OTP");
+             toast.error(err.message || 'Không thể gửi OTP');
         } finally {
             setIsSendingOtp(false);
         }
@@ -65,14 +81,25 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
                     employeeId: profile?.employeeId 
                 }
             });
-            if (error) throw error;
+            // Extract actual error from Edge Function response body
+            if (error) {
+                let msg = error.message || 'Xác thực thất bại';
+                try {
+                    const ctx = (error as any).context;
+                    if (ctx && typeof ctx.json === 'function') {
+                        const body = await ctx.json();
+                        if (body?.error) msg = body.error;
+                    }
+                } catch { /* use default msg */ }
+                throw new Error(msg);
+            }
             if (data?.error) throw new Error(data.error);
 
-            toast.success("Xác thực Telegram thành công!");
+            toast.success('Xác thực Telegram thành công!');
             setFormData(prev => ({ ...prev, telegram_verified: true }));
             setShowOtpInput(false);
         } catch (err: any) {
-            toast.error(err.message || "Xác thực thất bại");
+            toast.error(err.message || 'Xác thực thất bại');
         } finally {
             setIsVerifyingOtp(false);
         }

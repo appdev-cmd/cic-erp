@@ -16,6 +16,7 @@ import CreateTaskPanel from './CreateTaskPanel';
 import CalendarView from './CalendarView';
 import { GanttView } from './GanttView';
 import TaskTemplateManagerPanel from './TaskTemplateManagerPanel';
+import TeamDashboard from './TeamDashboard';
 import PeoplePickerPopover from './PeoplePickerPopover';
 import { useTaskVisibility } from '../../hooks/useTaskVisibility';
 import { formatDate, formatDateShort, formatDateTime } from '../../utils/formatters';
@@ -1420,7 +1421,16 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showSearch, setShowSearch] = useState(false);
 
-  const { getVisibleTasks, getMyTasks, isAdmin, visibilityContext } = useTaskVisibility();
+  const { getVisibleTasks, getMyTasks, isAdmin, isManager, visibilityContext } = useTaskVisibility();
+
+  // Build role tabs — conditionally include "Giám sát" for managers
+  const roleTabs = useMemo(() => {
+    const base = [...ROLE_TABS];
+    if (isManager) {
+      base.push({ key: 'supervising', label: 'Giám sát', icon: <Briefcase size={15} /> });
+    }
+    return base;
+  }, [isManager]);
   const { openPanel, closePanel } = useSlidePanel();
   const { selectedUnit } = useLayoutContext();
 
@@ -1450,7 +1460,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
           search: textSearch || undefined,
           project_id: filterProjectId !== 'all' ? filterProjectId : undefined,
           tags: searchTags.length > 0 ? searchTags : undefined,
-        }),
+        }, visibilityContext),
         TaskService.getRoleCounts(visibilityContext.userId),
       ]);
       setStatuses(statusList);
@@ -1706,7 +1716,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
       {/* ═══ TOP ROLE TABS (Bitrix24-style) ═══ */}
       <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 -mx-6 -mt-6 px-6">
         <div className="flex items-center gap-0 overflow-x-auto">
-          {ROLE_TABS.map(tab => (
+          {roleTabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => { setRoleFilter(tab.key); setSelectedIds(new Set()); }}
@@ -1813,6 +1823,21 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
           </span>
         </div>
       </div>
+
+      {/* ═══ TEAM DASHBOARD (supervising mode) ═══ */}
+      {roleFilter === 'supervising' && isManager && !loading && (
+        <TeamDashboard
+          visibilityContext={visibilityContext}
+          onSelectEmployee={(empId) => {
+            setSearchQuery('');
+            setFilterProjectId('all');
+            // Navigate to filtered view for this employee
+            setRoleFilter('supervising');
+            // The TeamDashboard handles its own filtering internally
+          }}
+          onViewTask={handleSelectTask}
+        />
+      )}
 
       {/* ═══ CONTENT ═══ */}
       {loading ? (

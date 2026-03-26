@@ -58,6 +58,7 @@ export function useTaskVisibility() {
     getMyTasks,
     isAdmin: visibilityContext.role === 'Admin',
     isLeadership: visibilityContext.role === 'Leadership' || managementRank >= 100,
+    isManager: managementRank >= 50 || ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit'].includes(visibilityContext.role),
     canSeeAllTasks: visibilityContext.role === 'Admin',
   };
 }

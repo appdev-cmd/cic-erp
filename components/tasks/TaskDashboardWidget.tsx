@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle, Clock, CheckCircle2, Loader2,
-  ChevronRight, ListChecks
+  ChevronRight, ListChecks, Users
 } from 'lucide-react';
 import { TaskService } from '../../services/taskService';
 import { useTaskVisibility } from '../../hooks/useTaskVisibility';
 import { formatDateShort } from '../../utils/formatters';
-import type { Task, TaskStatus } from '../../types/taskTypes';
+import type { Task, TaskStatus, TaskVisibilityContext } from '../../types/taskTypes';
 
 // ═══════════════════════════════════════
 // PRIORITY CONFIG
@@ -25,11 +25,15 @@ const PRIORITY_DOT: Record<string, string> = {
 // ═══════════════════════════════════════
 const TaskDashboardWidget: React.FC = () => {
   const navigate = useNavigate();
-  const { getMyTasks } = useTaskVisibility();
+  const { getMyTasks, isManager, visibilityContext } = useTaskVisibility();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [statuses, setStatuses] = useState<TaskStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [teamStats, setTeamStats] = useState<{
+    totals: { total: number; overdue: number; inProgress: number; completed: number };
+    topOverdue: { id: string; name: string; overdue: number }[];
+  } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -39,9 +43,23 @@ const TaskDashboardWidget: React.FC = () => {
       ]);
       setStatuses(statusList);
       setTasks(taskList);
+
+      // Load team stats for managers
+      if (isManager) {
+        try {
+          const stats = await TaskService.getSubordinateStats(visibilityContext);
+          setTeamStats({
+            totals: stats.totals,
+            topOverdue: stats.employees
+              .filter(e => e.overdue > 0)
+              .slice(0, 3)
+              .map(e => ({ id: e.id, name: e.name, overdue: e.overdue })),
+          });
+        } catch { /* silent */ }
+      }
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, [getMyTasks]);
+  }, [getMyTasks, isManager, visibilityContext]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -188,6 +206,55 @@ const TaskDashboardWidget: React.FC = () => {
         <div className="text-center py-4 text-slate-400 dark:text-slate-500">
           <CheckCircle2 size={24} className="mx-auto mb-1 opacity-50" />
           <p className="text-xs font-semibold">Không có công việc cần xử lý</p>
+        </div>
+      )}
+
+      {/* ═══ TEAM SECTION (managers only) ═══ */}
+      {isManager && teamStats && teamStats.totals.total > 0 && (
+        <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Users size={14} className="text-indigo-600 dark:text-indigo-400" />
+              <span className="text-xs font-bold text-slate-900 dark:text-slate-100">Team</span>
+            </div>
+            <button
+              onClick={() => navigate('/tasks')}
+              className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer transition-colors"
+            >
+              Giám sát →
+            </button>
+          </div>
+
+          {/* Mini stats */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="text-center p-2 rounded-lg bg-red-50 dark:bg-red-900/20">
+              <p className="text-lg font-black text-red-600 dark:text-red-400">{teamStats.totals.overdue}</p>
+              <p className="text-[8px] font-bold uppercase text-red-500 dark:text-red-400 opacity-70">Quá hạn</p>
+            </div>
+            <div className="text-center p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <p className="text-lg font-black text-blue-600 dark:text-blue-400">{teamStats.totals.inProgress}</p>
+              <p className="text-[8px] font-bold uppercase text-blue-500 dark:text-blue-400 opacity-70">Đang làm</p>
+            </div>
+            <div className="text-center p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
+              <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">{teamStats.totals.completed}</p>
+              <p className="text-[8px] font-bold uppercase text-emerald-500 dark:text-emerald-400 opacity-70">Xong</p>
+            </div>
+          </div>
+
+          {/* Top overdue employees */}
+          {teamStats.topOverdue.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">NV quá hạn nhiều nhất</p>
+              {teamStats.topOverdue.map(emp => (
+                <div key={emp.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{emp.name}</span>
+                  <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">
+                    {emp.overdue} quá hạn
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

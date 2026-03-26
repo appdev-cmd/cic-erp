@@ -132,8 +132,11 @@ export function getHiddenNavItems(
         hidden.add('projects');
     }
 
-    // Tasks: only Devs or localhost (same logic as BIM projects)
-    if (!canViewProjects(role, userUnitCode, userEmail)) {
+    // Tasks: check DB permission first, default to visible for all roles
+    const hasTasksViewInDB = dbPermissions?.get('tasks')?.has('view');
+    if (hasTasksViewInDB === undefined) {
+        // DB not loaded yet → default: show tasks for everyone
+    } else if (!hasTasksViewInDB) {
         hidden.add('tasks');
     }
 

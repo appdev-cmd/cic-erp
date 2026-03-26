@@ -40,6 +40,7 @@ const mapEmployee = (s: any): Employee => {
         contractEndDate: s.contract_end_date || '',
         // Additional fields
         telegram: s.telegram || '',
+        telegram_verified: s.telegram_verified || false,
         specialization: s.specialization || '',
         certificates: s.certificates || ''
     };
@@ -196,6 +197,7 @@ export const EmployeeService = {
         if (payload.contractEndDate !== undefined) dbPayload.contract_end_date = payload.contractEndDate || null;
         // Additional fields
         if (payload.telegram !== undefined) dbPayload.telegram = payload.telegram;
+        if (payload.telegram_verified !== undefined) dbPayload.telegram_verified = payload.telegram_verified;
         if (payload.specialization !== undefined) dbPayload.specialization = payload.specialization;
         if (payload.certificates !== undefined) dbPayload.certificates = payload.certificates;
 

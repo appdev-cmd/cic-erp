@@ -542,8 +542,14 @@ export const TaskService = {
   async getTasksByRole(
     userId: string,
     role: string,
-    filters?: TaskFilterOptions
+    filters?: TaskFilterOptions,
+    visibilityCtx?: TaskVisibilityContext
   ): Promise<Task[]> {
+    // ── Supervising: delegate to visibility-based subordinate query ──
+    if (role === 'supervising' && visibilityCtx) {
+      return this._getSupervisingTasks(visibilityCtx, filters);
+    }
+
     let query = supabase
       .from('tasks')
       .select(TASK_SELECT)
@@ -625,6 +631,180 @@ export const TaskService = {
     counts.following = data.filter(t => (t.watchers || []).includes(userId)).length;
 
     return counts;
+  },
+
+  // ═══════════════════════════════════════
+  // SUPERVISING / TEAM MANAGEMENT
+  // ═══════════════════════════════════════
+
+  /**
+   * Get subordinate employees based on the user's management rank and units.
+   * Admin: all | TGĐ (rank 100): rank < 100 | Phó TGĐ (rank 80): managed units rank < 80 | Trưởng ĐV (rank 50): unit members
+   */
+  async getSubordinateEmployees(ctx: TaskVisibilityContext): Promise<{ id: string; name: string; position?: string; unit_id?: string; avatar?: string }[]> {
+    if (ctx.role === 'Admin') {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, name, position, unit_id, avatar')
+        .neq('id', ctx.userId)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    }
+
+    if (ctx.managementRank >= 100) {
+      // TGĐ: see all employees with rank < 100
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, name, position, unit_id, avatar')
+        .lt('management_rank', 100)
+        .neq('id', ctx.userId)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    }
+
+    if (ctx.managementRank >= 80) {
+      // Phó TGĐ: managed units, rank < 80
+      if (ctx.managedUnitIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, name, position, unit_id, avatar')
+        .in('unit_id', ctx.managedUnitIds)
+        .lt('management_rank', 80)
+        .neq('id', ctx.userId)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    }
+
+    if (ctx.managementRank >= 50 || ctx.role === 'UnitLeader' || ctx.role === 'AdminUnit') {
+      // Trưởng ĐV: unit members
+      const unitIds = ctx.managedUnitIds.length > 0 ? ctx.managedUnitIds : (ctx.unitId ? [ctx.unitId] : []);
+      if (unitIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, name, position, unit_id, avatar')
+        .in('unit_id', unitIds)
+        .lt('management_rank', 50)
+        .neq('id', ctx.userId)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    }
+
+    return [];
+  },
+
+  /**
+   * Get supervising tasks — tasks of subordinates only (excludes user's own tasks).
+   * Used by the "Giám sát" tab.
+   */
+  async _getSupervisingTasks(
+    ctx: TaskVisibilityContext,
+    filters?: TaskFilterOptions
+  ): Promise<Task[]> {
+    // Get subordinate employee IDs
+    const subordinates = await this.getSubordinateEmployees(ctx);
+    if (subordinates.length === 0) return [];
+    const subIds = subordinates.map(e => e.id);
+
+    // Build query: tasks where subordinates are involved (assigned/created)
+    let query = supabase
+      .from('tasks')
+      .select(TASK_SELECT)
+      .is('parent_id', null)
+      .or(`created_by.in.(${subIds.join(',')}),assignees.ov.{${subIds.join(',')}}`)
+      .order('is_pinned', { ascending: false })
+      .order('sort_order')
+      .order('created_at', { ascending: false });
+
+    // Apply filters
+    if (filters?.search) {
+      query = query.ilike('title', `%${filters.search}%`);
+    }
+    if (filters?.project_id) {
+      query = query.eq('project_id', filters.project_id);
+    }
+    if (filters?.tags && filters.tags.length > 0) {
+      query = query.overlaps('tags', filters.tags);
+    }
+    if (filters?.assignee_ids && filters.assignee_ids.length > 0) {
+      const orConditions = filters.assignee_ids.map(id => `assignees.cs.{${id}}`).join(',');
+      query = query.or(orConditions);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map(mapTask);
+  },
+
+  /**
+   * Get task statistics for subordinates — used by TeamDashboard.
+   * Returns per-employee stats: total, overdue, in progress, completed.
+   */
+  async getSubordinateStats(
+    ctx: TaskVisibilityContext
+  ): Promise<{
+    employees: { id: string; name: string; position?: string; unit_id?: string; avatar?: string;
+      total: number; overdue: number; inProgress: number; completed: number }[];
+    totals: { total: number; overdue: number; inProgress: number; completed: number };
+  }> {
+    const subordinates = await this.getSubordinateEmployees(ctx);
+    if (subordinates.length === 0) {
+      return { employees: [], totals: { total: 0, overdue: 0, inProgress: 0, completed: 0 } };
+    }
+
+    const subIds = subordinates.map(e => e.id);
+    const statuses = await this.getStatuses();
+    const doneIds = new Set(statuses.filter(s => s.is_done).map(s => s.id));
+    const today = new Date().toISOString().split('T')[0];
+
+    // Fetch all tasks assigned to subordinates
+    const { data: tasks, error } = await supabase
+      .from('tasks')
+      .select('id, assignees, status_id, due_date, created_by')
+      .is('parent_id', null)
+      .or(`assignees.ov.{${subIds.join(',')}}`);
+
+    if (error) throw error;
+    const allTasks = tasks || [];
+
+    // Build per-employee stats
+    const empStatsMap = new Map<string, { total: number; overdue: number; inProgress: number; completed: number }>();
+    subIds.forEach(id => empStatsMap.set(id, { total: 0, overdue: 0, inProgress: 0, completed: 0 }));
+
+    const totals = { total: allTasks.length, overdue: 0, inProgress: 0, completed: 0 };
+
+    allTasks.forEach(t => {
+      const isDone = doneIds.has(t.status_id);
+      const isOverdue = !isDone && t.due_date && t.due_date < today;
+
+      if (isDone) totals.completed++;
+      else if (isOverdue) totals.overdue++;
+      else totals.inProgress++;
+
+      // Attribute to each involved subordinate
+      (t.assignees || []).forEach((aId: string) => {
+        const stats = empStatsMap.get(aId);
+        if (stats) {
+          stats.total++;
+          if (isDone) stats.completed++;
+          else if (isOverdue) stats.overdue++;
+          else stats.inProgress++;
+        }
+      });
+    });
+
+    const employees = subordinates.map(e => ({
+      ...e,
+      ...empStatsMap.get(e.id) || { total: 0, overdue: 0, inProgress: 0, completed: 0 },
+    }));
+
+    // Sort: most overdue first, then by total desc
+    employees.sort((a, b) => b.overdue - a.overdue || b.total - a.total);
+
+    return { employees, totals };
   },
 
   // ═══════════════════════════════════════
