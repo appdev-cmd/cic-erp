@@ -10,7 +10,6 @@ import { ProductService, CustomerService, ExecutionCostService, ContractService 
 import { ExecutionCostType } from '../../services/ExecutionCostService';
 import SearchableSelect from '../ui/SearchableSelect';
 import CurrencyCalculator from '../ui/CurrencyCalculator';
-import { PAKDImportButton } from './PAKDImportButton';
 import { FinancialTotals } from '../../hooks/useFinancialCalculations';
 
 
@@ -170,101 +169,6 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                             <Package size={14} /> Chi tiết Sản phẩm & Dịch vụ
                         </h4>
                         <div className="flex items-center gap-2">
-                            <PAKDImportButton
-                                onImport={async (data) => {
-                                    const { toast } = await import('sonner');
-                                    toast.loading('Đang xử lý import PAKD...');
-                                    try {
-                                        const detectedVat = data.financials?.vatRate ?? 0;
-                                        const processedItems: LineItem[] = [];
-
-                                        for (let i = 0; i < data.lineItems.length; i++) {
-                                            const item = data.lineItems[i];
-                                            let productName = item.name;
-                                            if (item.name?.trim()) {
-                                                try {
-                                                    const product = await ProductService.findOrCreate(item.name, item.unitCost, item.unitPrice);
-                                                    productName = product.name;
-                                                    const allProducts = await ProductService.getAll();
-                                                    setProducts(allProducts);
-                                                } catch (e) {
-                                                    console.warn('[PAKD Import] Could not create product:', e);
-                                                }
-                                            }
-
-                                            let supplierName = item.supplier || '';
-                                            let supplierId: string | undefined;
-                                            if (item.supplier?.trim()) {
-                                                try {
-                                                    const supplier = await CustomerService.findOrCreateSupplier(item.supplier);
-                                                    supplierName = supplier.name;
-                                                    supplierId = supplier.id;
-                                                } catch (e) {
-                                                    console.warn('[PAKD Import] Could not create supplier:', e);
-                                                }
-                                            }
-
-                                            const directCostsTotal = item.importFee + item.contractorTax + item.transferFee;
-                                            processedItems.push({
-                                                id: `imported-${Date.now()}-${i}`,
-                                                name: productName,
-                                                supplier: supplierName,
-                                                supplierId: supplierId,
-                                                quantity: item.quantity,
-                                                inputPrice: item.unitCost,
-                                                outputPrice: item.unitPrice,
-                                                directCosts: directCostsTotal,
-                                                directCostDetails: [
-                                                    { id: `dc-import-${i}`, name: 'Nhập khẩu', amount: item.importFee },
-                                                    { id: `dc-tax-${i}`, name: 'Thuế nhà thầu', amount: item.contractorTax },
-                                                    { id: `dc-transfer-${i}`, name: 'Chuyển tiền', amount: item.transferFee },
-                                                ],
-                                                foreignCurrency: item.foreignCurrency ? {
-                                                    amount: item.foreignCurrency.amount,
-                                                    rate: item.foreignCurrency.rate,
-                                                    currency: item.foreignCurrency.currency,
-                                                } : undefined,
-                                                vatRate: item.vatRate !== undefined ? item.vatRate : detectedVat,
-                                            });
-                                        }
-
-                                        // Refresh suppliers BEFORE setting lineItems
-                                        // so SearchableSelect can match supplier names on first render
-                                        try {
-                                            const finalSuppliers = await CustomerService.getAll({ pageSize: 200 });
-                                            setSuppliers(finalSuppliers.data?.filter(c => c.type === 'Supplier' || c.type === 'Both') || []);
-                                        } catch (e) {
-                                            console.warn('[PAKD Import] Could not refresh suppliers:', e);
-                                        }
-
-                                        setLineItems(processedItems);
-
-
-
-                                        if (data.executionCosts && data.executionCosts.length > 0) {
-                                            const importedExecutionCosts = data.executionCosts.map((cost: any, idx: number) => ({
-                                                id: `pakd-exec-${Date.now()}-${idx}`,
-                                                name: cost.name,
-                                                amount: cost.amount,
-                                                percentage: 0,
-                                            }));
-                                            setExecutionCosts(importedExecutionCosts);
-                                            const costNames = importedExecutionCosts.map((c: any) => c.name);
-                                            ExecutionCostService.bulkAdd(costNames).then(() => {
-                                                ExecutionCostService.getAll().then(setExecutionCostTypes);
-                                            });
-                                        }
-
-                                        toast.dismiss();
-                                        toast.success('Đã import ' + processedItems.length + ' hạng mục + ' + (data.executionCosts?.length || 0) + ' chi phí thực hiện!');
-                                    } catch (error: any) {
-                                        const { toast } = await import('sonner');
-                                        toast.dismiss();
-                                        toast.error('Lỗi import PAKD: ' + (error.message || 'Unknown error'));
-                                        console.error('[PAKD Import] Error:', error);
-                                    }
-                                }}
-                            />
                             <button onClick={addLineItem} className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg text-[10px] font-black uppercase flex items-center gap-2 border border-emerald-100 dark:border-emerald-800 hover:bg-emerald-100 transition-colors">
                                 <Plus size={12} /> Thêm hạng mục
                             </button>
