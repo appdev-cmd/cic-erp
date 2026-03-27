@@ -1546,12 +1546,15 @@ export const ContractService = {
                     dueDate.setDate(dueDate.getDate() + (taskDef.duration_days || 0));
                     dueDate.setHours(23, 59, 59, 999);
 
+                    const rawUnitId = data.unitId || result.unit_id;
+                    const finalSpaceId = (rawUnitId && rawUnitId !== 'all') ? rawUnitId : undefined;
+
                     await TaskService.create({
                         title: taskDef.title,
                         description: taskDef.description,
                         assignees: taskDef.assignees,
                         due_date: dueDate.toISOString(),
-                        space_id: data.unitId,
+                        space_id: finalSpaceId,
                         source_module: 'contract',
                         source_entity_id: result.id
                     });
@@ -1656,12 +1659,15 @@ export const ContractService = {
                     dueDate.setDate(dueDate.getDate() + (taskDef.duration_days || 0));
                     dueDate.setHours(23, 59, 59, 999);
 
+                    const rawUnitId = data.unitId || result.unit_id;
+                    const finalSpaceId = (rawUnitId && rawUnitId !== 'all') ? rawUnitId : undefined;
+
                     await TaskService.create({
                         title: taskDef.title,
                         description: taskDef.description,
                         assignees: taskDef.assignees,
                         due_date: dueDate.toISOString(),
-                        space_id: data.unitId || result.unit_id,
+                        space_id: finalSpaceId,
                         source_module: 'contract',
                         source_entity_id: id
                     });
