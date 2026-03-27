@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, AlignLeft, User, Tag, CheckSquare, X, Users, Eye, ShieldCheck, Edit3, Plus } from 'lucide-react';
+import { Calendar, AlignLeft, User, Tag, CheckSquare, X, Users, Eye, ShieldCheck, Edit3, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskService } from '../../services/taskService';
 import { dataClient } from '../../lib/dataClient';
@@ -9,6 +9,8 @@ import DateInput from '../ui/DateInput';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import { SlidePanelHeader } from '../ui/SlidePanelHeader';
+
+interface ChecklistItem { id: string; text: string; done: boolean; }
 
 interface CreateTaskPanelProps {
   onTaskCreated: () => void;
@@ -29,6 +31,8 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [dueDate, setDueDate] = useState('');
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [newCheckItem, setNewCheckItem] = useState('');
   const [assignees, setAssignees] = useState<string[]>([currentUserId]);
   const [assigneeProfiles, setAssigneeProfiles] = useState<{id: string, name: string, avatar: string}[]>([]);
   const [supporters, setSupporters] = useState<string[]>([]);
@@ -42,7 +46,7 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
   
   const { lockPanel, unlockPanel, setOnCloseBlocked, forceClosePanel } = useSlidePanel();
 
-  const hasUnsavedChanges = title.trim() !== '' || description.trim() !== '' || dueDate !== '' || assignees[0] !== currentUserId || supporters.length > 0;
+  const hasUnsavedChanges = title.trim() !== '' || description.trim() !== '' || dueDate !== '' || assignees[0] !== currentUserId || supporters.length > 0 || checklist.length > 0 || newCheckItem.trim() !== '';
 
   // Load projects list
   useEffect(() => {
@@ -101,6 +105,7 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
         supporters,
         created_by: currentUserId,
         project_id: projectId || undefined,
+        custom_fields: checklist.length > 0 ? { ...initialData?.custom_fields, checklist } : initialData?.custom_fields,
       });
       
       toast.success('Đã tạo công việc thành công');
@@ -127,10 +132,10 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
           />
         </div>
       </SlidePanelHeader>
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
 
         {/* Thông tin cơ bản */}
-        <div className="grid grid-cols-2 gap-6 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div className="grid grid-cols-2 gap-6 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-shrink-0">
           
           <div>
             <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Ưu tiên</label>
@@ -281,14 +286,77 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
         </div>
 
         {/* Mô tả chi tiết */}
-        <div>
-          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><AlignLeft size={12} /> Mô tả công việc</label>
+        <div className="flex-1 flex flex-col min-h-[200px]">
+          <label className="flex-shrink-0 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5"><AlignLeft size={12} /> Mô tả công việc</label>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="Nhập chi tiết về yêu cầu công việc..."
-            className="w-full h-32 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 leading-relaxed shadow-sm"
+            className="w-full flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 leading-relaxed shadow-sm"
           />
+        </div>
+
+        {/* Checklist */}
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-shrink-0">
+          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <CheckSquare size={12} /> Checklist công việc
+          </label>
+          
+          {checklist.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {checklist.map(item => (
+                <div key={item.id} className="flex items-center gap-2 group py-1">
+                  <button
+                    type="button"
+                    onClick={() => setChecklist(prev => prev.map(x => x.id === item.id ? { ...x, done: !x.done } : x))}
+                    className={`w-5 h-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all cursor-pointer ${item.done ? 'bg-emerald-500 border-emerald-500 dark:bg-emerald-600 dark:border-emerald-600' : 'border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500'}`}
+                  >
+                    {item.done && <CheckSquare size={12} className="text-white" />}
+                  </button>
+                  <input
+                    value={item.text}
+                    onChange={e => setChecklist(prev => prev.map(x => x.id === item.id ? { ...x, text: e.target.value } : x))}
+                    className={`flex-1 text-sm bg-transparent border-none outline-none focus:ring-0 px-0 py-0.5 ${item.done ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-300'} transition-colors`}
+                  />
+                  <button type="button" onClick={() => setChecklist(prev => prev.filter(x => x.id !== item.id))} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-all cursor-pointer p-1">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 flex items-center justify-center text-slate-300 dark:text-slate-600">
+              <Plus size={14} />
+            </div>
+            <input
+              type="text"
+              value={newCheckItem}
+              onChange={e => setNewCheckItem(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newCheckItem.trim()) {
+                  e.preventDefault();
+                  setChecklist(prev => [...prev, { id: Date.now().toString(), text: newCheckItem.trim(), done: false }]);
+                  setNewCheckItem('');
+                }
+              }}
+              placeholder="Thêm mục con... (nhấn Enter để thêm)"
+              className="flex-1 text-sm bg-transparent border-none outline-none focus:ring-0 px-0 py-1 text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500"
+            />
+            {newCheckItem.trim() && (
+              <button
+                type="button"
+                onClick={() => {
+                  setChecklist(prev => [...prev, { id: Date.now().toString(), text: newCheckItem.trim(), done: false }]);
+                  setNewCheckItem('');
+                }}
+                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+              >
+                Thêm
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

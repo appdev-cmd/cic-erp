@@ -172,6 +172,7 @@ export interface CreateTaskInput {
   approval_parent_id?: string;
   approval_mode?: ApprovalMode;
   approval_comment?: string;
+  custom_fields?: Record<string, any>;
 }
 
 export type UpdateTaskInput = Partial<Omit<Task, 'id' | 'created_at' | 'updated_at'>>;

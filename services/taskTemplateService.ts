@@ -18,6 +18,7 @@ export interface TemplateTaskItem {
   assignee_id?: string;      // profile_id khi role = 'specific'
   assignee_role?: AssigneeRole; // creator | unit_leader | specific
   depends_on?: string;       // id of the precursor task
+  base_date_type?: 'current_date' | 'payment_term'; // Mốc thời gian hoàn thành
   tags?: string[];
 }
 
@@ -156,6 +157,21 @@ export const TaskTemplateService = {
     // 3. Resolve assignees
     const resolvedAssignees = await resolveAssignees(sortedTasks, options);
 
+    // 3.5. Fetch payment_term_days if source is contract
+    let contractPaymentTermDays = 0;
+    if (sourceModule === 'contract' && sourceEntityId) {
+      try {
+        const { data: contractData } = await supabase
+          .from('contracts')
+          .select('payment_term_days')
+          .eq('id', sourceEntityId)
+          .single();
+        if (contractData?.payment_term_days) {
+          contractPaymentTermDays = contractData.payment_term_days;
+        }
+      } catch { /* ignore */ }
+    }
+
     // 4. Calculate cascading deadlines
     // Build dependency map: taskId → dependsOnTaskId
     const baseDate = new Date();
@@ -169,6 +185,9 @@ export const TaskTemplateService = {
         startDate = new Date(taskEndDates[t.depends_on]);
       } else {
         startDate = new Date(baseDate);
+        if (t.base_date_type === 'payment_term') {
+          startDate.setDate(startDate.getDate() + contractPaymentTermDays);
+        }
       }
       taskStartDates[t.id] = startDate;
 

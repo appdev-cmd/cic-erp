@@ -12,6 +12,8 @@ interface ContractFormStep3Props {
     supplierSchedules: PaymentSchedule[];
     setSupplierSchedules: (v: PaymentSchedule[]) => void;
     generateSupplierSchedules: () => void;
+    paymentTermDays?: number;
+    setPaymentTermDays: (v: number | undefined) => void;
     formatVND: (val: number) => string;
     notes?: string;
     setNotes?: (v: string) => void;
@@ -22,6 +24,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
     paymentSchedules, setPaymentSchedules,
     supplierSchedules, setSupplierSchedules,
     generateSupplierSchedules,
+    paymentTermDays, setPaymentTermDays,
     formatVND,
     notes, setNotes,
 }) => {
@@ -34,6 +37,32 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
             </div>
 
             <div className="pl-4 border-l border-slate-200 dark:border-slate-800 space-y-8">
+                {/* Payment Term */}
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Hạn thanh toán</p>
+                    </div>
+                    <div className="grid grid-cols-12 gap-2 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                        <div className="col-span-12 md:col-span-4 space-y-1">
+                            <label className="text-[9px] text-slate-400 font-bold uppercase">Số ngày hạn mức</label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Điền số ngày..."
+                                    value={paymentTermDays !== undefined ? paymentTermDays : ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
+                                        setPaymentTermDays(val);
+                                    }}
+                                    className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
+                                />
+                                <span className="text-[11px] text-slate-400 font-bold shrink-0">Ngày</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Revenue Schedules */}
                 <div className="space-y-4">
                     <div className="flex justify-between items-center">

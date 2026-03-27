@@ -24,6 +24,7 @@ import {
   ContractFormStep1,
   ContractFormStep2,
   ContractFormStep3,
+  ContractFormStep4,
   DirectCostModal,
   formatVND as formatVNDUtil,
 } from './contract-form';
@@ -149,6 +150,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       // Sync customer contract number
       setHasCustomerContractNumber(!!contract.customerContractNumber);
       setCustomerContractNumber(contract.customerContractNumber || '');
+      setPaymentTermDays(contract.paymentTermDays);
       setNotes(contract.notes || '');
       if (contract.contacts && contract.contacts.length > 0) setContacts(contract.contacts);
       if (contract.lineItems && contract.lineItems.length > 0) {
@@ -160,6 +162,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           outputPriceFormula: item.outputPriceFormula || (item.outputPrice ? String(item.outputPrice) : undefined),
         })));
       }
+      setSelectedTaskTemplateId(contract.selectedTaskTemplateId || null);
+      setCustomTasks(contract.customTasks || []);
 
       // When cloning: reset ID to empty so generateId can auto-create a new one
       if (isCloning) {
@@ -231,7 +235,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const [revenueSchedules, setRevenueSchedules] = useState<RevenueSchedule[]>(contract?.revenueSchedules || [{ id: '1', date: '', amount: 0, description: 'Đợt 1' }]);
   const [paymentSchedules, setPaymentSchedules] = useState<PaymentSchedule[]>([{ id: '1', date: '', amount: 0, description: 'Tạm ứng', type: 'Revenue' }]);
   const [supplierSchedules, setSupplierSchedules] = useState<PaymentSchedule[]>([{ id: '1', date: '', amount: 0, description: 'Thanh toán đợt 1', type: 'Expense' }]);
+  const [paymentTermDays, setPaymentTermDays] = useState<number | undefined>(contract?.paymentTermDays);
   const [notes, setNotes] = useState(contract?.notes || '');
+  const [selectedTaskTemplateId, setSelectedTaskTemplateId] = useState<string | null>(contract?.selectedTaskTemplateId || null);
+  const [customTasks, setCustomTasks] = useState<any[]>(contract?.customTasks || []);
 
   useEffect(() => {
     if (contract?.paymentPhases && Array.isArray(contract.paymentPhases)) {
@@ -350,6 +357,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       const draft = {
         contractType, unitId, coordinatingUnitId, salespersonId, customerId, title, clientName,
         signedDate, contacts, lineItems, revenueSchedules, paymentSchedules, supplierSchedules,
+        selectedTaskTemplateId, customTasks,
       };
       if (title || clientName || lineItems.length > 0) {
         localStorage.setItem('contract_form_draft', JSON.stringify(draft));
@@ -358,7 +366,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     return () => clearTimeout(timer);
   }, [
     isEditing, contractType, unitId, coordinatingUnitId, salespersonId, customerId, title, clientName,
-    signedDate, contacts, lineItems, revenueSchedules, paymentSchedules, supplierSchedules
+    signedDate, contacts, lineItems, revenueSchedules, paymentSchedules, supplierSchedules,
+    selectedTaskTemplateId, customTasks,
   ]);
 
   // ==================== DIRTY STATE TRACKING ====================
@@ -373,6 +382,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     revenueSchedules, paymentSchedules, supplierSchedules,
     employeeAllocations, unitAllocations, formContractId,
     customerContractNumber, hasCustomerContractNumber, notes,
+    selectedTaskTemplateId, customTasks,
   }), [
     contractType, unitId, coordinatingUnitId, salespersonId, customerId,
     title, clientName, signedDate, hasVat, vatRate, classification,
@@ -380,6 +390,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     revenueSchedules, paymentSchedules, supplierSchedules,
     employeeAllocations, unitAllocations, formContractId,
     customerContractNumber, hasCustomerContractNumber, notes,
+    selectedTaskTemplateId, customTasks,
   ]);
 
   // Capture initial snapshot after first render (delay to let sync effects settle)
@@ -428,6 +439,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                   if (draft.revenueSchedules) setRevenueSchedules(draft.revenueSchedules);
                   if (draft.paymentSchedules) setPaymentSchedules(draft.paymentSchedules);
                   if (draft.supplierSchedules) setSupplierSchedules(draft.supplierSchedules);
+                  if (draft.selectedTaskTemplateId) setSelectedTaskTemplateId(draft.selectedTaskTemplateId);
+                  if (draft.customTasks) setCustomTasks(draft.customTasks);
 
                   toast.success("Đã khôi phục bản nháp!");
                 }
@@ -561,7 +574,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       executionCosts,
       revenueSchedules,
       customerContractNumber: customerContractNumber?.trim() || null,
+      paymentTermDays: paymentTermDays || null,
       notes: notes?.trim() || null,
+      selectedTaskTemplateId,
+      customTasks,
     };
     onSave(payload);
   };
@@ -600,6 +616,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
             { label: 'Thông tin chung', num: 1 },
             { label: 'Kinh doanh & Chi phí', num: 2 },
             { label: 'Tài chính & Hoàn tất', num: 3 },
+            { label: 'Giao việc', num: 4 },
           ].map((step, idx) => {
             const isActive = currentStep >= step.num;
             const isCurrent = currentStep === step.num;
@@ -720,8 +737,19 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 paymentSchedules={paymentSchedules} setPaymentSchedules={setPaymentSchedules}
                 supplierSchedules={supplierSchedules} setSupplierSchedules={setSupplierSchedules}
                 generateSupplierSchedules={generateSupplierSchedules}
+                paymentTermDays={paymentTermDays} setPaymentTermDays={setPaymentTermDays}
                 formatVND={formatVND}
                 notes={notes} setNotes={setNotes}
+              />
+            ) : null}
+
+            {/* Step 4: Giao việc & Phân công */}
+            {currentStep === 4 ? (
+              <ContractFormStep4
+                selectedTaskTemplateId={selectedTaskTemplateId}
+                setSelectedTaskTemplateId={setSelectedTaskTemplateId}
+                customTasks={customTasks}
+                setCustomTasks={setCustomTasks}
               />
             ) : null}
 
@@ -764,7 +792,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
             </button>
           ) : null}
 
-          {currentStep < 3 ? (
+          {currentStep < 4 ? (
             <button
               onClick={handleNext}
               className="px-10 py-3 bg-indigo-600 text-white rounded-[20px] font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none hover:scale-105 active:scale-95"

@@ -3,7 +3,9 @@ import { Plus, Trash2, Save, FileText, CheckCircle2, Loader2, GripVertical, Aler
 import { toast } from 'sonner';
 import { TaskTemplateService, TaskTemplate, TemplateTaskItem, AssigneeRole } from '../../services/taskTemplateService';
 import { EntityRegistryService } from '../../services/entityRegistryService';
+import { EmployeeService } from '../../services/employeeService';
 import type { TaskPriority, EntityRegistryItem } from '../../types/taskTypes';
+import type { Employee } from '../../types';
 import { formatDate } from '../../utils/formatters';
 import PeoplePickerPopover from './PeoplePickerPopover';
 import { SlidePanelHeader } from '../ui/SlidePanelHeader';
@@ -37,6 +39,7 @@ const emptyTask = (): TemplateTaskItem => ({
   priority: 'medium',
   status_type: 'todo',
   sort_order: 0,
+  base_date_type: 'current_date',
 });
 
 // ═══════════════════════════════════════
@@ -46,6 +49,7 @@ export const TaskTemplateManagerPanel: React.FC<TaskTemplateManagerPanelProps> =
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [entityTypes, setEntityTypes] = useState<EntityRegistryItem[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   
   // Editing state
   const [isEditing, setIsEditing] = useState(false);
@@ -64,7 +68,15 @@ export const TaskTemplateManagerPanel: React.FC<TaskTemplateManagerPanelProps> =
   useEffect(() => {
     loadTemplates();
     loadEntityTypes();
+    loadEmployees();
   }, []);
+
+  const loadEmployees = async () => {
+    try {
+      const data = await EmployeeService.getAll();
+      setEmployees(data);
+    } catch { /* ignore */ }
+  };
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -303,6 +315,7 @@ export const TaskTemplateManagerPanel: React.FC<TaskTemplateManagerPanelProps> =
                     task={task}
                     index={index}
                     allTasks={editTasks}
+                    employees={employees}
                     expanded={expandedTaskId === task.id}
                     onToggleExpand={() => setExpandedTaskId(expandedTaskId === task.id ? null : task.id)}
                     onUpdate={updateTask}
@@ -426,10 +439,11 @@ interface TaskItemEditorProps {
   isDragging: boolean;
   showPeoplePicker: boolean;
   onTogglePeoplePicker: (show: boolean) => void;
+  employees: Employee[];
 }
 
 const TaskItemEditor: React.FC<TaskItemEditorProps> = ({
-  task, index, allTasks, expanded, onToggleExpand,
+  task, index, allTasks, employees, expanded, onToggleExpand,
   onUpdate, onRemove, onDragStart, onDragOver, onDragEnd, isDragging,
   showPeoplePicker, onTogglePeoplePicker,
 }) => {
@@ -499,41 +513,79 @@ const TaskItemEditor: React.FC<TaskItemEditorProps> = ({
 
       {/* Row 2: Badges (always visible) */}
       <div className="flex flex-wrap items-center gap-2 px-3 pb-3 pl-12">
-        {/* Assignee Role */}
+        {/* Assignee Role Custom Dropdown */}
         <div className="relative">
-          <select
-            value={task.assignee_role || ''}
-            onChange={e => {
-              const role = e.target.value as AssigneeRole | '';
-              onUpdate(task.id, { 
-                assignee_role: role || undefined,
-                assignee_id: role === 'specific' ? task.assignee_id : undefined,
-              });
-              if (role === 'specific') {
-                onTogglePeoplePicker(true);
-              }
-            }}
-            className="text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 outline-none font-semibold text-slate-600 dark:text-slate-300 cursor-pointer appearance-auto"
+          <button
+            onClick={() => onTogglePeoplePicker(!showPeoplePicker)}
+            className="flex items-center gap-1.5 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 outline-none font-semibold text-slate-600 dark:text-slate-300 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500 transition-colors shadow-sm"
           >
-            {ASSIGNEE_ROLE_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            {(() => {
+              if (task.assignee_role === 'creator') return <><User size={12} className="text-blue-500 dark:text-blue-400" /> Ng. giao việc</>;
+              if (task.assignee_role === 'unit_leader') return <><Crown size={12} className="text-amber-500 dark:text-amber-400" /> Trưởng ĐV</>;
+              if (task.assignee_role === 'specific') {
+                const emp = employees.find(e => e.id === task.assignee_id);
+                if (emp) {
+                  return (
+                    <div className="flex items-center gap-1.5">
+                      {emp.avatar ? (
+                        <img src={emp.avatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-[8px] font-bold">
+                          {emp.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-indigo-600 dark:text-indigo-400 truncate max-w-[120px]">{emp.name}</span>
+                    </div>
+                  );
+                }
+                return <><Users size={12} className="text-purple-500 dark:text-purple-400" /> Chọn người...</>;
+              }
+              return <><User size={12} className="text-slate-400" /> Không gán</>;
+            })()}
+          </button>
           
-          {/* People Picker for "specific" */}
-          {showPeoplePicker && task.assignee_role === 'specific' && (
-            <div className="absolute top-full left-0 mt-1 z-50">
-              <PeoplePickerPopover
-                currentIds={task.assignee_id ? [task.assignee_id] : []}
-                onChange={(ids) => {
-                  onUpdate(task.id, { assignee_id: ids[0] || undefined });
-                  onTogglePeoplePicker(false);
-                }}
-                onClose={() => onTogglePeoplePicker(false)}
-                align="left"
-                singleSelect
-              />
+          {showPeoplePicker && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl w-72 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-2 border-b border-slate-100 dark:border-slate-700/50">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1.5">Vai trò động</p>
+                {ASSIGNEE_ROLE_OPTIONS.filter(o => o.value !== 'specific').map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      onUpdate(task.id, { assignee_role: opt.value || undefined, assignee_id: undefined });
+                      onTogglePeoplePicker(false);
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer ${task.assignee_role === opt.value ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}
+                  >
+                    {opt.icon} {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div className="p-2 bg-slate-50/50 dark:bg-slate-800/50">
+                <div className="flex items-center justify-between px-2 mb-2">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Người cụ thể</p>
+                  {task.assignee_role === 'specific' && task.assignee_id && (
+                    <button onClick={() => { onUpdate(task.id, { assignee_role: undefined, assignee_id: undefined }); onTogglePeoplePicker(false); }} className="text-[10px] text-red-500 hover:text-red-600 font-semibold cursor-pointer">Xoá chọn</button>
+                  )}
+                </div>
+                {/* PeoplePickerPopover inside inline mode */}
+                <PeoplePickerPopover
+                  currentIds={task.assignee_id ? [task.assignee_id] : []}
+                  onChange={(ids) => {
+                    onUpdate(task.id, { assignee_role: 'specific', assignee_id: ids[0] || undefined });
+                    onTogglePeoplePicker(false);
+                  }}
+                  onClose={() => onTogglePeoplePicker(false)}
+                  align="left"
+                  singleSelect
+                  inline
+                />
+              </div>
             </div>
+          )}
+          
+          {showPeoplePicker && (
+            <div className="fixed inset-0 z-40" onClick={() => onTogglePeoplePicker(false)} />
           )}
         </div>
 
@@ -613,38 +665,23 @@ const TaskItemEditor: React.FC<TaskItemEditorProps> = ({
             </select>
           </div>
 
-          {/* Selected person display when role = specific */}
-          {task.assignee_role === 'specific' && (
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Người phụ trách được chọn</label>
-              {task.assignee_id ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded-lg">
-                    ID: {task.assignee_id.substring(0, 8)}...
-                  </span>
-                  <button 
-                    onClick={() => onTogglePeoplePicker(true)} 
-                    className="text-xs text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline"
-                  >
-                    Đổi
-                  </button>
-                  <button 
-                    onClick={() => onUpdate(task.id, { assignee_id: undefined })} 
-                    className="text-xs text-red-500 dark:text-red-400 cursor-pointer hover:underline"
-                  >
-                    Xóa
-                  </button>
-                </div>
-              ) : (
-                <button 
-                  onClick={() => onTogglePeoplePicker(true)} 
-                  className="text-xs text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline"
-                >
-                  + Chọn người
-                </button>
-              )}
-            </div>
-          )}
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">Mốc thời gian bắt đầu</label>
+            <select
+              value={task.base_date_type || 'current_date'}
+              onChange={e => onUpdate(task.id, { base_date_type: e.target.value as any })}
+              className="text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 outline-none font-semibold text-slate-600 dark:text-slate-300 cursor-pointer w-full"
+            >
+              <option value="current_date">Theo ngày áp dụng mẫu (Mặc định)</option>
+              <option value="payment_term">Theo Hạn thanh toán của Hợp đồng / HĐ</option>
+            </select>
+            {task.base_date_type === 'payment_term' && (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 italic">
+                *Chỉ áp dụng khi tạo từ Hợp đồng có cấu hình (nếu không, sẽ mặc định theo ngày áp dụng mẫu)
+              </p>
+            )}
+          </div>
+
         </div>
       )}
     </div>

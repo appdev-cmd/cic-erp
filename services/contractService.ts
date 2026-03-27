@@ -120,6 +120,7 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
         endDate: 'end_date',
         content: 'content',
         customerContractNumber: 'customer_contract_number',
+        paymentTermDays: 'payment_term_days',
         contacts: 'contacts',
         milestones: 'milestones',
         paymentPhases: 'payment_phases',
@@ -437,6 +438,7 @@ const mapContract = (c: any): Contract => {
         endUserId: c.end_user_id || undefined,
         endUserName: c.end_user_name || undefined,
         customerContractNumber: c.customer_contract_number || undefined,
+        paymentTermDays: c.payment_term_days != null ? Number(c.payment_term_days) : undefined,
         unitId: c.unit_id || '',
         coordinatingUnitId: c.coordinating_unit_id || undefined,
         unitAllocations: c.unit_allocations?.allocations || undefined,
@@ -1523,6 +1525,33 @@ export const ContractService = {
             console.warn("[ContractService.create] Failed to auto-create PAKD:", planError);
         }
 
+        // 4.5. Auto-assign tasks from Step 4 (Giao việc)
+        if (data.selectedTaskTemplateId) {
+            try {
+                const { TaskTemplateService } = await import('./taskTemplateService');
+                await TaskTemplateService.applyTemplate(data.selectedTaskTemplateId, 'contract', result.id, {
+                    spaceId: data.unitId
+                });
+            } catch (err) {
+                console.warn("[ContractService.create] Failed to apply task template:", err);
+            }
+        }
+        if (data.customTasks && data.customTasks.length > 0) {
+            try {
+                const { TaskService } = await import('./taskService');
+                for (const taskDef of data.customTasks) {
+                    await TaskService.create({
+                        ...taskDef,
+                        entity_type: 'contract',
+                        entity_id: result.id,
+                        space_id: data.unitId
+                    });
+                }
+            } catch (err) {
+                console.warn("[ContractService.create] Failed to create custom tasks:", err);
+            }
+        }
+
         // 5. Log audit
         await logOperation('CREATE', result.id);
 
@@ -1593,6 +1622,33 @@ export const ContractService = {
 
         // 4. Log audit
         await logOperation('UPDATE', id, payload);
+
+        // 4.5. Auto-assign tasks from Step 4 (Giao việc)
+        if (data.selectedTaskTemplateId) {
+            try {
+                const { TaskTemplateService } = await import('./taskTemplateService');
+                await TaskTemplateService.applyTemplate(data.selectedTaskTemplateId, 'contract', id, {
+                    spaceId: data.unitId || result.unit_id
+                });
+            } catch (err) {
+                console.warn("[ContractService.update] Failed to apply task template:", err);
+            }
+        }
+        if (data.customTasks && data.customTasks.length > 0) {
+            try {
+                const { TaskService } = await import('./taskService');
+                for (const taskDef of data.customTasks) {
+                    await TaskService.create({
+                        ...taskDef,
+                        entity_type: 'contract',
+                        entity_id: id,
+                        space_id: data.unitId || result.unit_id
+                    });
+                }
+            } catch (err) {
+                console.warn("[ContractService.update] Failed to create custom tasks:", err);
+            }
+        }
 
         // 5. Telegram notification (fire-and-forget)
         const mapped = mapContract(result);

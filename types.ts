@@ -261,6 +261,7 @@ export interface Contract {
   endUserId?: string; // FK to Customer (End user khi bán qua đại lý)
   endUserName?: string; // Tên người dùng cuối
   customerContractNumber?: string; // Số hợp đồng khách hàng
+  paymentTermDays?: number; // Hạn thanh toán (số ngày)
   partyA: string;
   partyB: string;
   clientInitials: string;
@@ -309,6 +310,10 @@ export interface Contract {
   // Legacy parallel approval workflow fields (kept for backward compat)
   legal_approved?: boolean;
   finance_approved?: boolean;
+  
+  // Tasks (Form payload only)
+  selectedTaskTemplateId?: string | null;
+  customTasks?: any[];
 }
 
 export interface ContractDocument {

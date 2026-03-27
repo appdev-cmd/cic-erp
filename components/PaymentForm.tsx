@@ -105,6 +105,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
     const [contractDisplayName, setContractDisplayName] = useState<string>('');
     const [customerDisplayName, setCustomerDisplayName] = useState<string>('');
     const [showAddCustomerDialog, setShowAddCustomerDialog] = useState(false);
+    const [contractPaymentTerm, setContractPaymentTerm] = useState<number | undefined>(undefined);
 
     // When voucher type changes, update default status
     useEffect(() => {
@@ -114,6 +115,18 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
             else setStatus('Tiền về');
         }
     }, [voucherType, payment]);
+
+    // Format dueDate based on contract payment term and invoiceDate (for VAT_INVOICE)
+    useEffect(() => {
+        if (!payment && voucherType === 'VAT_INVOICE' && contractPaymentTerm !== undefined) {
+             const baseDateStr = invoiceDate || paymentDate || today;
+             if (baseDateStr) {
+                 const dateStart = new Date(baseDateStr);
+                 dateStart.setDate(dateStart.getDate() + contractPaymentTerm);
+                 setDueDate(dateStart.toISOString().split('T')[0]);
+             }
+        }
+    }, [invoiceDate, paymentDate, contractPaymentTerm, voucherType, payment, today]);
 
     // Helper: extract cost categories from contract data
     const extractPakdCategories = (contract: any) => {
@@ -188,6 +201,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                         });
                     }
 
+                    if (c.paymentTermDays !== undefined) {
+                        setContractPaymentTerm(c.paymentTermDays);
+                    }
+
                     // For VAT_INVOICE: auto-generate line items from contract if none saved
                     const isVATType = payment?.voucherType === 'VAT_INVOICE' || (!payment && voucherType === 'VAT_INVOICE');
                     const hasNoItems = payment ? (!payment.vatInvoiceItems || payment.vatInvoiceItems.length === 0) : true;
@@ -241,6 +258,18 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
             if (contract) {
                 setContractDisplayName(`${contract.contractCode} - ${contract.title}`);
                 if (contract.customerId) setCustomerId(contract.customerId);
+                
+                if (contract.paymentTermDays !== undefined) {
+                    setContractPaymentTerm(contract.paymentTermDays);
+                    if (voucherType === 'VAT_INVOICE' && !payment) {
+                         const dateStart = new Date(invoiceDate || paymentDate || today);
+                         dateStart.setDate(dateStart.getDate() + contract.paymentTermDays);
+                         setDueDate(dateStart.toISOString().split('T')[0]);
+                    }
+                } else {
+                    setContractPaymentTerm(undefined);
+                }
+
                 if (contract.lineItems && contract.lineItems.length > 0) {
                     setContractLineItems(contract.lineItems);
                     // Auto-generate VAT invoice items from contract line items

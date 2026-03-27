@@ -1406,8 +1406,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                       setEditDescription(e.target.value);
                       bufferChange('description', e.target.value);
                     }}
-                    rows={4}
-                    className="w-full text-sm p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y transition-colors"
+                    rows={8}
+                    className="w-full text-sm p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y transition-colors min-h-[160px]"
                     placeholder="Nhấn để thêm mô tả..."
                   />
                 </div>

@@ -965,10 +965,10 @@ const DeadlineView: React.FC<{
     return localDateStr(dt);
   };
 
-  // Drag state
   const [dragOverCol, setDragOverCol] = useState<DeadlineColumnKey | null>(null);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const [editingAssigneeTaskId, setEditingAssigneeTaskId] = useState<string | null>(null);
+  const [editingDeadlineTaskId, setEditingDeadlineTaskId] = useState<string | null>(null);
 
   // Compute target deadline for a drop or quick-create
   const getDeadlineForColumn = (colKey: DeadlineColumnKey): string | null => {
@@ -1150,15 +1150,37 @@ const DeadlineView: React.FC<{
                         </div>
                       )}
                       {/* Deadline badge */}
-                      {task.due_date && (
-                        <span className={`inline-block mt-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                          isOverdue
-                            ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                            : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                        }`}>
-                          {formatDate(task.due_date)}
-                        </span>
-                      )}
+                      <div className="relative mt-1.5" onClick={e => e.stopPropagation()}>
+                        {editingDeadlineTaskId === task.id ? (
+                          <div className="absolute top-0 left-0 z-50 min-w-[180px]">
+                            <DeadlineInput
+                              currentValue={task.due_date || ''}
+                              onSave={(val) => { onUpdateDeadline(task.id, val || null); setEditingDeadlineTaskId(null); }}
+                              onClose={() => setEditingDeadlineTaskId(null)}
+                            />
+                          </div>
+                        ) : task.due_date ? (
+                          <button
+                            onClick={() => setEditingDeadlineTaskId(task.id)}
+                            className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-opacity ${
+                              isOverdue
+                                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                            }`}
+                            title="Bấm để đổi deadline"
+                          >
+                            {formatDate(task.due_date)}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setEditingDeadlineTaskId(task.id)}
+                            className="inline-flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
+                            title="Bấm để đặt deadline"
+                          >
+                            <Calendar size={12} /> Đặt dl
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   {/* Footer: assignees — clickable to change */}
@@ -1242,6 +1264,8 @@ const PlannerView: React.FC<{
 
   const thisWeekTasks = activeTasks.filter(t => t.due_date && t.due_date >= todayStr && t.due_date <= endOfWeekStr);
   const notPlannedTasks = activeTasks.filter(t => !t.due_date || t.due_date > endOfWeekStr || t.due_date < todayStr);
+
+  const [editingDeadlineTaskId, setEditingDeadlineTaskId] = useState<string | null>(null);
 
   const plannerColumns = [
     { title: 'Chưa lên kế hoạch', icon: <Clock size={15} />, headerClass: 'bg-slate-500', tasks: notPlannedTasks },
@@ -1465,7 +1489,13 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   const [statuses, setStatuses] = useState<TaskStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState<TaskRoleFilter>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    try {
+      return (localStorage.getItem('cic_task_view_mode') as ViewMode) || 'list';
+    } catch {
+      return 'list';
+    }
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [filterProjectId, setFilterProjectId] = useState<string>('all');
   const [projects, setProjects] = useState<{id: string; name: string}[]>([]);
@@ -1473,6 +1503,14 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   const [personalUserTags, setPersonalUserTags] = useState<string[]>([]);
   const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('cic_task_view_mode', viewMode);
+    } catch {
+      // ignore
+    }
+  }, [viewMode]);
 
   const { getVisibleTasks, getMyTasks, isAdmin, isManager, visibilityContext } = useTaskVisibility();
 
