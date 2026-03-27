@@ -5,7 +5,14 @@ import { Activity, LayoutGrid, Wrench } from 'lucide-react';
 
 const ToolsPage: React.FC = () => {
     const { theme } = useLayoutContext();
-    const [activeTab, setActiveTab] = useState<'pakd' | 'other'>('pakd');
+    const [activeTab, setActiveTabState] = useState<'pakd' | 'other'>(() => {
+        return (localStorage.getItem('cic-erp-tools-tab') as any) || 'pakd';
+    });
+
+    const setActiveTab = (tab: 'pakd' | 'other') => {
+        setActiveTabState(tab);
+        localStorage.setItem('cic-erp-tools-tab', tab);
+    };
 
     return (
         <div className="space-y-6">

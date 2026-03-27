@@ -40,7 +40,14 @@ type TabType = 'overview' | 'signing' | 'employees' | 'contracts' | 'history';
 const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract, onViewPersonnel, yearFilter = String(new Date().getFullYear()) }) => {
     const { can } = usePermissionCheck();
     const canEditUnit = can('units', 'update');
-    const [activeTab, setActiveTab] = useState<TabType>('overview');
+    const [activeTab, setActiveTabState] = useState<TabType>(() => {
+        return (localStorage.getItem('cic-erp-unit-tab') as TabType) || 'overview';
+    });
+
+    const setActiveTab = (tab: TabType) => {
+        setActiveTabState(tab);
+        localStorage.setItem('cic-erp-unit-tab', tab);
+    };
     const [unit, setUnit] = useState<Unit | null>(null);
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [staff, setStaff] = useState<Employee[]>([]);

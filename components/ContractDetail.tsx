@@ -132,7 +132,14 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [contract, setContract] = useState<Contract | null>(initialContract || null);
   const [loading, setLoading] = useState(!initialContract);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'pakd' | 'discussion' | 'tasks' | 'history'>('overview');
+  const [activeTab, setActiveTabState] = useState<'overview' | 'pakd' | 'discussion' | 'tasks' | 'history'>(() => {
+    return (localStorage.getItem('cic-erp-contract-tab') as any) || 'overview';
+  });
+
+  const setActiveTab = (tab: 'overview' | 'pakd' | 'discussion' | 'tasks' | 'history') => {
+    setActiveTabState(tab);
+    localStorage.setItem('cic-erp-contract-tab', tab);
+  };
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAcceptanceDialog, setShowAcceptanceDialog] = useState(false);
   const [showHandoverDialog, setShowHandoverDialog] = useState(false);

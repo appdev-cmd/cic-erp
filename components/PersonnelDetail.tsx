@@ -64,7 +64,14 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
     const [isEditing, setIsEditing] = useState(false);
     const [showAllContracts, setShowAllContracts] = useState(false);
     const [contractFilter, setContractFilter] = useState<'all' | 'active' | 'completed'>('active');
-    const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+    const [activeTab, setActiveTabState] = useState<DetailTab>(() => {
+        return (localStorage.getItem('cic-erp-personnel-tab') as DetailTab) || 'overview';
+    });
+
+    const setActiveTab = (tab: DetailTab) => {
+        setActiveTabState(tab);
+        localStorage.setItem('cic-erp-personnel-tab', tab);
+    };
     const [kpiYear, setKpiYear] = useState(new Date().getFullYear());
     const [showDocForm, setShowDocForm] = useState(false);
     const [editingDoc, setEditingDoc] = useState<EmployeeDocument | null>(null);

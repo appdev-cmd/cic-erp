@@ -37,7 +37,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'info' | 'tasks'>('info');
+  const [activeTab, setActiveTabState] = useState<'info' | 'tasks'>(() => {
+    return (localStorage.getItem('cic-erp-project-tab') as any) || 'info';
+  });
+
+  const setActiveTab = (tab: 'info' | 'tasks') => {
+    setActiveTabState(tab);
+    localStorage.setItem('cic-erp-project-tab', tab);
+  };
   const [contractInfo, setContractInfo] = useState<{ id: string; contractCode: string; name?: string } | null>(null);
   const { openPanel, closePanel } = useSlidePanel();
   const [updatingStatus, setUpdatingStatus] = useState(false);

@@ -19,7 +19,14 @@ const Settings: React.FC = () => {
     const { profile } = useAuth();
     const isAdmin = profile?.role === 'Admin';
 
-    const [activeTab, setActiveTab] = useState<SettingsTab>('system');
+    const [activeTab, setActiveTabState] = useState<SettingsTab>(() => {
+        return (localStorage.getItem('cic-erp-settings-tab') as SettingsTab) || 'system';
+    });
+
+    const setActiveTab = (tab: SettingsTab) => {
+        setActiveTabState(tab);
+        localStorage.setItem('cic-erp-settings-tab', tab);
+    };
 
     const tabs: { id: SettingsTab; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
         { id: 'system', label: 'Cài đặt hệ thống', icon: <Settings2 size={18} /> },

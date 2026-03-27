@@ -32,7 +32,14 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
     const [payments, setPayments] = useState<Payment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
-    const [activeTab, setActiveTab] = useState<'overview' | 'contacts' | 'contracts' | 'payments' | 'notes'>('overview');
+    const [activeTab, setActiveTabState] = useState<'overview' | 'contacts' | 'contracts' | 'payments' | 'notes'>(() => {
+        return (localStorage.getItem('cic-erp-customer-tab') as any) || 'overview';
+    });
+
+    const setActiveTab = (tab: 'overview' | 'contacts' | 'contracts' | 'payments' | 'notes') => {
+        setActiveTabState(tab);
+        localStorage.setItem('cic-erp-customer-tab', tab);
+    };
 
     // Tab-specific state
     const [contractFilter, setContractFilter] = useState<string>('all');

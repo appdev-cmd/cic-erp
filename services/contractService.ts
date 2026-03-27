@@ -183,20 +183,21 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
 const logOperation = async (
     action: 'CREATE' | 'UPDATE' | 'DELETE',
     contractId: string,
-    changes?: Record<string, any>
+    newData?: Record<string, any>,
+    oldData?: Record<string, any>
 ) => {
     try {
         const user = (await supabase.auth.getUser()).data.user;
         const userId = user?.id || null;
-        console.log(`[Audit] ${action} contract ${contractId} by ${user?.email || 'unknown'}`, changes || {});
+        console.log(`[Audit] ${action} contract ${contractId} by ${user?.email || 'unknown'}`, { newData, oldData });
 
         await AuditLogService.create({
             user_id: userId,
             table_name: 'contracts',
             record_id: contractId,
             action: action,
-            old_data: changes?.oldData || null,
-            new_data: changes || null, // Assuming payload is new_data
+            old_data: oldData || null,
+            new_data: newData || null,
             comment: null
         });
     } catch (e) {
@@ -1565,7 +1566,7 @@ export const ContractService = {
         }
 
         // 5. Log audit
-        await logOperation('CREATE', result.id);
+        await logOperation('CREATE', result.id, payload);
 
         // 6. Telegram notification (fire-and-forget)
         TelegramNotificationService.notifyContractChange({
@@ -1592,6 +1593,10 @@ export const ContractService = {
      * UPDATE - Professional implementation with partial update support
      */
     update: async (id: string, data: Partial<Contract>): Promise<Contract | undefined> => {
+        // Fetch old data for detailed audit log
+        const oldContract = await ContractService.getById(id);
+        const oldPayload = oldContract ? buildPayload(oldContract) : null;
+
         // 1. Validate
         if (!id) throw new Error(ERROR_MESSAGES.VALIDATION_ERROR);
 
@@ -1633,7 +1638,7 @@ export const ContractService = {
         });
 
         // 4. Log audit
-        await logOperation('UPDATE', id, payload);
+        await logOperation('UPDATE', id, payload, oldPayload || undefined);
 
         // 4.5. Auto-assign tasks from Step 4 (Giao việc)
         if (data.customTasks && data.customTasks.length > 0) {
