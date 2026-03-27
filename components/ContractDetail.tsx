@@ -922,12 +922,14 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
 
         {/* Content - Tasks tab */}
         {activeTab === 'tasks' && contract && (
-          <div className="h-full w-full">
-            <EntityTaskList
-              entityType="contract"
-              entityId={contract.id}
-              className="h-full min-h-[600px] border-l-0 border-r-0 border-b-0 rounded-none bg-transparent dark:bg-transparent"
-            />
+          <div className="h-full w-full p-4 sm:p-6 lg:p-8">
+            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col min-h-[600px]">
+              <EntityTaskList
+                entityType="contract"
+                entityId={contract.id}
+                className="flex-1 bg-transparent dark:bg-transparent border-0"
+              />
+            </div>
           </div>
         )}
 
