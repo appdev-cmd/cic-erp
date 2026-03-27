@@ -41,3 +41,9 @@ DROP POLICY IF EXISTS "Allow public read access" ON units; -- Might already exis
 CREATE POLICY "Dev_Allow_All_Units" ON units
 FOR ALL USING (true)
 WITH CHECK (true);
+
+-- 6. TASK TEMPLATES: Bỏ qua RLS trong Dev
+DROP POLICY IF EXISTS "Dev_Allow_All_Task_Templates" ON task_templates;
+CREATE POLICY "Dev_Allow_All_Task_Templates" ON task_templates
+FOR ALL USING (true)
+WITH CHECK (true);

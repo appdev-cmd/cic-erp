@@ -1,0 +1,1 @@
+CREATE POLICY "Public Full Access" ON task_templates FOR ALL USING (true) WITH CHECK (true);

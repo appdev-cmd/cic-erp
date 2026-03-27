@@ -1526,25 +1526,34 @@ export const ContractService = {
         }
 
         // 4.5. Auto-assign tasks from Step 4 (Giao việc)
-        if (data.selectedTaskTemplateId) {
-            try {
-                const { TaskTemplateService } = await import('./taskTemplateService');
-                await TaskTemplateService.applyTemplate(data.selectedTaskTemplateId, 'contract', result.id, {
-                    spaceId: data.unitId
-                });
-            } catch (err) {
-                console.warn("[ContractService.create] Failed to apply task template:", err);
-            }
-        }
         if (data.customTasks && data.customTasks.length > 0) {
             try {
                 const { TaskService } = await import('./taskService');
                 for (const taskDef of data.customTasks) {
+                    // Caculate relative due date
+                    let baseDate = new Date();
+                    if (taskDef.base_date_type === 'signed_date' && data.signedDate) {
+                        baseDate = new Date(data.signedDate);
+                    } else if (taskDef.base_date_type === 'invoice_date' && data.revenueSchedules?.length) {
+                        const dates = data.revenueSchedules.map(r => new Date(r.date)).filter(d => !isNaN(d.getTime())).sort((a,b) => a.getTime() - b.getTime());
+                        if (dates[0]) baseDate = dates[0];
+                    } else if (taskDef.base_date_type === 'handover_date' || taskDef.base_date_type === 'acceptance_date' || taskDef.base_date_type === 'advance_payment_completed') {
+                        if (data.endDate) baseDate = new Date(data.endDate);
+                        else if (data.signedDate) baseDate = new Date(data.signedDate);
+                    }
+                    
+                    const dueDate = new Date(baseDate);
+                    dueDate.setDate(dueDate.getDate() + (taskDef.duration_days || 0));
+                    dueDate.setHours(23, 59, 59, 999);
+
                     await TaskService.create({
-                        ...taskDef,
-                        entity_type: 'contract',
-                        entity_id: result.id,
-                        space_id: data.unitId
+                        title: taskDef.title,
+                        description: taskDef.description,
+                        assignees: taskDef.assignees,
+                        due_date: dueDate.toISOString(),
+                        space_id: data.unitId,
+                        source_module: 'contract',
+                        source_entity_id: result.id
                     });
                 }
             } catch (err) {
@@ -1624,25 +1633,37 @@ export const ContractService = {
         await logOperation('UPDATE', id, payload);
 
         // 4.5. Auto-assign tasks from Step 4 (Giao việc)
-        if (data.selectedTaskTemplateId) {
-            try {
-                const { TaskTemplateService } = await import('./taskTemplateService');
-                await TaskTemplateService.applyTemplate(data.selectedTaskTemplateId, 'contract', id, {
-                    spaceId: data.unitId || result.unit_id
-                });
-            } catch (err) {
-                console.warn("[ContractService.update] Failed to apply task template:", err);
-            }
-        }
         if (data.customTasks && data.customTasks.length > 0) {
             try {
                 const { TaskService } = await import('./taskService');
                 for (const taskDef of data.customTasks) {
+                    // Caculate relative due date
+                    let baseDate = new Date();
+                    const signedD = data.signedDate || result.signed_date;
+                    const endD = data.endDate || result.end_date;
+
+                    if (taskDef.base_date_type === 'signed_date' && signedD) {
+                        baseDate = new Date(signedD);
+                    } else if (taskDef.base_date_type === 'invoice_date' && data.revenueSchedules?.length) {
+                        const dates = data.revenueSchedules.map(r => new Date(r.date)).filter(d => !isNaN(d.getTime())).sort((a,b) => a.getTime() - b.getTime());
+                        if (dates[0]) baseDate = dates[0];
+                    } else if (taskDef.base_date_type === 'handover_date' || taskDef.base_date_type === 'acceptance_date' || taskDef.base_date_type === 'advance_payment_completed') {
+                        if (endD) baseDate = new Date(endD);
+                        else if (signedD) baseDate = new Date(signedD);
+                    }
+                    
+                    const dueDate = new Date(baseDate);
+                    dueDate.setDate(dueDate.getDate() + (taskDef.duration_days || 0));
+                    dueDate.setHours(23, 59, 59, 999);
+
                     await TaskService.create({
-                        ...taskDef,
-                        entity_type: 'contract',
-                        entity_id: id,
-                        space_id: data.unitId || result.unit_id
+                        title: taskDef.title,
+                        description: taskDef.description,
+                        assignees: taskDef.assignees,
+                        due_date: dueDate.toISOString(),
+                        space_id: data.unitId || result.unit_id,
+                        source_module: 'contract',
+                        source_entity_id: id
                     });
                 }
             } catch (err) {

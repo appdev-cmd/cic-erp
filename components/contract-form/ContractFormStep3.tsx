@@ -44,7 +44,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                     </div>
                     <div className="grid grid-cols-12 gap-2 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
                         <div className="col-span-12 md:col-span-4 space-y-1">
-                            <label className="text-[9px] text-slate-400 font-bold uppercase">Số ngày hạn mức</label>
+                            <label className="text-[9px] text-slate-400 font-bold uppercase">Số ngày hạn mức kể từ ngày XHĐ</label>
                             <div className="flex items-center gap-2">
                                 <input
                                     type="number"
@@ -55,7 +55,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                         const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
                                         setPaymentTermDays(val);
                                     }}
-                                    className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1.5 text-[11px] font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 dark:text-slate-200"
                                 />
                                 <span className="text-[11px] text-slate-400 font-bold shrink-0">Ngày</span>
                             </div>
@@ -86,7 +86,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                             newSched[idx].date = val;
                                             setRevenueSchedules(newSched);
                                         }}
-                                        className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1.5 text-[11px] font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 dark:text-slate-200"
                                     />
                                 </div>
                                 <div className="col-span-4 space-y-1">
@@ -99,7 +99,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                             newSched[idx].description = e.target.value;
                                             setRevenueSchedules(newSched);
                                         }}
-                                        className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1.5 text-[11px] font-bold outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
                                     />
                                 </div>
                                 <div className="col-span-4 space-y-1 text-right">
@@ -116,7 +116,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                                 newSched[idx].amount = Number(raw);
                                                 setRevenueSchedules(newSched);
                                             }}
-                                            className="w-full bg-transparent text-[11px] font-black text-right outline-none text-slate-800 dark:text-slate-200"
+                                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1.5 text-[11px] font-black text-right outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800 dark:text-slate-200"
                                         />
                                         {revenueSchedules.length > 1 && (
                                             <button onClick={() => setRevenueSchedules(revenueSchedules.filter(r => r.id !== rev.id))} className="text-slate-300 hover:text-rose-500 transition-colors flex-shrink-0">
@@ -153,7 +153,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                             newSched[idx].date = val;
                                             setPaymentSchedules(newSched);
                                         }}
-                                        className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-md px-2 py-1.5 text-[11px] font-bold outline-none focus:ring-1 focus:ring-emerald-500 transition-all text-slate-800 dark:text-slate-200"
                                     />
                                 </div>
                                 <div className="col-span-4 space-y-1">
@@ -166,7 +166,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                             newSched[idx].description = e.target.value;
                                             setPaymentSchedules(newSched);
                                         }}
-                                        className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-md px-2 py-1.5 text-[11px] font-bold outline-none focus:ring-1 focus:ring-emerald-500 transition-all text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
                                     />
                                 </div>
                                 <div className="col-span-4 space-y-1 text-right">
@@ -183,7 +183,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                                 newSched[idx].amount = Number(raw);
                                                 setPaymentSchedules(newSched);
                                             }}
-                                            className="w-full bg-transparent text-[11px] font-black text-right outline-none text-emerald-600"
+                                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-md px-2 py-1.5 text-[11px] font-black text-right outline-none focus:ring-1 focus:ring-emerald-500 transition-all text-emerald-600"
                                         />
                                         {paymentSchedules.length > 1 && (
                                             <button onClick={() => setPaymentSchedules(paymentSchedules.filter(p => p.id !== pay.id))} className="text-emerald-400 hover:text-rose-500 transition-colors flex-shrink-0">
@@ -229,7 +229,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                         newSched[idx].date = val;
                                         setSupplierSchedules(newSched);
                                     }}
-                                    className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200"
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-md px-2 py-1.5 text-[11px] font-bold outline-none focus:ring-1 focus:ring-rose-500 transition-all text-slate-800 dark:text-slate-200"
                                 />
                             </div>
                             <div className="col-span-4 space-y-1">
@@ -242,7 +242,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                         newSched[idx].description = e.target.value;
                                         setSupplierSchedules(newSched);
                                     }}
-                                    className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-md px-2 py-1.5 text-[11px] font-bold outline-none focus:ring-1 focus:ring-rose-500 transition-all text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
                                 />
                             </div>
                             <div className="col-span-4 space-y-1 text-right">
@@ -259,7 +259,7 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                             newSched[idx].amount = Number(raw);
                                             setSupplierSchedules(newSched);
                                         }}
-                                        className="w-full bg-transparent text-[11px] font-black text-right outline-none text-rose-500"
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-md px-2 py-1.5 text-[11px] font-black text-right outline-none focus:ring-1 focus:ring-rose-500 transition-all text-rose-500"
                                     />
                                     <button onClick={() => setSupplierSchedules(supplierSchedules.filter(p => p.id !== pay.id))} className="text-rose-400 hover:text-rose-600 transition-colors flex-shrink-0">
                                         <X size={12} />
