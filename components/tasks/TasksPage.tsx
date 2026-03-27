@@ -1523,7 +1523,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
           project_id: filterProjectId !== 'all' ? filterProjectId : undefined,
           tags: searchTags.length > 0 ? searchTags : undefined,
         }, visibilityContext),
-        TaskService.getRoleCounts(visibilityContext.userId),
+        TaskService.getRoleCounts(visibilityContext.userId, visibilityContext.role),
       ]);
       setStatuses(statusList);
       setRoleCounts(counts);

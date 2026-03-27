@@ -9,6 +9,7 @@ import { TaskService } from '../services/taskService';
 import { formatDateShort } from '../utils/formatters';
 import type { Task, TaskStatus, TaskPriority } from '../types/taskTypes';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
+import { useTaskVisibility } from '../hooks/useTaskVisibility';
 import { dataClient } from '../lib/dataClient';
 
 const CreateTaskPanel = React.lazy(() => import('./tasks/CreateTaskPanel'));
@@ -55,12 +56,13 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
 
   const { openPanel, closePanel } = useSlidePanel();
   const navigate = useNavigate();
+  const { visibilityContext } = useTaskVisibility();
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [taskList, statusList] = await Promise.all([
-        TaskService.getByProjectId(projectId),
+        TaskService.getByProjectId(projectId, undefined, visibilityContext),
         TaskService.getStatuses(),
       ]);
       setTasks(taskList);

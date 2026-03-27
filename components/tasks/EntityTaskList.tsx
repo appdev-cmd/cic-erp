@@ -7,6 +7,7 @@ import type { Task, TaskStatus } from '../../types/taskTypes';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
 import CreateTaskPanel from './CreateTaskPanel';
 import { TaskTemplateModal } from './TaskTemplateModal';
+import { useTaskVisibility } from '../../hooks/useTaskVisibility';
 import { dataClient } from '../../lib/dataClient';
 
 interface EntityTaskListProps {
@@ -30,11 +31,12 @@ const EntityTaskList: React.FC<EntityTaskListProps> = ({
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
   const { openPanel, closePanel } = useSlidePanel();
+  const { visibilityContext } = useTaskVisibility();
 
   const loadData = useCallback(async () => {
     try {
       const [taskList, statusList] = await Promise.all([
-        TaskService.getByEntityLink(entityType, entityId),
+        TaskService.getByEntityLink(entityType, entityId, visibilityContext),
         TaskService.getStatuses(),
       ]);
       setTasks(taskList);
@@ -69,7 +71,7 @@ const EntityTaskList: React.FC<EntityTaskListProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [entityType, entityId]);
+  }, [entityType, entityId, visibilityContext]);
 
   useEffect(() => {
     loadData();

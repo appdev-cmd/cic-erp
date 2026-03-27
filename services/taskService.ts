@@ -246,7 +246,7 @@ export const TaskService = {
 
     if (ctx.role === 'Admin') {
       // Admin sees everything — skip filter, query all
-      return this._queryTasks(filters);
+      return this._queryTasks(filters, undefined, ctx);
     }
 
     if (ctx.managementRank >= 100) {
@@ -273,7 +273,7 @@ export const TaskService = {
 
     if (allVisibleIds.length === 0) return [];
 
-    return this._queryTasks(filters, allVisibleIds);
+    return this._queryTasks(filters, allVisibleIds, ctx);
   },
 
   /**
@@ -288,7 +288,7 @@ export const TaskService = {
   /**
    * Get tasks linked to a specific entity (for EntityTaskList component).
    */
-  async getByEntityLink(entityType: string, entityId: string): Promise<Task[]> {
+  async getByEntityLink(entityType: string, entityId: string, ctx?: TaskVisibilityContext): Promise<Task[]> {
     const { data: links, error: linkError } = await supabase
       .from('task_links')
       .select('task_id')
@@ -299,13 +299,13 @@ export const TaskService = {
     if (!links || links.length === 0) return [];
 
     const taskIds = links.map(l => l.task_id);
-    return this._queryTasks(undefined, taskIds);
+    return this._queryTasks(undefined, taskIds, ctx);
   },
 
   /**
    * Get tasks linked to a specific BIM project (via project_id column).
    */
-  async getByProjectId(projectId: string, filters?: TaskFilterOptions): Promise<Task[]> {
+  async getByProjectId(projectId: string, filters?: TaskFilterOptions, ctx?: TaskVisibilityContext): Promise<Task[]> {
     let query = supabase
       .from('tasks')
       .select(TASK_SELECT)
@@ -316,6 +316,11 @@ export const TaskService = {
 
     if (filters?.search) {
       query = query.ilike('title', `%${filters.search}%`);
+    }
+
+    // Hide test data for non-Admin
+    if (ctx && ctx.role !== 'Admin') {
+      query = query.not('tags', 'cs', '{"_test_data"}');
     }
 
     const { data, error } = await query;
@@ -461,7 +466,7 @@ export const TaskService = {
   /**
    * Core query builder: fetch tasks with optional ID filter and TaskFilterOptions.
    */
-  async _queryTasks(filters?: TaskFilterOptions, ids?: string[]): Promise<Task[]> {
+  async _queryTasks(filters?: TaskFilterOptions, ids?: string[], ctx?: TaskVisibilityContext): Promise<Task[]> {
     let query = supabase
       .from('tasks')
       .select(TASK_SELECT)
@@ -519,6 +524,11 @@ export const TaskService = {
       if (filters.project_id) {
         query = query.eq('project_id', filters.project_id);
       }
+    }
+
+    // Hide test data for non-Admin
+    if (ctx && ctx.role !== 'Admin') {
+      query = query.not('tags', 'cs', '{"_test_data"}');
     }
 
     const { data, error } = await query;
@@ -596,6 +606,11 @@ export const TaskService = {
       query = query.overlaps('tags', filters.tags);
     }
 
+    // Hide test data for non-Admin
+    if (visibilityCtx?.role !== 'Admin') {
+      query = query.not('tags', 'cs', '{"_test_data"}');
+    }
+
     const { data, error } = await query;
     if (error) throw error;
     return (data || []).map(mapTask);
@@ -604,20 +619,25 @@ export const TaskService = {
   /**
    * Get role-based task counts for badge counters on tabs.
    */
-  async getRoleCounts(userId: string): Promise<Record<string, number>> {
+  async getRoleCounts(userId: string, role?: string): Promise<Record<string, number>> {
     const roles = ['all', 'ongoing', 'assisting', 'set_by_me', 'following'];
     const counts: Record<string, number> = {};
     
     // Batch: get all user tasks, then filter in-memory for counts
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('tasks')
-      .select('id, assignees, watchers, supporters, approvers, created_by, status_id')
+      .select('id, assignees, watchers, supporters, approvers, created_by, status_id, tags')
       .is('parent_id', null)
       .or(
         `assignees.cs.{${userId}},watchers.cs.{${userId}},supporters.cs.{${userId}},approvers.cs.{${userId}},created_by.eq.${userId}`
       );
 
     if (error || !data) return { all: 0, ongoing: 0, assisting: 0, set_by_me: 0, following: 0 };
+
+    // Filter out test data for non-Admin users
+    if (role !== 'Admin') {
+      data = data.filter((t: any) => !(t.tags || []).includes('_test_data'));
+    }
 
     const statuses = await this.getStatuses();
     const doneIds = new Set(statuses.filter(s => s.is_done).map(s => s.id));
@@ -734,6 +754,11 @@ export const TaskService = {
       query = query.or(orConditions);
     }
 
+    // Hide test data for non-Admin
+    if (ctx.role !== 'Admin') {
+      query = query.not('tags', 'cs', '{"_test_data"}');
+    }
+
     const { data, error } = await query;
     if (error) throw error;
     return (data || []).map(mapTask);
@@ -763,12 +788,17 @@ export const TaskService = {
     // Fetch all tasks assigned to subordinates
     const { data: tasks, error } = await supabase
       .from('tasks')
-      .select('id, assignees, status_id, due_date, created_by')
+      .select('id, assignees, status_id, due_date, created_by, tags')
       .is('parent_id', null)
       .or(`assignees.ov.{${subIds.join(',')}}`);
 
     if (error) throw error;
-    const allTasks = tasks || [];
+    let allTasks = tasks || [];
+
+    // Hide test data for non-Admin
+    if (ctx.role !== 'Admin') {
+      allTasks = allTasks.filter((t: any) => !(t.tags || []).includes('_test_data'));
+    }
 
     // Build per-employee stats
     const empStatsMap = new Map<string, { total: number; overdue: number; inProgress: number; completed: number }>();

@@ -125,7 +125,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [statsCollapsed, setStatsCollapsed] = useState(() => {
     try { return localStorage.getItem('cic-erp-stats-collapsed') === 'true'; } catch { return false; }
   });
-  const [customerShortNames, setCustomerShortNames] = useState<Map<string, string>>(new Map());
+  const [customersData, setCustomersData] = useState<Map<string, {name: string, shortName: string}>>(new Map());
   const [invoiceMap, setInvoiceMap] = useState<Map<string, string[]>>(new Map());
 
   // Cross-unit visibility
@@ -337,25 +337,25 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         setSalespeople(personnelData);
         setUnits(unitsData);
 
-        // Fetch ALL customer shortNames (paginated — Supabase hard limit is 1000/request)
+        // Fetch ALL customer names (paginated — Supabase hard limit is 1000/request)
         const { dataClient } = await import('../lib/dataClient');
-        const map = new Map<string, string>();
+        const map = new Map<string, {name: string, shortName: string}>();
         let from = 0;
         const batchSize = 1000;
         while (true) {
           const { data: customers } = await dataClient
             .from('customers')
-            .select('id, short_name')
-            .not('short_name', 'is', null)
-            .neq('short_name', '')
+            .select('id, name, short_name')
             .range(from, from + batchSize - 1);
           if (!customers || customers.length === 0) break;
-          customers.forEach((c: any) => { if (c.short_name) map.set(c.id, c.short_name); });
+          customers.forEach((c: any) => {
+            map.set(c.id, { name: c.name, shortName: c.short_name || '' });
+          });
           if (customers.length < batchSize) break;
           from += batchSize;
         }
-        setCustomerShortNames(map);
-        console.log('[CustomerShortNames] Loaded', map.size, 'entries in', Math.ceil(from / batchSize) + 1, 'batches');
+        setCustomersData(map);
+        console.log('[CustomersData] Loaded', map.size, 'entries in', Math.ceil(from / batchSize) + 1, 'batches');
 
         // Fetch VAT invoice numbers for display in Doanh thu column
         const { data: invoices } = await dataClient
@@ -499,18 +499,21 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     fetchSalespersonIds();
   }, [effectiveUnitId, dateFrom, dateTo]);
 
-  // Compute matching customer IDs when search matches customer short names (tên viết tắt)
+  // Compute matching customer IDs when search matches customer names or short names
   const matchingCustomerIds = useMemo(() => {
     if (!debouncedSearch || debouncedSearch.trim().length === 0) return undefined;
     const term = removeDiacritics(debouncedSearch.toLowerCase().trim());
     const ids: string[] = [];
-    customerShortNames.forEach((shortName, customerId) => {
-      if (removeDiacritics(shortName.toLowerCase()).includes(term)) {
+    customersData.forEach((data, customerId) => {
+      if (
+        removeDiacritics(data.name.toLowerCase()).includes(term) ||
+        removeDiacritics(data.shortName.toLowerCase()).includes(term)
+      ) {
         ids.push(customerId);
       }
     });
     return ids.length > 0 ? ids : undefined;
-  }, [debouncedSearch, customerShortNames]);
+  }, [debouncedSearch, customersData]);
 
   // Infinite scroll fetch function
   const fetchContractPage = useCallback(async (page: number) => {
@@ -1303,12 +1306,21 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                       )}
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1" title={contract.endUserName ? `End User: ${contract.endUserName}` : undefined}>
-                        {contract.partyA}
-                        {contract.customerId && customerShortNames.get(contract.customerId) && !contract.partyA?.includes(customerShortNames.get(contract.customerId)!) && (
-                          <span className="text-cyan-600 dark:text-cyan-400 font-bold"> ({customerShortNames.get(contract.customerId)})</span>
-                        )}
-                      </p>
+                      {(() => {
+                        const customerInfo = contract.customerId ? customersData.get(contract.customerId) : null;
+                        const displayCustomerName = customerInfo ? customerInfo.name : contract.partyA;
+                        const displayShortName = customerInfo?.shortName;
+                        const shouldShowShortName = displayShortName && !displayCustomerName?.includes(displayShortName);
+
+                        return (
+                          <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1" title={contract.endUserName ? `End User: ${contract.endUserName}` : undefined}>
+                            {displayCustomerName}
+                            {shouldShowShortName && (
+                              <span className="text-cyan-600 dark:text-cyan-400 font-bold"> ({displayShortName})</span>
+                            )}
+                          </p>
+                        );
+                      })()}
                       {contract.endUserName && (
                         <p className="text-[9px] font-bold text-teal-600 dark:text-teal-400 mt-0.5 truncate max-w-[220px]" title={`End User: ${contract.endUserName}`}>
                           👤 {contract.endUserName}
