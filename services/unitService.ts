@@ -13,12 +13,17 @@ const mapUnit = (u: any): Unit => {
         lastYearActual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
     } as Unit;
 
+    const t = u.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+    if (typeof t.adminProfit === 'number' && t.adminProfit > 0) {
+        t.revProfit = t.adminProfit;
+    }
+
     return {
         id: u.id || 'unknown',
         name: u.name || 'Unknown Unit',
         type: u.type || 'Center',
         code: u.code || 'UNK',
-        target: u.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
+        target: t,
         lastYearActual: u.last_year_actual || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
         functions: u.functions || '',
         // Phase 2 fields

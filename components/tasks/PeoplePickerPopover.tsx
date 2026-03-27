@@ -45,14 +45,15 @@ const PeoplePickerPopover: React.FC<PeoplePickerPopoverProps> = ({
   const anchorRef = useRef<HTMLDivElement>(null);
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
 
-  // Click outside to close
+  // Click outside to close (only for standalone mode)
   useEffect(() => {
+    if (inline) return;
     const handle = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
-  }, [onClose]);
+  }, [onClose, inline]);
 
   // Load all employees (full company directory)
   useEffect(() => {

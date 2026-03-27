@@ -48,7 +48,7 @@ export const EmployeeTargetService = {
                 signing: target.signing || 0,
                 revenue: target.revenue || 0,
                 admin_profit: target.adminProfit || 0,
-                rev_profit: target.revProfit || 0,
+                rev_profit: target.adminProfit || 0, // synced with admin_profit per user request
                 cash: target.cash || 0,
                 updated_at: new Date().toISOString(),
             }, { onConflict: 'employee_id,unit_id,year' })

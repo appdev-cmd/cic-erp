@@ -497,6 +497,9 @@ export const TaskService = {
       if (filters.source_modules && filters.source_modules.length > 0) {
         query = query.in('source_module', filters.source_modules);
       }
+      if (filters.source_entity_id) {
+        query = query.eq('source_entity_id', filters.source_entity_id);
+      }
       if (filters.due_before) {
         query = query.lte('due_date', filters.due_before);
       }
@@ -601,6 +604,12 @@ export const TaskService = {
     }
     if (filters?.project_id) {
       query = query.eq('project_id', filters.project_id);
+    }
+    if (filters?.source_modules && filters.source_modules.length > 0) {
+      query = query.in('source_module', filters.source_modules);
+    }
+    if (filters?.source_entity_id) {
+      query = query.eq('source_entity_id', filters.source_entity_id);
     }
     if (filters?.tags && filters.tags.length > 0) {
       query = query.overlaps('tags', filters.tags);

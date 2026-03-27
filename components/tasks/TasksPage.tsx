@@ -1482,9 +1482,12 @@ const SearchWithTagAutocomplete: React.FC<{
 // ═══════════════════════════════════════
 interface TasksPageProps {
   onSelectTask?: (taskId: string) => void;
+  isEmbedded?: boolean;
+  sourceModule?: string;
+  sourceEntityId?: string;
 }
 
-const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
+const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceModule, sourceEntityId }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [statuses, setStatuses] = useState<TaskStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1732,13 +1735,15 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
         due_date: dueDate,
         assignees: [visibilityContext.userId],
         created_by: visibilityContext.userId,
+        source_module: isEmbedded ? sourceModule : undefined,
+        source_entity_id: isEmbedded ? sourceEntityId : undefined,
       });
       toast.success('Đã tạo công việc');
       loadData();
     } catch (err: any) {
       toast.error('Lỗi: ' + (err.message || err));
     }
-  }, [visibilityContext.userId, loadData]);
+  }, [visibilityContext.userId, loadData, isEmbedded, sourceModule, sourceEntityId]);
 
   // Inline update handlers — optimistic: update local state immediately, no full reload
   const handleUpdateStatus = useCallback(async (taskId: string, statusId: string) => {
@@ -1867,7 +1872,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   return (
     <div className="space-y-0">
       {/* ═══ TOP ROLE TABS (Bitrix24-style) ═══ */}
-      <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 -mx-6 -mt-6 px-6">
+      <div className={`border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 ${isEmbedded ? 'rounded-t-xl overflow-hidden' : '-mx-6 -mt-6 px-6'}`}>
         <div className="flex items-center gap-0 overflow-x-auto">
           {roleTabs.map(tab => (
             <button
@@ -1903,7 +1908,12 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
           <button
             onClick={() => {
               openPanel({
-                component: <CreateTaskPanel onTaskCreated={loadData} onClose={() => closePanel()} currentUserId={visibilityContext.userId} />,
+                component: <CreateTaskPanel 
+                   onTaskCreated={loadData} 
+                   onClose={() => closePanel()} 
+                   currentUserId={visibilityContext.userId} 
+                   initialData={isEmbedded && sourceModule && sourceEntityId ? { source_module: sourceModule, source_entity_id: sourceEntityId } : undefined}
+                />,
                 title: 'Thêm công việc',
               });
             }}

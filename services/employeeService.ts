@@ -11,6 +11,11 @@ const mapEmployee = (s: any): Employee => {
         target: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
     } as Employee;
 
+    const t = s.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+    if (typeof t.adminProfit === 'number' && t.adminProfit > 0) {
+        t.revProfit = t.adminProfit;
+    }
+
     return {
         id: s.id || 'unknown',
         name: s.name || 'Unknown',
@@ -23,7 +28,7 @@ const mapEmployee = (s: any): Employee => {
         roleCode: s.role_code || '',
         dateJoined: s.date_joined || '',
         avatar: s.avatar || '',
-        target: s.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
+        target: t,
         slug: s.slug || '',
         // HR fields
         dateOfBirth: s.date_of_birth || '',
@@ -251,8 +256,8 @@ export const EmployeeService = {
                 }
             }
             
-            // If revProfit target not set, fallback to adminProfit target
-            if (target.revProfit === 0 && target.adminProfit > 0) {
+            // Always set revProfit target to equal adminProfit target per user request
+            if (target.adminProfit > 0) {
                 target.revProfit = target.adminProfit;
             }
 

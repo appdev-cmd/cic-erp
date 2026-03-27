@@ -201,6 +201,7 @@ export interface TaskFilterOptions {
   priorities?: TaskPriority[];
   assignee_ids?: string[];
   source_modules?: string[];
+  source_entity_id?: string;
   tags?: string[];
   due_before?: string;
   due_after?: string;
