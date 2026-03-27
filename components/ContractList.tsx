@@ -1310,7 +1310,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                         const customerInfo = contract.customerId ? customersData.get(contract.customerId) : null;
                         const displayCustomerName = customerInfo ? customerInfo.name : contract.partyA;
                         const displayShortName = customerInfo?.shortName;
-                        const shouldShowShortName = displayShortName && !displayCustomerName?.includes(displayShortName);
+                        const shouldShowShortName = displayShortName && displayShortName !== displayCustomerName && displayCustomerName !== `${displayShortName} (${displayShortName})`;
 
                         return (
                           <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1" title={contract.endUserName ? `End User: ${contract.endUserName}` : undefined}>
