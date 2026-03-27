@@ -138,10 +138,13 @@ export const UnitService = {
                 totalSigning: data.totalSigning || 0,
                 totalRevenue: data.totalRevenue || 0,
                 totalProfit: data.totalProfit || 0,
+                totalRevenueProfit: data.totalRevenueProfit || 0,
                 // Progress handled by UI or calculated here if we fetch target too. 
                 // For consistency with EmployeeService, we return raw values.
                 signingProgress: 0,
-                revenueProgress: 0
+                revenueProgress: 0,
+                profitProgress: 0,
+                revProfitProgress: 0
             };
         } catch (error) {
             console.error('Error in getStats:', error);
@@ -149,8 +152,12 @@ export const UnitService = {
                 contractCount: 0,
                 totalSigning: 0,
                 totalRevenue: 0,
+                totalProfit: 0,
+                totalRevenueProfit: 0,
                 signingProgress: 0,
-                revenueProgress: 0
+                revenueProgress: 0,
+                profitProgress: 0,
+                revProfitProgress: 0
             };
         }
     },
@@ -171,6 +178,7 @@ export const UnitService = {
                             totalSigning: u.total_signing,
                             totalRevenue: u.total_revenue,
                             totalProfit: u.total_profit,
+                            totalRevenueProfit: u.total_revenue_profit || 0,
                             totalCash: u.total_cash
                         }
                     }));
@@ -211,6 +219,7 @@ export const UnitService = {
                 let totalSigning = 0;
                 let totalRevenue = 0;
                 let totalProfit = 0;
+                let totalRevenueProfit = 0;
                 let totalCash = 0;
 
                 (contracts || []).forEach((c: any) => {

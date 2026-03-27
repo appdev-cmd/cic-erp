@@ -706,7 +706,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                     <p className="text-[10px] font-black text-slate-300 dark:text-slate-300 uppercase tracking-widest">Tổng số</p>
-                    <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{formatCurrency(stats.actual[activeMetric] || 0)}</p>
+                    <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{formatCurrency(distributionData.reduce((sum, item) => sum + item.value, 0) || 0)}</p>
                   </div>
                 </div>
 
@@ -719,7 +719,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                         <span className="text-sm font-bold text-slate-600 dark:text-slate-300 truncate max-w-[140px]">{d.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-400">{((d.value / (stats.actual[activeMetric] || 1)) * 100).toFixed(1)}%</span>
+                        <span className="text-xs font-bold text-slate-400">{((d.value / (distributionData.reduce((sum, item) => sum + item.value, 0) || 1)) * 100).toFixed(1)}%</span>
                         <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                           <div className="h-full rounded-full" style={{ width: `${Math.min(100, (d.value / (Math.max(...distributionData.map(x => x.value)) || 1)) * 100)}%`, backgroundColor: getChartColors()[i % getChartColors().length] }}></div>
                         </div>

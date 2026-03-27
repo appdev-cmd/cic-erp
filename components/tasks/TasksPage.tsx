@@ -1634,7 +1634,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
     } finally {
       setLoading(false);
     }
-  }, [roleFilter, searchQuery, filterProjectId, visibilityContext.userId]);
+  }, [roleFilter, searchQuery, filterProjectId, visibilityContext.userId, isEmbedded, sourceModule, sourceEntityId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -1870,9 +1870,10 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
   const commentsCount = 0;
 
   return (
-    <div className="space-y-0">
+    <div className={`space-y-0 ${isEmbedded ? 'flex flex-col h-full min-h-0' : ''}`}>
       {/* ═══ TOP ROLE TABS (Bitrix24-style) ═══ */}
-      <div className={`border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 ${isEmbedded ? 'rounded-t-xl overflow-hidden' : '-mx-6 -mt-6 px-6'}`}>
+      {!isEmbedded && (
+      <div className="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 -mx-6 -mt-6 px-6">
         <div className="flex items-center gap-0 overflow-x-auto">
           {roleTabs.map(tab => (
             <button
@@ -1900,8 +1901,10 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
           ))}
         </div>
       </div>
+      )}
 
       {/* ═══ SUB-HEADER ═══ */}
+      {!isEmbedded && (
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-5 pb-3">
         <div className="flex items-center gap-3 flex-wrap">
           {/* NEW TASK button */}
@@ -1948,9 +1951,10 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
           </button>
         </div>
       </div>
+      )}
 
       {/* ═══ VIEW MODE TABS + COUNTERS ═══ */}
-      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-0 mb-4">
+      <div className={`flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-0 ${isEmbedded ? 'mb-0 px-2' : 'mb-4'}`}>
         <div className="flex items-center gap-0">
           {VIEW_TABS.map(tab => (
             <button
@@ -1996,11 +2000,11 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
 
       {/* ═══ CONTENT ═══ */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
+        <div className="flex flex-1 items-center justify-center py-20 min-h-[300px]">
           <div className="w-10 h-10 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <>
+        <div className={`${isEmbedded ? 'flex-1 min-h-0 overflow-y-auto' : ''}`}>
           {viewMode === 'list' && (
             <BitrixListView
               tasks={filteredTasks}
@@ -2051,7 +2055,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
           {viewMode === 'gantt' && (
             <GanttView tasks={filteredTasks} statuses={statuses} onSelect={handleSelectTask} />
           )}
-        </>
+        </div>
       )}
 
       {/* ═══ BULK ACTIONS BAR ═══ */}
