@@ -1569,6 +1569,8 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
           search: textSearch || undefined,
           project_id: filterProjectId !== 'all' ? filterProjectId : undefined,
           tags: searchTags.length > 0 ? searchTags : undefined,
+          source_modules: isEmbedded && sourceModule ? [sourceModule] : undefined,
+          source_entity_id: isEmbedded && sourceEntityId ? sourceEntityId : undefined,
         }, visibilityContext),
         TaskService.getRoleCounts(visibilityContext.userId, visibilityContext.role),
       ]);
