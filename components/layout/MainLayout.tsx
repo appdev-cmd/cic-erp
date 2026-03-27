@@ -290,6 +290,26 @@ interface LayoutContext {
     setAccent: (accent: 'orange' | 'blue') => void;
 }
 
-export function useLayoutContext() {
-    return useOutletContext<LayoutContext>();
+export function useLayoutContext(): LayoutContext {
+    const ctx = useOutletContext<LayoutContext>();
+    if (ctx) return ctx;
+
+    // Fallback for components rendered outside of <Outlet /> (e.g. inside SlidePanel)
+    console.warn('useLayoutContext called outside of MainLayout Outlet. Using fallback values.');
+    return {
+        selectedUnit: { 
+            id: 'all', name: 'Toàn công ty', code: 'ALL', type: 'Company', 
+            target: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }, 
+            lastYearActual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 } 
+        },
+        setSelectedUnit: () => {},
+        yearFilter: new Date().getFullYear().toString(),
+        setYearFilter: () => {},
+        periodFilter: '',
+        setPeriodFilter: () => {},
+        theme: 'light',
+        setTheme: () => {},
+        accent: 'blue',
+        setAccent: () => {},
+    };
 }
