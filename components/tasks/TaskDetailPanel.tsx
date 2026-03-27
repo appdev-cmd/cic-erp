@@ -16,9 +16,9 @@ import ConfirmDialog from '../ui/ConfirmDialog';
 import { DiscussionService, type Discussion } from '../../services/discussionService';
 import PeoplePickerPopover from './PeoplePickerPopover';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
-import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import type { Task, TaskStatus, TaskLink, TaskPriority, ApprovalMode, ApprovalStep } from '../../types/taskTypes';
 import { SlidePanelHeader } from '../ui/SlidePanelHeader';
+import EntityPicker, { EntityLink } from './EntityPicker';
 
 // ═══════════════════════════════════════
 // PRIORITY CONFIG
@@ -1550,33 +1550,46 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             {/* LIÊN KẾT */}
             {bottomTab === 'links' && (
               <div className="p-5 space-y-4">
-                {/* Auto-generated source link */}
-                {task.source_module && task.source_entity_id && (
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                      Tự tạo từ
-                    </label>
-                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
-                      <Link2 size={14} className="text-indigo-500 dark:text-indigo-400" />
-                      <span className="text-sm text-indigo-700 dark:text-indigo-300 font-semibold">{task.source_module}</span>
-                    </div>
-                  </div>
-                )}
+                {/* Primary Entity Link */}
+                <div className="-mx-1"> {/* Negative margin to align with EntityPicker's grid */}
+                  <EntityPicker
+                    value={{
+                      module: task.source_module || (task.project_id ? 'project' : 'none'),
+                      entityId: task.source_entity_id || task.project_id || null,
+                      label: ''
+                    }}
+                    onChange={(newLink: EntityLink) => {
+                      if (newLink.module === 'project') {
+                        bufferChange('project_id', newLink.entityId);
+                        bufferChange('source_module', null);
+                        bufferChange('source_entity_id', null);
+                      } else if (newLink.module === 'none') {
+                        bufferChange('project_id', null);
+                        bufferChange('source_module', null);
+                        bufferChange('source_entity_id', null);
+                      } else {
+                        bufferChange('project_id', null);
+                        bufferChange('source_module', newLink.module);
+                        bufferChange('source_entity_id', newLink.entityId);
+                      }
+                    }}
+                  />
+                </div>
 
                 {/* Manual links */}
                 {links.length > 0 && (
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Liên kết ({links.length})</label>
+                  <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Liên kết khác ({links.length})</label>
                     <div className="space-y-0.5 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
                       {links.map(link => <LinkItem key={link.id} link={link} />)}
                     </div>
                   </div>
                 )}
 
-                {links.length === 0 && !task.source_module && (
-                  <div className="text-center py-8 text-slate-400 dark:text-slate-500">
+                {links.length === 0 && !task.source_module && !task.project_id && (
+                  <div className="text-center py-8 text-slate-400 dark:text-slate-500 border-t border-slate-200 dark:border-slate-800 pt-8 mt-4">
                     <Link2 size={32} className="mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Chưa có liên kết nào</p>
+                    <p className="text-sm">Chưa có liên kết phụ nào</p>
                   </div>
                 )}
                 {/* Add link section */}

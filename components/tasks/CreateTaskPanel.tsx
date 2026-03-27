@@ -9,6 +9,7 @@ import DateInput from '../ui/DateInput';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import { SlidePanelHeader } from '../ui/SlidePanelHeader';
+import EntityPicker, { EntityLink } from './EntityPicker';
 
 interface ChecklistItem { id: string; text: string; done: boolean; }
 
@@ -38,37 +39,11 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
   const [supporters, setSupporters] = useState<string[]>([]);
   const [supporterProfiles, setSupporterProfiles] = useState<{id: string, name: string, avatar: string}[]>([]);
   const [saving, setSaving] = useState(false);
-  const [projectId, setProjectId] = useState<string>(initialData?.project_id || '');
-  const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
-  const [linkedEntityLabel, setLinkedEntityLabel] = useState<string | null>(null);
-  
-  // Load linked entity label if provided
-  useEffect(() => {
-    if (initialData?.source_module && initialData?.source_entity_id) {
-       const loadEntity = async () => {
-         try {
-           let tableName = '';
-           let cols = 'id';
-           if (initialData.source_module === 'contract') { tableName = 'contracts'; cols = 'contractCode, title'; }
-           else if (initialData.source_module === 'customer') { tableName = 'customers'; cols = 'name, code'; }
-           else if (initialData.source_module === 'project_bid') { tableName = 'project_bids'; cols = 'name, title'; }
-           
-           if (tableName) {
-             const { data } = await dataClient.from(tableName).select(cols).eq('id', initialData.source_entity_id).single();
-             if (data) {
-                if (tableName === 'contracts') setLinkedEntityLabel(`Hợp đồng: ${data.contractCode} - ${data.title}`);
-                else if (tableName === 'customers') setLinkedEntityLabel(`Khách hàng: ${data.code ? data.code + ' - ' : ''}${data.name}`);
-                else if (tableName === 'project_bids') setLinkedEntityLabel(`Gói thầu: ${data.code ? data.code + ' - ' : ''}${data.title || data.name || ''}`);
-             }
-           }
-         } catch (err) {
-           console.error('Failed to load linked entity:', err);
-         }
-       };
-       loadEntity();
-    }
-  }, [initialData?.source_module, initialData?.source_entity_id]);
-
+  const [entityLink, setEntityLink] = useState<EntityLink>({
+    module: initialData?.source_module || (initialData?.project_id ? 'project' : 'none'),
+    entityId: initialData?.source_entity_id || initialData?.project_id || null,
+    label: ''
+  });
   
   const [openPicker, setOpenPicker] = useState<'assignees' | 'supporters' | null>(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
@@ -76,17 +51,6 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
   const { lockPanel, unlockPanel, setOnCloseBlocked, forceClosePanel } = useSlidePanel();
 
   const hasUnsavedChanges = title.trim() !== '' || description.trim() !== '' || dueDate !== '' || assignees[0] !== currentUserId || supporters.length > 0 || checklist.length > 0 || newCheckItem.trim() !== '';
-
-  // Load projects list
-  useEffect(() => {
-    const loadProjects = async () => {
-      try {
-        const { data } = await dataClient.from('projects').select('id, name').order('name');
-        if (data) setProjects(data.map((p: any) => ({ id: p.id, name: p.name })));
-      } catch { /* ignore */ }
-    };
-    loadProjects();
-  }, []);
 
   useEffect(() => {
     if (hasUnsavedChanges && !saving) {
@@ -133,7 +97,9 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
         assignees,
         supporters,
         created_by: currentUserId,
-        project_id: projectId || undefined,
+        project_id: entityLink.module === 'project' && entityLink.entityId ? entityLink.entityId : undefined,
+        source_module: entityLink.module !== 'none' && entityLink.module !== 'project' ? entityLink.module : undefined,
+        source_entity_id: entityLink.module !== 'none' && entityLink.module !== 'project' && entityLink.entityId ? entityLink.entityId : undefined,
         custom_fields: checklist.length > 0 ? { ...initialData?.custom_fields, checklist } : initialData?.custom_fields,
       });
       
@@ -191,31 +157,11 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
             </div>
           </div>
           
-          {/* Dự án */}
-          <div className="col-span-2">
-            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Dự án</label>
-            <select
-              value={projectId}
-              onChange={e => setProjectId(e.target.value)}
-              disabled={!!initialData?.project_id}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60"
-            >
-              <option value="">— Không gắn dự án —</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Linked Entity Banner */}
-          {initialData?.source_module && initialData?.source_entity_id && (
-            <div className="col-span-2 mt-[-12px]">
-              <div className="w-full bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 rounded-xl px-3 py-2 text-sm font-medium flex items-center gap-2 shadow-sm">
-                <Link2 size={16} className="text-indigo-500 shrink-0" />
-                <span className="truncate">{linkedEntityLabel || 'Đang tải thông tin liên kết...'}</span>
-              </div>
-            </div>
-          )}
+          <EntityPicker
+            value={entityLink}
+            onChange={setEntityLink}
+            disabled={!!initialData?.source_entity_id || !!initialData?.project_id}
+          />
           
           <div className="col-span-2 grid grid-cols-2 gap-6 relative">
             {/* Người thực hiện (Assignee) */}
