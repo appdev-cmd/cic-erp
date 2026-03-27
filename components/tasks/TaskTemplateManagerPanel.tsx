@@ -9,6 +9,7 @@ import type { Employee } from '../../types';
 import { formatDate } from '../../utils/formatters';
 import PeoplePickerPopover from './PeoplePickerPopover';
 import { SlidePanelHeader } from '../ui/SlidePanelHeader';
+import { createPortal } from 'react-dom';
 
 interface TaskTemplateManagerPanelProps {
   onClose: () => void;
@@ -463,6 +464,22 @@ const TaskItemEditor: React.FC<TaskItemEditorProps> = ({
   });
 
   const dependsOnTask = task.depends_on ? allTasks.find(t => t.id === task.depends_on) : null;
+  
+  const [dropdownPos, setDropdownPos] = React.useState({ top: 0, left: 0, width: 288 });
+  const btnRef = React.useRef<HTMLButtonElement>(null);
+
+  const handleTogglePicker = (show: boolean) => {
+    if (show && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const viewportH = window.innerHeight;
+      let top = rect.bottom + 4;
+      if (top + 400 > viewportH && rect.top > 400) {
+        top = rect.top - 400 - 4; // Render above if no space below
+      }
+      setDropdownPos({ top, left: rect.left, width: 288 }); // 288 is w-72 matches
+    }
+    onTogglePeoplePicker(show);
+  };
 
   return (
     <div
@@ -516,7 +533,8 @@ const TaskItemEditor: React.FC<TaskItemEditorProps> = ({
         {/* Assignee Role Custom Dropdown */}
         <div className="relative">
           <button
-            onClick={() => onTogglePeoplePicker(!showPeoplePicker)}
+            ref={btnRef}
+            onClick={() => handleTogglePicker(!showPeoplePicker)}
             className="flex items-center gap-1.5 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 outline-none font-semibold text-slate-600 dark:text-slate-300 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-500 transition-colors shadow-sm"
           >
             {(() => {
@@ -544,48 +562,55 @@ const TaskItemEditor: React.FC<TaskItemEditorProps> = ({
             })()}
           </button>
           
-          {showPeoplePicker && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl w-72 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-2 border-b border-slate-100 dark:border-slate-700/50">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1.5">Vai trò động</p>
-                {ASSIGNEE_ROLE_OPTIONS.filter(o => o.value !== 'specific').map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => {
-                      onUpdate(task.id, { assignee_role: opt.value || undefined, assignee_id: undefined });
-                      onTogglePeoplePicker(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer ${task.assignee_role === opt.value ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}
-                  >
-                    {opt.icon} {opt.label}
-                  </button>
-                ))}
-              </div>
-              <div className="p-2 bg-slate-50/50 dark:bg-slate-800/50">
-                <div className="flex items-center justify-between px-2 mb-2">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Người cụ thể</p>
-                  {task.assignee_role === 'specific' && task.assignee_id && (
-                    <button onClick={() => { onUpdate(task.id, { assignee_role: undefined, assignee_id: undefined }); onTogglePeoplePicker(false); }} className="text-[10px] text-red-500 hover:text-red-600 font-semibold cursor-pointer">Xoá chọn</button>
-                  )}
+          {showPeoplePicker && createPortal(
+            <>
+              {/* BACKDROP - Rendered FIRST so it's behind the dropdown content via z-index or DOM order */}
+              <div className="fixed inset-0 z-[9998]" onClick={(e) => { e.stopPropagation(); handleTogglePicker(false); }} />
+
+              <div 
+                style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: Math.max(dropdownPos.width, 300), zIndex: 9999 }}
+                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+              >
+                <div className="p-2 border-b border-slate-100 dark:border-slate-700/50">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1.5">Vai trò động</p>
+                  {ASSIGNEE_ROLE_OPTIONS.filter(o => o.value !== 'specific').map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUpdate(task.id, { assignee_role: opt.value || undefined, assignee_id: undefined });
+                        handleTogglePicker(false);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer ${task.assignee_role === opt.value ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}
+                    >
+                      {opt.icon} {opt.label}
+                    </button>
+                  ))}
                 </div>
-                {/* PeoplePickerPopover inside inline mode */}
-                <PeoplePickerPopover
-                  currentIds={task.assignee_id ? [task.assignee_id] : []}
-                  onChange={(ids) => {
-                    onUpdate(task.id, { assignee_role: 'specific', assignee_id: ids[0] || undefined });
-                    onTogglePeoplePicker(false);
-                  }}
-                  onClose={() => onTogglePeoplePicker(false)}
-                  align="left"
-                  singleSelect
-                  inline
-                />
+                <div className="p-2 bg-slate-50/50 dark:bg-slate-800/50">
+                  <div className="flex items-center justify-between px-2 mb-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Người cụ thể</p>
+                    {task.assignee_role === 'specific' && task.assignee_id && (
+                      <button type="button" onClick={(e) => { e.stopPropagation(); onUpdate(task.id, { assignee_role: undefined, assignee_id: undefined }); handleTogglePicker(false); }} className="text-[10px] text-red-500 hover:text-red-600 font-semibold cursor-pointer">Xoá chọn</button>
+                    )}
+                  </div>
+                  {/* PeoplePickerPopover inside inline mode */}
+                  <PeoplePickerPopover
+                    currentIds={task.assignee_id ? [task.assignee_id] : []}
+                    onChange={(ids) => {
+                      onUpdate(task.id, { assignee_role: 'specific', assignee_id: ids[0] || undefined });
+                      handleTogglePicker(false);
+                    }}
+                    onClose={() => handleTogglePicker(false)}
+                    align="left"
+                    singleSelect
+                    inline
+                  />
+                </div>
               </div>
-            </div>
-          )}
-          
-          {showPeoplePicker && (
-            <div className="fixed inset-0 z-40" onClick={() => onTogglePeoplePicker(false)} />
+            </>,
+            document.body
           )}
         </div>
 

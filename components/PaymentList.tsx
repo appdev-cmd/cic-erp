@@ -71,7 +71,14 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const { can } = usePermissionCheck();
     const { visibleUnits, isLoading: loadingVisibility } = useCurrentUserVisibleUnits();
 
-    const [voucherTab, setVoucherTab] = useState<VoucherType>('VAT_INVOICE');
+    const [voucherTab, setVoucherTabState] = useState<VoucherType>(() => {
+        return (localStorage.getItem('cic-erp-payment-tab') as VoucherType) || 'VAT_INVOICE';
+    });
+
+    const setVoucherTab = (tab: VoucherType) => {
+        setVoucherTabState(tab);
+        localStorage.setItem('cic-erp-payment-tab', tab);
+    };
 
     // === Resizable columns ===
     const PAYMENT_TABLE_COLUMNS = useMemo(() => [

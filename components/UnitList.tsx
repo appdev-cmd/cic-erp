@@ -24,7 +24,13 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
     const canViewAll = isAdmin || can('units', 'view');
     const { data: rawUnits = [], isLoading } = useUnitsWithStats();
     const [searchQuery, setSearchQuery] = useState('');
-    const [viewMode, setViewMode] = useState<'grid' | 'orgchart'>('grid');
+    const [viewMode, setViewModeState] = useState<'grid' | 'orgchart'>(() => {
+        return (localStorage.getItem('cic-erp-unit-viewmode') as any) || 'grid';
+    });
+    const setViewMode = (mode: 'grid' | 'orgchart') => {
+        setViewModeState(mode);
+        localStorage.setItem('cic-erp-unit-viewmode', mode);
+    };
 
     // CRUD State
     const [isFormOpen, setIsFormOpen] = useState(false);

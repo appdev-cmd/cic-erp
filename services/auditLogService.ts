@@ -221,21 +221,49 @@ export const AuditLogService = {
                     return 'Gửi dự thảo cho Pháp lý xem xét';
                 }
 
-                // --- GENERIC: list changed fields ---
+                // --- GENERIC: list changed fields with old/new values ---
                 const changedFields: string[] = [];
+                
+                // Helper to format values for display
+                const formatValue = (key: string, v: any): string => {
+                    if (v === null || v === undefined || v === '') return 'Trống';
+                    if (typeof v === 'boolean') return v ? 'Có' : 'Không';
+                    if (typeof v === 'object') return '{...}'; // Tránh log quá dài với JSON/Array
+                    if (typeof v === 'number') {
+                        // Nếu là tiền (giá trị lớn)
+                        if (key.includes('value') || key.includes('amount') || key.includes('cost')) {
+                            return new Intl.NumberFormat('vi-VN').format(v);
+                        }
+                        return v.toString();
+                    }
+                    if (typeof v === 'string') {
+                        // Nếu là chuỗi ISO date
+                        if (v.match(/^\d{4}-\d{2}-\d{2}/)) {
+                            return v.split('T')[0].split('-').reverse().join('/');
+                        }
+                        return v.length > 25 ? v.substring(0, 25) + '...' : v;
+                    }
+                    return String(v);
+                };
+
                 for (const key of Object.keys(newData)) {
                     if (ignoreFields.has(key)) continue;
-                    const oldVal = JSON.stringify(oldData[key] ?? null);
-                    const newVal = JSON.stringify(newData[key] ?? null);
-                    if (oldVal !== newVal && fieldLabels[key]) {
-                        changedFields.push(fieldLabels[key]);
+                    
+                    const oldValRaw = oldData[key];
+                    const newValRaw = newData[key];
+                    
+                    const oldValStr = JSON.stringify(oldValRaw ?? null);
+                    const newValStr = JSON.stringify(newValRaw ?? null);
+                    
+                    if (oldValStr !== newValStr && fieldLabels[key]) {
+                        const oldFmt = formatValue(key, oldValRaw);
+                        const newFmt = formatValue(key, newValRaw);
+                        changedFields.push(`${fieldLabels[key]} (${oldFmt} ➜ ${newFmt})`);
                     }
                 }
 
                 if (changedFields.length > 0) {
-                    const shown = changedFields.slice(0, 3).join(', ');
-                    const more = changedFields.length > 3 ? ` (+${changedFields.length - 3} mục)` : '';
-                    return `Cập nhật: ${shown}${more}`;
+                    return `Cập nhật: ${changedFields.join(', ')}`;
                 }
 
                 return 'Cập nhật thông tin';

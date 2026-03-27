@@ -34,7 +34,13 @@ const DocumentExplorer: React.FC<DocumentExplorerProps> = ({
 }) => {
     const [files, setFiles] = useState<DriveFile[]>([]);
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [viewMode, setViewModeState] = useState<'grid' | 'list'>(() => {
+        return (localStorage.getItem('cic-erp-doc-viewmode') as any) || 'grid';
+    });
+    const setViewMode = (mode: 'grid' | 'list') => {
+        setViewModeState(mode);
+        localStorage.setItem('cic-erp-doc-viewmode', mode);
+    };
     const [searchTerm, setSearchTerm] = useState('');
     const [currentFolderId, setCurrentFolderId] = useState(folderId);
     const [currentFolderName, setCurrentFolderName] = useState(folderName);

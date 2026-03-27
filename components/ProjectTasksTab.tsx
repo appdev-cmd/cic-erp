@@ -50,7 +50,13 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
   const [search, setSearch] = useState('');
   const [currentUser, setCurrentUser] = useState('');
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewModeState] = useState<ViewMode>(() => {
+    return (localStorage.getItem('cic-erp-project-task-mode') as ViewMode) || 'list';
+  });
+  const setViewMode = (mode: ViewMode) => {
+    setViewModeState(mode);
+    localStorage.setItem('cic-erp-project-task-mode', mode);
+  };
   const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all');
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
 

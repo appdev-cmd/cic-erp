@@ -483,7 +483,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [isEditingDesc, setIsEditingDesc] = useState(false);
-  const [bottomTab, setBottomTab] = useState<'detail' | 'comments' | 'history' | 'links' | 'time'>(initialTab || 'detail');
+  const [bottomTab, setBottomTabState] = useState<'detail' | 'comments' | 'history' | 'links' | 'time'>(() => {
+    return (localStorage.getItem('cic-erp-task-bottom-tab') as any) || initialTab || 'detail';
+  });
+
+  const setBottomTab = (tab: 'detail' | 'comments' | 'history' | 'links' | 'time') => {
+    setBottomTabState(tab);
+    localStorage.setItem('cic-erp-task-bottom-tab', tab);
+  };
 
   // People picker popover state
   const [openPicker, setOpenPicker] = useState<'assignees' | 'supporters' | 'watchers' | 'approvers' | null>(null);

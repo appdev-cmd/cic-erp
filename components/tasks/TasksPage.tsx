@@ -1488,7 +1488,13 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [statuses, setStatuses] = useState<TaskStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const [roleFilter, setRoleFilter] = useState<TaskRoleFilter>('all');
+  const [roleFilter, setRoleFilterState] = useState<TaskRoleFilter>(() => {
+    return (localStorage.getItem('cic-erp-task-role') as TaskRoleFilter) || 'all';
+  });
+  const setRoleFilter = (role: TaskRoleFilter) => {
+    setRoleFilterState(role);
+    localStorage.setItem('cic-erp-task-role', role);
+  };
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
       return (localStorage.getItem('cic_task_view_mode') as ViewMode) || 'list';
