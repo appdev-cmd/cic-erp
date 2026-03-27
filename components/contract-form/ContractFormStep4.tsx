@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Briefcase, Plus, Trash2, Calendar, User, Search, UserCircle2 } from 'lucide-react';
 import { TaskTemplateService } from '../../services/taskTemplateService';
 import { EmployeeService } from '../../services';
@@ -6,6 +6,7 @@ import type { TaskTemplate } from '../../services/taskTemplateService';
 import type { Employee } from '../../types';
 import { ContractFormTaskItem, RelativeTaskBaseDate } from '../../types/taskTypes';
 import SearchableSelect from '../ui/SearchableSelect';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ContractFormStep4Props {
   selectedTaskTemplateId: string | null;
@@ -21,6 +22,7 @@ export const ContractFormStep4: React.FC<ContractFormStep4Props> = ({
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const { profile } = useAuth();
 
   useEffect(() => {
     const fetchOptions = async () => {
@@ -64,16 +66,37 @@ export const ContractFormStep4: React.FC<ContractFormStep4Props> = ({
     const template = templates.find(t => t.id === selectedTaskTemplateId);
     if (!template) return;
     
-    const tasksToAppend: Partial<ContractFormTaskItem>[] = template.tasks_json.map(t => ({
-      title: t.title,
-      description: t.description || '',
-      assignees: [], 
-      duration_days: t.duration_days || 0,
-      base_date_type: t.base_date_type === 'payment_term' ? 'invoice_date' : 'signed_date'
-    }));
+    const tasksToAppend: Partial<ContractFormTaskItem>[] = template.tasks_json.map(t => {
+      const taskAssignees: string[] = [];
+      if (t.assignee_id) {
+        taskAssignees.push(t.assignee_id);
+      } else if (t.assignee_role === 'creator' && profile?.id) {
+        taskAssignees.push(profile.id);
+      }
+
+      return {
+        title: t.title,
+        description: t.description || '',
+        assignees: taskAssignees, 
+        duration_days: t.duration_days || 0,
+        base_date_type: t.base_date_type === 'payment_term' ? 'invoice_date' : 'signed_date'
+      };
+    });
     
     setCustomTasks(prev => [...prev, ...tasksToAppend]);
   };
+
+  const sortedEmployees = useMemo(() => {
+    if (!employees || !profile) return employees;
+    // Đưa user hiện tại (người tạo) lên đầu
+    return [...employees].sort((a, b) => {
+      const aIsMe = (a as any).profile_id === profile.id || a.id === profile.employeeId;
+      const bIsMe = (b as any).profile_id === profile.id || b.id === profile.employeeId;
+      if (aIsMe && !bIsMe) return -1;
+      if (!aIsMe && bIsMe) return 1;
+      return 0;
+    });
+  }, [employees, profile]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -161,12 +184,24 @@ export const ContractFormStep4: React.FC<ContractFormStep4Props> = ({
                   <SearchableSelect
                     value={task.assignees?.[0] || null}
                     onChange={(id) => updateCustomTask(index, 'assignees', id ? [id] : [])}
-                    initialOptions={employees.map(emp => ({ id: (emp as any).profile_id || emp.id, name: emp.name }))}
+                    initialOptions={sortedEmployees.map(emp => {
+                      const isMe = (emp as any).profile_id === profile?.id || emp.id === profile?.employeeId;
+                      return {
+                        id: (emp as any).profile_id || emp.id,
+                        name: isMe ? `${emp.name} (Mình / Người tạo)` : emp.name
+                      };
+                    })}
                     onSearch={async (q) => {
                       const lower = q.toLowerCase();
-                      return employees
+                      return sortedEmployees
                         .filter(e => e.name.toLowerCase().includes(lower))
-                        .map(emp => ({ id: (emp as any).profile_id || emp.id, name: emp.name }));
+                        .map(emp => {
+                          const isMe = (emp as any).profile_id === profile?.id || emp.id === profile?.employeeId;
+                          return {
+                            id: (emp as any).profile_id || emp.id,
+                            name: isMe ? `${emp.name} (Mình / Người tạo)` : emp.name
+                          };
+                        });
                     }}
                     placeholder="-- Chưa gắn ai --"
                   />
