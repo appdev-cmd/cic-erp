@@ -39,7 +39,7 @@ const EntityTaskList: React.FC<EntityTaskListProps> = ({
   };
 
   return (
-    <div className={`bg-white dark:bg-slate-800 relative flex flex-col h-[650px] overflow-hidden ${className}`}>
+    <div className={`bg-white dark:bg-slate-800 relative flex flex-col h-full overflow-hidden ${className}`}>
       {/* Header riêng khôi phục lại */}
       <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
         <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">

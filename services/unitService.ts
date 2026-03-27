@@ -231,6 +231,7 @@ export const UnitService = {
                     totalSigning += (Number(c.value) || 0) * fraction;
                     totalRevenue += (Number(c.actual_revenue) || 0) * fraction;
                     totalProfit += (Number(c.admin_profit) || 0) * fraction;
+                    totalRevenueProfit += (Number(c.rev_profit) || 0) * fraction;
                     totalCash += (Number(c.cash_received) || 0) * fraction;
                 });
 
@@ -241,6 +242,7 @@ export const UnitService = {
                         totalSigning,
                         totalRevenue,
                         totalProfit,
+                        totalRevenueProfit,
                         totalCash
                     }
                 };
