@@ -54,7 +54,7 @@ const EntityPicker: React.FC<EntityPickerProps> = ({ value, onChange, disabled }
               let itemName = data[nameCol];
               if (tableName === 'project_bids' && !itemName) itemName = data.title;
               if (tableName === 'contracts' && data.contractCode) itemName = `${data.contractCode} - ${itemName}`;
-              if (tableName === 'customers' && data.code) itemName = `${data.code} - ${itemName}`;
+              if (tableName === 'customers' && data.short_name) itemName = `${data.short_name} - ${itemName}`;
               if (tableName === 'project_bids' && data.code) itemName = `${data.code} - ${itemName}`;
               
               setInitialOptions([{ id: value.entityId, name: itemName || 'Đã chọn' }]);
@@ -89,9 +89,9 @@ const EntityPicker: React.FC<EntityPickerProps> = ({ value, onChange, disabled }
        subtextCol = 'contractCode';
     } else if (value.module === 'customer') {
        tableName = 'customers';
-       searchCols = 'name,code';
+       searchCols = 'name,short_name,tax_code';
        nameCol = 'name';
-       subtextCol = 'code';
+       subtextCol = 'short_name';
     } else if (value.module === 'project_bid') {
        tableName = 'project_bids';
        searchCols = 'name,code';
