@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, AlignLeft, User, Tag, CheckSquare, X, Users, Eye, ShieldCheck, Edit3, Plus, Trash2 } from 'lucide-react';
+import { Calendar, AlignLeft, User, Tag, CheckSquare, X, Users, Eye, ShieldCheck, Edit3, Plus, Trash2, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskService } from '../../services/taskService';
 import { dataClient } from '../../lib/dataClient';
@@ -40,6 +40,35 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
   const [saving, setSaving] = useState(false);
   const [projectId, setProjectId] = useState<string>(initialData?.project_id || '');
   const [projects, setProjects] = useState<{id: string, name: string}[]>([]);
+  const [linkedEntityLabel, setLinkedEntityLabel] = useState<string | null>(null);
+  
+  // Load linked entity label if provided
+  useEffect(() => {
+    if (initialData?.source_module && initialData?.source_entity_id) {
+       const loadEntity = async () => {
+         try {
+           let tableName = '';
+           let cols = 'id';
+           if (initialData.source_module === 'contract') { tableName = 'contracts'; cols = 'contractCode, title'; }
+           else if (initialData.source_module === 'customer') { tableName = 'customers'; cols = 'name, code'; }
+           else if (initialData.source_module === 'project_bid') { tableName = 'project_bids'; cols = 'name, title'; }
+           
+           if (tableName) {
+             const { data } = await dataClient.from(tableName).select(cols).eq('id', initialData.source_entity_id).single();
+             if (data) {
+                if (tableName === 'contracts') setLinkedEntityLabel(`Hợp đồng: ${data.contractCode} - ${data.title}`);
+                else if (tableName === 'customers') setLinkedEntityLabel(`Khách hàng: ${data.code ? data.code + ' - ' : ''}${data.name}`);
+                else if (tableName === 'project_bids') setLinkedEntityLabel(`Gói thầu: ${data.code ? data.code + ' - ' : ''}${data.title || data.name || ''}`);
+             }
+           }
+         } catch (err) {
+           console.error('Failed to load linked entity:', err);
+         }
+       };
+       loadEntity();
+    }
+  }, [initialData?.source_module, initialData?.source_entity_id]);
+
   
   const [openPicker, setOpenPicker] = useState<'assignees' | 'supporters' | null>(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
@@ -177,6 +206,16 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
               ))}
             </select>
           </div>
+          
+          {/* Linked Entity Banner */}
+          {initialData?.source_module && initialData?.source_entity_id && (
+            <div className="col-span-2 mt-[-12px]">
+              <div className="w-full bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 rounded-xl px-3 py-2 text-sm font-medium flex items-center gap-2 shadow-sm">
+                <Link2 size={16} className="text-indigo-500 shrink-0" />
+                <span className="truncate">{linkedEntityLabel || 'Đang tải thông tin liên kết...'}</span>
+              </div>
+            </div>
+          )}
           
           <div className="col-span-2 grid grid-cols-2 gap-6 relative">
             {/* Người thực hiện (Assignee) */}
