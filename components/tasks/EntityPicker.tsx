@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { dataClient } from '../../lib/dataClient';
 import SearchableSelect from '../ui/SearchableSelect';
+import { useAuth } from '../../contexts/AuthContext';
+import { ContractService } from '../../services/contractService';
 
 export type EntityLink = {
   module: string; // 'none', 'project', 'contract', 'customer', 'project_bid'
@@ -23,6 +25,7 @@ const MODULE_OPTIONS = [
 ];
 
 const EntityPicker: React.FC<EntityPickerProps> = ({ value, onChange, disabled }) => {
+  const { profile } = useAuth();
   const [initialOptions, setInitialOptions] = useState<any[]>([]);
   
   useEffect(() => {
@@ -72,6 +75,21 @@ const EntityPicker: React.FC<EntityPickerProps> = ({ value, onChange, disabled }
   const handleSearch = async (query: string) => {
     if (!query || query.length < 2) return [];
     
+    // Custom advanced search for contracts with deep JSONB/tags searching + authorization
+    if (value.module === 'contract') {
+      try {
+        const contracts = await ContractService.searchAuthorized(query, profile, 20);
+        return contracts.map(c => ({
+          id: c.id,
+          name: c.title,
+          subText: c.contractCode
+        }));
+      } catch (err) {
+        console.error('Search error in EntityPicker (contract):', err);
+        return [];
+      }
+    }
+
     let tableName = '';
     let searchCols = '';
     let nameCol = '';
@@ -82,11 +100,6 @@ const EntityPicker: React.FC<EntityPickerProps> = ({ value, onChange, disabled }
        searchCols = 'name';
        nameCol = 'name';
        subtextCol = '';
-    } else if (value.module === 'contract') {
-       tableName = 'contracts';
-       searchCols = 'contractCode,title';
-       nameCol = 'title';
-       subtextCol = 'contractCode';
     } else if (value.module === 'customer') {
        tableName = 'customers';
        searchCols = 'name,short_name,tax_code';

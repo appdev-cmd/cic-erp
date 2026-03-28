@@ -2,6 +2,7 @@ import { dataClient as supabase } from '../lib/dataClient';
 import { Contract, ExecutionCostItem } from '../types';
 import { AuditLogService } from './auditLogService';
 import { TelegramNotificationService } from './telegramNotificationService';
+import { normalizeTag } from './contractTagService';
 
 // Error messages in Vietnamese for better UX
 const ERROR_MESSAGES = {
@@ -792,6 +793,103 @@ export const ContractService = {
 
         if (error) throw error;
         return data.map(mapContract);
+    },
+
+    /**
+     * Advanced Search for EntityPicker
+     * Supports filtering by permissions, tags, JSONB products, and unaccent names
+     */
+    searchAuthorized: async (query: string, profile: any, limit = 20): Promise<Contract[]> => {
+        if (!query || query.length < 2) return [];
+
+        let tagMatchIds: string[] = [];
+        try {
+            const safeTagQuery = normalizeTag(query);
+            if (safeTagQuery.length > 0) {
+               const { data: tagData } = await supabase
+                 .from('contract_tags')
+                 .select('contract_id')
+                 .eq('user_id', profile.id)
+                 .ilike('tag', `%${safeTagQuery}%`);
+               if (tagData) {
+                   tagMatchIds = tagData.map((r: any) => r.contract_id);
+               }
+            }
+        } catch (e) {
+            console.warn('[ContractService] searchAuthorized tag search failed:', e);
+        }
+
+        let unaccentMatchIds: string[] = [];
+        try {
+            const { data: rpcData } = await supabase.rpc('search_contracts_ids_unaccent', { search_term: query });
+            if (rpcData && rpcData.length > 0) {
+                unaccentMatchIds = rpcData.map((r: any) => r.id);
+            }
+        } catch (e) {
+            console.warn('[ContractService] searchAuthorized unaccent RPC failed:', e);
+        }
+
+        const safeTerm = query.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/[%_]/g, '\\$&');
+        const quoteId = (id: string) => /[,/()\s]/.test(id) ? `"${id}"` : id;
+
+        // Build main OR filter including robust JSONB search for line items
+        let orFilter = `title.ilike.%${safeTerm}%,contract_code.ilike.%${safeTerm}%,party_a.ilike.%${safeTerm}%,customer_contract_number.ilike.%${safeTerm}%,content.ilike.%${safeTerm}%,end_user_name.ilike.%${safeTerm}%,category.ilike.%${safeTerm}%`;
+        orFilter += `,details->>lineItems.ilike.%${safeTerm}%`;
+
+        const combinedIds = [...new Set([...tagMatchIds, ...unaccentMatchIds])];
+        if (combinedIds.length > 0) {
+            orFilter += `,id.in.(${combinedIds.map(quoteId).join(',')})`;
+        }
+
+        const { data, error } = await supabase
+            .from('contracts')
+            .select('*, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)')
+            .or(orFilter)
+            .order('signed_date', { ascending: false });
+
+        if (error) {
+            console.error('[ContractService] searchAuthorized Error:', error);
+            return [];
+        }
+
+        // Client-side grouping/filtering to enforce permissions
+        const isAdmin = profile?.role === 'Admin' || profile?.role === 'BOD';
+        const userUnitId = profile?.unit_id;
+        const userId = profile?.id;
+
+        const getEmployeePct = (c: any, targetEmployeeId: string): number => {
+            const empAllocs: any[] = c.employee_allocations || [];
+            if (empAllocs.length === 0) return c.employee_id === targetEmployeeId ? 100 : 0;
+            const match = empAllocs.find((a: any) => a.employeeId === targetEmployeeId);
+            if (match) return match.percent || 100;
+            const unitAllocations: any[] = c.unit_allocations?.allocations || [];
+            const supportMatch = unitAllocations.find((a: any) => a.role === 'support' && a.employeeId === targetEmployeeId);
+            if (supportMatch) return 100;
+            return 0;
+        };
+
+        const filteredContracts: Contract[] = [];
+        
+        for (const c of (data || [])) {
+            let hasAccess = false;
+            
+            if (isAdmin) {
+                hasAccess = true;
+            } else {
+                const allocationPct = getUnitSharePct(c, userUnitId);
+                const empPct = getEmployeePct(c, userId);
+                if (allocationPct > 0 || empPct > 0) {
+                    hasAccess = true;
+                }
+            }
+
+            if (hasAccess) {
+                filteredContracts.push(mapContract(c));
+                if (filteredContracts.length >= limit) break; // Stop when limit reached
+            }
+        }
+
+        return filteredContracts;
     },
 
     /**
