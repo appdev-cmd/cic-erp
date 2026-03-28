@@ -59,13 +59,21 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             if (getDisplayValue) {
                 setDisplayValue(getDisplayValue(value) || '');
             } else {
-                const found = options.find(o => o.id === value);
+                let found = options.find(o => o.id === value);
+                if (!found) found = initialOptions.find(o => o.id === value);
                 if (found) setDisplayValue(found.name);
             }
         } else {
             setDisplayValue('');
         }
-    }, [value, options, getDisplayValue]);
+    }, [value, options, initialOptions, getDisplayValue]);
+
+    // Async sync of initial options (when parent fetches data asynchronously)
+    useEffect(() => {
+        if (!query || query.length < 2) {
+            setOptions(initialOptions);
+        }
+    }, [initialOptions]);
 
     // Calculate dropdown position
     const updatePosition = useCallback(() => {

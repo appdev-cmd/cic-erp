@@ -56,7 +56,7 @@ const EntityPicker: React.FC<EntityPickerProps> = ({ value, onChange, disabled }
            if (data && active) {
               let itemName = data[nameCol];
               if (tableName === 'project_bids' && !itemName) itemName = data.title;
-              if (tableName === 'contracts' && data.contractCode) itemName = `${data.contractCode} - ${itemName}`;
+              if (tableName === 'contracts' && data.contract_code) itemName = `${data.contract_code} - ${itemName}`;
               if (tableName === 'customers' && data.short_name) itemName = `${data.short_name} - ${itemName}`;
               if (tableName === 'project_bids' && data.code) itemName = `${data.code} - ${itemName}`;
               
