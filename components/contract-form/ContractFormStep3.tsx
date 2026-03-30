@@ -1,7 +1,7 @@
 // ContractForm Step 3: Kế hoạch Tài chính (Revenue, Payment, Supplier Schedules)
-import React from 'react';
+import React, { useMemo } from 'react';
 import { DollarSign, Calculator, X, Receipt, CreditCard, StickyNote } from 'lucide-react';
-import { PaymentSchedule, RevenueSchedule } from '../../types';
+import { PaymentSchedule, RevenueSchedule, LineItem } from '../../types';
 import DateInput from '../ui/DateInput';
 
 interface ContractFormStep3Props {
@@ -17,6 +17,8 @@ interface ContractFormStep3Props {
     formatVND: (val: number) => string;
     notes?: string;
     setNotes?: (v: string) => void;
+    totals?: { signingValue: number; totalCosts: number };
+    lineItems?: LineItem[];
 }
 
 const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
@@ -27,7 +29,31 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
     paymentTermDays, setPaymentTermDays,
     formatVND,
     notes, setNotes,
+    totals, lineItems,
 }) => {
+    // Tự động tính tổng chi phí theo từng nhà cung cấp
+    const supplierGroups = useMemo(() => {
+        const groups: { [key: string]: number } = {};
+        if (lineItems) {
+            lineItems.forEach(item => {
+                if (item.supplier) {
+                    const cost = item.quantity * item.inputPrice;
+                    groups[item.supplier] = (groups[item.supplier] || 0) + cost;
+                }
+            });
+        }
+        return groups;
+    }, [lineItems]);
+
+    // Hàm lấy giá trị nhà cung cấp từ mô tả đợt chi
+    const getSupplierTotal = (description: string) => {
+        const suppliers = Object.keys(supplierGroups);
+        const matched = suppliers.filter(s => description.includes(s)).sort((a, b) => b.length - a.length);
+        if (matched.length > 0) {
+            return supplierGroups[matched[0]];
+        }
+        return totals?.totalCosts || 0;
+    };
     return (
         <section className="space-y-8 animate-in slide-in-from-right-8 duration-500">
             <div className="flex items-center gap-3 border-l-4 border-emerald-500 pl-4">
@@ -170,8 +196,26 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                     />
                                 </div>
                                 <div className="col-span-4 space-y-1 text-right">
-                                    <label className="text-[9px] text-slate-400 font-bold uppercase">Số tiền</label>
-                                    <div className="flex items-center justify-end gap-2">
+                                    <label className="text-[9px] text-slate-400 font-bold uppercase">Tỷ lệ (%) / Số tiền</label>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <div className="relative w-16 shrink-0">
+                                            <input
+                                                type="number"
+                                                placeholder="%"
+                                                value={pay.percentage || ''}
+                                                onChange={(e) => {
+                                                    const perc = Number(e.target.value);
+                                                    const newSched = [...paymentSchedules];
+                                                    newSched[idx].percentage = perc;
+                                                    if (totals?.signingValue) {
+                                                        newSched[idx].amount = Math.round((totals.signingValue * perc) / 100);
+                                                    }
+                                                    setPaymentSchedules(newSched);
+                                                }}
+                                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-md pl-1.5 pr-4 py-1.5 text-[11px] font-bold outline-none focus:ring-1 focus:ring-emerald-500 transition-all text-slate-800 dark:text-slate-200 text-center"
+                                            />
+                                            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">%</span>
+                                        </div>
                                         <input
                                             type="text"
                                             placeholder="Tiền..."
@@ -180,13 +224,19 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                                 const raw = e.target.value.replace(/\./g, '');
                                                 if (!/^\d*$/.test(raw)) return;
                                                 const newSched = [...paymentSchedules];
-                                                newSched[idx].amount = Number(raw);
+                                                const paramAmount = Number(raw);
+                                                newSched[idx].amount = paramAmount;
+                                                if (totals?.signingValue && totals.signingValue > 0) {
+                                                    // Tính lại %
+                                                    const newPerc = (paramAmount / totals.signingValue) * 100;
+                                                    newSched[idx].percentage = Number(newPerc.toFixed(2));
+                                                }
                                                 setPaymentSchedules(newSched);
                                             }}
                                             className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-md px-2 py-1.5 text-[11px] font-black text-right outline-none focus:ring-1 focus:ring-emerald-500 transition-all text-emerald-600"
                                         />
                                         {paymentSchedules.length > 1 && (
-                                            <button onClick={() => setPaymentSchedules(paymentSchedules.filter(p => p.id !== pay.id))} className="text-emerald-400 hover:text-rose-500 transition-colors flex-shrink-0">
+                                            <button onClick={() => setPaymentSchedules(paymentSchedules.filter(p => p.id !== pay.id))} className="text-emerald-400 hover:text-rose-500 transition-colors flex-shrink-0 ml-1">
                                                 <X size={12} />
                                             </button>
                                         )}
@@ -246,8 +296,26 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                 />
                             </div>
                             <div className="col-span-4 space-y-1 text-right">
-                                <label className="text-[9px] text-slate-400 font-bold uppercase">Số tiền chi</label>
-                                <div className="flex items-center justify-end gap-2">
+                                <label className="text-[9px] text-slate-400 font-bold uppercase">Tỷ lệ (%) / Số tiền chi</label>
+                                <div className="flex items-center justify-end gap-1">
+                                    <div className="relative w-16 shrink-0">
+                                        <input
+                                            type="number"
+                                            placeholder="%"
+                                            value={pay.percentage || ''}
+                                            onChange={(e) => {
+                                                const perc = Number(e.target.value);
+                                                const newSched = [...supplierSchedules];
+                                                newSched[idx].percentage = perc;
+                                                // Tính tự động theo value của NCC đó
+                                                const totalRef = getSupplierTotal(pay.description);
+                                                newSched[idx].amount = Math.round((totalRef * perc) / 100);
+                                                setSupplierSchedules(newSched);
+                                            }}
+                                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-md pl-1.5 pr-4 py-1.5 text-[11px] font-bold outline-none focus:ring-1 focus:ring-rose-500 transition-all text-slate-800 dark:text-slate-200 text-center"
+                                        />
+                                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">%</span>
+                                    </div>
                                     <input
                                         type="text"
                                         placeholder="Tiền..."
@@ -256,12 +324,18 @@ const ContractFormStep3: React.FC<ContractFormStep3Props> = ({
                                             const raw = e.target.value.replace(/\./g, '');
                                             if (!/^\d*$/.test(raw)) return;
                                             const newSched = [...supplierSchedules];
-                                            newSched[idx].amount = Number(raw);
+                                            const paramAmount = Number(raw);
+                                            newSched[idx].amount = paramAmount;
+                                            const totalRef = getSupplierTotal(pay.description);
+                                            if (totalRef && totalRef > 0) {
+                                                const newPerc = (paramAmount / totalRef) * 100;
+                                                newSched[idx].percentage = Number(newPerc.toFixed(2));
+                                            }
                                             setSupplierSchedules(newSched);
                                         }}
                                         className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-md px-2 py-1.5 text-[11px] font-black text-right outline-none focus:ring-1 focus:ring-rose-500 transition-all text-rose-500"
                                     />
-                                    <button onClick={() => setSupplierSchedules(supplierSchedules.filter(p => p.id !== pay.id))} className="text-rose-400 hover:text-rose-600 transition-colors flex-shrink-0">
+                                    <button onClick={() => setSupplierSchedules(supplierSchedules.filter(p => p.id !== pay.id))} className="text-rose-400 hover:text-rose-600 transition-colors flex-shrink-0 ml-1">
                                         <X size={12} />
                                     </button>
                                 </div>

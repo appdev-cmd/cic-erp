@@ -748,6 +748,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 paymentTermDays={paymentTermDays} setPaymentTermDays={setPaymentTermDays}
                 formatVND={formatVND}
                 notes={notes} setNotes={setNotes}
+                totals={totals}
+                lineItems={lineItems}
               />
             ) : null}
 
