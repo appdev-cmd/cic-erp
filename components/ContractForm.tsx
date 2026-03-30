@@ -7,7 +7,8 @@ import {
   ContractType, ContractClassification, LineItem, UnitAllocation, EmployeeAllocation,
   ContractContact, PaymentSchedule,
   RevenueSchedule, AdministrativeCosts,
-  Contract, ExecutionCostItem
+  Contract, ExecutionCostItem,
+  ContractWorkflowSteps, DEFAULT_WORKFLOW_STEPS
 } from '../types';
 import { UnitService, CustomerService, ProductService, ContractService, EmployeeService, ExecutionCostService, ExecutionCostType } from '../services';
 import { summarizeContractContent } from '../services/geminiService';
@@ -164,6 +165,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       }
       setSelectedTaskTemplateId(contract.selectedTaskTemplateId || null);
       setCustomTasks(contract.customTasks || []);
+      if (contract.workflowSteps) setWorkflowSteps(contract.workflowSteps);
 
       // When cloning: reset ID to empty so generateId can auto-create a new one
       if (isCloning) {
@@ -239,6 +241,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const [notes, setNotes] = useState(contract?.notes || '');
   const [selectedTaskTemplateId, setSelectedTaskTemplateId] = useState<string | null>(contract?.selectedTaskTemplateId || null);
   const [customTasks, setCustomTasks] = useState<any[]>(contract?.customTasks || []);
+  const [workflowSteps, setWorkflowSteps] = useState<ContractWorkflowSteps>(contract?.workflowSteps || { ...DEFAULT_WORKFLOW_STEPS });
 
   useEffect(() => {
     if (contract?.paymentPhases && Array.isArray(contract.paymentPhases)) {
@@ -576,6 +579,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       customerContractNumber: customerContractNumber?.trim() || null,
       paymentTermDays: paymentTermDays || null,
       notes: notes?.trim() || null,
+      workflowSteps,
       selectedTaskTemplateId,
       customTasks,
     };
@@ -746,8 +750,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
             {/* Step 4: Giao việc & Phân công */}
             {currentStep === 4 ? (
               <ContractFormStep4
-                selectedTaskTemplateId={selectedTaskTemplateId}
-                setSelectedTaskTemplateId={setSelectedTaskTemplateId}
+                workflowSteps={workflowSteps}
+                setWorkflowSteps={setWorkflowSteps}
+                lineItems={lineItems}
                 customTasks={customTasks}
                 setCustomTasks={setCustomTasks}
               />

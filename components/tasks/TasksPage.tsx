@@ -464,7 +464,7 @@ const InlineCommentInput: React.FC<{
 // ═══════════════════════════════════════
 // COLUMN CONFIG & RESIZABLE COLUMNS
 // ═══════════════════════════════════════
-const COLUMN_KEYS = ['status', 'deadline', 'created_at', 'assigner', 'assignee', 'project', 'comments'] as const;
+const COLUMN_KEYS = ['status', 'deadline', 'created_at', 'assigner', 'assignee', 'comments'] as const;
 type ColumnKey = typeof COLUMN_KEYS[number];
 
 const DEFAULT_COL_WIDTHS: Record<ColumnKey, number> = {
@@ -473,7 +473,6 @@ const DEFAULT_COL_WIDTHS: Record<ColumnKey, number> = {
   created_at: 150,
   assigner: 140,
   assignee: 140,
-  project: 120,
   comments: 90,
 };
 
@@ -483,13 +482,11 @@ const COL_LABELS: Record<ColumnKey, string> = {
   created_at: 'Ngày tạo',
   assigner: 'Người giao',
   assignee: 'Người thực hiện',
-  project: 'Liên kết',
   comments: 'Bình luận',
 };
 
 const COL_RESPONSIVE: Partial<Record<ColumnKey, string>> = {
   created_at: 'hidden xl:table-cell',
-  project: 'hidden lg:table-cell',
   comments: 'hidden lg:table-cell',
 };
 
@@ -570,7 +567,7 @@ const BitrixListView: React.FC<{
 }> = ({ tasks, statuses, employees, selectedIds, onToggleSelect, onSelectAll, onSelect, onToggleComplete, onTogglePin, onStartTask, onQuickCreate, onTagClick, onUpdateStatus, onUpdateDeadline, onUpdateAssignee, onUpdateProject, onQuickComment, projects }) => {
   const [colWidths, setColWidths] = useState<Record<ColumnKey, number>>(loadColWidths);
   // Inline edit state: which cell is being edited
-  const [editingCell, setEditingCell] = useState<{ taskId: string; col: 'status' | 'deadline' | 'assignee' | 'project' | 'comment' } | null>(null);
+  const [editingCell, setEditingCell] = useState<{ taskId: string; col: 'status' | 'deadline' | 'assignee' | 'comment' } | null>(null);
   // Comment counts loaded via batch
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
 
@@ -837,34 +834,7 @@ const BitrixListView: React.FC<{
                   )}
                 </td>
 
-                {/* Liên kết — inline project picker */}
-                <td className="px-3 py-2.5 hidden lg:table-cell relative" onClick={e => e.stopPropagation()}>
-                  {(task as any)._projectName ? (
-                    <button
-                      onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'project' ? null : { taskId: task.id, col: 'project' })}
-                      className="text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded-full truncate inline-block max-w-[120px] cursor-pointer hover:opacity-80 transition-opacity"
-                      title="Bấm để thay đổi liên kết"
-                    >
-                      {(task as any)._projectName}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setEditingCell({ taskId: task.id, col: 'project' })}
-                      className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors flex items-center gap-1 opacity-0 group-hover:opacity-100"
-                      title="Gắn vào Dự án/Hợp đồng/Gói thầu"
-                    >
-                      <Plus size={12} />
-                    </button>
-                  )}
-                  {editingCell?.taskId === task.id && editingCell?.col === 'project' && (
-                    <ProjectPickerDropdown
-                      projects={projects}
-                      currentProjectId={task.project_id || undefined}
-                      onSelect={(projId) => { onUpdateProject(task.id, projId); setEditingCell(null); }}
-                      onClose={() => setEditingCell(null)}
-                    />
-                  )}
-                </td>
+
 
                 {/* Bình luận — comment count badge and optional simple comment icon */}
                 <td className="px-3 py-2.5 hidden lg:table-cell relative" onClick={e => e.stopPropagation()}>

@@ -46,7 +46,7 @@ import ContractBusinessPlanTab from './ContractBusinessPlanTab';
 import ContractOverviewTab from './contract-detail/ContractOverviewTab';
 import ContractHistoryTab from './contract-detail/ContractHistoryTab';
 import DiscussionBox from './ui/DiscussionBox';
-import EntityTaskList from './tasks/EntityTaskList';
+import ContractTasksTab from './contract-detail/ContractTasksTab';
 import ErrorBoundary from './ErrorBoundary';
 import { useAuth } from '../contexts/AuthContext';
 import { useImpersonation } from '../contexts/ImpersonationContext';
@@ -922,14 +922,8 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
 
         {/* Content - Tasks tab */}
         {activeTab === 'tasks' && contract && (
-          <div className="h-full w-full mt-6">
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col min-h-[600px]">
-              <EntityTaskList
-                entityType="contract"
-                entityId={contract.id}
-                className="flex-1 bg-transparent dark:bg-transparent border-0 rounded-none"
-              />
-            </div>
+          <div className="w-full mt-6">
+            <ContractTasksTab contract={contract} />
           </div>
         )}
 

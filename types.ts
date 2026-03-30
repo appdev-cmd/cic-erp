@@ -248,6 +248,43 @@ export interface EmployeeAllocation {
   role: 'lead' | 'member'; // lead = NV chính, member = NV phối hợp
 }
 
+/**
+ * Workflow steps configuration for automatic task generation
+ * Each boolean flag represents a business step in the contract lifecycle
+ */
+export interface ContractWorkflowSteps {
+  // Giai đoạn Ký kết
+  guarantee_performance: boolean; // Làm BL thực hiện HĐ (Kế toán)
+  advance_procedure: boolean;     // Thủ tục tạm ứng
+  advance_has_guarantee: boolean; // BL tạm ứng (sub của advance, Kế toán)
+  advance_deadline_days: number;  // Số ngày hạn tạm ứng (default 20)
+
+  // Giai đoạn Triển khai
+  import_goods: boolean;          // Nhập hàng (checklist = SP/DV)
+  subcontract: boolean;           // Ký HĐ thầu phụ
+  implementation: boolean;        // Triển khai thực hiện (HĐ dịch vụ)
+  training: boolean;              // Đào tạo chuyển giao
+
+  // Giai đoạn Nghiệm thu & Thanh toán
+  warranty_procedure: boolean;    // Thủ tục bảo hành
+  warranty_has_guarantee: boolean;// BL bảo hành (sub, Kế toán)
+  payment_other_docs: boolean;    // Giấy tờ khác trong thủ tục TT
+}
+
+export const DEFAULT_WORKFLOW_STEPS: ContractWorkflowSteps = {
+  guarantee_performance: false,
+  advance_procedure: false,
+  advance_has_guarantee: false,
+  advance_deadline_days: 20,
+  import_goods: false,
+  subcontract: false,
+  implementation: false,
+  training: false,
+  warranty_procedure: false,
+  warranty_has_guarantee: false,
+  payment_other_docs: false,
+};
+
 
 export interface Contract {
   id: string;
@@ -311,7 +348,10 @@ export interface Contract {
   legal_approved?: boolean;
   finance_approved?: boolean;
   
-  // Tasks (Form payload only)
+  // Workflow-driven task system
+  workflowSteps?: ContractWorkflowSteps;
+  
+  // Tasks (Form payload only — legacy manual tasks)
   selectedTaskTemplateId?: string | null;
   customTasks?: any[];
 }

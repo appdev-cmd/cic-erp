@@ -1,6 +1,7 @@
 import { dataClient as supabase } from '../lib/dataClient';
 import { Payment, VoucherType } from '../types';
 import { TelegramNotificationService } from './telegramNotificationService';
+import { ContractTaskDefinitionService } from './contractTaskDefinitionService';
 
 // Helper to map DB Payment to Frontend Payment
 const mapPayment = (p: any): Payment & { unitId?: string; customerName?: string; contractCode?: string } => ({
@@ -320,6 +321,29 @@ export const PaymentService = {
                     status: data.status,
                     paymentType: paymentType,
                 }).catch(() => { });
+            });
+        }
+        // Milestone-Triggered Task System: fire hook when payment created
+        if (data.contractId && (voucherType === 'VAT_INVOICE' || voucherType === 'RECEIPT')) {
+            const paymentDate = data.paymentDate || data.invoiceDate || new Date().toISOString();
+            const contractIdForTrigger = data.contractId;
+            // Fetch contract info for context (fire-and-forget)
+            supabase.from('contracts').select('employee_id, unit_id').eq('id', contractIdForTrigger).single().then(async ({ data: contract }) => {
+                try {
+                    await ContractTaskDefinitionService.onPaymentCreated(
+                        contractIdForTrigger,
+                        voucherType,
+                        new Date(paymentDate),
+                        {
+                            creatorUserId: data.createdBy || undefined,
+                            salespersonId: contract?.employee_id,
+                            unitId: contract?.unit_id,
+                            spaceId: (contract?.unit_id && contract.unit_id !== 'all') ? contract.unit_id : undefined,
+                        }
+                    );
+                } catch (err) {
+                    console.warn('[PaymentService.create] Milestone trigger failed:', err);
+                }
             });
         }
 

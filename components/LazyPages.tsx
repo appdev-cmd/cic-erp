@@ -642,6 +642,78 @@ export const LazyProductListPage: React.FC = () => {
     );
 };
 
+// ═══════════════════════════════════════════════════════════════════════
+// GENERIC OPENER — For EntityPicker and Generic Task Links
+// ═══════════════════════════════════════════════════════════════════════
+export function useOpenEntityPanel() {
+    const openContract = useOpenContractPanel();
+    const openPersonnel = useOpenPersonnelPanel();
+    const openProduct = useOpenProductPanel();
+    const { openPanel, closePanel } = useSlidePanel();
+
+    return useCallback((entityType: string, entityId: string) => {
+        if (!entityId) return;
+        switch (entityType.toLowerCase()) {
+            case 'contract':
+                openContract(entityId);
+                break;
+            case 'employee':
+                openPersonnel(entityId);
+                break;
+            case 'product':
+                openProduct(entityId);
+                break;
+            case 'customer':
+                openPanel({
+                    title: 'Chi tiết Khách hàng',
+                    url: ROUTES.CUSTOMER_DETAIL(entityId),
+                    component: (
+                        <Suspense fallback={<DetailPageSkeleton />}>
+                            <div className="p-4 md:p-6 lg:p-8">
+                                <CustomerDetail customerId={entityId} onBack={() => closePanel()} onViewContract={openContract} />
+                            </div>
+                        </Suspense>
+                    )
+                });
+                break;
+            case 'project':
+                openPanel({
+                    title: 'Chi tiết Dự án',
+                    url: ROUTES.PROJECT_DETAIL(entityId),
+                    component: (
+                        <Suspense fallback={<DetailPageSkeleton />}>
+                            <div className="p-4 md:p-6 lg:p-8">
+                                <ProjectDetail projectId={entityId} onBack={() => closePanel()} />
+                            </div>
+                        </Suspense>
+                    )
+                });
+                break;
+            case 'unit':
+            case 'department':
+                openPanel({
+                    title: 'Chi tiết Đơn vị',
+                    url: ROUTES.UNIT_DETAIL(entityId),
+                    component: (
+                        <Suspense fallback={<DetailPageSkeleton />}>
+                            <div className="p-4 md:p-6 lg:p-8">
+                                <UnitDetail unitId={entityId} onBack={() => closePanel()} onViewContract={openContract} onViewPersonnel={openPersonnel} yearFilter={new Date().getFullYear().toString()} />
+                            </div>
+                        </Suspense>
+                    )
+                });
+                break;
+            default:
+                import('../services/entityRegistryService').then(m => {
+                    m.EntityRegistryService.resolveUrl(entityType, entityId).then(url => {
+                        if (url) window.location.href = url;
+                    });
+                });
+                break;
+        }
+    }, [openContract, openPersonnel, openProduct, openPanel, closePanel]);
+}
+
 // Product Detail — fallback for direct URL access (/products/:id)
 export const LazyProductDetailPage: React.FC = () => {
     const navigate = useNavigate();

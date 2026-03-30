@@ -3,6 +3,8 @@ import { Contract, ExecutionCostItem } from '../types';
 import { AuditLogService } from './auditLogService';
 import { TelegramNotificationService } from './telegramNotificationService';
 import { normalizeTag } from './contractTagService';
+import { ContractTaskDefinitionService } from './contractTaskDefinitionService';
+import type { MilestoneBaseDateType } from './contractTaskDefinitionService';
 
 // Error messages in Vietnamese for better UX
 const ERROR_MESSAGES = {
@@ -173,6 +175,11 @@ const buildPayload = (data: Partial<Contract>): Record<string, any> => {
         payload.employee_allocations = (data as any).employeeAllocations
             ? (data as any).employeeAllocations
             : null;
+    }
+
+    // Handle workflowSteps JSONB field
+    if ((data as any).workflowSteps !== undefined) {
+        payload.workflow_steps = (data as any).workflowSteps || null;
     }
 
     return payload;
@@ -486,6 +493,8 @@ const mapContract = (c: any): Contract => {
         revProfit: revProfit,
         // Warning flags (computed)
         warnings: { isOverdueAdvance, isOverduePayment, isAcceptedNoInvoice },
+        // Workflow steps
+        workflowSteps: c.workflow_steps || undefined,
         // Legacy fields
         legal_approved: c.legal_approved || false,
         finance_approved: c.finance_approved || false
@@ -832,9 +841,9 @@ export const ContractService = {
         const safeTerm = query.replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/[%_]/g, '\\$&');
         const quoteId = (id: string) => /[,/()\s]/.test(id) ? `"${id}"` : id;
 
-        // Build main OR filter including robust JSONB search for line items
+        // Build main OR filter
         let orFilter = `title.ilike.%${safeTerm}%,contract_code.ilike.%${safeTerm}%,party_a.ilike.%${safeTerm}%,customer_contract_number.ilike.%${safeTerm}%,content.ilike.%${safeTerm}%,end_user_name.ilike.%${safeTerm}%,category.ilike.%${safeTerm}%`;
-        orFilter += `,details->>lineItems.ilike.%${safeTerm}%`;
+        // Removed details->>lineItems as it crashes PostgREST for JSON arrays
 
         const combinedIds = [...new Set([...tagMatchIds, ...unaccentMatchIds])];
         if (combinedIds.length > 0) {
@@ -1624,43 +1633,60 @@ export const ContractService = {
             console.warn("[ContractService.create] Failed to auto-create PAKD:", planError);
         }
 
-        // 4.5. Auto-assign tasks from Step 4 (Giao việc)
-        if (data.customTasks && data.customTasks.length > 0) {
-            try {
-                const { TaskService } = await import('./taskService');
-                for (const taskDef of data.customTasks) {
-                    // Caculate relative due date
-                    let baseDate = new Date();
-                    if (taskDef.base_date_type === 'signed_date' && data.signedDate) {
-                        baseDate = new Date(data.signedDate);
-                    } else if (taskDef.base_date_type === 'invoice_date' && data.revenueSchedules?.length) {
-                        const dates = data.revenueSchedules.map(r => new Date(r.date)).filter(d => !isNaN(d.getTime())).sort((a,b) => a.getTime() - b.getTime());
-                        if (dates[0]) baseDate = dates[0];
-                    } else if (taskDef.base_date_type === 'handover_date' || taskDef.base_date_type === 'acceptance_date' || taskDef.base_date_type === 'advance_payment_completed') {
-                        if (data.endDate) baseDate = new Date(data.endDate);
-                        else if (data.signedDate) baseDate = new Date(data.signedDate);
+        // 4.5. Save task definitions from Step 4 (Milestone-Triggered Task System)
+        try {
+            const user = (await supabase.auth.getUser()).data.user;
+            const rawUnitId = data.unitId || result.unit_id;
+            const spaceId = (rawUnitId && rawUnitId !== 'all') ? rawUnitId : undefined;
+
+            // A. Workflow-driven tasks (from checkbox system)
+            if ((data as any).workflowSteps) {
+                await ContractTaskDefinitionService.generateFromWorkflow(
+                    result.id,
+                    (data as any).workflowSteps,
+                    {
+                        lineItems: data.lineItems || [],
+                        salespersonId: data.salespersonId || result.employee_id || '',
+                        unitId: rawUnitId || '',
+                        createdBy: user?.id,
                     }
-                    
-                    const dueDate = new Date(baseDate);
-                    dueDate.setDate(dueDate.getDate() + (taskDef.duration_days || 0));
-                    dueDate.setHours(23, 59, 59, 999);
-
-                    const rawUnitId = data.unitId || result.unit_id;
-                    const finalSpaceId = (rawUnitId && rawUnitId !== 'all') ? rawUnitId : undefined;
-
-                    await TaskService.create({
-                        title: taskDef.title,
-                        description: taskDef.description,
-                        assignees: taskDef.assignees,
-                        due_date: dueDate.toISOString(),
-                        space_id: finalSpaceId,
-                        source_module: 'contract',
-                        source_entity_id: result.id
-                    });
-                }
-            } catch (err) {
-                console.warn("[ContractService.create] Failed to create custom tasks:", err);
+                );
+                console.log(`[ContractService.create] Generated workflow tasks for ${result.id}`);
             }
+
+            // B. Manual custom tasks (legacy + manual add-ons)
+            if (data.customTasks && data.customTasks.length > 0) {
+                await ContractTaskDefinitionService.bulkCreate(
+                    data.customTasks.map((taskDef: any, idx: number) => ({
+                        contract_id: result.id,
+                        title: taskDef.title,
+                        description: taskDef.description || '',
+                        assignees: taskDef.assignees || [],
+                        priority: 'medium',
+                        base_date_type: (taskDef.base_date_type || 'signed_date') as MilestoneBaseDateType,
+                        duration_days: taskDef.duration_days || 0,
+                        origin: 'manual' as const,
+                        sort_order: 100 + idx, // manual tasks after workflow tasks
+                        created_by: user?.id,
+                    }))
+                );
+                console.log(`[ContractService.create] Saved ${data.customTasks.length} manual task definitions for ${result.id}`);
+            }
+
+            // C. Activate tasks whose milestones already exist (signed_date, current_date)
+            await ContractTaskDefinitionService.checkAndActivateAll(
+                result.id,
+                {
+                    signed_date: data.signedDate || result.signed_date,
+                    handover_date: result.handover_date,
+                    acceptance_date: result.acceptance_date,
+                    completed_date: result.completed_date,
+                    status: result.status,
+                },
+                spaceId
+            );
+        } catch (err) {
+            console.warn("[ContractService.create] Failed to save task definitions:", err);
         }
 
         // 5. Log audit
@@ -1738,46 +1764,84 @@ export const ContractService = {
         // 4. Log audit
         await logOperation('UPDATE', id, payload, oldPayload || undefined);
 
-        // 4.5. Auto-assign tasks from Step 4 (Giao việc)
-        if (data.customTasks && data.customTasks.length > 0) {
-            try {
-                const { TaskService } = await import('./taskService');
-                for (const taskDef of data.customTasks) {
-                    // Caculate relative due date
-                    let baseDate = new Date();
-                    const signedD = data.signedDate || result.signed_date;
-                    const endD = data.endDate || result.end_date;
+        // 4.5. Milestone-Triggered Task System hooks
+        try {
+            const rawUnitId = data.unitId || result.unit_id;
+            const spaceId = (rawUnitId && rawUnitId !== 'all') ? rawUnitId : undefined;
+            const user = (await supabase.auth.getUser()).data.user;
 
-                    if (taskDef.base_date_type === 'signed_date' && signedD) {
-                        baseDate = new Date(signedD);
-                    } else if (taskDef.base_date_type === 'invoice_date' && data.revenueSchedules?.length) {
-                        const dates = data.revenueSchedules.map(r => new Date(r.date)).filter(d => !isNaN(d.getTime())).sort((a,b) => a.getTime() - b.getTime());
-                        if (dates[0]) baseDate = dates[0];
-                    } else if (taskDef.base_date_type === 'handover_date' || taskDef.base_date_type === 'acceptance_date' || taskDef.base_date_type === 'advance_payment_completed') {
-                        if (endD) baseDate = new Date(endD);
-                        else if (signedD) baseDate = new Date(signedD);
+            // A. Workflow-driven tasks (from checkbox system)
+            if ((data as any).workflowSteps) {
+                await ContractTaskDefinitionService.generateFromWorkflow(
+                    id,
+                    (data as any).workflowSteps,
+                    {
+                        lineItems: data.lineItems || [],
+                        salespersonId: data.salespersonId || result.employee_id || '',
+                        unitId: rawUnitId || '',
+                        createdBy: user?.id,
                     }
-                    
-                    const dueDate = new Date(baseDate);
-                    dueDate.setDate(dueDate.getDate() + (taskDef.duration_days || 0));
-                    dueDate.setHours(23, 59, 59, 999);
-
-                    const rawUnitId = data.unitId || result.unit_id;
-                    const finalSpaceId = (rawUnitId && rawUnitId !== 'all') ? rawUnitId : undefined;
-
-                    await TaskService.create({
-                        title: taskDef.title,
-                        description: taskDef.description,
-                        assignees: taskDef.assignees,
-                        due_date: dueDate.toISOString(),
-                        space_id: finalSpaceId,
-                        source_module: 'contract',
-                        source_entity_id: id
-                    });
-                }
-            } catch (err) {
-                console.warn("[ContractService.update] Failed to create custom tasks:", err);
+                );
             }
+
+            // B. Manual custom tasks (legacy + manual add-ons)
+            if (data.customTasks && data.customTasks.length > 0) {
+                await ContractTaskDefinitionService.bulkCreate(
+                    data.customTasks.map((taskDef: any, idx: number) => ({
+                        contract_id: id,
+                        title: taskDef.title,
+                        description: taskDef.description || '',
+                        assignees: taskDef.assignees || [],
+                        priority: 'medium',
+                        base_date_type: (taskDef.base_date_type || 'signed_date') as MilestoneBaseDateType,
+                        duration_days: taskDef.duration_days || 0,
+                        origin: 'manual' as const,
+                        sort_order: 100 + idx,
+                        created_by: user?.id,
+                    }))
+                );
+            }
+
+            // B. Detect contract status change → fire milestone hooks
+            const oldStatus = oldContract?.status;
+            const newStatus = data.status || result.status;
+            if (oldStatus && newStatus && oldStatus !== newStatus) {
+                const milestoneDate = (() => {
+                    switch (newStatus) {
+                        case 'Handover': return data.handoverDate || result.handover_date;
+                        case 'Acceptance': return data.acceptanceDate || result.acceptance_date;
+                        case 'Completed': return data.completedDate || result.completed_date;
+                        default: return null;
+                    }
+                })();
+
+                await ContractTaskDefinitionService.onContractStatusChange(
+                    id,
+                    newStatus,
+                    milestoneDate ? new Date(milestoneDate) : new Date(),
+                    {
+                        creatorUserId: user?.id,
+                        salespersonId: result.employee_id,
+                        unitId: rawUnitId,
+                        spaceId,
+                    }
+                );
+            }
+
+            // C. Always check & activate any dormant tasks with available milestones
+            await ContractTaskDefinitionService.checkAndActivateAll(
+                id,
+                {
+                    signed_date: data.signedDate || result.signed_date,
+                    handover_date: data.handoverDate || result.handover_date,
+                    acceptance_date: data.acceptanceDate || result.acceptance_date,
+                    completed_date: data.completedDate || result.completed_date,
+                    status: newStatus,
+                },
+                spaceId
+            );
+        } catch (err) {
+            console.warn("[ContractService.update] Failed to process task definitions:", err);
         }
 
         // 5. Telegram notification (fire-and-forget)

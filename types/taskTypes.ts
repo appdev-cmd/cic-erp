@@ -219,7 +219,7 @@ export interface TaskVisibilityContext {
 }
 
 // UI Type for Contract Form Step 4
-export type RelativeTaskBaseDate = 'signed_date' | 'handover_date' | 'acceptance_date' | 'invoice_date' | 'current_date' | 'advance_payment_completed';
+export type RelativeTaskBaseDate = 'signed_date' | 'handover_date' | 'acceptance_date' | 'invoice_date' | 'current_date' | 'advance_completed' | 'completed_date';
 
 export interface ContractFormTaskItem {
   id?: string;

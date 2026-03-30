@@ -51,7 +51,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const debounceRef = useRef<any>(null);
-    const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 280 });
+    const [dropdownPos, setDropdownPos] = useState<{ top?: number; bottom?: number; left: number; width: number }>({ top: 0, left: 0, width: 280 });
 
     // Update display value when value changes
     useEffect(() => {
@@ -86,9 +86,11 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             const gap = 4;
 
             // Prefer below, flip above if needed
-            let top: number;
+            let top: number | undefined = undefined;
+            let bottom: number | undefined = undefined;
+            
             if (rect.bottom + gap + dropdownHeight > viewportH && rect.top - gap - dropdownHeight > 0) {
-                top = rect.top - gap - dropdownHeight;
+                bottom = viewportH - rect.top + gap;
             } else {
                 top = rect.bottom + gap;
             }
@@ -100,7 +102,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             }
             left = Math.max(8, left);
 
-            setDropdownPos({ top, left, width });
+            setDropdownPos({ top, bottom, left, width });
         }
     }, [dropdownMinWidth]);
 
@@ -215,6 +217,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     style={{
                         position: 'fixed',
                         top: dropdownPos.top,
+                        bottom: dropdownPos.bottom,
                         left: dropdownPos.left,
                         width: dropdownPos.width,
                         zIndex: 9999,

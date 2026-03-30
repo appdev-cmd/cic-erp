@@ -1,7 +1,7 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { NAV_ITEMS } from '../constants';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import CICLogo, { CICLogoIcon } from './CICLogo';
 import { useAuth } from '../contexts/AuthContext';
 import { useImpersonation } from '../contexts/ImpersonationContext';
@@ -57,6 +57,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
   const { permissions } = usePermissionCheck();
+  
+  const [isCategoryExpanded, setIsCategoryExpanded] = useState(() => {
+    const saved = localStorage.getItem('sidebar_category_expanded');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const toggleCategoryExpanded = () => {
+    const newValue = !isCategoryExpanded;
+    setIsCategoryExpanded(newValue);
+    localStorage.setItem('sidebar_category_expanded', String(newValue));
+  };
+
   // Use impersonated role for nav filtering when impersonating
   const effectiveProfile = isImpersonating && impersonatedUser ? impersonatedUser : profile;
 
@@ -153,20 +165,34 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-4 md:hidden"></div>
 
           {/* Group: Danh mục */}
-          <div>
-            {!isCollapsed && <p className="px-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Danh mục</p>}
-            <nav>
-              {categoryItems.map((item) => (
-                <NavItem
-                  key={item.id}
-                  item={item}
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  isCollapsed={isCollapsed}
-                  onClose={onClose}
-                />
-              ))}
-            </nav>
+          <div className="mb-2 text-left">
+            {!isCollapsed && (
+              <button
+                onClick={toggleCategoryExpanded}
+                className="w-full flex items-center justify-between px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg group mb-1 transition-colors"
+                title="Thu gọn/Mở rộng Danh mục"
+              >
+                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider group-hover:text-slate-600 dark:group-hover:text-slate-300">Danh mục</span>
+                <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${isCategoryExpanded ? '' : '-rotate-90'}`} />
+              </button>
+            )}
+            
+            <div className={`grid transition-all duration-300 ease-in-out ${isCategoryExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+              <div className="overflow-hidden">
+                <nav>
+                  {categoryItems.map((item) => (
+                    <NavItem
+                      key={item.id}
+                      item={item}
+                      activeTab={activeTab}
+                      setActiveTab={setActiveTab}
+                      isCollapsed={isCollapsed}
+                      onClose={onClose}
+                    />
+                  ))}
+                </nav>
+              </div>
+            </div>
           </div>
 
         </div>

@@ -157,11 +157,13 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({ onTaskCreated, onClos
             </div>
           </div>
           
-          <EntityPicker
-            value={entityLink}
-            onChange={setEntityLink}
-            disabled={!!initialData?.source_entity_id || !!initialData?.project_id}
-          />
+          <div className="col-span-2">
+            <EntityPicker
+              value={entityLink}
+              onChange={setEntityLink}
+              disabled={!!initialData?.source_entity_id || !!initialData?.project_id}
+            />
+          </div>
           
           <div className="col-span-2 grid grid-cols-2 gap-6 relative">
             {/* Người thực hiện (Assignee) */}

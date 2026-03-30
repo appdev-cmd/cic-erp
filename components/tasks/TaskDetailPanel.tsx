@@ -3,7 +3,8 @@ import {
   CheckSquare, X, Calendar, Clock, Tag, Link2, MessageSquare,
   AlertTriangle, Pin, User, Edit3, Save, ExternalLink,
   Play, CheckCircle2, Plus, Trash2, History, Lock,
-  Eye, Crown, Users, ShieldCheck, Send, XCircle, RotateCcw
+  Eye, Crown, Users, ShieldCheck, Send, XCircle, RotateCcw,
+  FileText, Briefcase, Building, Bookmark
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskService } from '../../services/taskService';
@@ -18,7 +19,9 @@ import PeoplePickerPopover from './PeoplePickerPopover';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
 import type { Task, TaskStatus, TaskLink, TaskPriority, ApprovalMode, ApprovalStep } from '../../types/taskTypes';
 import { SlidePanelHeader } from '../ui/SlidePanelHeader';
-import EntityPicker, { EntityLink } from './EntityPicker';
+import { EntitySearchService } from '../../services/entitySearchService';
+import { useAuth } from '../../contexts/AuthContext';
+import { useOpenEntityPanel } from '../LazyPages';
 
 // ═══════════════════════════════════════
 // PRIORITY CONFIG
@@ -95,26 +98,42 @@ const DatePickerField: React.FC<{
 // ═══════════════════════════════════════
 // ENTITY LINK ITEM
 // ═══════════════════════════════════════
-const LinkItem: React.FC<{ link: TaskLink }> = ({ link }) => {
+const LinkItem: React.FC<{ link: TaskLink; registryOptions?: { id: string; name: string; }[] }> = ({ link, registryOptions }) => {
   const [resolvedUrl, setResolvedUrl] = React.useState<string | null>(link.url || null);
+  const openEntityPanel = useOpenEntityPanel();
+  const [iconName, setIconName] = React.useState<string>('');
+
   React.useEffect(() => {
+    EntityRegistryService.getByType(link.entity_type).then(reg => {
+      if (reg?.icon) setIconName(reg.icon);
+    });
     if (!link.url) EntityRegistryService.resolveUrl(link.entity_type, link.entity_id).then(u => setResolvedUrl(u));
   }, [link]);
+
+  const moduleName = registryOptions?.find(o => o.id === link.entity_type)?.name || link.entity_type;
 
   return (
     <a
       href={resolvedUrl || '#'}
-      onClick={e => { if (resolvedUrl) { e.preventDefault(); window.location.href = resolvedUrl; } }}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
+      onClick={e => { 
+        e.preventDefault();
+        openEntityPanel(link.entity_type, link.entity_id);
+      }}
+      className="flex items-center gap-3 px-4 py-3 cursor-pointer"
     >
-      <Link2 size={14} className="text-indigo-500 dark:text-indigo-400" />
-      <div className="flex-1 min-w-0">
-        <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate block">
-          {link.entity_label || `${link.entity_type}/${link.entity_id}`}
-        </span>
-        <span className="text-xs text-slate-400 dark:text-slate-500 capitalize">{link.entity_type}</span>
+      <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900 flex items-center justify-center flex-shrink-0">
+        {iconName === 'file-text' && <FileText size={16} className="text-indigo-600 dark:text-indigo-400" />}
+        {iconName === 'briefcase' && <Briefcase size={16} className="text-indigo-600 dark:text-indigo-400" />}
+        {iconName === 'users' && <Users size={16} className="text-indigo-600 dark:text-indigo-400" />}
+        {iconName === 'building' && <Building size={16} className="text-indigo-600 dark:text-indigo-400" />}
+        {!['file-text', 'briefcase', 'users', 'building'].includes(iconName) && <Link2 size={16} className="text-indigo-600 dark:text-indigo-400" />}
       </div>
-      <ExternalLink size={12} className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="flex-1 min-w-0">
+        <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-sm truncate">{link.entity_label || `${link.entity_type}/${link.entity_id}`}</h4>
+        <p className="text-xs text-slate-500 dark:text-slate-400 truncate tracking-wide">
+          {moduleName.toUpperCase()} • ID: {link.entity_id}
+        </p>
+      </div>
     </a>
   );
 };
@@ -475,6 +494,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   currentUserId,
   initialTab,
 }) => {
+  const { profile } = useAuth();
   const [task, setTask] = useState<Task | null>(null);
   const [statuses, setStatuses] = useState<TaskStatus[]>([]);
   const [links, setLinks] = useState<TaskLink[]>([]);
@@ -482,6 +502,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editProgressNote, setEditProgressNote] = useState('');
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [bottomTab, setBottomTabState] = useState<'detail' | 'comments' | 'history' | 'links' | 'time'>(() => {
     return (localStorage.getItem('cic-erp-task-bottom-tab') as any) || initialTab || 'detail';
@@ -507,161 +528,25 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [selectedLinkType, setSelectedLinkType] = useState<string>('');
   const [registryOptions, setRegistryOptions] = useState<{id: string; name: string}[]>([]);
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (bottomTab === 'links' && isAddingLink && registryOptions.length === 0) {
+    if (bottomTab === 'links' && registryOptions.length === 0) {
       import('../../services/entityRegistryService').then(m => {
         m.EntityRegistryService.getAll().then(all => setRegistryOptions(all.map(x => ({ id: x.entity_type, name: x.label }))));
       });
     }
-  }, [bottomTab, isAddingLink, registryOptions.length]);
-
-  // Entity type → DB config with rich display
-  const ENTITY_SEARCH_CONFIG: Record<string, {
-    table: string;
-    select: string;
-    searchCol: string;
-    format: (item: any) => { id: string; name: string; subText?: string };
-  }> = {
-    task: {
-      table: 'tasks',
-      select: 'id, title, priority, due_date, status_id',
-      searchCol: 'title',
-      format: (item) => ({
-        id: item.id,
-        name: item.title,
-        subText: [
-          item.priority && item.priority !== 'none' ? `Ưu tiên: ${item.priority}` : null,
-          item.due_date ? `Deadline: ${new Date(item.due_date).toLocaleDateString('vi-VN')}` : null,
-        ].filter(Boolean).join(' · ') || undefined,
-      }),
-    },
-    contract: {
-      table: 'contracts',
-      select: 'id, title, contract_code, party_a, value, status',
-      searchCol: 'title',
-      format: (item) => ({
-        id: item.id,
-        name: `${item.contract_code || ''} — ${item.title || ''}`.replace(/^\s*—\s*/, ''),
-        subText: [
-          item.party_a ? `KH: ${item.party_a}` : null,
-          item.value ? `GT: ${Number(item.value).toLocaleString('vi-VN')} đ` : null,
-          item.status || null,
-        ].filter(Boolean).join(' · ') || undefined,
-      }),
-    },
-    customer: {
-      table: 'customers',
-      select: 'id, name, short_name, address, phone',
-      searchCol: 'name',
-      format: (item) => ({
-        id: item.id,
-        name: item.name,
-        subText: [
-          item.short_name || null,
-          item.address || null,
-          item.phone || null,
-        ].filter(Boolean).join(' · ') || undefined,
-      }),
-    },
-    employee: {
-      table: 'employees',
-      select: 'id, name, position, department',
-      searchCol: 'name',
-      format: (item) => ({
-        id: item.id,
-        name: item.name,
-        subText: [item.position, item.department].filter(Boolean).join(' — ') || undefined,
-      }),
-    },
-    unit: {
-      table: 'units',
-      select: 'id, name, code',
-      searchCol: 'name',
-      format: (item) => ({
-        id: item.id,
-        name: item.name,
-        subText: item.code || undefined,
-      }),
-    },
-    pakd: {
-      table: 'contract_business_plans',
-      select: 'id, ten_cong_trinh, contract_id',
-      searchCol: 'ten_cong_trinh',
-      format: (item) => ({
-        id: item.id,
-        name: item.ten_cong_trinh || item.id,
-      }),
-    },
-    receipt: {
-      table: 'payments',
-      select: 'id, description, amount, due_date, payment_type',
-      searchCol: 'description',
-      format: (item) => ({
-        id: item.id,
-        name: item.description || `Phiếu #${item.id.substring(0, 8)}`,
-        subText: [
-          item.payment_type || null,
-          item.amount ? `${Number(item.amount).toLocaleString('vi-VN')} đ` : null,
-          item.due_date ? `Hạn: ${new Date(item.due_date).toLocaleDateString('vi-VN')}` : null,
-        ].filter(Boolean).join(' · ') || undefined,
-      }),
-    },
-    product: {
-      table: 'products',
-      select: 'id, name, code, unit_price',
-      searchCol: 'name',
-      format: (item) => ({
-        id: item.id,
-        name: item.code ? `${item.code} — ${item.name}` : item.name,
-        subText: item.unit_price ? `Đơn giá: ${Number(item.unit_price).toLocaleString('vi-VN')} đ` : undefined,
-      }),
-    },
-  };
+  }, [bottomTab, registryOptions.length]);
 
   const searchEntity = useCallback(async (query: string) => {
     if (!selectedLinkType || query.length < 2) return [];
     try {
-      const { dataClient } = await import('../../lib/dataClient');
-      const config = ENTITY_SEARCH_CONFIG[selectedLinkType];
-      if (!config) {
-        // Fallback: try entity_type directly as table name
-        const { data } = await dataClient.from(selectedLinkType).select('*').limit(50);
-        if (!data) return [];
-        return data.filter((item: any) => {
-          const text = (item.name || item.title || item.contract_name || item.full_name || item.id || '').toLowerCase();
-          return text.includes(query.toLowerCase());
-        }).map((item: any) => ({
-          id: item.id,
-          name: item.name || item.title || item.contract_name || item.full_name || item.id,
-        }));
-      }
-
-      // For contracts, also search by contract_code
-      let data: any[] | null = null;
-      if (selectedLinkType === 'contract') {
-        const { data: d } = await dataClient
-          .from(config.table)
-          .select(config.select)
-          .or(`title.ilike.%${query}%,contract_code.ilike.%${query}%,party_a.ilike.%${query}%`)
-          .limit(20);
-        data = d;
-      } else {
-        const { data: d } = await dataClient
-          .from(config.table)
-          .select(config.select)
-          .ilike(config.searchCol, `%${query}%`)
-          .limit(20);
-        data = d;
-      }
-
-      if (!data) return [];
-      return data.map(config.format);
+      return await EntitySearchService.search(selectedLinkType, query, profile);
     } catch (err) {
       console.error('searchEntity error:', err);
       return [];
     }
-  }, [selectedLinkType]);
+  }, [selectedLinkType, profile]);
 
   const handleCreateLink = async (entityId: string | null, option?: {id: string; name: string}) => {
     if (!task || !selectedLinkType || !entityId) return;
@@ -698,6 +583,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   // Personal tags
   const [personalTags, setPersonalTags] = useState<string[]>([]);
 
+  // Primary Link
+  const [isEditingPrimary, setIsEditingPrimary] = useState<boolean>(false);
+  const [primaryLinkType, setPrimaryLinkType] = useState<string>('');
+  
   // ─── Pending changes (buffered save) ───
   const [pendingChanges, setPendingChanges] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
@@ -752,6 +641,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
       setLinks(linkList);
       setEditTitle(taskData?.title || '');
       setEditDescription(taskData?.description || '');
+      setEditProgressNote(taskData?.custom_fields?.progress_note || '');
       setPendingChanges({}); // reset dirty on load
 
       // Load checklist from custom_fields
@@ -1419,6 +1309,24 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   />
                 </div>
 
+                {/* GHI CHÚ TIẾN ĐỘ */}
+                <div>
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Bookmark size={12} className="text-indigo-500 dark:text-indigo-400" />
+                    Ghi chú tiến độ
+                  </label>
+                  <textarea
+                    value={editProgressNote}
+                    onChange={e => {
+                      setEditProgressNote(e.target.value);
+                      bufferChange('custom_fields', { ...task?.custom_fields, progress_note: e.target.value });
+                    }}
+                    rows={2}
+                    className="w-full text-sm p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-900/20 text-slate-900 dark:text-slate-100 placeholder-indigo-300 dark:placeholder-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y transition-colors min-h-[80px]"
+                    placeholder="Ghi chú nhanh tiến độ hiện tại (VD: đã tạo file nháp, đang đợi KH xác nhận...)"
+                  />
+                </div>
+
                 {/* CHECKLIST */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -1551,37 +1459,161 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             {bottomTab === 'links' && (
               <div className="p-5 space-y-4">
                 {/* Primary Entity Link */}
-                <div className="-mx-1"> {/* Negative margin to align with EntityPicker's grid */}
-                  <EntityPicker
-                    value={{
-                      module: task.source_module || (task.project_id ? 'project' : 'none'),
-                      entityId: task.source_entity_id || task.project_id || null,
-                      label: ''
-                    }}
-                    onChange={(newLink: EntityLink) => {
-                      if (newLink.module === 'project') {
-                        bufferChange('project_id', newLink.entityId);
-                        bufferChange('source_module', null);
-                        bufferChange('source_entity_id', null);
-                      } else if (newLink.module === 'none') {
-                        bufferChange('project_id', null);
-                        bufferChange('source_module', null);
-                        bufferChange('source_entity_id', null);
-                      } else {
-                        bufferChange('project_id', null);
-                        bufferChange('source_module', newLink.module);
-                        bufferChange('source_entity_id', newLink.entityId);
-                      }
-                    }}
-                  />
+                <div className="mb-6">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                    <Crown size={12} className="text-amber-500" />
+                    Liên kết chính
+                  </label>
+                  {(task.source_module || task.project_id) && !isEditingPrimary ? (
+                    <div className="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all overflow-hidden shadow-sm">
+                      <LinkItem 
+                        link={{
+                          id: 'primary',
+                          task_id: task.id,
+                          entity_type: task.source_module || (task.project_id ? 'project' : 'none'),
+                          entity_id: task.source_entity_id || task.project_id || '',
+                          entity_label: '', // will be resolved inside LinkItem
+                        } as TaskLink} 
+                        registryOptions={registryOptions} 
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 pl-2 rounded-l-xl">
+                        <button
+                          onClick={() => { 
+                            setPrimaryLinkType(task.source_module || (task.project_id ? 'project' : 'none')); 
+                            setIsEditingPrimary(true); 
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-md transition-colors"
+                          title="Sửa liên kết"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            bufferChange('project_id', null);
+                            bufferChange('source_module', null);
+                            bufferChange('source_entity_id', null);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-md transition-colors"
+                          title="Xóa liên kết"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : isEditingPrimary ? (
+                    <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4 shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Cập nhật liên kết chính</label>
+                        <button onClick={() => { setIsEditingPrimary(false); setPrimaryLinkType(''); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-xs text-slate-500 mb-1 block">Loại liên kết</label>
+                          <select
+                            value={primaryLinkType}
+                            onChange={e => setPrimaryLinkType(e.target.value)}
+                            className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:border-indigo-500"
+                          >
+                            <option value="">-- Chọn loại --</option>
+                            {registryOptions.map(opt => (
+                              <option key={opt.id} value={opt.id}>{opt.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {primaryLinkType && (
+                          <div>
+                            <label className="text-xs text-slate-500 mb-1 block">Tìm kiếm</label>
+                            <SearchableSelect
+                              value={null}
+                              onChange={(id, opt) => {
+                                if (primaryLinkType === 'project') {
+                                  bufferChange('project_id', id);
+                                  bufferChange('source_module', null);
+                                  bufferChange('source_entity_id', null);
+                                } else {
+                                  bufferChange('project_id', null);
+                                  bufferChange('source_module', primaryLinkType);
+                                  bufferChange('source_entity_id', id);
+                                }
+                                setIsEditingPrimary(false);
+                              }}
+                              onSearch={q => EntitySearchService.search(primaryLinkType, q, profile)}
+                              placeholder="Gõ để tìm thẻ thay thế..."
+                              size="sm"
+                              initialOptions={task.source_entity_id || task.project_id ? [{ id: task.source_entity_id || task.project_id || '', name: 'Đang chọn' }] : []}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => setIsEditingPrimary(true)} className="w-full mt-2 flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:text-indigo-400 dark:hover:border-indigo-500 transition-colors cursor-pointer text-sm font-medium">
+                      <Plus size={16} /> Thêm liên kết chính
+                    </button>
+                  )}
                 </div>
 
                 {/* Manual links */}
                 {links.length > 0 && (
                   <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
                     <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Liên kết khác ({links.length})</label>
-                    <div className="space-y-0.5 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
-                      {links.map(link => <LinkItem key={link.id} link={link} />)}
+                    <div className="space-y-2">
+                      {links.map(link => 
+                        editingLinkId === link.id ? (
+                          <div key={link.id} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800 space-y-4">
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Đổi liên kết phụ</label>
+                              <button onClick={() => setEditingLinkId(null)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">
+                                <X size={14} />
+                              </button>
+                            </div>
+                            <div className="space-y-3">
+                              <div>
+                                <label className="text-xs text-slate-500 mb-1 block">Bạn đang sửa liên kết trong module: <span className="font-bold uppercase text-indigo-500 dark:text-indigo-400">{registryOptions.find(o => o.id === link.entity_type)?.name || link.entity_type}</span></label>
+                              </div>
+                              <SearchableSelect
+                                value={null}
+                                onChange={async (id, opt) => {
+                                  if (!id) return;
+                                  try {
+                                    const updated = await TaskService.updateLink(link.id, { entity_id: id, entity_label: opt?.name });
+                                    setLinks(prev => prev.map(l => l.id === link.id ? { ...updated, entity_type: link.entity_type } : l));
+                                    setEditingLinkId(null);
+                                  } catch (err: any) {
+                                    toast.error('Lỗi khi sửa liên kết: ' + err.message);
+                                  }
+                                }}
+                                onSearch={(q) => EntitySearchService.search(link.entity_type, q, profile)}
+                                placeholder={`Gõ để tìm thẻ thay thế...`}
+                                size="sm"
+                                initialOptions={[{ id: link.entity_id, name: link.entity_label || 'Đang chọn' }]}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div key={link.id} className="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all overflow-hidden">
+                            <LinkItem link={link} registryOptions={registryOptions} />
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 pl-2 rounded-l-xl">
+                              <button
+                                onClick={() => setEditingLinkId(link.id)}
+                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 rounded-md transition-colors"
+                                title="Sửa liên kết"
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                              <button
+                                onClick={() => TaskService.removeLink(link.id).then(() => setLinks(prev => prev.filter(l => l.id !== link.id)))}
+                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 rounded-md transition-colors"
+                                title="Xóa liên kết"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
                 )}

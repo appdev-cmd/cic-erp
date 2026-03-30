@@ -363,6 +363,18 @@ export const TaskService = {
     if (error) throw error;
   },
 
+  async updateLink(linkId: string, updates: Partial<CreateTaskLinkInput>): Promise<TaskLink> {
+    const { data, error } = await supabase
+      .from('task_links')
+      .update(updates)
+      .eq('id', linkId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as TaskLink;
+  },
+
   // ═══════════════════════════════════════
   // SUBTASKS
   // ═══════════════════════════════════════
