@@ -48,6 +48,8 @@ interface ContractFormStep1Props {
     setEndUserName: (v: string) => void;
     signedDate: string;
     setSignedDate: (v: string) => void;
+    endDate: string;
+    setEndDate: (v: string) => void;
     hasVat: boolean;
     setHasVat: (v: boolean) => void;
     vatRate: number;
@@ -128,6 +130,7 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
     endUserId, setEndUserId,
     endUserName, setEndUserName,
     signedDate, setSignedDate,
+    endDate, setEndDate,
     hasVat, setHasVat,
     vatRate, setVatRate,
     formContractId, setFormContractId,
@@ -221,6 +224,16 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                         <DateInput
                             value={signedDate}
                             onChange={setSignedDate}
+                            className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                        />
+                    </div>
+
+                    {/* Ngày kết thúc */}
+                    <div className="w-[160px]">
+                        <FieldLabel icon={<Calendar size={10} />}>Ngày kết thúc (DK)</FieldLabel>
+                        <DateInput
+                            value={endDate}
+                            onChange={setEndDate}
                             className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
                         />
                     </div>

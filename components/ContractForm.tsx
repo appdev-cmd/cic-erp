@@ -124,6 +124,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const [endUserName, setEndUserName] = useState(contract?.endUserName || '');
   const [showAddEndUserDialog, setShowAddEndUserDialog] = useState(false);
   const [signedDate, setSignedDate] = useState(contract?.signedDate || new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(contract?.endDate || '');
   const [hasVat, setHasVat] = useState(contract?.hasVat !== false);
   const [vatRate, setVatRate] = useState(contract?.vatRate ?? 0);
 
@@ -146,6 +147,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       setEndUserId(contract.endUserId || null);
       setEndUserName(contract.endUserName || '');
       setSignedDate(contract.signedDate || new Date().toISOString().split('T')[0]);
+      setEndDate(contract.endDate || '');
       setHasVat(contract.hasVat !== false);
       setVatRate(contract.vatRate ?? 0);
       // Sync customer contract number
@@ -359,7 +361,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     const timer = setTimeout(() => {
       const draft = {
         contractType, unitId, coordinatingUnitId, salespersonId, customerId, title, clientName,
-        signedDate, contacts, lineItems, revenueSchedules, paymentSchedules, supplierSchedules,
+        signedDate, endDate, contacts, lineItems, revenueSchedules, paymentSchedules, supplierSchedules,
         selectedTaskTemplateId, customTasks,
       };
       if (title || clientName || lineItems.length > 0) {
@@ -369,7 +371,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     return () => clearTimeout(timer);
   }, [
     isEditing, contractType, unitId, coordinatingUnitId, salespersonId, customerId, title, clientName,
-    signedDate, contacts, lineItems, revenueSchedules, paymentSchedules, supplierSchedules,
+    signedDate, endDate, contacts, lineItems, revenueSchedules, paymentSchedules, supplierSchedules,
     selectedTaskTemplateId, customTasks,
   ]);
 
@@ -380,7 +382,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   // Key fields that constitute "user data"
   const currentSnapshot = useMemo(() => JSON.stringify({
     contractType, unitId, coordinatingUnitId, salespersonId, customerId,
-    title, clientName, signedDate, hasVat, vatRate, classification,
+    title, clientName, signedDate, endDate, hasVat, vatRate, classification,
     endUserId, endUserName, contacts, lineItems, executionCosts,
     revenueSchedules, paymentSchedules, supplierSchedules,
     employeeAllocations, unitAllocations, formContractId,
@@ -388,7 +390,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     selectedTaskTemplateId, customTasks,
   }), [
     contractType, unitId, coordinatingUnitId, salespersonId, customerId,
-    title, clientName, signedDate, hasVat, vatRate, classification,
+    title, clientName, signedDate, endDate, hasVat, vatRate, classification,
     endUserId, endUserName, contacts, lineItems, executionCosts,
     revenueSchedules, paymentSchedules, supplierSchedules,
     employeeAllocations, unitAllocations, formContractId,
@@ -437,6 +439,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                   if (draft.title) setTitle(draft.title);
                   if (draft.clientName) setClientName(draft.clientName);
                   if (draft.signedDate) setSignedDate(draft.signedDate);
+                  if (draft.endDate) setEndDate(draft.endDate);
                   if (draft.contacts) setContacts(draft.contacts);
                   if (draft.lineItems) setLineItems(draft.lineItems);
                   if (draft.revenueSchedules) setRevenueSchedules(draft.revenueSchedules);
@@ -564,7 +567,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       category: isEditing ? (contract?.category || 'Project') : 'Project',
       signedDate,
       startDate: isEditing ? (contract?.startDate || signedDate) : signedDate,
-      endDate: isEditing ? (contract?.endDate || signedDate) : signedDate,
+      endDate: endDate || null,
       content: title,
       contacts,
       milestones: isEditing ? (contract?.milestones || []) : [],
@@ -696,6 +699,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 endUserId={endUserId} setEndUserId={setEndUserId}
                 endUserName={endUserName} setEndUserName={setEndUserName}
                 signedDate={signedDate} setSignedDate={setSignedDate}
+                endDate={endDate} setEndDate={setEndDate}
                 hasVat={hasVat} setHasVat={setHasVat}
                 vatRate={vatRate} setVatRate={setVatRate}
                 formContractId={formContractId} setFormContractId={setFormContractId}
