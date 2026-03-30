@@ -103,3 +103,7 @@
 body.slide-panel-open {
   overflow: hidden;
 }
+/* --- Fix Sonner Toaster Overlapping Issue -------- */
+[data-sonner-toaster] {
+  z-index: 99999 !important;
+}

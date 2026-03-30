@@ -787,13 +787,14 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       {/* FOOTER */}
       <div className="px-8 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800 flex justify-between items-center">
         <div className="flex items-center gap-6">
-          <button onClick={() => { localStorage.removeItem('contract_form_draft'); onCancel(); }} className="px-6 py-3 text-slate-400 hover:text-rose-500 font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2">
+          <button type="button" onClick={() => { localStorage.removeItem('contract_form_draft'); onCancel(); }} className="px-6 py-3 text-slate-400 hover:text-rose-500 font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2">
             <X size={14} /> Hủy bỏ
           </button>
         </div>
         <div className="flex gap-3">
           {currentStep > 1 ? (
             <button
+              type="button"
               onClick={handleBack}
               className="px-8 py-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-[20px] font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm flex items-center gap-2"
             >
@@ -803,6 +804,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
 
           {currentStep < 4 ? (
             <button
+              type="button"
               onClick={handleNext}
               className="px-10 py-3 bg-indigo-600 text-white rounded-[20px] font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none hover:scale-105 active:scale-95"
             >
@@ -810,6 +812,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
             </button>
           ) : (
             <button
+              type="button"
               onClick={() => { localStorage.removeItem('contract_form_draft'); handleSave(); }}
               className="px-10 py-3 bg-emerald-500 text-white rounded-[20px] font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-200 dark:shadow-none hover:scale-105 active:scale-95"
             >
