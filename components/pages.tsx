@@ -169,14 +169,11 @@ export const ContractDetailPage: React.FC = () => {
     const rawFullId = rawId && subId ? `${rawId}/${subId}` : rawId;
     const id = rawFullId ? decodeURIComponent(rawFullId) : undefined;
     const { openPanel, closePanel } = useSlidePanel();
-    const [refreshKey, setRefreshKey] = React.useState(0);
-    const [latestContract, setLatestContract] = React.useState<any>(null);
+    
     if (!id) return <div>Contract not found</div>;
     return (
         <ContractDetailComponent
-            key={refreshKey}
             contractId={id}
-            contract={latestContract}
             onBack={() => navigate(ROUTES.CONTRACTS)}
             onEdit={(contract) => {
                 openPanel({
@@ -184,9 +181,10 @@ export const ContractDetailPage: React.FC = () => {
                     component: (
                         <ContractFormInPanel
                             contractId={contract.id}
-                            onSuccess={(savedContract) => {
-                                setLatestContract(savedContract);
-                                setTimeout(() => setRefreshKey(prev => prev + 1), 0);
+                            onSuccess={() => {
+                                // Event dispatch is handled inside ContractService.update.
+                                // The ContractDetail component listens to 'contract-updated' 
+                                // and will fetch the newest complete data dynamically.
                             }}
                         />
                     ),

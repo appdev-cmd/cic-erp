@@ -917,6 +917,8 @@ export interface BIMProject {
   description?: string;
   contractValue: number;       // VNĐ
   notes?: string;
+  folderPotentialUrl?: string; // Link lưu trữ hồ sơ tiền dự án (potential)
+  folderOngoingUrl?: string;   // Link lưu trữ hồ sơ triển khai (ongoing)
   serviceType?: string;        // Loại dịch vụ
   projectGroup?: string;       // Nhóm dự án (A, B)
   constructionType?: string;   // Loại công trình

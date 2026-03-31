@@ -43,6 +43,8 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [description, setDescription] = useState(project?.description || '');
   const [thumbnailUrl, setThumbnailUrl] = useState(project?.thumbnailUrl || '');
   const [notes, setNotes] = useState(project?.notes || '');
+  const [folderPotentialUrl, setFolderPotentialUrl] = useState(project?.folderPotentialUrl || '');
+  const [folderOngoingUrl, setFolderOngoingUrl] = useState(project?.folderOngoingUrl || '');
   const [contractId, setContractId] = useState(project?.contractId || '');
   const [contracts, setContracts] = useState<{ id: string; code: string; title: string; customerName?: string; value?: number; startDate?: string; endDate?: string }[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -190,6 +192,8 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         endDate: endDate || undefined,
         description: description.trim() || undefined,
         thumbnailUrl: thumbnailUrl.trim() || undefined,
+        folderPotentialUrl: folderPotentialUrl.trim() || undefined,
+        folderOngoingUrl: folderOngoingUrl.trim() || undefined,
         notes: notes.trim() || undefined,
         contractId: contractId || undefined,
       };
@@ -530,6 +534,28 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className={labelCls}>Link folder lưu trữ tiền dự án (Potential)</label>
+            <input
+              type="url"
+              value={folderPotentialUrl}
+              onChange={e => setFolderPotentialUrl(e.target.value)}
+              placeholder="VD: https://drive.google.com/..."
+              className={inputCls}
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className={labelCls}>Link folder lưu trữ triển khai (Ongoing)</label>
+            <input
+              type="url"
+              value={folderOngoingUrl}
+              onChange={e => setFolderOngoingUrl(e.target.value)}
+              placeholder="VD: https://drive.google.com/..."
+              className={inputCls}
+            />
           </div>
 
           <div className="md:col-span-2">

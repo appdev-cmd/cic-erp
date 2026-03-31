@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
-import { ArrowLeft, MapPin, Building2, Calendar, FileText, TrendingUp, Clock, Edit, Trash2, CheckSquare, Loader2, FileSignature, ExternalLink } from 'lucide-react';
+import { ArrowLeft, MapPin, Building2, Calendar, FileText, TrendingUp, Clock, Edit, Trash2, CheckSquare, Loader2, FileSignature, ExternalLink, Folder } from 'lucide-react';
 import { ProjectService, ContractService } from '../services';
 import { BIMProject, BIM_PROJECT_STATUS_LABELS, BIMProjectStatus } from '../types';
 import { toast } from 'sonner';
@@ -375,6 +375,30 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
               </div>
             </div>
           ) : null}
+
+          {project.folderPotentialUrl && (
+            <div className="flex items-start gap-3">
+              <Folder size={16} className="text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Hồ sơ Tiền dự án</p>
+                <a href={project.folderPotentialUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1">
+                  Mở thư mục <ExternalLink size={12} />
+                </a>
+              </div>
+            </div>
+          )}
+
+          {project.folderOngoingUrl && (
+            <div className="flex items-start gap-3">
+              <Folder size={16} className="text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Hồ sơ Triển khai</p>
+                <a href={project.folderOngoingUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1">
+                  Mở thư mục <ExternalLink size={12} />
+                </a>
+              </div>
+            </div>
+          )}
 
           {(project.startDate || project.endDate) && (
             <div className="flex items-start gap-3">

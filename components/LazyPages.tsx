@@ -683,7 +683,27 @@ export function useOpenEntityPanel() {
                     component: (
                         <Suspense fallback={<DetailPageSkeleton />}>
                             <div className="p-4 md:p-6 lg:p-8">
-                                <ProjectDetail projectId={entityId} onBack={() => closePanel()} />
+                                <ProjectDetail 
+                                    projectId={entityId} 
+                                    onBack={() => closePanel()} 
+                                    onEdit={(project) => {
+                                        openPanel({
+                                            title: 'Chỉnh sửa dự án',
+                                            url: `/projects/${project.id}/edit`,
+                                            component: (
+                                                <Suspense fallback={<DetailPageSkeleton />}>
+                                                    <div className="p-4 md:p-6 lg:p-8">
+                                                        <ProjectForm
+                                                            project={project}
+                                                            onSave={() => closePanel()}
+                                                            onCancel={() => closePanel()}
+                                                        />
+                                                    </div>
+                                                </Suspense>
+                                            ),
+                                        });
+                                    }}
+                                />
                             </div>
                         </Suspense>
                     )
@@ -896,12 +916,34 @@ export const LazyProjectListPage: React.FC = () => {
 export const LazyProjectDetailPage: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const { openPanel, closePanel } = useSlidePanel();
+
     if (!id) return <div>Project not found</div>;
     return withSuspense(
         <ProjectDetail
             projectId={id}
             onBack={() => navigate(ROUTES.PROJECTS)}
             onDelete={() => navigate(ROUTES.PROJECTS)}
+            onEdit={(project) => {
+                openPanel({
+                    title: 'Chỉnh sửa dự án',
+                    url: `/projects/${project.id}/edit`,
+                    component: (
+                        <Suspense fallback={<DetailPageSkeleton />}>
+                            <div className="p-4 md:p-6 lg:p-8">
+                                <ProjectForm
+                                    project={project}
+                                    onSave={() => {
+                                        closePanel();
+                                        window.location.reload();
+                                    }}
+                                    onCancel={() => closePanel()}
+                                />
+                            </div>
+                        </Suspense>
+                    ),
+                });
+            }}
         />,
         <DetailPageSkeleton />
     );

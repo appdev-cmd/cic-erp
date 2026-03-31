@@ -23,6 +23,8 @@ function toProject(row: any): BIMProject {
     description: row.description,
     contractValue: Number(row.contract_value) || 0,
     notes: row.notes,
+    folderPotentialUrl: row.folder_potential_url,
+    folderOngoingUrl: row.folder_ongoing_url,
     serviceType: row.service_type,
     projectGroup: row.project_group,
     constructionType: row.construction_type,
@@ -51,6 +53,8 @@ function toRow(project: Partial<BIMProject>): Record<string, any> {
   if (project.description !== undefined) row.description = project.description;
   if (project.contractValue !== undefined) row.contract_value = project.contractValue;
   if (project.notes !== undefined) row.notes = project.notes;
+  if (project.folderPotentialUrl !== undefined) row.folder_potential_url = project.folderPotentialUrl;
+  if (project.folderOngoingUrl !== undefined) row.folder_ongoing_url = project.folderOngoingUrl;
   if (project.serviceType !== undefined) row.service_type = project.serviceType;
   if (project.projectGroup !== undefined) row.project_group = project.projectGroup;
   if (project.constructionType !== undefined) row.construction_type = project.constructionType;
