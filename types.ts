@@ -911,6 +911,8 @@ export interface BIMProject {
   progress: number;            // 0-100
   clientName?: string;
   customerId?: string;
+  endUserId?: string; // Khách hàng
+  endUserName?: string;
   unitId?: string;
   startDate?: string;
   endDate?: string;

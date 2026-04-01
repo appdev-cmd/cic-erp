@@ -183,6 +183,15 @@ export const TaskService = {
     if (error) throw error;
   },
 
+  async bulkDelete(ids: string[]): Promise<void> {
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .in('id', ids);
+
+    if (error) throw error;
+  },
+
   /**
    * Mark task as completed (set status to done + timestamp)
    */

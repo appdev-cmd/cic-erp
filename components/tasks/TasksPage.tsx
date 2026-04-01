@@ -4,7 +4,7 @@ import {
   Clock, AlertTriangle, Calendar, ChevronDown, X,
   MessageSquare, Link2, MoreHorizontal, Tag, Copy, FolderKanban,
   Pin, Play, CheckCircle2, Users, Eye, UserCheck, Briefcase,
-  ArrowUpDown, ChevronRight, BarChart3, GanttChartSquare
+  ArrowUpDown, ChevronRight, BarChart3, GanttChartSquare, Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
@@ -1303,8 +1303,9 @@ const BulkActionsBar: React.FC<{
   totalCount: number;
   onComplete: () => void;
   onSetDeadline: () => void;
+  onDelete: () => void;
   onClearSelection: () => void;
-}> = ({ selectedCount, totalCount, onComplete, onSetDeadline, onClearSelection }) => {
+}> = ({ selectedCount, totalCount, onComplete, onSetDeadline, onDelete, onClearSelection }) => {
   if (selectedCount === 0) return null;
 
   return (
@@ -1322,6 +1323,12 @@ const BulkActionsBar: React.FC<{
             className="px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <Calendar size={14} /> Đặt deadline
+          </button>
+          <button
+            onClick={onDelete}
+            className="px-4 py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <Trash2 size={14} /> Xóa
           </button>
         </div>
       </div>
@@ -1835,6 +1842,20 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.size} công việc đã chọn? \nLưu ý: Hành động này không thể hoàn tác.`)) {
+      return;
+    }
+    try {
+      await TaskService.bulkDelete(Array.from(selectedIds));
+      toast.success(`Đã xóa ${selectedIds.size} công việc`);
+      setSelectedIds(new Set());
+      loadData();
+    } catch (err: any) {
+      toast.error('Lỗi khi xóa: ' + (err.message || err));
+    }
+  };
+
   // Stats
   const today = new Date().toISOString().split('T')[0];
   const doneStatusIds = statuses.filter(s => s.is_done).map(s => s.id);
@@ -2036,6 +2057,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
         totalCount={filteredTasks.length}
         onComplete={handleBulkComplete}
         onSetDeadline={handleBulkSetDeadline}
+        onDelete={handleBulkDelete}
         onClearSelection={() => setSelectedIds(new Set())}
       />
     </div>

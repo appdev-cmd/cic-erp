@@ -6,6 +6,7 @@ import { BIMProject, BIMProjectStatus, BIM_PROJECT_STATUS_LABELS } from '../type
 import { toast } from 'sonner';
 import SearchableSelect from './ui/SearchableSelect';
 import { dataClient as supabase } from '../lib/dataClient';
+import CustomerForm from './CustomerForm';
 
 interface ProjectFormProps {
   project?: BIMProject | null;
@@ -46,6 +47,10 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [folderPotentialUrl, setFolderPotentialUrl] = useState(project?.folderPotentialUrl || '');
   const [folderOngoingUrl, setFolderOngoingUrl] = useState(project?.folderOngoingUrl || '');
   const [contractId, setContractId] = useState(project?.contractId || '');
+  const [endUserId, setEndUserId] = useState(project?.endUserId || '');
+  const [endUserName, setEndUserName] = useState(project?.endUserName || '');
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [customerFormType, setCustomerFormType] = useState<'investor' | 'client'>('investor');
   const [contracts, setContracts] = useState<{ id: string; code: string; title: string; customerName?: string; value?: number; startDate?: string; endDate?: string }[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const thumbnailDropRef = useRef<HTMLDivElement>(null);
@@ -81,6 +86,10 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const getCustomerDisplay = useCallback((id: string) => {
     return clientName || undefined;
   }, [clientName]);
+
+  const getEndUserDisplay = useCallback((id: string) => {
+    return endUserName || undefined;
+  }, [endUserName]);
 
   // ── Search contracts ────────────────────────────────────────────────
   const handleSearchContracts = useCallback(async (query: string) => {
@@ -186,6 +195,8 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         location: location.trim() || undefined,
         customerId: customerId || undefined,
         clientName: clientName.trim() || undefined,
+        endUserId: endUserId || undefined,
+        endUserName: endUserName.trim() || undefined,
         progress,
         contractValue,
         startDate: startDate || undefined,
@@ -219,6 +230,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const labelCls = 'block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5';
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6 animate-in slide-in-from-bottom-4 duration-300">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -322,7 +334,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
               className={inputCls}
             />
           </div>
-          <div className="md:col-span-2">
+          <div className="md:col-span-1">
             <label className={labelCls}>
               <Building2 size={12} className="inline mr-1" />
               Chủ đầu tư
@@ -334,8 +346,35 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                 setClientName(option?.name || '');
               }}
               onSearch={handleSearchCustomers}
-              placeholder="Gõ tên chủ đầu tư để tìm..."
+              placeholder="Gõ tên để tìm..."
               getDisplayValue={getCustomerDisplay}
+              onAddNew={() => {
+                setCustomerFormType('investor');
+                setShowCustomerForm(true);
+              }}
+              addNewLabel="Thêm Đối tác"
+              size="md"
+            />
+          </div>
+          <div className="md:col-span-1">
+            <label className={labelCls}>
+              <Building2 size={12} className="inline mr-1" />
+              Khách hàng
+            </label>
+            <SearchableSelect
+              value={endUserId || null}
+              onChange={(id, option) => {
+                setEndUserId(id || '');
+                setEndUserName(option?.name || '');
+              }}
+              onSearch={handleSearchCustomers}
+              placeholder="Gõ tên để tìm..."
+              getDisplayValue={getEndUserDisplay}
+              onAddNew={() => {
+                setCustomerFormType('client');
+                setShowCustomerForm(true);
+              }}
+              addNewLabel="Thêm Đối tác"
               size="md"
             />
           </div>
@@ -593,6 +632,37 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         </button>
       </div>
     </form>
+
+      {showCustomerForm && (
+        <CustomerForm
+          isOpen={showCustomerForm}
+          onClose={() => setShowCustomerForm(false)}
+          defaultType="Customer"
+          onSave={async (data) => {
+            try {
+              let savedCustomer;
+              if ('id' in data && data.id) {
+                savedCustomer = await CustomerService.update(data.id, data);
+              } else {
+                savedCustomer = await CustomerService.create(data as any);
+              }
+              
+              if (customerFormType === 'investor') {
+                setCustomerId(savedCustomer.id);
+                setClientName(savedCustomer.name);
+              } else {
+                setEndUserId(savedCustomer.id);
+                setEndUserName(savedCustomer.name);
+              }
+              toast.success('Đã chọn đối tác mới');
+              setShowCustomerForm(false);
+            } catch (err: any) {
+              toast.error('Lỗi khi lưu đối tác: ' + (err.message || err));
+            }
+          }}
+        />
+      )}
+    </>
   );
 };
 
