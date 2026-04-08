@@ -1,100 +1,45 @@
-/**
- * Agent ReAct kiểu OpenClaw: nhiều bước suy luận → gọi tool ERP/local → tổng hợp câu trả lời tự nhiên.
- */
 import { config, ollamaEnabled } from '../config.js';
 import type { ResolvedContext } from '../supabaseClient.js';
 import { executeErpTool, isValidAgentTool } from './erpToolsExecutor.js';
 import { generateNaturalReply } from '../llm/naturalChat.js';
 
-type ChatMsg = { role: 'system' | 'user' | 'assistant'; content: string };
+export type ChatMsg = 
+  | { role: 'system' | 'user' | 'assistant'; content: string; tool_calls?: any[] }
+  | { role: 'tool'; content: string; name?: string };
 
 const YEAR = new Date().getFullYear();
 
-const AGENT_SYSTEM = `Bạn là agent OpenClaw trên Telegram — trợ lý thông minh cho CIC ERP.
-Bạn có quyền gọi tool truy vấn database ERP (Supabase RPC) và thao tác file/máy local.
+const AGENT_SYSTEM = `Bạn là OpenClaw Agent trên Telegram — một chuyên viên trợ lý của CIC ERP. Bạn có quyền gọi các tool (functions) để truy xuất dữ liệu từ Database hoặc thao tác với file.
 
-MỖI lượt chỉ trả về MỘT object JSON hợp lệ (không markdown, không text ngoài JSON):
+NGUYÊN TẮC QUAN TRỌNG:
+1. Bạn phải TỰ ĐỘNG suy luận. Đừng ngại gọi nhiều tool liên tiếp nhau nếu cần. Ví dụ: gọi 'overdue_payments' xong, sau đó gọi 'export_xlsx' theo yêu cầu.
+2. Dữ liệu CHỈ LẤY từ output của tool, tuyệt đối KHÔNG MÀ ĐỊA ra dữ liệu giả, tên khách hàng giả hay số tiền giả.
+3. Nếu người dùng chỉ nói chuyện phím, chào hỏi, hãy trả lời tự nhiên.
+4. Quý 1 = 01-01 -> 03-31, Quý 2 = 04-01 -> 06-30, Quý 3 = 07-01 -> 09-30, Quý 4 = 10-01 -> 12-31 năm ${YEAR}.
+5. export_docx / export_xlsx CHỈ DÀNH CHO BÁO CÁO HỢP ĐỒNG. Đơn xin nghỉ phép → dùng tool 'leave_docx' riêng.
 
-1) Gọi tool:
-{"thought":"1 câu suy nghĩ ngắn","action":"tool","tool":"TÊN_TOOL","args":{}}
+Hãy phản hồi người dùng bằng Tiếng Việt một cách chuyên nghiệp, thân thiện. Nếu có file đính kèm trong nội dung input của User, hãy đọc nội dung file đó trước khi trả lời.`;
 
-2) Trả lời xong cho user (tiếng Việt tự nhiên, có thể nhiều đoạn, emoji vừa phải):
-{"thought":"...","action":"answer","message":"nội dung gửi user"}
+const NATIVE_TOOLS_SCHEMA = [
+  { type: 'function', function: { name: 'dashboard', description: 'Xem tổng quan công ty: số lượng hợp đồng, tổng giá trị, nợ...', parameters: { type: 'object', properties: {} } } },
+  { type: 'function', function: { name: 'list_contracts', description: 'Xem danh sách hợp đồng', parameters: { type: 'object', properties: { from: { type: 'string', description: 'YYYY-MM-DD' }, to: { type: 'string', description: 'YYYY-MM-DD' } } } } },
+  { type: 'function', function: { name: 'search_contracts', description: 'Tìm hợp đồng theo từ khoá', parameters: { type: 'object', properties: { keyword: { type: 'string' } }, required: ['keyword'] } } },
+  { type: 'function', function: { name: 'overdue_payments', description: 'Kiểm tra danh sách thanh toán trễ hạn, công nợ', parameters: { type: 'object', properties: {} } } },
+  { type: 'function', function: { name: 'expiring_contracts', description: 'Kiểm tra hợp đồng sắp hết hạn', parameters: { type: 'object', properties: { days: { type: 'number', description: 'Số ngày tới' } } } } },
+  { type: 'function', function: { name: 'my_tasks', description: 'Xem danh sách task của người dùng hiện tại', parameters: { type: 'object', properties: {} } } },
+  { type: 'function', function: { name: 'revenue_report', description: 'Xem báo cáo doanh thu theo tháng / năm', parameters: { type: 'object', properties: { year: { type: 'number' } } } } },
+  { type: 'function', function: { name: 'export_xlsx', description: 'Trích xuất và gửi file Excel (danh sách Hợp Đồng)', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } } } },
+  { type: 'function', function: { name: 'export_docx', description: 'Trích xuất và gửi file Word (báo cáo Hợp Đồng)', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } } } },
+  { type: 'function', function: { name: 'leave_docx', description: 'Tạo đơn xin nghỉ phép định dạng Word', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, reason: { type: 'string' }, days: { type: 'number' } } } } },
+  { type: 'function', function: { name: 'save_report', description: 'Lưu báo cáo hợp đồng vào local disk (không gửi Telegram trực tiếp)', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, format: { type: 'string', enum: ['xlsx', 'docx'] } } } } },
+  { type: 'function', function: { name: 'run_shell', description: 'Chạy một lệnh hệ thống terminal', parameters: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] } } },
+  { type: 'function', function: { name: 'list_files', description: 'Liệt kê các file trong hệ thống', parameters: { type: 'object', properties: { path: { type: 'string' } } } } },
+  { type: 'function', function: { name: 'read_file', description: 'Đọc nội dung một file', parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } } },
+  { type: 'function', function: { name: 'clear_memory', description: 'Xoá lịch sử hội thoại của Agent', parameters: { type: 'object', properties: {} } } },
+  { type: 'function', function: { name: 'help', description: 'Gửi danh sách hướng dẫn, cú pháp lệnh chung', parameters: { type: 'object', properties: {} } } }
+];
 
-Quy tắc:
-- CHỈ dùng số liệu từ kết quả tool; không bịa dữ liệu ERP.
-- Nếu user hỏi chung ("bạn làm được gì"), có thể gọi tool "help" rồi answer.
-- export_docx / export_xlsx chỉ cho BÁO CÁO HỢP ĐỒNG. Đơn xin nghỉ phép → tool "leave_docx".
-- from/to ngày dạng YYYY-MM-DD hoặc null. Quý: Q1=${YEAR}-01-01..03-31, Q2=04-01..06-30, Q3=07-01..09-30, Q4=10-01..12-31.
-- Có thể gọi nhiều tool liên tiếp (dashboard rồi overdue_payments...) trước khi answer.
-
-Danh sách tool (args):
-- dashboard — {}
-- list_contracts — {from,to} optional
-- search_contracts — {keyword}
-- overdue_payments — {}
-- expiring_contracts — {days} default 30
-- my_tasks — {}
-- revenue_report — {year} optional
-- export_xlsx, export_docx — {from,to} optional
-- leave_docx — {from,to,days,reason} optional
-- save_report — {from,to,format} format xlsx|docx
-- run_shell — {command}
-- list_files — {path}
-- read_file — {path}
-- write_file — {path,content}
-- clear_memory — {}
-- help — {}`;
-
-type Step =
-  | { type: 'answer'; message: string }
-  | { type: 'tool'; tool: string; args: Record<string, unknown> };
-
-function parseStep(raw: string): Step | null {
-  const trimmed = raw.trim();
-  let o: Record<string, unknown>;
-  try {
-    o = JSON.parse(trimmed) as Record<string, unknown>;
-  } catch {
-    const m = trimmed.match(/\{[\s\S]*\}/);
-    if (!m) return null;
-    try {
-      o = JSON.parse(m[0]) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  }
-
-  if (Array.isArray(o.tool_calls) && o.tool_calls.length > 0) {
-    const tc = o.tool_calls[0] as Record<string, unknown>;
-    const fn = tc.function as Record<string, unknown> | undefined;
-    if (fn && typeof fn.name === 'string') {
-      let args: Record<string, unknown> = {};
-      if (typeof fn.arguments === 'string') {
-        try {
-          args = JSON.parse(fn.arguments) as Record<string, unknown>;
-        } catch { /* ignore */ }
-      }
-      return { type: 'tool', tool: fn.name, args };
-    }
-    o = { ...o, ...(tc as Record<string, unknown>) };
-  }
-
-  const action = String(o.action ?? '').toLowerCase();
-  if (action === 'answer' && typeof o.message === 'string' && o.message.trim()) {
-    return { type: 'answer', message: o.message.trim() };
-  }
-  if (action === 'tool' && typeof o.tool === 'string') {
-    const args =
-      o.args && typeof o.args === 'object' && !Array.isArray(o.args)
-        ? (o.args as Record<string, unknown>)
-        : {};
-    return { type: 'tool', tool: o.tool.trim(), args };
-  }
-  return null;
-}
-
-async function ollamaJsonTurn(messages: ChatMsg[]): Promise<string> {
+async function ollamaToolCallingTurn(messages: ChatMsg[]): Promise<{ message?: string; tool_calls?: any[] }> {
   const url = `${config.ollamaHost}/api/chat`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000);
@@ -106,14 +51,20 @@ async function ollamaJsonTurn(messages: ChatMsg[]): Promise<string> {
         model: config.ollamaModel,
         messages,
         stream: false,
-        format: 'json',
-        options: { temperature: 0.25, num_predict: 700 },
+        tools: NATIVE_TOOLS_SCHEMA,
+        options: { temperature: 0.15, num_predict: 2000 },
       }),
       signal: controller.signal,
     });
-    if (!res.ok) return '';
-    const data = (await res.json()) as { message?: { content?: string } };
-    return data.message?.content?.trim() ?? '';
+    if (!res.ok) return {};
+    const data = (await res.json()) as { message?: { content?: string, tool_calls?: any[] } };
+    return {
+      message: data.message?.content?.trim() || undefined,
+      tool_calls: data.message?.tool_calls
+    };
+  } catch (err) {
+    console.error("Lỗi gọi Ollama API:", err);
+    return {};
   } finally {
     clearTimeout(timeout);
   }
@@ -147,10 +98,10 @@ export async function runErpReactAgent(params: {
 }): Promise<ReactAgentResult | null> {
   if (!ollamaEnabled) return null;
 
-  const maxSteps = config.reactMaxSteps;
+  const maxSteps = 8; // Tăng số bước tối đa cho Multi-step reasoning
   const messages: ChatMsg[] = [
     { role: 'system', content: AGENT_SYSTEM + '\n\n' + params.ctxLines.join('\n') },
-    { role: 'user', content: params.userText.slice(0, 3500) },
+    { role: 'user', content: params.userText.slice(0, 5000) },
   ];
 
   const usedTools: string[] = [];
@@ -158,49 +109,69 @@ export async function runErpReactAgent(params: {
 
   for (let i = 0; i < maxSteps; i++) {
     steps++;
-    const raw = await ollamaJsonTurn(messages);
-    if (!raw) break;
-
-    const step = parseStep(raw);
-    if (!step) {
-      messages.push({ role: 'assistant', content: raw.slice(0, 2000) });
+    const turn = await ollamaToolCallingTurn(messages);
+    
+    // Lưu lại message phản hồi từ trợ lý
+    if (turn.message || (turn.tool_calls && turn.tool_calls.length > 0)) {
       messages.push({
-        role: 'user',
-        content:
-          'Phản hồi trước không phải JSON hợp lệ. Trả về CHỈ một JSON: {"action":"tool","tool":"...","args":{}} hoặc {"action":"answer","message":"..."}',
+        role: 'assistant',
+        content: turn.message || '',
+        tool_calls: turn.tool_calls
       });
-      continue;
     }
 
-    if (step.type === 'answer') {
-      return { reply: step.message.slice(0, 4090), steps, usedTools };
+    // Nếu không màng gọi tool, Agent đã trả lời xong!
+    if (!turn.tool_calls || turn.tool_calls.length === 0) {
+      if (turn.message) {
+        return { reply: turn.message, steps, usedTools };
+      }
+      break;
     }
 
-    messages.push({ role: 'assistant', content: raw.slice(0, 2000) });
+    // Xử lý song song tất cả các tool calls (nếu mô hình gọi nhiều hàm 1 lúc)
+    for (const tc of turn.tool_calls) {
+      const functionName = tc.function.name;
+      let args = {};
+      try {
+        args = typeof tc.function.arguments === 'string' ? JSON.parse(tc.function.arguments) : tc.function.arguments;
+      } catch { }
 
-    let { tool, args } = guardLeaveInsteadOfContractExport(params.userText, step.tool, step.args);
-    if (!isValidAgentTool(tool)) {
+      const guarded = guardLeaveInsteadOfContractExport(params.userText, functionName, args);
+      let output = '';
+
+      if (!isValidAgentTool(guarded.tool)) {
+        output = `Lỗi: Tool ${guarded.tool} không tồn tại. Yêu cầu LLM không dùng tool giả mạo.`;
+      } else {
+        usedTools.push(guarded.tool);
+        try {
+          const result = await executeErpTool(params.chatId, params.ctx, guarded.tool, guarded.args);
+          output = result;
+        } catch (err: unknown) {
+          output = `Lỗi hệ thống khi gọi tool: ${err instanceof Error ? err.message : String(err)}`;
+        }
+      }
+
+      // Trả output về cho model đắp lại
       messages.push({
-        role: 'user',
-        content: `[Lỗi] Tool "${tool}" không tồn tại. Dùng một trong: dashboard, list_contracts, search_contracts, overdue_payments, expiring_contracts, my_tasks, revenue_report, export_xlsx, export_docx, leave_docx, save_report, run_shell, list_files, read_file, write_file, clear_memory, help.`,
+        role: 'tool',
+        name: functionName,
+        content: output.slice(0, 10000) // Tránh context window overflow
       });
-      continue;
     }
+  }
 
-    usedTools.push(tool);
-    const result = await executeErpTool(params.chatId, params.ctx, tool, args);
-    messages.push({
-      role: 'user',
-      content: `[Kết quả tool ${tool}]\n${result.slice(0, 14000)}\n\nNếu đủ dữ liệu → {"action":"answer","message":"..."} bằng tiếng Việt. Nếu cần thêm → gọi tool khác.`,
-    });
+  // Fallback nếu chạy quá max steps hoặc model ko nhả tin tự nhiên
+  const lastMsg = messages[messages.length - 1];
+  if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content) {
+     return { reply: lastMsg.content, steps, usedTools };
   }
 
   const fallback = await generateNaturalReply(
-    `${params.userText}\n\n(Lưu ý: agent đã gọi tool: ${usedTools.join(', ') || 'không'} nhưng chưa kết thúc — hãy trả lời tốt nhất có thể.)`,
+    `${params.userText}\n\n(Lưu ý hệ thống: Bạn đã gọi các tool: ${usedTools.join(', ')}. Hãy tổng hợp kết quả để báo cho người dùng)`,
     params.ctxLines
   );
   if (fallback) {
-    return { reply: fallback.slice(0, 4090), steps, usedTools };
+    return { reply: fallback, steps, usedTools };
   }
   return null;
 }

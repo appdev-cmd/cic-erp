@@ -70,3 +70,16 @@ export async function tgSendDocument(
     throw new Error(j.description ?? 'sendDocument failed');
   }
 }
+
+export async function tgGetFileUrl(fileId: string): Promise<string> {
+  const res = await fetch(`${BASE}/getFile`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ file_id: fileId }),
+  });
+  const j = (await res.json()) as { ok: boolean; result?: { file_path: string } };
+  if (!j.ok || !j.result?.file_path) {
+    throw new Error('Không lấy được file_path từ Telegram API');
+  }
+  return `https://api.telegram.org/file/bot${config.telegramBotToken}/${j.result.file_path}`;
+}

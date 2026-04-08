@@ -12,6 +12,12 @@ interface TgUpdate {
     message_id?: number;
     chat?: { id?: number };
     text?: string;
+    caption?: string;
+    document?: {
+      file_id: string;
+      file_name?: string;
+      mime_type?: string;
+    };
   };
 }
 
@@ -71,13 +77,26 @@ async function processTgUpdate(
   log: { error: (e: unknown) => void }
 ): Promise<{ chatId?: number; ok: boolean; note?: string }> {
   const chatId = u.message?.chat?.id;
-  const text = u.message?.text?.trim();
+  const doc = u.message?.document;
+  let text = u.message?.text?.trim() || u.message?.caption?.trim() || '';
 
   if (chatId == null) {
     return { ok: true, note: 'no chat' };
   }
 
-  if (!text) {
+  if (doc) {
+    text += `\n[Có file đính kèm: ${doc.file_name || 'document'}]`;
+    try {
+      const { parseDocumentFromTelegram } = await import('./tools/documentReader.js');
+      const docText = await parseDocumentFromTelegram(doc.file_id, doc.file_name || '');
+      text += `\n\nNội dung file đính kèm:\n"""\n${docText.slice(0, 5000)}\n"""`;
+    } catch (err: unknown) {
+      log.error(`File parsing error: ${err instanceof Error ? err.message : String(err)}`);
+      text += `\n[Không thể đọc nội dung file: ${err instanceof Error ? err.message : 'Unknown error'}]`;
+    }
+  }
+
+  if (!text.trim()) {
     return { ok: true, chatId };
   }
 

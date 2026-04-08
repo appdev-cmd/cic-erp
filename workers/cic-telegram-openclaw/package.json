@@ -18,6 +18,8 @@
     "@supabase/supabase-js": "^2.91.1",
     "docx": "^9.6.0",
     "fastify": "^5.2.1",
+    "mammoth": "^1.6.0",
+    "pdf-parse": "^1.1.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
