@@ -13,6 +13,7 @@ import { executeShell, listFiles, readFile, writeFile, saveReport } from '../too
 import { installSkill, uninstallSkill } from '../skills/skillInstaller.js';
 import { formatSkillsList } from '../skills/skillLoader.js';
 import { generateNaturalReply } from '../llm/naturalChat.js';
+import { runErpReactAgent } from './erpReactAgent.js';
 
 function fmtMoney(n: number | null): string {
   if (n == null || isNaN(n)) return '0';
@@ -36,8 +37,8 @@ function buildHelpHtml(): string {
     : '';
 
   return [
-    '<b>🤖 Trợ lý CIC ERP — OpenClaw Runtime</b>',
-    '<i>OpenClaw-compatible agent chạy local</i>',
+    '<b>🤖 Trợ lý CIC ERP — OpenClaw Agent (ReAct)</b>',
+    '<i>Agent nhiều bước: suy luận → gọi tool ERP → trả lời tự nhiên (Ollama)</i>',
     '',
     '<b>📊 Báo cáo & Dữ liệu:</b>',
     '• "tình hình công ty" → tổng quan dashboard',
@@ -443,6 +444,45 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
     `Ngày: ${new Date().toISOString().slice(0, 10)}`,
     ...(conversationContext ? [`Hội thoại gần đây:\n${conversationContext}`] : []),
   ];
+
+  if (config.reactAgentEnabled) {
+    try {
+      const react = await runErpReactAgent({
+        chatId,
+        userText: text,
+        ctx,
+        ctxLines,
+      });
+      if (react?.reply) {
+        await tgSendMessagePlain(chatId, react.reply);
+        addMessage(chatId, 'assistant', react.reply.slice(0, 500));
+        await auditLog(String(chatId), ctx.employeeId, 'react_agent', {
+          steps: react.steps,
+          tools: react.usedTools,
+        });
+        return;
+      }
+    } catch (err: unknown) {
+      const natural = await generateNaturalReply(
+        text,
+        ctxLines.concat(`Lỗi agent: ${err instanceof Error ? err.message : String(err)}`)
+      );
+      if (natural) {
+        await tgSendMessagePlain(chatId, natural.slice(0, 4090));
+        addMessage(chatId, 'assistant', natural.slice(0, 500));
+        await auditLog(String(chatId), ctx.employeeId, 'react_agent_error', {
+          err: String(err instanceof Error ? err.message : err),
+        });
+        return;
+      }
+      await tgSendMessage(
+        chatId,
+        'Đã xảy ra lỗi xử lý. Vui lòng thử lại sau hoặc liên hệ IT. Gõ /help để xem lệnh cố định.'
+      );
+      addMessage(chatId, 'assistant', 'lỗi xử lý agent');
+      return;
+    }
+  }
 
   let decision = await decideTool(text, ctxLines);
 

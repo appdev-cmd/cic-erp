@@ -26,6 +26,9 @@ export const config = {
   ollamaModel: process.env.OLLAMA_MODEL ?? 'gemma2:2b',
   /** Giới hạn hàng RPC khi xuất báo cáo */
   reportRowCap: Math.min(Number(process.env.REPORT_ROW_CAP ?? '500'), 2000),
+  /** Agent ReAct (OpenClaw-style): suy luận nhiều bước + tool ERP */
+  reactAgentEnabled: process.env.REACT_AGENT_ENABLED !== 'false',
+  reactMaxSteps: Math.min(Math.max(Number(process.env.REACT_MAX_STEPS ?? '10'), 2), 24),
 };
 
 export const ollamaEnabled = Boolean(config.ollamaHost);
