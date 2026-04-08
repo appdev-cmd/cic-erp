@@ -34,6 +34,8 @@ import {
     LazyReportViewerPage as ReportViewerPage,
     LazyProjectListPage as ProjectListPage,
     LazyProjectDetailPage as ProjectDetailPage,
+    LazyHRMPage as HRMPage,
+    LazyRecruitmentPage as RecruitmentPage,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -108,6 +110,10 @@ export const router = createBrowserRouter([
             // Projects (BIM)
             { path: 'projects', element: <ProjectListPage /> },
             { path: 'projects/:id', element: <ProjectDetailPage /> },
+
+            // HRM
+            { path: 'hrm', element: <HRMPage /> },
+            { path: 'hrm/recruitment', element: <RecruitmentPage /> },
 
             // Settings
             { path: 'settings', element: <SettingsPage /> },

@@ -1,21 +1,206 @@
-import React from 'react';
-import { JobOpening } from '../../types/hrmTypes';
-import { Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { JobOpening, CandidateApplication, ApplicationStage } from '../../types/hrmTypes';
+import { recruitmentService } from '../../services/recruitmentService';
+import { formatDateShort } from '../../utils/formatters';
+import { Briefcase, ChevronRight, User, MousePointerClick } from 'lucide-react';
+import CandidateDetailPanel from './CandidateDetailPanel';
 
 interface Props {
   jobOpenings: JobOpening[];
 }
 
+const STAGES: { id: ApplicationStage; label: string; color: string }[] = [
+  { id: 'applied', label: 'Ứng tuyển mới', color: 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700' },
+  { id: 'screening', label: 'Sàng lọc CV', color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' },
+  { id: 'interview_1', label: 'Phỏng vấn vòng 1', color: 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800' },
+  { id: 'interview_2', label: 'Phỏng vấn vòng 2', color: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800' },
+  { id: 'offer', label: 'Gửi Offer', color: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' },
+  { id: 'hired', label: 'Đã Tuyển', color: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
+];
+
 const RecruitmentKanban: React.FC<Props> = ({ jobOpenings }) => {
-  return (
-    <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center min-h-[400px] flex flex-col items-center justify-center animate-fade-in shadow-inner">
-      <div className="w-16 h-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm rounded-2xl flex items-center justify-center mb-4 text-indigo-500">
-        <Search size={32} />
+  const [selectedJobId, setSelectedJobId] = useState<string>('');
+  const [applications, setApplications] = useState<CandidateApplication[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Drag state
+  const [draggedAppId, setDraggedAppId] = useState<string | null>(null);
+
+  // Detail panel
+  const [selectedApp, setSelectedApp] = useState<CandidateApplication | null>(null);
+
+  useEffect(() => {
+    if (jobOpenings.length > 0 && !selectedJobId) {
+      setSelectedJobId(jobOpenings[0].id);
+    }
+  }, [jobOpenings, selectedJobId]);
+
+  useEffect(() => {
+    if (selectedJobId) {
+      loadApplications();
+    }
+  }, [selectedJobId]);
+
+  const loadApplications = async () => {
+    setIsLoading(true);
+    try {
+      const data = await recruitmentService.getApplicationsByJob(selectedJobId);
+      setApplications(data);
+    } catch (error) {
+      console.error('Error loading applications:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, appId: string) => {
+    setDraggedAppId(appId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, newStage: ApplicationStage) => {
+    e.preventDefault();
+    if (!draggedAppId) return;
+
+    const appToMove = applications.find(a => a.id === draggedAppId);
+    if (!appToMove || appToMove.stage === newStage) {
+      setDraggedAppId(null);
+      return;
+    }
+
+    // Optimistic update
+    const previousApps = [...applications];
+    setApplications(apps => apps.map(app => 
+      app.id === draggedAppId ? { ...app, stage: newStage } : app
+    ));
+
+    try {
+      await recruitmentService.moveStage(draggedAppId, newStage);
+    } catch (error) {
+      console.error('Error moving stage:', error);
+      // Revert on error
+      setApplications(previousApps);
+    } finally {
+      setDraggedAppId(null);
+    }
+  };
+
+  if (jobOpenings.length === 0) {
+    return (
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center min-h-[400px] flex flex-col items-center justify-center">
+        <Briefcase size={32} className="mx-auto text-slate-400 mb-3" />
+        <p className="text-slate-500 dark:text-slate-400">Vui lòng tạo vị trí tuyển dụng trước khi sử dụng Kanban Board.</p>
       </div>
-      <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">Kanban Pipeline Ứng viên</h3>
-      <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-        Bảng quản lý quy trình (Pipeline) với tính năng kéo thả (Drag & Drop) thông minh đang được nâng cấp. Chức năng sẽ có mặt trong bản cập nhật tới!
-      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-250px)] min-h-[500px] max-h-[800px] bg-slate-50/50 dark:bg-slate-900/20 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm animate-fade-in">
+      {/* Kanban Header */}
+      <div className="bg-white dark:bg-slate-900 px-5 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between shrink-0 gap-3">
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Bộ lọc vị trí:</label>
+          <select 
+            value={selectedJobId} 
+            onChange={(e) => setSelectedJobId(e.target.value)}
+            className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-indigo-700 dark:text-indigo-300 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500/50"
+          >
+            {jobOpenings.map(job => (
+              <option key={job.id} value={job.id}>{job.title} {job.status === 'closed' ? '(Đã đóng)' : ''}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700">
+            <MousePointerClick size={14} className="text-slate-400" /> Kéo thả thẻ để chuyển vòng
+          </span>
+        </div>
+      </div>
+
+      {/* Kanban Board */}
+      <div className="flex-1 overflow-x-auto overflow-y-hidden p-5">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
+          </div>
+        ) : (
+          <div className="flex items-start gap-4 h-full">
+            {STAGES.map(stage => {
+              const stageApps = applications.filter(app => app.stage === stage.id);
+              return (
+                <div 
+                  key={stage.id} 
+                  className={`flex flex-col w-72 shrink-0 rounded-xl border-t-[3px] border-x border-b ${stage.color} overflow-hidden transition-all bg-slate-50 dark:bg-slate-900/50 ${draggedAppId ? 'hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-md' : ''}`}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, stage.id)}
+                >
+                  <div className="p-3 bg-white/50 dark:bg-slate-900/50 flex justify-between items-center shrink-0 border-b border-inherit">
+                    <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wide">{stage.label}</h3>
+                    <span className="bg-white dark:bg-slate-800 text-xs font-bold px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 shadow-sm">
+                      {stageApps.length}
+                    </span>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-3 space-y-3 pb-8 scrollbar-hide">
+                    {stageApps.map(app => (
+                      <div
+                        key={app.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, app.id)}
+                        onClick={() => setSelectedApp(app)}
+                        className={`bg-white dark:bg-slate-800 p-3.5 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing hover:shadow transition-all group relative ${draggedAppId === app.id ? 'opacity-40 border-dashed border-indigo-400 dark:border-indigo-500 shadow-none' : ''}`}
+                      >
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 dark:bg-indigo-400 rounded-l-lg opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-medium text-slate-900 dark:text-slate-100 text-sm leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            {app.candidate?.full_name}
+                          </h4>
+                        </div>
+                        
+                        <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1.5 mt-2">
+                          <p className="flex items-center gap-1.5"><User size={12} className="text-slate-400 shrink-0" /> {app.candidate?.experience_years} năm kinh nghiệm</p>
+                          <p className="flex items-center gap-1.5 truncate" title={app.candidate?.university || ''}>
+                            <Briefcase size={12} className="text-slate-400 shrink-0" /> 
+                            <span className="truncate">{app.candidate?.university || 'Chưa cập nhật trường'}</span>
+                          </p>
+                        </div>
+                        
+                        <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/50 flex justify-between items-center text-[10px] text-slate-400 dark:text-slate-500">
+                          <span>{formatDateShort(app.created_at)}</span>
+                          <span className="group-hover:text-indigo-500 dark:group-hover:text-indigo-400 flex items-center font-medium transition-colors">
+                            Chi tiết <ChevronRight size={12} className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {stageApps.length === 0 && (
+                      <div className="h-full flex items-center justify-center p-6 border-2 border-dashed border-slate-200/50 dark:border-slate-700/50 rounded-lg">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Thả ứng viên vào đây</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {selectedApp && (
+        <CandidateDetailPanel 
+          application={selectedApp} 
+          onClose={() => setSelectedApp(null)} 
+          onUpdate={() => { loadApplications(); }}
+        />
+      )}
     </div>
   );
 };
