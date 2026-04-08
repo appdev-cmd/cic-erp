@@ -15,7 +15,8 @@ import {
   Handshake,
   CheckSquare,
   Landmark,
-  ClipboardList
+  ClipboardList,
+  Briefcase
 } from 'lucide-react';
 import { UserRole, PlanStatus } from './types';
 
@@ -86,7 +87,8 @@ export const NAV_ITEMS = [
 
   // Danh mục
   { id: 'units', label: 'Đơn vị', icon: <Building2 size={20} /> },
-  { id: 'personnel', label: 'Nhân sự', icon: <Users size={20} /> },
+  { id: 'personnel', label: 'DS Nhân viên', icon: <Users size={20} /> },
+  { id: 'hrm', label: 'Nhân sự HR', icon: <Briefcase size={20} /> },
   { id: 'products', label: 'Sản phẩm/DV', icon: <Package size={20} /> },
   { id: 'customers', label: 'Đối tác', icon: <Handshake size={20} /> },
   { id: 'user-guide', label: 'Hướng dẫn', icon: <HelpCircle size={20} /> },

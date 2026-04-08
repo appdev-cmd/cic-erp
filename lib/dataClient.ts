@@ -17,7 +17,12 @@ import { createClient, Session } from '@supabase/supabase-js';
 import { DEFAULT_SUPABASE_ANON_KEY, DEFAULT_SUPABASE_URL } from './supabaseDefaults';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+
+// If in dev bypass mode and service role key is provided, use it to instantly bypass all RLS
+const isDevBypass = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+const supabaseKey = (isDevBypass && import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) 
+    ? import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY 
+    : (import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY);
 
 export const dataClient = createClient(supabaseUrl, supabaseKey, {
     auth: {

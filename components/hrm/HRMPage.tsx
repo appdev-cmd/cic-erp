@@ -60,7 +60,7 @@ const modules: ModuleCard[] = [
     bgColor: 'bg-amber-50',
     darkBgColor: 'dark:bg-amber-900/20',
     path: '/hrm/requests',
-    status: 'coming_soon',
+    status: 'active',
   },
 ];
 

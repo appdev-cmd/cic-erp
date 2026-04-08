@@ -87,6 +87,43 @@ export interface LeaveBalanceSummary {
   remaining: number; // total - used - pending
 }
 
+// ══════════════════════════════════════════
+// HRM - Đề xuất nội bộ (Internal Requests)
+// ══════════════════════════════════════════
+
+export type InternalRequestType = 'meeting_room' | 'vehicle' | 'stationery' | 'other';
+export type InternalRequestStatus = 'draft' | 'pending_unit' | 'pending_admin' | 'approved' | 'rejected' | 'cancelled';
+
+export interface InternalRequest {
+  id: string;
+  employee_id: string;
+  unit_id: string;
+  type: InternalRequestType;
+  title: string;
+  description?: string;
+  details: Record<string, any>; // JSONB
+  status: InternalRequestStatus;
+  approver_unit_id?: string;
+  approver_admin_id?: string;
+  rejection_reason?: string;
+  created_at: string;
+  updated_at: string;
+
+  // Joined fields
+  employee_name?: string;
+  employee_avatar?: string;
+  unit_name?: string;
+}
+
+export interface CreateInternalRequestInput {
+  employee_id: string;
+  unit_id: string;
+  type: InternalRequestType;
+  title: string;
+  description?: string;
+  details?: Record<string, any>;
+}
+
 // ── Recruitment (Phase 1) ──
 
 export type JobOpeningStatus = 'draft' | 'open' | 'on_hold' | 'closed' | 'filled';

@@ -37,6 +37,7 @@ import {
     LazyHRMPage as HRMPage,
     LazyRecruitmentPage as RecruitmentPage,
     LazyLeavePage as LeavePage,
+    LazyRequestsPage as RequestsPage,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -116,6 +117,7 @@ export const router = createBrowserRouter([
             { path: 'hrm', element: <HRMPage /> },
             { path: 'hrm/recruitment', element: <RecruitmentPage /> },
             { path: 'hrm/leave', element: <LeavePage /> },
+            { path: 'hrm/requests', element: <RequestsPage /> },
 
             // Settings
             { path: 'settings', element: <SettingsPage /> },

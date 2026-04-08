@@ -255,7 +255,7 @@ const LeavePage: React.FC = () => {
             loadData();
           }}
           employeeId={currentEmployee.id}
-          unitId={currentEmployee.unit_id || undefined}
+          unitId={currentEmployee.unitId || undefined}
           editRequest={editRequest}
         />
       )}

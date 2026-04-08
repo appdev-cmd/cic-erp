@@ -7,6 +7,7 @@ import { formatDateShort, formatDate } from '../../utils/formatters';
 
 import JobOpeningForm from './JobOpeningForm';
 import RecruitmentKanban from './RecruitmentKanban';
+import CandidateForm from './CandidateForm';
 
 const RecruitmentPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'pipeline' | 'jobs' | 'candidates'>('pipeline');
@@ -17,6 +18,7 @@ const RecruitmentPage: React.FC = () => {
   // Forms and Modals state
   const [showJobForm, setShowJobForm] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobOpening | null>(null);
+  const [showCandidateForm, setShowCandidateForm] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -64,6 +66,15 @@ const RecruitmentPage: React.FC = () => {
             >
               <Plus size={18} />
               <span>Tạo Yêu cầu</span>
+            </button>
+          )}
+          {activeTab === 'candidates' && (
+            <button
+              onClick={() => setShowCandidateForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
+            >
+              <Plus size={18} />
+              <span>Thêm Ứng Viên</span>
             </button>
           )}
         </div>
@@ -205,6 +216,14 @@ const RecruitmentPage: React.FC = () => {
           job={selectedJob}
           onClose={() => setShowJobForm(false)}
           onSuccess={() => { setShowJobForm(false); loadData(); }}
+        />
+      )}
+      
+      {showCandidateForm && (
+        <CandidateForm
+           jobOpenings={jobOpenings.filter(j => j.status === 'open')}
+           onClose={() => setShowCandidateForm(false)}
+           onSuccess={() => { setShowCandidateForm(false); loadData(); }}
         />
       )}
     </div>
