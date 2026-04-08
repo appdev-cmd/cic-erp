@@ -79,12 +79,24 @@ export async function decideTool(
     try { parsed = JSON.parse(raw); } catch { return null; }
 
     if (!parsed || typeof parsed !== 'object') return null;
-    const o = parsed as { tool?: string; args?: unknown };
+
     const validTools: ToolName[] = [
       'chat','help','dashboard','list_contracts','search_contracts',
       'overdue_payments','expiring_contracts','my_tasks','revenue_report',
       'export_xlsx','export_docx',
     ];
+
+    // Gemma 4 sometimes wraps in {"tool_calls":[...]} or {"tool":"...","args":{}}
+    let o: { tool?: string; args?: unknown };
+    const raw_obj = parsed as Record<string, unknown>;
+    if (Array.isArray(raw_obj.tool_calls) && raw_obj.tool_calls.length > 0) {
+      o = raw_obj.tool_calls[0] as { tool?: string; args?: unknown };
+    } else if (Array.isArray(raw_obj.tools) && raw_obj.tools.length > 0) {
+      o = raw_obj.tools[0] as { tool?: string; args?: unknown };
+    } else {
+      o = raw_obj as { tool?: string; args?: unknown };
+    }
+
     if (!o.tool || !validTools.includes(o.tool as ToolName)) return null;
     const args = (o.args && typeof o.args === 'object' ? o.args : {}) as Record<string, unknown>;
     return { tool: o.tool as ToolName, args };
