@@ -32,6 +32,40 @@ npm start
 | `OLLAMA_MODEL` | Mặc định `gemma2:2b` |
 | `REPORT_ROW_CAP` | Mặc định 500, tối đa 2000 |
 
+## Edge Function `telegram-openclaw-proxy` (Supabase)
+
+Đã có thể deploy qua Supabase MCP / CLI. URL webhook cố định:
+
+`https://<PROJECT_REF>.supabase.co/functions/v1/telegram-openclaw-proxy`
+
+**Project CIC ERP (ví dụ):** `https://jyohocjsnsyfgfsmjfqx.supabase.co/functions/v1/telegram-openclaw-proxy`
+
+**Bắt buộc — Secrets trong Dashboard** (Project → Edge Functions → Secrets):
+
+| Secret | Ý nghĩa |
+|--------|---------|
+| `TELEGRAM_PROXY_SECRET` | Chuỗi dài ngẫu nhiên; **trùng** `TELEGRAM_WEBHOOK_SECRET` trên worker và `secret_token` khi `setWebhook` |
+| `OPENCLAW_WORKER_URL` | Origin worker có TLS, ví dụ `https://bot.congty.com` (**không** có `/` cuối) |
+
+Sau khi worker chạy và 2 secret trên đã đặt, chạy script:
+
+```bash
+chmod +x scripts/set-telegram-webhook.sh
+export TELEGRAM_BOT_TOKEN="..."           # token @cic_vn_bot
+export TELEGRAM_WEBHOOK_SECRET="..."      # = TELEGRAM_PROXY_SECRET
+export SUPABASE_FUNCTIONS_URL="https://jyohocjsnsyfgfsmjfqx.supabase.co/functions/v1/telegram-openclaw-proxy"
+./scripts/set-telegram-webhook.sh
+```
+
+## Docker (worker — tùy chọn)
+
+```bash
+docker build -t cic-telegram-openclaw .
+docker run --env-file .env -p 8787:8787 cic-telegram-openclaw
+```
+
+Đặt reverse proxy (Caddy/Nginx) HTTPS → cổng 8787; `OPENCLAW_WORKER_URL` trỏ tới URL công khai đó.
+
 ## Webhook Telegram
 
 1. **Khuyến nghị — header secret:** `setWebhook` với `secret_token` trùng `TELEGRAM_WEBHOOK_SECRET`.
