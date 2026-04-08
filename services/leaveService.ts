@@ -124,7 +124,7 @@ export const LeaveService = {
 
     if (!employees || employees.length === 0) return { created: 0 };
 
-    const records = [];
+    const records: any[] = [];
     for (const emp of employees) {
       for (const policy of policies) {
         if (policy.default_days > 0) {

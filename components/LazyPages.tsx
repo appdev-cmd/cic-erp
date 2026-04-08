@@ -76,6 +76,7 @@ const ReportListPage = lazyWithRetry(() => import('./ReportListPage'));
 const ReportViewerPage = lazyWithRetry(() => import('./ReportViewerPage'));
 const HRMPage = lazyWithRetry(() => import('./hrm/HRMPage'));
 const RecruitmentPage = lazyWithRetry(() => import('./hrm/RecruitmentPage'));
+const LeavePage = lazyWithRetry(() => import('./hrm/LeavePage'));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
@@ -954,3 +955,4 @@ export const LazyProjectDetailPage: React.FC = () => {
 // HRM
 export const LazyHRMPage: React.FC = () => withSuspense(<HRMPage />);
 export const LazyRecruitmentPage: React.FC = () => withSuspense(<RecruitmentPage />);
+export const LazyLeavePage: React.FC = () => withSuspense(<LeavePage />);

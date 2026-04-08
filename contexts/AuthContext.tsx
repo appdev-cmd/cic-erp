@@ -46,8 +46,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 avatarUrl: undefined,
                 employeeId: '51bb76f8-5c7f-4413-835b-3f88bea13c9b' // TGĐ Nguyễn Hoàng Hà — for dev testing
             });
-            setIsLoading(false);
-            // Still try to get real session below so Google-token etc. work if available
+            
+            const autoLogin = async () => {
+                const devEmail = import.meta.env.VITE_DEV_EMAIL || 'appdev@cic.com.vn';
+                const devPassword = import.meta.env.VITE_DEV_PASSWORD;
+                
+                if (devPassword) {
+                    console.log('[AuthContext] Attempting silent dev auto-login...');
+                    const { data, error } = await supabase.auth.signInWithPassword({
+                        email: devEmail,
+                        password: devPassword
+                    });
+                    
+                    if (error) {
+                        console.error('[AuthContext] Dev auto-login failed:', error.message);
+                    } else {
+                        console.log('[AuthContext] Dev auto-login successful');
+                        syncAuthSession(data.session);
+                        setSession(data.session);
+                        setUser(data.user);
+                    }
+                } else {
+                    console.warn('[AuthContext] VITE_DEV_PASSWORD not set in .env.local. RLS may block database connections.');
+                }
+                
+                setIsLoading(false);
+            };
+            
+            autoLogin();
         }
     }, [isDevBypass]);
 

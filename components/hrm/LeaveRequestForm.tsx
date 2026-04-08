@@ -171,7 +171,7 @@ const LeaveRequestForm: React.FC<LeaveRequestFormProps> = ({
             <label className={labelCls}>Loại nghỉ phép</label>
             <select
               value={leaveType}
-              onChange={e => setLeaveType(e.target.value)}
+              onChange={e => setLeaveType(e.target.value as any)}
               className={inputCls}
             >
               {policies.map(p => (
