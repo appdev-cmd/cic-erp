@@ -19,6 +19,25 @@ npm run build
 npm start
 ```
 
+## Chạy local (không cần VPS)
+
+**Không có VPS nào “đi kèm” dự án** — VPS chỉ là một cách có domain + HTTPS cố định. Bạn có thể chỉ dùng **máy của mình**:
+
+1. Chạy worker: `npm start` → lắng nghe `http://127.0.0.1:8787`.
+2. Telegram **bắt buộc** gọi webhook qua **HTTPS công khai**. Máy local cần một **tunnel** (chọn một):
+   - **Cloudflare Tunnel (nhanh):** cài `cloudflared`, chạy  
+     `cloudflared tunnel --url http://127.0.0.1:8787`  
+     → nhận URL dạng `https://xxxx.trycloudflare.com` (**không** thêm path).
+   - Hoặc **ngrok:** `ngrok http 8787` → lấy URL `https://...ngrok...`.
+3. Trong **Supabase → Edge Functions → Secrets**, đặt  
+   **`OPENCLAW_WORKER_URL`** = đúng origin tunnel đó (vd `https://abcd-1234.trycloudflare.com`, **không** `/` cuối).
+4. `TELEGRAM_PROXY_SECRET` = trùng `TELEGRAM_WEBHOOK_SECRET` trong file `.env` worker.
+5. Chạy `scripts/set-telegram-webhook.sh` như mục dưới.
+
+Luồng: **Telegram → HTTPS Supabase proxy → HTTPS tunnel → worker trên máy bạn.**
+
+**Ollama / Gemma** vẫn có thể là `http://127.0.0.1:11434` trên cùng máy — chỉ worker Node cần được Internet tới qua tunnel.
+
 ## Biến môi trường
 
 | Biến | Mô tả |
@@ -45,7 +64,7 @@ npm start
 | Secret | Ý nghĩa |
 |--------|---------|
 | `TELEGRAM_PROXY_SECRET` | Chuỗi dài ngẫu nhiên; **trùng** `TELEGRAM_WEBHOOK_SECRET` trên worker và `secret_token` khi `setWebhook` |
-| `OPENCLAW_WORKER_URL` | Origin worker có TLS, ví dụ `https://bot.congty.com` (**không** có `/` cuối) |
+| `OPENCLAW_WORKER_URL` | Origin worker **HTTPS công khai**: domain, **hoặc** URL tunnel local (`https://….trycloudflare.com`) — **không** `/` cuối |
 
 Sau khi worker chạy và 2 secret trên đã đặt, chạy script:
 
@@ -64,7 +83,7 @@ docker build -t cic-telegram-openclaw .
 docker run --env-file .env -p 8787:8787 cic-telegram-openclaw
 ```
 
-Đặt reverse proxy (Caddy/Nginx) HTTPS → cổng 8787; `OPENCLAW_WORKER_URL` trỏ tới URL công khai đó.
+Tuỳ chọn server thật: reverse proxy HTTPS → cổng 8787. **Local thì dùng tunnel** (mục trên), không cần Docker.
 
 ## Webhook Telegram
 
