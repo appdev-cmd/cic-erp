@@ -4,14 +4,15 @@ import {
   fetchExpiringContracts, fetchMyTasks, searchContracts, fetchRevenueByMonth,
   resolveTelegramContext, type ResolvedContext,
 } from '../supabaseClient.js';
-import { contractsToDocxBuffer } from '../export/buildDocx.js';
+import { contractsToDocxBuffer, leaveRequestToDocxBuffer } from '../export/buildDocx.js';
 import { contractsToXlsxBuffer } from '../export/buildXlsx.js';
 import { decideTool, getLoadedSkills, reloadSkills } from '../llm/ollamaGemma.js';
-import { tgSendDocument, tgSendMessage } from '../telegramApi.js';
+import { tgSendChatAction, tgSendDocument, tgSendMessage, tgSendMessagePlain } from '../telegramApi.js';
 import { addMessage, getContextSummary, clearHistory } from '../memory/conversationMemory.js';
 import { executeShell, listFiles, readFile, writeFile, saveReport } from '../tools/shellTool.js';
 import { installSkill, uninstallSkill } from '../skills/skillInstaller.js';
 import { formatSkillsList } from '../skills/skillLoader.js';
+import { generateNaturalReply } from '../llm/naturalChat.js';
 
 function fmtMoney(n: number | null): string {
   if (n == null || isNaN(n)) return '0';
@@ -47,9 +48,13 @@ function buildHelpHtml(): string {
     '• "tìm hợp đồng Viettel" → tìm kiếm',
     '',
     '<b>📄 Xuất file:</b>',
-    '• "xuất excel quý 1" → gửi .xlsx',
-    '• "lập báo cáo quý 1 file docx" → gửi .docx',
+    '• "xuất excel hợp đồng quý 1" → .xlsx danh sách HĐ',
+    '• "lập báo cáo hợp đồng quý 1 docx" → .docx báo cáo HĐ',
+    '• "tạo đơn xin nghỉ phép docx" → mẫu đơn nghỉ (không phải báo cáo HĐ)',
     '• "lưu báo cáo quý 1 ra excel" → ~/cic-reports/',
+    '',
+    '<b>💬 Hội thoại tự nhiên:</b>',
+    '• Hỏi chuyện, "bạn làm được gì" → trả lời như chat (Ollama)',
     '',
     '<b>🖥️ Máy local:</b>',
     '• "chạy lệnh df -h" → terminal',
@@ -237,6 +242,29 @@ async function sendContractsFlow(
   return msg;
 }
 
+async function handleLeaveDocx(
+  chatId: number,
+  ctx: ResolvedContext,
+  args: Record<string, unknown>
+): Promise<string> {
+  const buf = await leaveRequestToDocxBuffer({
+    fullName: ctx.fullName,
+    fromDate: args.from ? String(args.from) : undefined,
+    toDate: args.to ? String(args.to) : undefined,
+    days: args.days != null ? String(args.days) : undefined,
+    reason: args.reason ? String(args.reason) : undefined,
+  });
+  const fname = `don_xin_nghi_phep_${new Date().toISOString().slice(0, 10)}.docx`;
+  await tgSendDocument(
+    chatId,
+    fname,
+    buf,
+    'Mẫu đơn xin nghỉ phép — mở Word để điền ngày và lý do cụ thể'
+  );
+  await auditLog(String(chatId), ctx.employeeId, 'leave_docx', {});
+  return 'Đã gửi file đơn xin nghỉ phép (mẫu).';
+}
+
 async function handleSaveReport(
   chatId: number, ctx: ResolvedContext,
   from: string | null, to: string | null, format: string
@@ -405,18 +433,35 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
     return;
   }
 
-  await tgSendMessage(chatId, '⏳ Đang xử lý...');
+  void tgSendChatAction(chatId, 'typing');
 
   const conversationContext = getContextSummary(chatId);
-  const decision = await decideTool(text, [
+  const ctxLines = [
     `Người dùng: ${ctx.fullName}`,
     `Vai trò: ${ctx.role}`,
     `Đơn vị: ${ctx.unitId ?? '-'}`,
     `Ngày: ${new Date().toISOString().slice(0, 10)}`,
     ...(conversationContext ? [`Hội thoại gần đây:\n${conversationContext}`] : []),
-  ]);
+  ];
+
+  let decision = await decideTool(text, ctxLines);
+
+  if (
+    decision &&
+    (decision.tool === 'export_docx' || decision.tool === 'export_xlsx') &&
+    /ngh[ỉi]\s*ph[ée]p|xin\s*ngh[ỉi]|đơn\s*xin\s*ngh[ỉi]|gi[ấa]y\s*xin\s*ngh[ỉi]/i.test(text)
+  ) {
+    decision = { tool: 'leave_docx', args: {} };
+  }
 
   if (!decision) {
+    const natural = await generateNaturalReply(text, ctxLines);
+    if (natural) {
+      await tgSendMessagePlain(chatId, natural.slice(0, 4090));
+      addMessage(chatId, 'assistant', natural.slice(0, 500));
+      await auditLog(String(chatId), ctx.employeeId, 'natural_fallback', {});
+      return;
+    }
     const msg = 'Xin lỗi, tôi chưa hiểu. Gõ /help để xem những gì tôi có thể giúp.';
     await tgSendMessage(chatId, msg);
     addMessage(chatId, 'assistant', msg);
@@ -426,9 +471,22 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
   let reply = '';
 
   switch (decision.tool) {
+    case 'natural_chat': {
+      const natural = await generateNaturalReply(text, ctxLines);
+      if (natural) {
+        await tgSendMessagePlain(chatId, natural.slice(0, 4090));
+        reply = natural.slice(0, 500);
+        await auditLog(String(chatId), ctx.employeeId, 'natural_chat', {});
+      } else {
+        await tgSendMessage(chatId, buildHelpHtml());
+        reply = 'Đã gửi hướng dẫn (LLM không phản hồi).';
+        await auditLog(String(chatId), ctx.employeeId, 'natural_chat_fallback_help', {});
+      }
+      break;
+    }
     case 'chat':
       reply = String(decision.args.message ?? 'Xin chào! Gõ /help để xem hướng dẫn.');
-      await tgSendMessage(chatId, reply);
+      await tgSendMessagePlain(chatId, reply);
       await auditLog(String(chatId), ctx.employeeId, 'chat', {});
       break;
     case 'help':
@@ -468,6 +526,9 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
       reply = await sendContractsFlow(chatId, ctx,
         decision.args.from ? String(decision.args.from) : null,
         decision.args.to ? String(decision.args.to) : null, 'docx');
+      break;
+    case 'leave_docx':
+      reply = await handleLeaveDocx(chatId, ctx, decision.args);
       break;
     case 'run_shell': {
       const result = executeShell(String(decision.args.command ?? ''));

@@ -6,8 +6,9 @@ const YEAR = new Date().getFullYear();
 const BASE_SYSTEM = `Bạn là Trợ lý CIC — OpenClaw-compatible AI assistant chạy local trên máy chủ công ty CIC. Trả lời CHỈ bằng 1 JSON {"tool":"...","args":{...}}.
 
 Core Tools:
-chat(message) — trò chuyện, chào hỏi, trả lời câu hỏi chung
-help() — hướng dẫn sử dụng
+natural_chat() — câu chung chung, hỏi "bạn làm được gì", tư vấn, giải thích (không cần tra DB). Ưu tiên khi hội thoại tự nhiên.
+chat(message) — câu chào ngắn; message là nội dung cố định tiếng Việt
+help() — gửi hướng dẫn đầy đủ (/help)
 dashboard() — tổng quan công ty
 list_contracts(from,to) — danh sách HĐ
 search_contracts(keyword) — tìm HĐ
@@ -15,8 +16,9 @@ overdue_payments() — thanh toán quá hạn
 expiring_contracts(days) — HĐ sắp hết hạn
 my_tasks() — task được giao
 revenue_report(year) — doanh thu theo tháng
-export_xlsx(from,to) — xuất Excel HĐ
-export_docx(from,to) — xuất Word HĐ
+export_xlsx(from,to) — CHỈ xuất Excel danh sách/báo cáo HỢP ĐỒNG
+export_docx(from,to) — CHỈ xuất Word báo cáo HỢP ĐỒNG (không dùng cho đơn xin nghỉ, công văn cá nhân)
+leave_docx(from,to,days,reason) — đơn xin nghỉ phép Word (mẫu, điền tên user); from/to/days/reason có thể null
 run_shell(command) — chạy lệnh terminal
 list_files(path) — xem danh sách file
 read_file(path) — đọc nội dung file
@@ -25,39 +27,43 @@ save_report(from,to,format) — lưu báo cáo HĐ (format: xlsx|docx)
 clear_memory() — xóa lịch sử hội thoại
 run_skill(skill,args) — chạy một OpenClaw skill đã cài
 
-Quy tắc:
-- "báo cáo"/"xuất" + "docx"/"word" → export_docx
-- "báo cáo"/"xuất" + "xlsx"/"excel" → export_xlsx
-- "lưu báo cáo" → save_report
-- "chạy lệnh"/"terminal"/"shell" → run_shell
-- "doanh thu"/"kinh doanh" → revenue_report
-- "quá hạn"/"nợ" → overdue_payments
-- "hết hạn" → expiring_contracts
-- "task"/"việc" → my_tasks
-- "tìm" + keyword → search_contracts
-- "tổng quan"/"tình hình" → dashboard
-- Chào hỏi → chat
+Quy tắc QUAN TRỌNG:
+- "đơn xin nghỉ"/"nghỉ phép" + file word/docx → leave_docx (KHÔNG export_docx)
+- export_docx/export_xlsx CHỈ khi nói về hợp đồng, danh sách HĐ, báo cáo kinh doanh/hợp đồng, xuất excel hợp đồng
+- "bạn có thể làm gì"/"làm được gì"/"chức năng" → natural_chat hoặc help
+- "báo cáo"/"xuất" + docx + ngữ cảnh HĐ/kinh doanh/quý → export_docx
+- "lưu báo cáo" (HĐ) → save_report
+- "chạy lệnh"/terminal → run_shell
+- doanh thu/kinh doanh → revenue_report
+- quá hạn/nợ → overdue_payments
+- hết hạn HĐ → expiring_contracts
+- task/việc → my_tasks
+- tìm + keyword → search_contracts
+- tổng quan/tình hình công ty → dashboard
+- Chào hỏi đơn giản → chat
 - Năm ${YEAR}. Q1=01-01→03-31, Q2=04-01→06-30, Q3=07-01→09-30, Q4=10-01→12-31
 
 Ví dụ:
-"lập báo cáo quý 1 file docx" → {"tool":"export_docx","args":{"from":"${YEAR}-01-01","to":"${YEAR}-03-31"}}
+"tạo đơn xin nghỉ phép file docx" → {"tool":"leave_docx","args":{}}
+"lập báo cáo hợp đồng quý 1 docx" → {"tool":"export_docx","args":{"from":"${YEAR}-01-01","to":"${YEAR}-03-31"}}
+"bạn có thể làm được gì" → {"tool":"natural_chat","args":{}}
 "doanh thu quý 1" → {"tool":"revenue_report","args":{"year":${YEAR}}}
 "xin chào" → {"tool":"chat","args":{"message":"Xin chào! Tôi là Trợ lý CIC."}}
 "chạy lệnh df -h" → {"tool":"run_shell","args":{"command":"df -h"}}`;
 
 export type ToolName =
-  | 'chat' | 'help' | 'dashboard' | 'list_contracts' | 'search_contracts'
+  | 'natural_chat' | 'chat' | 'help' | 'dashboard' | 'list_contracts' | 'search_contracts'
   | 'overdue_payments' | 'expiring_contracts' | 'my_tasks' | 'revenue_report'
-  | 'export_xlsx' | 'export_docx'
+  | 'export_xlsx' | 'export_docx' | 'leave_docx'
   | 'run_shell' | 'list_files' | 'read_file' | 'write_file' | 'save_report' | 'clear_memory'
   | 'run_skill';
 
 export type ToolDecision = { tool: ToolName; args: Record<string, unknown> };
 
 const VALID_TOOLS: ToolName[] = [
-  'chat','help','dashboard','list_contracts','search_contracts',
+  'natural_chat','chat','help','dashboard','list_contracts','search_contracts',
   'overdue_payments','expiring_contracts','my_tasks','revenue_report',
-  'export_xlsx','export_docx',
+  'export_xlsx','export_docx','leave_docx',
   'run_shell','list_files','read_file','write_file','save_report','clear_memory',
   'run_skill',
 ];
@@ -118,10 +124,43 @@ function regexFallback(text: string): ToolDecision | null {
   const yearMatch = t.match(/n[aă]m\s*(\d{4})/);
   const mentionedYear = yearMatch ? Number(yearMatch[1]) : null;
 
-  if (/xu[ấa]t\s*.*docx|file\s*docx|word|báo\s*cáo.*docx/i.test(t)) {
+  const isLeave =
+    /ngh[ỉi]\s*ph[ée]p|xin\s*ngh[ỉi]|đơn\s*xin\s*ngh[ỉi]|gi[ấa]y\s*xin\s*ngh[ỉi]|ph[ée]p\s*n[ăa]m/i.test(
+      t
+    );
+  const isContractExport =
+    /h[ợo]p\s*[đd][ồo]ng|danh\s*s[áa]ch\s*h[ợo]p|b[áa]o\s*c[áa]o.*(h[ợo]p\s*[đd]|kinh\s*doanh|doanh\s*thu)|xu[ấa]t.*h[ợo]p|l[ậa]p\s*b[áa]o\s*c[áa]o/i.test(
+      t
+    ) || /qu[ýy]\s*\d/.test(t);
+
+  // Câu hỏi meta → trả lời tự nhiên (giống OpenClaw) hoặc help
+  if (
+    /b[ạa]n\s+c[óo]\s+th[ểể]|l[àa]m\s+được\s+g[ìi]|ch[ứu]c\s+n[ăa]ng|kh[ảa]\s+n[ăa]ng|gi[úu]p\s+g[ìi]|h[ỗo]\s+tr[ợo]\s+g[ìi]|b[ạa]n\s+l[àa]\s+ai|b[ạa]n\s+l[àa]\s+g[ìi]/i.test(
+      text
+    )
+  ) {
+    return { tool: 'natural_chat', args: {} };
+  }
+
+  if (
+    isLeave &&
+    /(docx|word|file\s*word|t[ạa]o|so[ạa]n|l[ậa]p|xu[ấa]t)/i.test(t)
+  ) {
+    return { tool: 'leave_docx', args: {} };
+  }
+
+  if (
+    (/xu[ấa]t\s*.*docx|b[áa]o\s*c[áa]o.*docx/i.test(t) || /\bdocx\b|\bword\b/i.test(t)) &&
+    isContractExport &&
+    !isLeave
+  ) {
     return { tool: 'export_docx', args: { from: qFrom, to: qTo } };
   }
-  if (/xu[ấa]t\s*.*xlsx|file\s*xlsx|excel|báo\s*cáo.*xlsx|báo\s*cáo.*excel/i.test(t)) {
+  if (
+    (/xu[ấa]t\s*.*xlsx|b[áa]o\s*c[áa]o.*xlsx|b[áa]o\s*c[áa]o.*excel/i.test(t) || /\bxlsx\b|\bexcel\b/i.test(t)) &&
+    (isContractExport || /h[ợo]p\s*[đd]/i.test(t)) &&
+    !isLeave
+  ) {
     return { tool: 'export_xlsx', args: { from: qFrom, to: qTo } };
   }
   if (/doanh\s*thu|kinh\s*doanh|k[ếe]t\s*qu[ảa]\s*kinh\s*doanh|revenue/i.test(t)) {
@@ -193,7 +232,7 @@ export async function decideTool(
     ],
     stream: false,
     format: 'json',
-    options: { temperature: 0.1, num_predict: 300 },
+    options: { temperature: 0.15, num_predict: 400 },
   };
 
   const controller = new AbortController();

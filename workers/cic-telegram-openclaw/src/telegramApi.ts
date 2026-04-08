@@ -2,6 +2,35 @@ import { config } from './config.js';
 
 const BASE = `https://api.telegram.org/bot${config.telegramBotToken}`;
 
+export async function tgSendChatAction(
+  chatId: string | number,
+  action: 'typing' | 'upload_document' = 'typing'
+): Promise<void> {
+  await fetch(`${BASE}/sendChatAction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, action }),
+  });
+}
+
+/** Tin nhắn thường (không HTML) — dùng cho câu trả lời tự nhiên từ LLM */
+export async function tgSendMessagePlain(chatId: string | number, text: string): Promise<void> {
+  const body = {
+    chat_id: chatId,
+    text: text.slice(0, 4090),
+    disable_web_page_preview: true,
+  };
+  const res = await fetch(`${BASE}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const j = (await res.json()) as { ok?: boolean; description?: string };
+  if (!j.ok) {
+    throw new Error(j.description ?? 'sendMessage failed');
+  }
+}
+
 export async function tgSendMessage(chatId: string | number, text: string): Promise<void> {
   const body = {
     chat_id: chatId,
