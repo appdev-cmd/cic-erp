@@ -49,7 +49,7 @@ const modules: ModuleCard[] = [
     bgColor: 'bg-indigo-50',
     darkBgColor: 'dark:bg-indigo-900/20',
     path: '/hrm/recruitment',
-    status: 'coming_soon',
+    status: 'active',
   },
   {
     id: 'requests',
