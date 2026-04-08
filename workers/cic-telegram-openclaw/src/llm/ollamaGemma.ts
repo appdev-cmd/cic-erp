@@ -2,42 +2,57 @@ import { config, ollamaEnabled } from '../config.js';
 
 const YEAR = new Date().getFullYear();
 
-const SYSTEM = `Bạn là Trợ lý CIC. Trả lời CHỈ bằng 1 JSON object {"tool":"...","args":{...}}.
+const SYSTEM = `Bạn là Trợ lý CIC — AI assistant chạy local trên máy chủ công ty CIC. Trả lời CHỈ bằng 1 JSON {"tool":"...","args":{...}}.
 
 Tools:
-chat(message) — chào hỏi, hỏi chung
-help() — hướng dẫn
-dashboard() — tổng quan công ty
-list_contracts(from,to) — danh sách HĐ, from/to là "YYYY-MM-DD" hoặc null
-search_contracts(keyword) — tìm HĐ
-overdue_payments() — công nợ quá hạn
+chat(message) — trò chuyện, chào hỏi, trả lời câu hỏi chung. message là nội dung trả lời bằng tiếng Việt, thân thiện.
+help() — hướng dẫn sử dụng
+dashboard() — tổng quan công ty: HĐ, doanh thu, công nợ, task
+list_contracts(from,to) — danh sách HĐ, from/to "YYYY-MM-DD" hoặc null
+search_contracts(keyword) — tìm HĐ theo tên/mã/khách hàng
+overdue_payments() — thanh toán quá hạn
 expiring_contracts(days) — HĐ sắp hết hạn, days mặc định 30
-my_tasks() — task của tôi
-revenue_report(year) — doanh thu theo tháng, year số hoặc null=năm nay
+my_tasks() — task được giao cho tôi
+revenue_report(year) — doanh thu theo tháng, year số hoặc null
 export_xlsx(from,to) — xuất Excel HĐ
 export_docx(from,to) — xuất Word HĐ
+run_shell(command) — chạy lệnh terminal trên máy (ls, cat, df, top, git...)
+list_files(path) — xem danh sách file trong thư mục
+read_file(path) — đọc nội dung file
+write_file(path,content) — tạo/ghi file
+save_report(from,to,format) — lưu báo cáo HĐ ra file local (format: xlsx hoặc docx)
+clear_memory() — xóa lịch sử hội thoại
 
 Quy tắc:
-- Nếu user nói "báo cáo","xuất","lập báo cáo" + "docx"/"word" → export_docx
-- Nếu user nói "báo cáo","xuất" + "xlsx"/"excel" → export_xlsx
-- "kinh doanh","doanh thu","revenue" → revenue_report
-- "quá hạn","nợ" → overdue_payments
-- "hết hạn","sắp hết" → expiring_contracts
-- "task","việc","công việc" → my_tasks
-- "tìm","search" + keyword → search_contracts
-- "tổng quan","tình hình" → dashboard
-- Chào hỏi → chat
+- "báo cáo"/"xuất"/"lập" + "docx"/"word" → export_docx
+- "báo cáo"/"xuất" + "xlsx"/"excel" → export_xlsx
+- "lưu file"/"lưu báo cáo" → save_report
+- "chạy lệnh"/"terminal"/"shell" → run_shell
+- "xem file"/"đọc file" → read_file
+- "tạo file"/"ghi file" → write_file
+- "kinh doanh"/"doanh thu" → revenue_report
+- "quá hạn"/"nợ" → overdue_payments
+- "hết hạn"/"sắp hết" → expiring_contracts
+- "task"/"việc"/"công việc" → my_tasks
+- "tìm" + keyword → search_contracts
+- "tổng quan"/"tình hình" → dashboard
+- Chào hỏi, hỏi chung → chat (luôn trả lời thân thiện bằng tiếng Việt)
 - Năm ${YEAR}. Q1=01-01→03-31, Q2=04-01→06-30, Q3=07-01→09-30, Q4=10-01→12-31
 
 Ví dụ:
-User: "lập báo cáo quý 1 file docx" → {"tool":"export_docx","args":{"from":"${YEAR}-01-01","to":"${YEAR}-03-31"}}
-User: "doanh thu quý 1" → {"tool":"revenue_report","args":{"year":${YEAR}}}
-User: "xin chào" → {"tool":"chat","args":{"message":"Xin chào! Tôi có thể giúp gì?"}}`;
+"lập báo cáo quý 1 file docx" → {"tool":"export_docx","args":{"from":"${YEAR}-01-01","to":"${YEAR}-03-31"}}
+"doanh thu quý 1" → {"tool":"revenue_report","args":{"year":${YEAR}}}
+"xin chào" → {"tool":"chat","args":{"message":"Xin chào! Tôi là Trợ lý CIC, chạy trên máy của bạn. Tôi có thể giúp gì hôm nay?"}}
+"chạy lệnh df -h" → {"tool":"run_shell","args":{"command":"df -h"}}
+"lưu báo cáo quý 1 ra file excel" → {"tool":"save_report","args":{"from":"${YEAR}-01-01","to":"${YEAR}-03-31","format":"xlsx"}}
+"Autodesk có hợp đồng gì?" → {"tool":"search_contracts","args":{"keyword":"Autodesk"}}
+"bạn là ai" → {"tool":"chat","args":{"message":"Tôi là Trợ lý CIC — AI assistant chạy local trên máy chủ công ty. Tôi có thể tra cứu hợp đồng, doanh thu, task, chạy lệnh, tạo file báo cáo và nhiều thứ khác. Gõ /help để xem đầy đủ!"}}`;
 
 export type ToolName =
   | 'chat' | 'help' | 'dashboard' | 'list_contracts' | 'search_contracts'
   | 'overdue_payments' | 'expiring_contracts' | 'my_tasks' | 'revenue_report'
-  | 'export_xlsx' | 'export_docx';
+  | 'export_xlsx' | 'export_docx'
+  | 'run_shell' | 'list_files' | 'read_file' | 'write_file' | 'save_report' | 'clear_memory';
 
 export type ToolDecision = { tool: ToolName; args: Record<string, unknown> };
 
@@ -45,6 +60,7 @@ const VALID_TOOLS: ToolName[] = [
   'chat','help','dashboard','list_contracts','search_contracts',
   'overdue_payments','expiring_contracts','my_tasks','revenue_report',
   'export_xlsx','export_docx',
+  'run_shell','list_files','read_file','write_file','save_report','clear_memory',
 ];
 
 function extractToolFromJson(parsed: unknown): ToolDecision | null {
@@ -108,8 +124,27 @@ function regexFallback(text: string): ToolDecision | null {
   if (/help|h[ưu][ớo]ng\s*d[ẫa]n|gi[úu]p/i.test(t)) {
     return { tool: 'help', args: {} };
   }
+  if (/ch[ạa]y\s*l[ệe]nh|terminal|shell/i.test(t)) {
+    const cmd = t.replace(/.*(?:ch[ạa]y\s*l[ệe]nh|terminal|shell)\s*/i, '').trim();
+    if (cmd) return { tool: 'run_shell', args: { command: cmd } };
+  }
+  if (/xem\s*file|danh\s*s[áa]ch\s*file|list\s*file|ls\b/i.test(t)) {
+    const p = t.replace(/.*(?:xem\s*file|danh\s*s[áa]ch\s*file|list\s*file|ls)\s*/i, '').trim();
+    return { tool: 'list_files', args: { path: p || '.' } };
+  }
+  if (/[đd][ọo]c\s*file|read\s*file|cat\b/i.test(t)) {
+    const p = t.replace(/.*(?:[đd][ọo]c\s*file|read\s*file|cat)\s*/i, '').trim();
+    if (p) return { tool: 'read_file', args: { path: p } };
+  }
+  if (/l[ưu]u\s*b[áa]o\s*c[áa]o|save\s*report/i.test(t)) {
+    const fmt = /xlsx|excel/i.test(t) ? 'xlsx' : 'docx';
+    return { tool: 'save_report', args: { from: qFrom, to: qTo, format: fmt } };
+  }
+  if (/x[óo]a\s*(l[ịi]ch\s*s[ửu]|memory|h[ộo]i\s*tho[ạa]i)|clear/i.test(t)) {
+    return { tool: 'clear_memory', args: {} };
+  }
   if (/xin\s*ch[àa]o|hello|hi\b|ch[àa]o|alo/i.test(t)) {
-    return { tool: 'chat', args: { message: 'Xin chào! Tôi là Trợ lý CIC. Bạn cần tôi giúp gì? Gõ /help để xem hướng dẫn.' } };
+    return { tool: 'chat', args: { message: 'Xin chào! Tôi là Trợ lý CIC — AI chạy local trên máy của bạn. Gõ /help để xem hướng dẫn!' } };
   }
   return null;
 }

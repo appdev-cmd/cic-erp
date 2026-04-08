@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import { config } from './config.js';
 import { openclawHandleMessage } from './agent/openclawAgent.js';
+import { runDailyAlerts } from './tools/cronAlerts.js';
 
 const app = Fastify({ logger: true });
 
@@ -15,6 +16,35 @@ interface TgUpdate {
 }
 
 app.get('/health', async () => ({ ok: true, service: 'cic-telegram-openclaw' }));
+
+app.post('/cron/daily-alerts', async (request, reply) => {
+  if (!verifyWebhookSecret(request.headers as Record<string, string | string[] | undefined>)) {
+    return reply.code(401).send({ error: 'unauthorized' });
+  }
+  const sent = await runDailyAlerts();
+  return reply.send({ ok: true, sent });
+});
+
+const CRON_HOUR = Number(process.env.CRON_ALERT_HOUR ?? '8');
+let cronTimer: ReturnType<typeof setInterval> | null = null;
+
+function scheduleDailyAlerts(): void {
+  const checkInterval = 60_000;
+  let lastRunDate = '';
+  cronTimer = setInterval(async () => {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    if (now.getHours() === CRON_HOUR && lastRunDate !== today) {
+      lastRunDate = today;
+      try {
+        const sent = await runDailyAlerts();
+        app.log.info(`Daily alerts sent to ${sent} users`);
+      } catch (err) {
+        app.log.error(err);
+      }
+    }
+  }, checkInterval);
+}
 
 function getHeader(
   headers: Record<string, string | string[] | undefined>,
@@ -97,6 +127,8 @@ const start = async () => {
   try {
     await app.listen({ port: config.port, host: '0.0.0.0' });
     app.log.info(`Listening on :${config.port}`);
+    scheduleDailyAlerts();
+    app.log.info(`Daily alerts scheduled at ${CRON_HOUR}:00`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);
