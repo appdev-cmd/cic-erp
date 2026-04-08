@@ -24,7 +24,7 @@ npm start
 | Biến | Mô tả |
 |------|--------|
 | `PORT` | Cổng HTTP (mặc định 8787) |
-| `TELEGRAM_WEBHOOK_PATH_SECRET` | Chuỗi bí mật trong URL webhook |
+| `TELEGRAM_WEBHOOK_SECRET` | Khớp `secret_token` của `setWebhook` (header `X-Telegram-Bot-Api-Secret-Token`) |
 | `TELEGRAM_BOT_TOKEN` | Token BotFather |
 | `SUPABASE_URL` | URL dự án |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role (gọi RPC bot) |
@@ -34,19 +34,22 @@ npm start
 
 ## Webhook Telegram
 
-1. URL trực tiếp worker (HTTPS):
+1. **Khuyến nghị — header secret:** `setWebhook` với `secret_token` trùng `TELEGRAM_WEBHOOK_SECRET`.
 
-   `https://<host>/webhook/<TELEGRAM_WEBHOOK_PATH_SECRET>`
+   - Worker trực tiếp: `POST https://<host>/telegram-webhook` (Telegram gửi kèm header).
 
-2. Hoặc qua Supabase Edge `telegram-openclaw-proxy`: set `OPENCLAW_WORKER_URL`, `TELEGRAM_PROXY_SECRET` (cùng secret path), rồi:
+2. **Qua Supabase Edge** `telegram-openclaw-proxy`:
 
-   `https://<ref>.supabase.co/functions/v1/telegram-openclaw-proxy/<TELEGRAM_PROXY_SECRET>`
+   - `TELEGRAM_PROXY_SECRET` = cùng `secret_token` trong `setWebhook`
+   - `OPENCLAW_WORKER_URL` = origin worker (`https://bot.example.com`)
+   - URL webhook: `https://<ref>.supabase.co/functions/v1/telegram-openclaw-proxy`
 
-Gọi Bot API:
+3. **Legacy:** `POST https://<host>/webhook/<TELEGRAM_WEBHOOK_SECRET>`
 
 ```bash
 curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
-  -d "url=https://..."
+  -d "url=https://<ref>.supabase.co/functions/v1/telegram-openclaw-proxy" \
+  -d "secret_token=$TELEGRAM_WEBHOOK_SECRET"
 ```
 
 ## Lệnh chat
@@ -61,8 +64,9 @@ Với Ollama: câu tự nhiên (JSON tool) — `list_contracts` / `help`.
 ## Kiểm thử cục bộ
 
 ```bash
-curl -s -X POST "http://127.0.0.1:8787/webhook/$TELEGRAM_WEBHOOK_PATH_SECRET" \
+curl -s -X POST "http://127.0.0.1:8787/telegram-webhook" \
   -H "Content-Type: application/json" \
+  -H "X-Telegram-Bot-Api-Secret-Token: $TELEGRAM_WEBHOOK_SECRET" \
   -d '{"message":{"chat":{"id":123456789},"text":"/help"}}'
 ```
 

@@ -6,9 +6,18 @@ function req(name: string): string {
   return v;
 }
 
+/** Khớp secret_token (Telegram) / header X-Telegram-Bot-Api-Secret-Token */
+const webhookSecret =
+  process.env.TELEGRAM_WEBHOOK_SECRET?.trim() ||
+  process.env.TELEGRAM_WEBHOOK_PATH_SECRET?.trim();
+
+if (!webhookSecret) {
+  throw new Error('Cần TELEGRAM_WEBHOOK_SECRET (hoặc TELEGRAM_WEBHOOK_PATH_SECRET)');
+}
+
 export const config = {
   port: Number(process.env.PORT ?? '8787'),
-  webhookPathSecret: req('TELEGRAM_WEBHOOK_PATH_SECRET'),
+  webhookSecret,
   telegramBotToken: req('TELEGRAM_BOT_TOKEN'),
   supabaseUrl: req('SUPABASE_URL'),
   supabaseServiceRoleKey: req('SUPABASE_SERVICE_ROLE_KEY'),

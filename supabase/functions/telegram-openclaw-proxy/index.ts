@@ -1,17 +1,31 @@
 /**
- * Proxy mỏng: Telegram webhook → worker OpenClaw (HTTPS công khai cố định).
- * Biến môi trường:
- * - TELEGRAM_PROXY_SECRET: phải khớp path secret worker (cùng giá trị TELEGRAM_WEBHOOK_PATH_SECRET trên worker)
- * - OPENCLAW_WORKER_URL: vd https://bot.example.com (không có slash cuối)
+ * Proxy mỏng: Telegram webhook → worker OpenClaw.
  *
- * Đặt webhook Telegram: https://<project>.supabase.co/functions/v1/telegram-openclaw-proxy/<TELEGRAM_PROXY_SECRET>
+ * Cấu hình `setWebhook` của @cic_vn_bot:
+ * - url: https://<ref>.supabase.co/functions/v1/telegram-openclaw-proxy
+ * - secret_token: cùng giá trị với secrets TELEGRAM_PROXY_SECRET (Supabase) và TELEGRAM_WEBHOOK_SECRET (worker)
+ *
+ * Secrets Supabase (Edge):
+ * - TELEGRAM_PROXY_SECRET — khớp secret_token khi setWebhook
+ * - OPENCLAW_WORKER_URL — vd https://bot.example.com (không slash cuối)
+ *
+ * Secrets worker:
+ * - TELEGRAM_WEBHOOK_SECRET — cùng chuỗi với TELEGRAM_PROXY_SECRET
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-telegram-bot-api-secret-token",
 };
+
+function unauthorized() {
+  return new Response(JSON.stringify({ error: "unauthorized" }), {
+    status: 401,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -25,19 +39,13 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const url = new URL(req.url);
-  const parts = url.pathname.split("/").filter(Boolean);
-  const secretFromPath = parts[parts.length - 1] ?? "";
   const expected = Deno.env.get("TELEGRAM_PROXY_SECRET") ?? "";
-  const workerBase = (Deno.env.get("OPENCLAW_WORKER_URL") ?? "").replace(/\/$/, "");
-
-  if (!expected || secretFromPath !== expected) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  const got = req.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
+  if (!expected || got !== expected) {
+    return unauthorized();
   }
 
+  const workerBase = (Deno.env.get("OPENCLAW_WORKER_URL") ?? "").replace(/\/$/, "");
   if (!workerBase) {
     return new Response(JSON.stringify({ error: "OPENCLAW_WORKER_URL chưa cấu hình" }), {
       status: 500,
@@ -46,12 +54,15 @@ Deno.serve(async (req: Request) => {
   }
 
   const body = await req.text();
-  const target = `${workerBase}/webhook/${encodeURIComponent(expected)}`;
+  const target = `${workerBase}/telegram-webhook`;
 
   try {
     const fwd = await fetch(target, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Telegram-Bot-Api-Secret-Token": got,
+      },
       body,
     });
     const text = await fwd.text();

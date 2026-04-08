@@ -16,41 +16,80 @@ interface TgUpdate {
 
 app.get('/health', async () => ({ ok: true, service: 'cic-telegram-openclaw' }));
 
+function getHeader(
+  headers: Record<string, string | string[] | undefined>,
+  name: string
+): string | undefined {
+  const v = headers[name] ?? headers[name.toLowerCase()];
+  if (Array.isArray(v)) return v[0];
+  return v;
+}
+
+/** Header secret (Telegram secret_token) hoặc legacy path param */
+function verifyWebhookSecret(
+  headers: Record<string, string | string[] | undefined>,
+  pathSecret?: string
+): boolean {
+  const headerSecret = getHeader(headers, 'x-telegram-bot-api-secret-token')?.trim();
+  if (headerSecret && headerSecret === config.webhookSecret) return true;
+  if (pathSecret && pathSecret === config.webhookSecret) return true;
+  return false;
+}
+
+async function processTgUpdate(
+  u: TgUpdate,
+  log: { error: (e: unknown) => void }
+): Promise<{ chatId?: number; ok: boolean; note?: string }> {
+  const chatId = u.message?.chat?.id;
+  const text = u.message?.text?.trim();
+
+  if (chatId == null) {
+    return { ok: true, note: 'no chat' };
+  }
+
+  if (!text) {
+    return { ok: true, chatId };
+  }
+
+  try {
+    await openclawHandleMessage(chatId, text);
+  } catch (err) {
+    log.error(err);
+    try {
+      const { tgSendMessage } = await import('./telegramApi.js');
+      await tgSendMessage(
+        chatId,
+        'Đã xảy ra lỗi xử lý. Vui lòng thử lại sau hoặc liên hệ IT.'
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return { ok: true as const, chatId };
+}
+
+app.post<{ Body: TgUpdate }>('/telegram-webhook', async (request, reply) => {
+  if (!verifyWebhookSecret(request.headers as Record<string, string | string[] | undefined>)) {
+    return reply.code(401).send({ error: 'unauthorized' });
+  }
+  const result = await processTgUpdate(request.body, request.log);
+  return reply.code(200).send(result);
+});
+
 app.post<{ Params: { secret: string }; Body: TgUpdate }>(
   '/webhook/:secret',
   async (request, reply) => {
-    if (request.params.secret !== config.webhookPathSecret) {
+    if (
+      !verifyWebhookSecret(
+        request.headers as Record<string, string | string[] | undefined>,
+        request.params.secret
+      )
+    ) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
-
-    const u = request.body;
-    const chatId = u.message?.chat?.id;
-    const text = u.message?.text?.trim();
-
-    if (chatId == null) {
-      return reply.code(200).send({ ok: true, note: 'no chat' });
-    }
-
-    if (!text) {
-      return reply.code(200).send({ ok: true });
-    }
-
-    try {
-      await openclawHandleMessage(chatId, text);
-    } catch (err) {
-      request.log.error(err);
-      try {
-        const { tgSendMessage } = await import('./telegramApi.js');
-        await tgSendMessage(
-          chatId,
-          'Đã xảy ra lỗi xử lý. Vui lòng thử lại sau hoặc liên hệ IT.'
-        );
-      } catch {
-        /* ignore */
-      }
-    }
-
-    return reply.code(200).send({ ok: true });
+    const result = await processTgUpdate(request.body, request.log);
+    return reply.code(200).send(result);
   }
 );
 
