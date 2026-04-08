@@ -1,0 +1,22 @@
+{
+  "name": "openclaw-plugin-cic-erp",
+  "version": "1.0.0",
+  "description": "OpenClaw plugin — truy vấn CIC ERP qua Supabase RPC (Telegram chat → nhân viên)",
+  "type": "module",
+  "license": "MIT",
+  "keywords": ["openclaw", "openclaw-plugin", "cic", "erp", "supabase"],
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.28",
+    "@supabase/supabase-js": "^2.49.1"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.0"
+  },
+  "openclaw": {
+    "extensions": ["./src/index.ts"],
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2",
+      "minGatewayVersion": "2026.3.24-beta.2"
+    }
+  }
+}

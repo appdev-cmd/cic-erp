@@ -1,5 +1,7 @@
 # Worker trợ lý Telegram CIC (OpenClaw-style)
 
+> **OpenClaw gốc (khuyến nghị):** dùng Gateway OpenClaw + kênh Telegram chính thức và plugin **`plugins/openclaw-cic-erp`** trong repo này (xem `plugins/openclaw-cic-erp/README.md`). Worker dưới đây là lớp **webhook + tunnel + Supabase proxy** khi chưa chạy gateway.
+
 Điều phối **@cic_vn_bot**: xác thực qua RPC `telegram_bot_resolve_context`, báo cáo hợp đồng qua `telegram_bot_contracts_report`, xuất **Excel / DOCX**, tùy chọn **Gemma qua Ollama**.
 
 ## Checklist — bạn cần chuẩn bị (không cần gửi cho AI)

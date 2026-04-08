@@ -1,0 +1,24 @@
+{
+  "id": "cic-erp",
+  "name": "CIC ERP",
+  "description": "Truy vấn dữ liệu CIC ERP (hợp đồng, doanh thu, công nợ, task) qua Supabase RPC. Liên kết người dùng theo Telegram chat id.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "supabaseUrl": {
+        "type": "string",
+        "description": "URL dự án Supabase (https://xxx.supabase.co)"
+      },
+      "supabaseServiceRoleKey": {
+        "type": "string",
+        "description": "Service role key (chỉ dùng trên gateway tin cậy — không commit)"
+      },
+      "defaultTelegramChatId": {
+        "type": "string",
+        "description": "Tùy chọn: chat id mặc định khi test từ WebChat/CLI (không có requesterSenderId)"
+      }
+    },
+    "required": ["supabaseUrl", "supabaseServiceRoleKey"]
+  }
+}
