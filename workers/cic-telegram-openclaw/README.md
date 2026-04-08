@@ -2,6 +2,20 @@
 
 Điều phối **@cic_vn_bot**: xác thực qua RPC `telegram_bot_resolve_context`, báo cáo hợp đồng qua `telegram_bot_contracts_report`, xuất **Excel / DOCX**, tùy chọn **Gemma qua Ollama**.
 
+## Checklist — bạn cần chuẩn bị (không cần gửi cho AI)
+
+| # | Bạn có sẵn / tự điền | Ghi chú |
+|---|----------------------|---------|
+| 1 | **`TELEGRAM_BOT_TOKEN`** | Token bot @cic_vn_bot (Dashboard đã có / Supabase secrets OTP). Chỉ nhập vào `.env` worker + terminal khi `setWebhook`. |
+| 2 | **`SUPABASE_URL`** + **`SUPABASE_SERVICE_ROLE_KEY`** | Service role **chỉ** trên máy chạy worker — lấy Project Settings → API. |
+| 3 | **`TELEGRAM_WEBHOOK_SECRET`** (tự tạo 1 chuỗi dài) | Ghi vào `.env` worker **và** Supabase secret `TELEGRAM_PROXY_SECRET` (**trùng nhau**). |
+| 4 | **Tunnel HTTPS** | `cloudflared` hoặc ngrok — URL đó ghi vào Supabase `OPENCLAW_WORKER_URL`. Mỗi lần dev tunnel đổi URL thì **sửa lại** secret Supabase. |
+| 5 | Tài khoản Telegram trên ERP | `employees.telegram` = chat id, **`telegram_verified = true`**. |
+
+**Đã xong phía cloud (nếu bạn đã làm migration + deploy):** RPC `telegram_bot_*`, Edge `telegram-openclaw-proxy` ACTIVE, webhook URL dạng `https://<ref>.supabase.co/functions/v1/telegram-openclaw-proxy`.
+
+**Bạn không cần cung cấp** token/secret cho người khác — chỉ điền local + Dashboard Supabase.
+
 ## Yêu cầu
 
 - Node 20+
