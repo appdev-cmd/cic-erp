@@ -20,30 +20,30 @@ BEGIN
     RETURN QUERY
     SELECT
         (SELECT count(*) FROM contracts c
-         WHERE CASE WHEN v_role IN ('admin','director') THEN true
+         WHERE CASE WHEN v_role IN ('Admin','Leadership') THEN true
                ELSE c.unit_id = v_unit OR c.employee_id = p_employee_id END),
         (SELECT count(*) FROM contracts c
          WHERE c.status IN ('active','Đang thực hiện','in_progress')
-         AND CASE WHEN v_role IN ('admin','director') THEN true
+         AND CASE WHEN v_role IN ('Admin','Leadership') THEN true
              ELSE c.unit_id = v_unit OR c.employee_id = p_employee_id END),
         (SELECT coalesce(sum(c.value),0) FROM contracts c
-         WHERE CASE WHEN v_role IN ('admin','director') THEN true
+         WHERE CASE WHEN v_role IN ('Admin','Leadership') THEN true
                ELSE c.unit_id = v_unit OR c.employee_id = p_employee_id END),
         (SELECT coalesce(sum(c.receivables),0) FROM contracts c
-         WHERE CASE WHEN v_role IN ('admin','director') THEN true
+         WHERE CASE WHEN v_role IN ('Admin','Leadership') THEN true
                ELSE c.unit_id = v_unit OR c.employee_id = p_employee_id END),
         (SELECT coalesce(sum(c.cash_received),0) FROM contracts c
-         WHERE CASE WHEN v_role IN ('admin','director') THEN true
+         WHERE CASE WHEN v_role IN ('Admin','Leadership') THEN true
                ELSE c.unit_id = v_unit OR c.employee_id = p_employee_id END),
         (SELECT count(*) FROM payments pm
          JOIN contracts c ON c.id = pm.contract_id
          WHERE pm.status NOT IN ('paid','Đã thanh toán') AND pm.due_date < current_date
-         AND CASE WHEN v_role IN ('admin','director') THEN true
+         AND CASE WHEN v_role IN ('Admin','Leadership') THEN true
              ELSE c.unit_id = v_unit OR c.employee_id = p_employee_id END),
         (SELECT count(*) FROM tasks t
          JOIN task_statuses ts ON ts.id = t.status_id
          WHERE ts.name NOT IN ('done','completed','Hoàn thành')
-         AND CASE WHEN v_role IN ('admin','director') THEN true
+         AND CASE WHEN v_role IN ('Admin','Leadership') THEN true
              ELSE t.unit_id = v_unit END),
         (SELECT count(*) FROM tasks t
          JOIN task_statuses ts ON ts.id = t.status_id
@@ -77,7 +77,7 @@ BEGIN
     LEFT JOIN customers cu ON cu.id = c.customer_id
     WHERE pm.status NOT IN ('paid','Đã thanh toán')
       AND pm.due_date < current_date
-      AND CASE WHEN v_role IN ('admin','director') THEN true
+      AND CASE WHEN v_role IN ('Admin','Leadership') THEN true
           ELSE c.unit_id = v_unit OR c.employee_id = p_employee_id END
     ORDER BY pm.due_date ASC
     LIMIT least(p_limit, 50);
@@ -109,7 +109,7 @@ BEGIN
     WHERE c.end_date IS NOT NULL
       AND c.end_date BETWEEN current_date AND current_date + p_days
       AND c.status NOT IN ('closed','cancelled','Đã đóng','Đã hủy')
-      AND CASE WHEN v_role IN ('admin','director') THEN true
+      AND CASE WHEN v_role IN ('Admin','Leadership') THEN true
           ELSE c.unit_id = v_unit OR c.employee_id = p_employee_id END
     ORDER BY c.end_date ASC
     LIMIT 30;
@@ -168,7 +168,7 @@ BEGIN
     LEFT JOIN customers cu ON cu.id = c.customer_id
     WHERE (lower(c.title) LIKE v_kw OR lower(c.contract_code) LIKE v_kw
            OR lower(coalesce(cu.name,'')) LIKE v_kw)
-      AND CASE WHEN v_role IN ('admin','director') THEN true
+      AND CASE WHEN v_role IN ('Admin','Leadership') THEN true
           ELSE c.unit_id = v_unit OR c.employee_id = p_employee_id END
     ORDER BY c.signed_date DESC NULLS LAST
     LIMIT least(p_limit, 30);
@@ -194,7 +194,7 @@ BEGIN
            count(*), coalesce(sum(c.value),0), coalesce(sum(c.actual_revenue),0)
     FROM contracts c
     WHERE extract(year from c.signed_date) = v_year
-      AND CASE WHEN v_role IN ('admin','director') THEN true
+      AND CASE WHEN v_role IN ('Admin','Leadership') THEN true
           ELSE c.unit_id = v_unit OR c.employee_id = p_employee_id END
     GROUP BY to_char(c.signed_date, 'YYYY-MM')
     ORDER BY 1;
