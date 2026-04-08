@@ -23,28 +23,16 @@ export async function resolveTelegramContext(chatId: string): Promise<ResolvedCo
 
   if (error) {
     return {
-      employeeId: '',
-      profileId: '',
-      fullName: '',
-      role: '',
-      unitId: null,
-      telegramVerified: false,
-      ok: false,
-      errorMessage: error.message,
+      employeeId: '', profileId: '', fullName: '', role: '', unitId: null,
+      telegramVerified: false, ok: false, errorMessage: error.message,
     };
   }
 
   const row = Array.isArray(data) ? data[0] : null;
   if (!row) {
     return {
-      employeeId: '',
-      profileId: '',
-      fullName: '',
-      role: '',
-      unitId: null,
-      telegramVerified: false,
-      ok: false,
-      errorMessage: 'Không có dữ liệu resolve.',
+      employeeId: '', profileId: '', fullName: '', role: '', unitId: null,
+      telegramVerified: false, ok: false, errorMessage: 'Không có dữ liệu resolve.',
     };
   }
 
@@ -72,36 +60,108 @@ export type ContractReportRow = {
 };
 
 export async function fetchContractsReport(
-  employeeId: string,
-  from: string | null,
-  to: string | null,
-  limit: number
+  employeeId: string, from: string | null, to: string | null, limit: number
 ): Promise<ContractReportRow[]> {
   const { data, error } = await supabaseAdmin.rpc('telegram_bot_contracts_report', {
-    p_employee_id: employeeId,
-    p_from: from,
-    p_to: to,
-    p_limit: limit,
+    p_employee_id: employeeId, p_from: from, p_to: to, p_limit: limit,
   });
-
   if (error) throw new Error(error.message);
   return (data ?? []) as ContractReportRow[];
 }
 
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+export type DashboardData = {
+  total_contracts: number; active_contracts: number;
+  total_value: number; total_receivables: number; total_cash_received: number;
+  overdue_payments: number; pending_tasks: number; my_tasks: number;
+};
+
+export async function fetchDashboard(employeeId: string): Promise<DashboardData> {
+  const { data, error } = await supabaseAdmin.rpc('telegram_bot_dashboard', {
+    p_employee_id: employeeId,
+  });
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  return row as DashboardData;
+}
+
+// ─── Thanh toán quá hạn ──────────────────────────────────────────────────────
+export type OverduePayment = {
+  payment_id: string; contract_code: string; contract_title: string;
+  customer_name: string | null; amount: number; due_date: string; days_overdue: number;
+};
+
+export async function fetchOverduePayments(employeeId: string): Promise<OverduePayment[]> {
+  const { data, error } = await supabaseAdmin.rpc('telegram_bot_overdue_payments', {
+    p_employee_id: employeeId,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as OverduePayment[];
+}
+
+// ─── HĐ sắp hết hạn ─────────────────────────────────────────────────────────
+export type ExpiringContract = {
+  contract_code: string; title: string; customer_name: string | null;
+  end_date: string; days_remaining: number; value: number;
+};
+
+export async function fetchExpiringContracts(employeeId: string, days: number = 30): Promise<ExpiringContract[]> {
+  const { data, error } = await supabaseAdmin.rpc('telegram_bot_expiring_contracts', {
+    p_employee_id: employeeId, p_days: days,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ExpiringContract[];
+}
+
+// ─── Task của tôi ────────────────────────────────────────────────────────────
+export type MyTask = {
+  task_id: string; title: string; priority: string;
+  status_name: string; due_date: string | null; project_name: string | null;
+};
+
+export async function fetchMyTasks(employeeId: string): Promise<MyTask[]> {
+  const { data, error } = await supabaseAdmin.rpc('telegram_bot_my_tasks', {
+    p_employee_id: employeeId,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MyTask[];
+}
+
+// ─── Tìm hợp đồng ───────────────────────────────────────────────────────────
+export type SearchResult = {
+  contract_code: string; title: string; customer_name: string | null;
+  status: string; value: number; signed_date: string | null;
+};
+
+export async function searchContracts(employeeId: string, keyword: string): Promise<SearchResult[]> {
+  const { data, error } = await supabaseAdmin.rpc('telegram_bot_search_contracts', {
+    p_employee_id: employeeId, p_keyword: keyword,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SearchResult[];
+}
+
+// ─── Doanh thu theo tháng ────────────────────────────────────────────────────
+export type RevenueRow = {
+  month_label: string; contract_count: number; total_value: number; total_revenue: number;
+};
+
+export async function fetchRevenueByMonth(employeeId: string, year?: number): Promise<RevenueRow[]> {
+  const { data, error } = await supabaseAdmin.rpc('telegram_bot_revenue_by_month', {
+    p_employee_id: employeeId, p_year: year ?? null,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as RevenueRow[];
+}
+
+// ─── Audit log ───────────────────────────────────────────────────────────────
 export async function auditLog(
-  chatId: string,
-  employeeId: string | null,
-  action: string,
-  meta: Record<string, unknown>
+  chatId: string, employeeId: string | null, action: string, meta: Record<string, unknown>
 ): Promise<void> {
   try {
     await supabaseAdmin.rpc('telegram_bot_audit_log', {
-      p_telegram_chat_id: String(chatId),
-      p_employee_id: employeeId,
-      p_action: action,
-      p_meta: meta,
+      p_telegram_chat_id: String(chatId), p_employee_id: employeeId,
+      p_action: action, p_meta: meta,
     });
-  } catch {
-    /* không chặn luồng bot nếu audit lỗi */
-  }
+  } catch { /* không chặn luồng bot */ }
 }
