@@ -6,10 +6,12 @@ import {
 } from '../supabaseClient.js';
 import { contractsToDocxBuffer } from '../export/buildDocx.js';
 import { contractsToXlsxBuffer } from '../export/buildXlsx.js';
-import { decideTool } from '../llm/ollamaGemma.js';
+import { decideTool, getLoadedSkills, reloadSkills } from '../llm/ollamaGemma.js';
 import { tgSendDocument, tgSendMessage } from '../telegramApi.js';
 import { addMessage, getContextSummary, clearHistory } from '../memory/conversationMemory.js';
 import { executeShell, listFiles, readFile, writeFile, saveReport } from '../tools/shellTool.js';
+import { installSkill, uninstallSkill } from '../skills/skillInstaller.js';
+import { formatSkillsList } from '../skills/skillLoader.js';
 
 function fmtMoney(n: number | null): string {
   if (n == null || isNaN(n)) return '0';
@@ -22,33 +24,50 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-const HELP_HTML = [
-  '<b>🤖 Trợ lý CIC ERP — OpenClaw Edition</b>',
-  '<i>AI assistant chạy local trên máy của bạn</i>',
-  '',
-  '<b>📊 Báo cáo & Dữ liệu:</b>',
-  '• "tình hình công ty" → tổng quan dashboard',
-  '• "doanh thu năm nay" → báo cáo doanh thu',
-  '• "thanh toán quá hạn" → công nợ trễ',
-  '• "HĐ sắp hết hạn" → cảnh báo hợp đồng',
-  '• "task của tôi" → công việc được giao',
-  '• "tìm hợp đồng Viettel" → tìm kiếm',
-  '',
-  '<b>📄 Xuất file:</b>',
-  '• "xuất excel hợp đồng quý 1" → gửi .xlsx',
-  '• "lập báo cáo quý 1 file docx" → gửi .docx',
-  '• "lưu báo cáo quý 1 ra excel" → lưu vào ~/cic-reports/',
-  '',
-  '<b>🖥️ Máy local:</b>',
-  '• "chạy lệnh df -h" → chạy terminal',
-  '• "xem file ~/projects" → liệt kê thư mục',
-  '• "đọc file config.json" → đọc nội dung',
-  '',
-  '<b>📋 Lệnh nhanh:</b>',
-  '/help /hopdong /hopdong_xlsx /hopdong_docx',
-  '',
-  '💬 Hoặc hỏi bằng ngôn ngữ tự nhiên!',
-].join('\n');
+function buildHelpHtml(): string {
+  const skills = getLoadedSkills();
+  const skillSection = skills.length > 0
+    ? [
+        '',
+        '<b>🧩 OpenClaw Skills đã cài:</b>',
+        ...skills.map(s => `• ${s.emoji} <b>${s.name}</b> — ${esc(s.description)}`),
+      ].join('\n')
+    : '';
+
+  return [
+    '<b>🤖 Trợ lý CIC ERP — OpenClaw Runtime</b>',
+    '<i>OpenClaw-compatible agent chạy local</i>',
+    '',
+    '<b>📊 Báo cáo & Dữ liệu:</b>',
+    '• "tình hình công ty" → tổng quan dashboard',
+    '• "doanh thu năm nay" → báo cáo doanh thu',
+    '• "thanh toán quá hạn" → công nợ trễ',
+    '• "HĐ sắp hết hạn" → cảnh báo hợp đồng',
+    '• "task của tôi" → công việc được giao',
+    '• "tìm hợp đồng Viettel" → tìm kiếm',
+    '',
+    '<b>📄 Xuất file:</b>',
+    '• "xuất excel quý 1" → gửi .xlsx',
+    '• "lập báo cáo quý 1 file docx" → gửi .docx',
+    '• "lưu báo cáo quý 1 ra excel" → ~/cic-reports/',
+    '',
+    '<b>🖥️ Máy local:</b>',
+    '• "chạy lệnh df -h" → terminal',
+    '• "xem file ~/projects" → liệt kê thư mục',
+    '',
+    '<b>🧩 OpenClaw Skills:</b>',
+    '/skills — xem skill đã cài',
+    '/install &lt;tên&gt; — cài skill từ ClawHub',
+    '/uninstall &lt;tên&gt; — gỡ skill',
+    '/reload — tải lại skills',
+    skillSection,
+    '',
+    '<b>📋 Lệnh nhanh:</b>',
+    '/help /hopdong /hopdong_xlsx /hopdong_docx',
+    '',
+    '💬 Hoặc hỏi bằng ngôn ngữ tự nhiên!',
+  ].join('\n');
+}
 
 function parseIsoDate(s: string | undefined): string | null {
   if (!s) return null;
@@ -246,6 +265,75 @@ async function handleSaveReport(
   return msg;
 }
 
+// ─── OpenClaw Skill Executor ─────────────────────────────────────────────────
+
+async function executeSkillInstructions(
+  chatId: number,
+  ctx: ResolvedContext,
+  skill: { name: string; instructions: string; emoji: string },
+  args: Record<string, unknown>,
+  userText: string,
+): Promise<string> {
+  if (!ollamaEnabled) {
+    const msg = `${skill.emoji} Skill <b>${esc(skill.name)}</b> cần LLM (Ollama) để chạy.`;
+    await tgSendMessage(chatId, msg);
+    return msg;
+  }
+
+  const skillPrompt = `Bạn đang chạy OpenClaw skill "${skill.name}".
+${skill.instructions}
+
+Dựa trên instruction trên, hãy trả lời yêu cầu user. Trả lời bằng tiếng Việt, rõ ràng.
+Context: user=${ctx.fullName}, role=${ctx.role}
+User args: ${JSON.stringify(args)}
+User message: ${userText}
+
+Trả lời trực tiếp nội dung (KHÔNG wrap JSON).`;
+
+  try {
+    const url = `${config.ollamaHost}/api/chat`;
+    const body = {
+      model: config.ollamaModel,
+      messages: [
+        { role: 'system', content: skillPrompt },
+        { role: 'user', content: userText.slice(0, 2000) },
+      ],
+      stream: false,
+      options: { temperature: 0.3, num_predict: 1000 },
+    };
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120_000);
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) throw new Error(`Ollama ${res.status}`);
+    const data = (await res.json()) as { message?: { content?: string } };
+    const answer = data.message?.content?.trim() ?? '';
+
+    if (!answer) {
+      const msg = `${skill.emoji} Skill <b>${esc(skill.name)}</b> không có kết quả.`;
+      await tgSendMessage(chatId, msg);
+      return msg;
+    }
+
+    const msg = `${skill.emoji} <b>${esc(skill.name)}</b>\n\n${answer.slice(0, 3500)}`;
+    await tgSendMessage(chatId, msg);
+    return msg;
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const msg = `❌ Lỗi chạy skill "${esc(skill.name)}": ${esc(errMsg.slice(0, 200))}`;
+    await tgSendMessage(chatId, msg);
+    return msg;
+  }
+}
+
 // ─── Main handler ────────────────────────────────────────────────────────────
 
 export async function openclawHandleMessage(chatId: number, text: string): Promise<void> {
@@ -259,10 +347,49 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
   addMessage(chatId, 'user', text);
   const t = text.trim().toLowerCase();
 
+  // ── OpenClaw Skill Commands ───────────────────────────────
   if (t === '/help' || t === '/start' || t === 'help') {
-    await tgSendMessage(chatId, HELP_HTML);
+    await tgSendMessage(chatId, buildHelpHtml());
     addMessage(chatId, 'assistant', 'Đã gửi hướng dẫn');
     await auditLog(String(chatId), ctx.employeeId, 'help', {});
+    return;
+  }
+
+  if (t === '/skills') {
+    const skills = getLoadedSkills();
+    const msg = `<b>🧩 OpenClaw Skills (${skills.length})</b>\n\n` + formatSkillsList(skills);
+    await tgSendMessage(chatId, msg);
+    addMessage(chatId, 'assistant', `Listed ${skills.length} skills`);
+    return;
+  }
+
+  if (t.startsWith('/install ')) {
+    const name = text.trim().slice(9).trim();
+    const r = installSkill(name);
+    const emoji = r.ok ? '✅' : '❌';
+    if (r.ok) reloadSkills();
+    await tgSendMessage(chatId, `${emoji} ${esc(r.message)}`);
+    addMessage(chatId, 'assistant', r.message);
+    await auditLog(String(chatId), ctx.employeeId, 'install_skill', { name, ok: r.ok });
+    return;
+  }
+
+  if (t.startsWith('/uninstall ')) {
+    const name = text.trim().slice(11).trim();
+    const r = uninstallSkill(name);
+    const emoji = r.ok ? '✅' : '❌';
+    if (r.ok) reloadSkills();
+    await tgSendMessage(chatId, `${emoji} ${esc(r.message)}`);
+    addMessage(chatId, 'assistant', r.message);
+    await auditLog(String(chatId), ctx.employeeId, 'uninstall_skill', { name, ok: r.ok });
+    return;
+  }
+
+  if (t === '/reload') {
+    const skills = reloadSkills();
+    const msg = `🔄 Đã tải lại skills. Hiện có <b>${skills.length}</b> skill.`;
+    await tgSendMessage(chatId, msg);
+    addMessage(chatId, 'assistant', msg);
     return;
   }
 
@@ -305,7 +432,7 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
       await auditLog(String(chatId), ctx.employeeId, 'chat', {});
       break;
     case 'help':
-      await tgSendMessage(chatId, HELP_HTML);
+      await tgSendMessage(chatId, buildHelpHtml());
       reply = 'Đã gửi hướng dẫn';
       await auditLog(String(chatId), ctx.employeeId, 'llm_help', {});
       break;
@@ -379,6 +506,19 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
       reply = '🧹 Đã xóa lịch sử hội thoại.';
       await tgSendMessage(chatId, reply);
       break;
+    case 'run_skill': {
+      const skillName = String(decision.args.skill ?? '');
+      const skills = getLoadedSkills();
+      const skill = skills.find(s => s.name === skillName);
+      if (!skill) {
+        reply = `❌ Skill "${esc(skillName)}" chưa cài. Dùng /skills để xem hoặc /install ${esc(skillName)}.`;
+        await tgSendMessage(chatId, reply);
+        break;
+      }
+      reply = await executeSkillInstructions(chatId, ctx, skill, decision.args, text);
+      await auditLog(String(chatId), ctx.employeeId, 'run_skill', { skill: skillName });
+      break;
+    }
     default:
       reply = 'Xin lỗi, tôi chưa hỗ trợ yêu cầu này. Gõ /help.';
       await tgSendMessage(chatId, reply);

@@ -1,58 +1,56 @@
 import { config, ollamaEnabled } from '../config.js';
+import { loadAllSkills, formatSkillsForPrompt, type LoadedSkill } from '../skills/skillLoader.js';
 
 const YEAR = new Date().getFullYear();
 
-const SYSTEM = `Bạn là Trợ lý CIC — AI assistant chạy local trên máy chủ công ty CIC. Trả lời CHỈ bằng 1 JSON {"tool":"...","args":{...}}.
+const BASE_SYSTEM = `Bạn là Trợ lý CIC — OpenClaw-compatible AI assistant chạy local trên máy chủ công ty CIC. Trả lời CHỈ bằng 1 JSON {"tool":"...","args":{...}}.
 
-Tools:
-chat(message) — trò chuyện, chào hỏi, trả lời câu hỏi chung. message là nội dung trả lời bằng tiếng Việt, thân thiện.
+Core Tools:
+chat(message) — trò chuyện, chào hỏi, trả lời câu hỏi chung
 help() — hướng dẫn sử dụng
-dashboard() — tổng quan công ty: HĐ, doanh thu, công nợ, task
-list_contracts(from,to) — danh sách HĐ, from/to "YYYY-MM-DD" hoặc null
-search_contracts(keyword) — tìm HĐ theo tên/mã/khách hàng
+dashboard() — tổng quan công ty
+list_contracts(from,to) — danh sách HĐ
+search_contracts(keyword) — tìm HĐ
 overdue_payments() — thanh toán quá hạn
-expiring_contracts(days) — HĐ sắp hết hạn, days mặc định 30
-my_tasks() — task được giao cho tôi
-revenue_report(year) — doanh thu theo tháng, year số hoặc null
+expiring_contracts(days) — HĐ sắp hết hạn
+my_tasks() — task được giao
+revenue_report(year) — doanh thu theo tháng
 export_xlsx(from,to) — xuất Excel HĐ
 export_docx(from,to) — xuất Word HĐ
-run_shell(command) — chạy lệnh terminal trên máy (ls, cat, df, top, git...)
-list_files(path) — xem danh sách file trong thư mục
+run_shell(command) — chạy lệnh terminal
+list_files(path) — xem danh sách file
 read_file(path) — đọc nội dung file
 write_file(path,content) — tạo/ghi file
-save_report(from,to,format) — lưu báo cáo HĐ ra file local (format: xlsx hoặc docx)
+save_report(from,to,format) — lưu báo cáo HĐ (format: xlsx|docx)
 clear_memory() — xóa lịch sử hội thoại
+run_skill(skill,args) — chạy một OpenClaw skill đã cài
 
 Quy tắc:
-- "báo cáo"/"xuất"/"lập" + "docx"/"word" → export_docx
+- "báo cáo"/"xuất" + "docx"/"word" → export_docx
 - "báo cáo"/"xuất" + "xlsx"/"excel" → export_xlsx
-- "lưu file"/"lưu báo cáo" → save_report
+- "lưu báo cáo" → save_report
 - "chạy lệnh"/"terminal"/"shell" → run_shell
-- "xem file"/"đọc file" → read_file
-- "tạo file"/"ghi file" → write_file
-- "kinh doanh"/"doanh thu" → revenue_report
+- "doanh thu"/"kinh doanh" → revenue_report
 - "quá hạn"/"nợ" → overdue_payments
-- "hết hạn"/"sắp hết" → expiring_contracts
-- "task"/"việc"/"công việc" → my_tasks
+- "hết hạn" → expiring_contracts
+- "task"/"việc" → my_tasks
 - "tìm" + keyword → search_contracts
 - "tổng quan"/"tình hình" → dashboard
-- Chào hỏi, hỏi chung → chat (luôn trả lời thân thiện bằng tiếng Việt)
+- Chào hỏi → chat
 - Năm ${YEAR}. Q1=01-01→03-31, Q2=04-01→06-30, Q3=07-01→09-30, Q4=10-01→12-31
 
 Ví dụ:
 "lập báo cáo quý 1 file docx" → {"tool":"export_docx","args":{"from":"${YEAR}-01-01","to":"${YEAR}-03-31"}}
 "doanh thu quý 1" → {"tool":"revenue_report","args":{"year":${YEAR}}}
-"xin chào" → {"tool":"chat","args":{"message":"Xin chào! Tôi là Trợ lý CIC, chạy trên máy của bạn. Tôi có thể giúp gì hôm nay?"}}
-"chạy lệnh df -h" → {"tool":"run_shell","args":{"command":"df -h"}}
-"lưu báo cáo quý 1 ra file excel" → {"tool":"save_report","args":{"from":"${YEAR}-01-01","to":"${YEAR}-03-31","format":"xlsx"}}
-"Autodesk có hợp đồng gì?" → {"tool":"search_contracts","args":{"keyword":"Autodesk"}}
-"bạn là ai" → {"tool":"chat","args":{"message":"Tôi là Trợ lý CIC — AI assistant chạy local trên máy chủ công ty. Tôi có thể tra cứu hợp đồng, doanh thu, task, chạy lệnh, tạo file báo cáo và nhiều thứ khác. Gõ /help để xem đầy đủ!"}}`;
+"xin chào" → {"tool":"chat","args":{"message":"Xin chào! Tôi là Trợ lý CIC."}}
+"chạy lệnh df -h" → {"tool":"run_shell","args":{"command":"df -h"}}`;
 
 export type ToolName =
   | 'chat' | 'help' | 'dashboard' | 'list_contracts' | 'search_contracts'
   | 'overdue_payments' | 'expiring_contracts' | 'my_tasks' | 'revenue_report'
   | 'export_xlsx' | 'export_docx'
-  | 'run_shell' | 'list_files' | 'read_file' | 'write_file' | 'save_report' | 'clear_memory';
+  | 'run_shell' | 'list_files' | 'read_file' | 'write_file' | 'save_report' | 'clear_memory'
+  | 'run_skill';
 
 export type ToolDecision = { tool: ToolName; args: Record<string, unknown> };
 
@@ -61,7 +59,34 @@ const VALID_TOOLS: ToolName[] = [
   'overdue_payments','expiring_contracts','my_tasks','revenue_report',
   'export_xlsx','export_docx',
   'run_shell','list_files','read_file','write_file','save_report','clear_memory',
+  'run_skill',
 ];
+
+let cachedSkills: LoadedSkill[] | null = null;
+let skillsLoadedAt = 0;
+const SKILL_CACHE_MS = 5 * 60_000;
+
+export function getLoadedSkills(): LoadedSkill[] {
+  const now = Date.now();
+  if (!cachedSkills || now - skillsLoadedAt > SKILL_CACHE_MS) {
+    cachedSkills = loadAllSkills();
+    skillsLoadedAt = now;
+  }
+  return cachedSkills;
+}
+
+export function reloadSkills(): LoadedSkill[] {
+  cachedSkills = null;
+  skillsLoadedAt = 0;
+  return getLoadedSkills();
+}
+
+function buildSystemPrompt(): string {
+  const skills = getLoadedSkills();
+  const skillsXml = formatSkillsForPrompt(skills);
+  if (!skillsXml) return BASE_SYSTEM;
+  return BASE_SYSTEM + '\n\n' + skillsXml + '\n\nKhi user yêu cầu khớp với skill đã cài, dùng: {"tool":"run_skill","args":{"skill":"tên_skill",...args khác}}';
+}
 
 function extractToolFromJson(parsed: unknown): ToolDecision | null {
   if (!parsed || typeof parsed !== 'object') return null;
@@ -158,11 +183,12 @@ export async function decideTool(
 
   if (!ollamaEnabled) return fallback;
 
+  const systemPrompt = buildSystemPrompt();
   const url = `${config.ollamaHost}/api/chat`;
   const body = {
     model: config.ollamaModel,
     messages: [
-      { role: 'system', content: SYSTEM + '\n' + contextLines.join('\n') },
+      { role: 'system', content: systemPrompt + '\n' + contextLines.join('\n') },
       { role: 'user', content: userText.slice(0, 2000) },
     ],
     stream: false,
