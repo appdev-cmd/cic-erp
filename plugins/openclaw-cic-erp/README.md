@@ -43,12 +43,13 @@ Thêm (chỉnh tên agent theo máy bạn):
       },
     },
   },
+  // Lưu ý: không đặt tools dưới agents.defaults (OpenClaw báo Unrecognized key).
   agents: {
     list: [
       {
         id: "main",
         tools: {
-          allow: ["group:plugins", "cic-erp"], // hoặc liệt kê từng tool cic_erp_*
+          allow: ["group:plugins", "cic-erp"],
         },
       },
     ],
