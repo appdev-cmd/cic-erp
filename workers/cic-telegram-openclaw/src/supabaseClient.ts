@@ -165,3 +165,68 @@ export async function auditLog(
     });
   } catch { /* không chặn luồng bot */ }
 }
+
+// ─── HRM & Nghỉ phép ─────────────────────────────────────────────────────────
+
+export type LeaveBalance = {
+  leave_type: string;
+  total_days: number;
+  used_days: number;
+  pending_days: number;
+};
+
+export async function fetchLeaveBalance(employeeId: string, year: number): Promise<LeaveBalance[]> {
+  const { data, error } = await supabaseAdmin.from('leave_balances')
+    .select('leave_type, total_days, used_days, pending_days')
+    .eq('employee_id', employeeId)
+    .eq('year', year);
+  if (error) throw new Error(error.message);
+  return data as LeaveBalance[];
+}
+
+export type PendingLeave = {
+  id: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  reason: string;
+  employee_id: string;
+  employees: { name: string } | null;
+};
+
+export async function fetchPendingLeaves(unitId: string): Promise<PendingLeave[]> {
+  const { data, error } = await supabaseAdmin.from('leave_requests')
+    .select('id, leave_type, start_date, end_date, total_days, reason, employee_id, employees(name)')
+    .eq('unit_id', unitId)
+    .eq('status', 'pending');
+  if (error) throw new Error(error.message);
+  return data as unknown as PendingLeave[];
+}
+
+export async function createLeaveRequest(
+  employeeId: string, unitId: string | null, type: string,
+  start: string, end: string, days: number, reason: string
+): Promise<void> {
+  const { error } = await supabaseAdmin.from('leave_requests').insert({
+    employee_id: employeeId,
+    unit_id: unitId,
+    leave_type: type,
+    start_date: start,
+    end_date: end,
+    total_days: days,
+    reason: reason,
+    status: 'pending'
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function approveLeaveRequest(requestId: string, approverId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.from('leave_requests')
+    .update({ status: 'approved', approver_id: approverId, approved_at: new Date().toISOString() })
+    .ilike('id', `${requestId}%`)
+    .select()
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data != null;
+}

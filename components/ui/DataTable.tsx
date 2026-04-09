@@ -145,7 +145,7 @@ function DataTable<T extends Record<string, any>>({
     const headerPadding = compact ? 'px-3 py-2' : 'px-4 py-3';
 
     return (
-        <div className={`overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800/60 bg-white dark:bg-slate-900 ${className}`}>
+        <div className={`overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 ${className}`}>
             <div className="overflow-x-auto">
                 <table className="w-full">
                     {/* Header */}
@@ -213,8 +213,8 @@ function DataTable<T extends Record<string, any>>({
                                         onClick={() => onRowClick?.(row)}
                                         className={`
                       ${onRowClick ? 'cursor-pointer' : ''}
-                      ${isSelected ? 'bg-orange-50 dark:bg-orange-900/20' : `hover:bg-orange-50/30 dark:hover:bg-slate-700 ${index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-transparent dark:bg-transparent'}`}
-                      border-b border-slate-100 dark:border-slate-700/50 last:border-b-0
+                      ${isSelected ? 'bg-orange-50 dark:bg-orange-900/20' : `hover:bg-orange-50/30 dark:hover:bg-slate-800 ${index % 2 !== 0 ? 'bg-slate-50 dark:bg-slate-900' : 'bg-white dark:bg-slate-900'}`}
+                      border-b border-slate-100 dark:border-slate-800 last:border-b-0
                       transition-colors
                       ${rowClassName?.(row) || ''}
                     `}
@@ -254,9 +254,9 @@ function DataTable<T extends Record<string, any>>({
 
             {/* Pagination */}
             {pagination && !isLoading && sortedData.length > 0 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-800/30">
+                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Hiển thị {((pagination.currentPage - 1) * pagination.pageSize) + 1} - {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems)} / {pagination.totalItems}
+                        Hiển thị {((pagination.currentPage - 1) * pagination.pageSize) + 1} - {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalItems)} / {pagination.totalItems} kết quả
                     </p>
 
                     <div className="flex items-center gap-1">

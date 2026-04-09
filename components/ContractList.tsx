@@ -1138,7 +1138,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           <tbody className="bg-white dark:bg-slate-900">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${i % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : ''}`}>
+                <tr key={i} className={`border-b border-slate-100 dark:border-slate-800 last:border-b-0 ${i % 2 !== 0 ? 'bg-slate-50 dark:bg-slate-900' : 'bg-white dark:bg-slate-900'}`}>
                   <td className="px-3 py-4"><div className="flex justify-center"><div className="w-8 h-6 bg-slate-100 dark:bg-slate-800 rounded animate-pulse"></div></div></td>
                   <td className="px-3 py-4">
                     <div className="flex items-center gap-2">
@@ -1247,7 +1247,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                 <tr
                   key={contract.id}
                   onClick={() => onSelectContract(contract.id)}
-                  className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${isCollaborative ? 'bg-blue-50/40 dark:bg-blue-900/10' : index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : 'bg-transparent dark:bg-transparent'}`}
+                  className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800 last:border-b-0 ${isCollaborative ? 'bg-blue-50 dark:bg-blue-900/20' : index % 2 !== 0 ? 'bg-slate-50 dark:bg-slate-900' : 'bg-white dark:bg-slate-900'}`}
                   title={isCollaborative ? `HĐ phối hợp — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * (allocationPct || 100) / 100))}` : allocationRole === 'lead' && allocationPct !== undefined && allocationPct < 100 ? `HĐ chủ trì — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * allocationPct / 100))}` : undefined}
                 >
                   <td className="px-1.5 py-2 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
@@ -1551,9 +1551,9 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       </div>
 
       {/* STATUS BAR */}
-      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+      <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
         <div className="flex items-center justify-between">
-          <div className="text-sm font-bold text-slate-500">
+          <div className="text-sm font-bold text-slate-500 dark:text-slate-400">
             Hiển thị {displayContracts.length}{warningFilter !== 'none' ? ` (lọc từ ${contracts.length})` : ''} / {totalCount} kết quả
           </div>
           <button

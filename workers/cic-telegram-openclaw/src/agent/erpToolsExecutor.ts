@@ -12,6 +12,7 @@ import {
   fetchOverduePayments,
   fetchRevenueByMonth,
   searchContracts,
+  fetchLeaveBalance, fetchPendingLeaves, createLeaveRequest, approveLeaveRequest
 } from '../supabaseClient.js';
 import { contractsToDocxBuffer, leaveRequestToDocxBuffer } from '../export/buildDocx.js';
 import { contractsToXlsxBuffer } from '../export/buildXlsx.js';
@@ -36,6 +37,7 @@ const VALID_AGENT_TOOLS = new Set([
   'revenue_report',
   'export_xlsx',
   'export_docx',
+  'export_pdf',
   'leave_docx',
   'save_report',
   'run_shell',
@@ -44,6 +46,10 @@ const VALID_AGENT_TOOLS = new Set([
   'write_file',
   'clear_memory',
   'help',
+  'request_leave',
+  'check_leave_balance',
+  'list_pending_leaves',
+  'approve_leave',
 ]);
 
 export function isValidAgentTool(name: string): boolean {
@@ -211,6 +217,21 @@ export async function executeErpTool(
           note: 'File đã gửi trong Telegram.',
         });
       }
+      case 'export_pdf': {
+        const { contractsToPdfBuffer } = await import('../export/buildPdf.js');
+        const rows = await fetchContractsReport(ctx.employeeId, from, to, cap);
+        if (rows.length === 0) return JSON.stringify({ ok: false, error: 'Không có hợp đồng trong phạm vi.' });
+        const buf = await contractsToPdfBuffer(rows, `Báo cáo hợp đồng — ${ctx.fullName}`);
+        const fn = `hop_dong_${new Date().toISOString().slice(0, 10)}.pdf`;
+        await tgSendDocument(chatId, fn, buf, `Báo cáo HĐ (${rows.length} dòng)`);
+        return JSON.stringify({
+          ok: true,
+          sent: 'pdf',
+          filename: fn,
+          rows: rows.length,
+          note: 'File đã gửi trong Telegram.',
+        });
+      }
       case 'leave_docx': {
         const buf = await leaveRequestToDocxBuffer({
           fullName: ctx.fullName,
@@ -232,6 +253,31 @@ export async function executeErpTool(
           filename: fn,
           note: 'Đã gửi mẫu đơn xin nghỉ phép (không phải báo cáo hợp đồng).',
         });
+      }
+      case 'request_leave': {
+        const type = String(args.type || 'annual');
+        const start = String(args.start || new Date().toISOString().slice(0, 10));
+        const end = String(args.end || start);
+        const days = Number(args.days || 1);
+        const reason = String(args.reason || 'Việc cá nhân');
+        await createLeaveRequest(ctx.employeeId, ctx.unitId, type, start, end, days, reason);
+        return JSON.stringify({ ok: true, note: 'Đã tạo đơn xin nghỉ trên hệ thống thành công (trạng thái pending).' });
+      }
+      case 'check_leave_balance': {
+         const y = new Date().getFullYear();
+         const b = await fetchLeaveBalance(ctx.employeeId, y);
+         return JSON.stringify({ ok: true, year: y, balances: b });
+      }
+      case 'list_pending_leaves': {
+         if (!ctx.unitId) return JSON.stringify({ ok: false, error: 'User không có unitId' });
+         const leaves = await fetchPendingLeaves(ctx.unitId);
+         return JSON.stringify({ ok: true, count: leaves.length, leaves });
+      }
+      case 'approve_leave': {
+         const reqId = String(args.request_id || '');
+         if (!reqId) return JSON.stringify({ ok: false, error: 'thiếu request_id' });
+         const ok = await approveLeaveRequest(reqId, ctx.employeeId);
+         return JSON.stringify({ ok, note: ok ? 'Đã duyệt' : 'Không tìm thấy đơn hoặc không có quyền' });
       }
       case 'save_report': {
         const rows = await fetchContractsReport(ctx.employeeId, from, to, cap);
@@ -286,7 +332,7 @@ export async function executeErpTool(
         return JSON.stringify({ ok: result.ok, message: result.output });
       }
       case 'clear_memory': {
-        clearHistory(chatId);
+        await clearHistory(chatId);
         return JSON.stringify({ ok: true, note: 'Đã xóa lịch sử hội thoại trong phiên bot.' });
       }
       case 'help': {
@@ -298,7 +344,7 @@ export async function executeErpTool(
             'Tài chính: overdue_payments, revenue_report',
             'HĐ sắp hết hạn: expiring_contracts',
             'Task: my_tasks',
-            'Đơn nghỉ phép Word: leave_docx (không phải báo cáo HĐ)',
+            'HRM Nghỉ phép: request_leave, check_leave_balance, list_pending_leaves, approve_leave',
             'Máy local: run_shell, list_files, read_file, write_file',
             'Lệnh Telegram: /help, /hopdong, /skills',
           ],

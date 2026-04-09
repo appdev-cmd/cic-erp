@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Phone, Mail, MapPin, GraduationCap, Briefcase, Calendar, Star, FileText, Download, Trash2, Edit } from 'lucide-react';
-import { Candidate, CandidateApplication, ApplicationStage, ApplicationEvaluation } from '../../types/hrmTypes';
+import { Candidate, CandidateApplication, ApplicationStage, ApplicationEvaluation, JobOpening } from '../../types/hrmTypes';
 import { recruitmentService } from '../../services/recruitmentService';
 import { formatDate, formatDateTime } from '../../utils/formatters';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,10 +14,6 @@ interface Props {
   candidate?: Candidate;
   application?: CandidateApplication;
   jobOpenings?: JobOpening[]; // Dùng cho chức năng Edit
-  onClose: () => void;
-  onUpdate?: () => void;
-}
-  application?: CandidateApplication;
   onClose: () => void;
   onUpdate?: () => void;
 }

@@ -470,7 +470,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={8} className="p-8 text-center text-slate-500">
+                                    <td colSpan={8} className="p-8 text-center text-slate-500 dark:text-slate-400">
                                         <Loader2 className="animate-spin inline-block mr-2" /> Đang tải dữ liệu...
                                     </td>
                                 </tr>
@@ -483,7 +483,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                     <tr
                                         key={payment.id}
                                         onClick={() => handleEdit(payment)}
-                                        className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer"
+                                        className="border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group cursor-pointer bg-white dark:bg-slate-900"
                                     >
                                         <td className="py-3 px-2 text-center">
                                             <span className="text-xs font-medium text-slate-400">{index + 1}</span>
@@ -557,7 +557,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 </div>
 
                 {/* Status bar */}
-                <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
                     <div className="flex items-center justify-between">
                         <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
                             Hiển thị {payments.length} / {totalCount} kết quả

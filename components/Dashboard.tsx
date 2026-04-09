@@ -17,7 +17,6 @@ import {
   Area,
   ComposedChart,
 } from 'recharts';
-import ChatWidget from './ChatWidget';
 import OnlineUsers from './dashboard/OnlineUsers';
 import TaskDashboardWidget from './tasks/TaskDashboardWidget';
 import {
@@ -815,19 +814,6 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         {/* Task Hub Widget */}
         <TaskDashboardWidget />
 
-        {/* AI Chat Widget */}
-        <ChatWidget contextData={{
-          stats: stats,
-          selectedUnit: selectedUnit?.name || 'All',
-          year: yearFilter,
-          insights: aiInsights,
-          topContracts: recentContracts.map(c => ({
-            name: c.id,
-            customer: c.partyA,
-            value: c.value,
-            status: c.status
-          }))
-        }} />
       </div>
     </ErrorBoundary >
   );

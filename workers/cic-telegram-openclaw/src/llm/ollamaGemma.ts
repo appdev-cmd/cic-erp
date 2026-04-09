@@ -18,7 +18,12 @@ my_tasks() — task được giao
 revenue_report(year) — doanh thu theo tháng
 export_xlsx(from,to) — CHỈ xuất Excel danh sách/báo cáo HỢP ĐỒNG
 export_docx(from,to) — CHỈ xuất Word báo cáo HỢP ĐỒNG (không dùng cho đơn xin nghỉ, công văn cá nhân)
+export_pdf(from,to) — CHỈ xuất PDF danh sách/báo cáo HỢP ĐỒNG
 leave_docx(from,to,days,reason) — đơn xin nghỉ phép Word (mẫu, điền tên user); from/to/days/reason có thể null
+request_leave(type,start,end,days,reason) — TẠO ĐƠN xin nghỉ trực tiếp lên hệ thống (type: annual|sick|unpaid, start/end: YYYY-MM-DD)
+check_leave_balance() — Xem tôi còn bao nhiêu ngày nghỉ phép
+list_pending_leaves() — Dành cho Quản lý xem danh sách đơn xin nghỉ đang chờ duyệt của bộ phận
+approve_leave(request_id) — Dành cho Quản lý duyệt đơn xin nghỉ (cần id)
 run_shell(command) — chạy lệnh terminal
 list_files(path) — xem danh sách file
 read_file(path) — đọc nội dung file
@@ -28,10 +33,13 @@ clear_memory() — xóa lịch sử hội thoại
 run_skill(skill,args) — chạy một OpenClaw skill đã cài
 
 Quy tắc QUAN TRỌNG:
-- "đơn xin nghỉ"/"nghỉ phép" + file word/docx → leave_docx (KHÔNG export_docx)
-- export_docx/export_xlsx CHỈ khi nói về hợp đồng, danh sách HĐ, báo cáo kinh doanh/hợp đồng, xuất excel hợp đồng
+- "đơn xin nghỉ"/"nghỉ phép" + tạo đơn lên hệ thống/trực tiếp → request_leave (ưu tiên cao nhất nếu nói xin nghỉ phép)
+- "đơn xin nghỉ"/"nghỉ phép" + file word/docx → leave_docx
+- "phép của tôi"/"còn bao nhiêu ngày phép" → check_leave_balance
+- "duyệt đơn nghỉ" / "xem đơn xin nghỉ chờ duyệt" → list_pending_leaves
+- export_docx/export_xlsx/export_pdf CHỈ khi nói về hợp đồng, danh sách HĐ, báo cáo kinh doanh/hợp đồng, xuất excel hợp đồng
 - "bạn có thể làm gì"/"làm được gì"/"chức năng" → natural_chat hoặc help
-- "báo cáo"/"xuất" + docx + ngữ cảnh HĐ/kinh doanh/quý → export_docx
+- "báo cáo"/"xuất" + docx/pdf + ngữ cảnh HĐ/kinh doanh/quý → export_docx hoặc export_pdf
 - "lưu báo cáo" (HĐ) → save_report
 - "chạy lệnh"/terminal → run_shell
 - doanh thu/kinh doanh → revenue_report
@@ -44,6 +52,9 @@ Quy tắc QUAN TRỌNG:
 - Năm ${YEAR}. Q1=01-01→03-31, Q2=04-01→06-30, Q3=07-01→09-30, Q4=10-01→12-31
 
 Ví dụ:
+"tạo đơn xin nghỉ ốm ngày mai" → {"tool":"request_leave","args":{"type":"sick","start":"${YEAR}-xx-xx","end":"${YEAR}-xx-xx","days":1,"reason":"ốm"}}
+"tôi còn bao nhiêu phép" → {"tool":"check_leave_balance","args":{}}
+"có đơn nghỉ nào cần duyệt không" → {"tool":"list_pending_leaves","args":{}}
 "tạo đơn xin nghỉ phép file docx" → {"tool":"leave_docx","args":{}}
 "lập báo cáo hợp đồng quý 1 docx" → {"tool":"export_docx","args":{"from":"${YEAR}-01-01","to":"${YEAR}-03-31"}}
 "bạn có thể làm được gì" → {"tool":"natural_chat","args":{}}
@@ -54,7 +65,8 @@ Ví dụ:
 export type ToolName =
   | 'natural_chat' | 'chat' | 'help' | 'dashboard' | 'list_contracts' | 'search_contracts'
   | 'overdue_payments' | 'expiring_contracts' | 'my_tasks' | 'revenue_report'
-  | 'export_xlsx' | 'export_docx' | 'leave_docx'
+  | 'export_xlsx' | 'export_docx' | 'export_pdf' | 'leave_docx'
+  | 'request_leave' | 'check_leave_balance' | 'list_pending_leaves' | 'approve_leave'
   | 'run_shell' | 'list_files' | 'read_file' | 'write_file' | 'save_report' | 'clear_memory'
   | 'run_skill';
 
@@ -63,7 +75,8 @@ export type ToolDecision = { tool: ToolName; args: Record<string, unknown> };
 const VALID_TOOLS: ToolName[] = [
   'natural_chat','chat','help','dashboard','list_contracts','search_contracts',
   'overdue_payments','expiring_contracts','my_tasks','revenue_report',
-  'export_xlsx','export_docx','leave_docx',
+  'export_xlsx','export_docx','export_pdf','leave_docx',
+  'request_leave', 'check_leave_balance', 'list_pending_leaves', 'approve_leave',
   'run_shell','list_files','read_file','write_file','save_report','clear_memory',
   'run_skill',
 ];
@@ -144,11 +157,30 @@ function regexFallback(text: string): ToolDecision | null {
 
   if (
     isLeave &&
-    /(docx|word|file\s*word|t[ạa]o|so[ạa]n|l[ậa]p|xu[ấa]t)/i.test(t)
+    /(docx|word|file\s*word)/i.test(t)
   ) {
     return { tool: 'leave_docx', args: {} };
   }
 
+  if (isLeave && /(còn.*phép|phép.*còn|quỹ.*phép)/i.test(t)) {
+    return { tool: 'check_leave_balance', args: {} };
+  }
+
+  if (/duy[ệe]t|pending|ch[ờo]\s*duy[ệe]t/i.test(t) && /đơn|ngh[ỉi]/i.test(t)) {
+    return { tool: 'list_pending_leaves', args: {} };
+  }
+
+  if (isLeave && !/docx|word/i.test(t)) {
+    return { tool: 'request_leave', args: { start: qFrom, end: qTo } };
+  }
+
+  if (
+    (/xu[ấa]t\s*.*pdf|b[áa]o\s*c[áa]o.*pdf/i.test(t) || /\bpdf\b/i.test(t)) &&
+    isContractExport &&
+    !isLeave
+  ) {
+    return { tool: 'export_pdf', args: { from: qFrom, to: qTo } };
+  }
   if (
     (/xu[ấa]t\s*.*docx|b[áa]o\s*c[áa]o.*docx/i.test(t) || /\bdocx\b|\bword\b/i.test(t)) &&
     isContractExport &&

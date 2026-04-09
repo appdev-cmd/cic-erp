@@ -3,6 +3,7 @@ import {
   auditLog, fetchContractsReport, fetchDashboard, fetchOverduePayments,
   fetchExpiringContracts, fetchMyTasks, searchContracts, fetchRevenueByMonth,
   resolveTelegramContext, type ResolvedContext,
+  fetchLeaveBalance, fetchPendingLeaves, createLeaveRequest, approveLeaveRequest
 } from '../supabaseClient.js';
 import { contractsToDocxBuffer, leaveRequestToDocxBuffer } from '../export/buildDocx.js';
 import { contractsToXlsxBuffer } from '../export/buildXlsx.js';
@@ -51,7 +52,8 @@ function buildHelpHtml(): string {
     '<b>📄 Xuất file:</b>',
     '• "xuất excel hợp đồng quý 1" → .xlsx danh sách HĐ',
     '• "lập báo cáo hợp đồng quý 1 docx" → .docx báo cáo HĐ',
-    '• "tạo đơn xin nghỉ phép docx" → mẫu đơn nghỉ (không phải báo cáo HĐ)',
+    '• "thống kê hợp đồng ra pdf" → .pdf báo cáo HĐ',
+    '• "tạo đơn xin nghỉ phép docx" → mẫu đơn nghỉ',
     '• "lưu báo cáo quý 1 ra excel" → ~/cic-reports/',
     '',
     '<b>💬 Hội thoại tự nhiên:</b>',
@@ -69,7 +71,7 @@ function buildHelpHtml(): string {
     skillSection,
     '',
     '<b>📋 Lệnh nhanh:</b>',
-    '/help /hopdong /hopdong_xlsx /hopdong_docx',
+    '/help /hopdong /hopdong_xlsx /hopdong_docx /hopdong_pdf',
     '',
     '💬 Hoặc hỏi bằng ngôn ngữ tự nhiên!',
   ].join('\n');
@@ -81,13 +83,14 @@ function parseIsoDate(s: string | undefined): string | null {
 }
 
 function parseHopDongCommand(text: string): {
-  from: string | null; to: string | null; format: 'table' | 'xlsx' | 'docx';
+  from: string | null; to: string | null; format: 'table' | 'xlsx' | 'docx' | 'pdf';
 } | null {
   const t = text.trim();
-  let format: 'table' | 'xlsx' | 'docx' = 'table';
+  let format: 'table' | 'xlsx' | 'docx' | 'pdf' = 'table';
   let rest: string;
   if (/^\/hopdong_xlsx\b/i.test(t)) { format = 'xlsx'; rest = t.replace(/^\/hopdong_xlsx\s*/i, ''); }
   else if (/^\/hopdong_docx\b/i.test(t)) { format = 'docx'; rest = t.replace(/^\/hopdong_docx\s*/i, ''); }
+  else if (/^\/hopdong_pdf\b/i.test(t)) { format = 'pdf'; rest = t.replace(/^\/hopdong_pdf\s*/i, ''); }
   else if (/^\/hopdong\b/i.test(t)) { rest = t.replace(/^\/hopdong\s*/i, ''); }
   else return null;
   const parts = rest.trim().split(/\s+/).filter(Boolean);
@@ -211,7 +214,7 @@ async function handleRevenueReport(chatId: number, ctx: ResolvedContext, year?: 
 
 async function sendContractsFlow(
   chatId: number, ctx: ResolvedContext,
-  from: string | null, to: string | null, format: 'table' | 'xlsx' | 'docx'
+  from: string | null, to: string | null, format: 'table' | 'xlsx' | 'docx' | 'pdf'
 ): Promise<string> {
   const rows = await fetchContractsReport(ctx.employeeId, from, to, config.reportRowCap);
   await auditLog(String(chatId), ctx.employeeId, 'list_contracts', { from, to, format, rowCount: rows.length });
@@ -231,6 +234,12 @@ async function sendContractsFlow(
     const buf = await contractsToDocxBuffer(rows, `Báo cáo hợp đồng — ${ctx.fullName}`);
     await tgSendDocument(chatId, `hop_dong_${new Date().toISOString().slice(0, 10)}.docx`, buf, `Báo cáo (${rows.length} dòng)`);
     return `Đã gửi file Word (${rows.length} dòng)`;
+  }
+  if (format === 'pdf') {
+    const { contractsToPdfBuffer } = await import('../export/buildPdf.js');
+    const buf = await contractsToPdfBuffer(rows, `Báo cáo hợp đồng — ${ctx.fullName}`);
+    await tgSendDocument(chatId, `hop_dong_${new Date().toISOString().slice(0, 10)}.pdf`, buf, `Báo cáo (${rows.length} dòng)`);
+    return `Đã gửi file PDF (${rows.length} dòng)`;
   }
 
   const head = rows.slice(0, 30);
@@ -292,6 +301,91 @@ async function handleSaveReport(
   await tgSendDocument(chatId, filename, buf, `${rows.length} dòng`);
   await auditLog(String(chatId), ctx.employeeId, 'save_report', { path: savedPath, rows: rows.length });
   return msg;
+}
+
+// ─── Native HRM (Leave Management) ───────────────────────────────────────────
+
+async function handleCheckLeaveBalance(chatId: number, ctx: ResolvedContext): Promise<string> {
+  const currentYear = new Date().getFullYear();
+  const balances = await fetchLeaveBalance(ctx.employeeId, currentYear);
+  if (!balances || balances.length === 0) {
+    const msg = `✅ Bạn chưa có dữ liệu ngày nghỉ phép năm ${currentYear} trên hệ thống.`;
+    await tgSendMessage(chatId, msg);
+    return msg;
+  }
+  const lines = balances.map(b => 
+    `• ${b.leave_type}: Tổng ${b.total_days} ngày | Đã dùng: ${b.used_days} | Chờ duyệt: ${b.pending_days} | Còn lại: <b>${b.total_days - b.used_days - b.pending_days}</b> ngày`
+  );
+  const msg = `<b>🏖️ Quỹ phép năm ${currentYear} của bạn:</b>\n\n` + lines.join('\n');
+  await tgSendMessage(chatId, msg);
+  await auditLog(String(chatId), ctx.employeeId, 'check_leave_balance', { year: currentYear });
+  return msg;
+}
+
+async function handleRequestLeave(chatId: number, ctx: ResolvedContext, args: Record<string, unknown>): Promise<string> {
+  const type = String(args.type || 'annual');
+  const start = String(args.start || new Date().toISOString().slice(0, 10));
+  const end = String(args.end || start);
+  const days = Number(args.days || 1);
+  const reason = String(args.reason || 'Việc cá nhân');
+
+  try {
+    await createLeaveRequest(ctx.employeeId, ctx.unitId, type, start, end, days, reason);
+    const msg = `✅ <b>Đã gửi đơn xin nghỉ phép lên hệ thống!</b>\n\n• Loại: ${esc(type)}\n• Từ: ${start}\n• Đến: ${end}\n• Số ngày: ${days}\n• Lý do: ${esc(reason)}\n\nĐơn đang ở trạng thái <i>Chờ duyệt</i>.`;
+    await tgSendMessage(chatId, msg);
+    await auditLog(String(chatId), ctx.employeeId, 'request_leave', { type, start, end, days });
+    return msg;
+  } catch (err: unknown) {
+    const msg = `❌ Lỗi mở đơn: ${err instanceof Error ? err.message : String(err)}`;
+    await tgSendMessage(chatId, msg);
+    return msg;
+  }
+}
+
+async function handleListPendingLeaves(chatId: number, ctx: ResolvedContext): Promise<string> {
+  if (!ctx.unitId) {
+    const msg = `❌ Bạn không thuộc bộ phận cụ thể nào để xem đơn phê duyệt.`;
+    await tgSendMessage(chatId, msg);
+    return msg;
+  }
+  const leaves = await fetchPendingLeaves(ctx.unitId);
+  if (!leaves || leaves.length === 0) {
+    const msg = `✅ Hiện không có đơn xin nghỉ phép nào chờ duyệt trong bộ phận của bạn.`;
+    await tgSendMessage(chatId, msg);
+    return msg;
+  }
+  const lines = leaves.map(l => 
+    `🆔 <b>${l.id.slice(0, 6)}</b> | ${esc(l.employees?.name || 'Unknown')}\n🏖️ ${l.leave_type}: ${l.start_date} → ${l.end_date} (${l.total_days} ngày)\n📝 ${esc(l.reason)}`
+  );
+  const msg = `<b>📋 Đơn chờ duyệt bộ phận (${leaves.length}):</b>\n\n` + lines.join('\n\n') + `\n\n<i>Dùng lệnh: "Duyệt đơn mã XXX"</i>`;
+  await tgSendMessage(chatId, msg);
+  return msg;
+}
+
+async function handleApproveLeave(chatId: number, ctx: ResolvedContext, args: Record<string, unknown>): Promise<string> {
+  const reqId = String(args.request_id || '');
+  if (!reqId) {
+    const msg = '❌ Vui lòng cung cấp mã đơn (ID) để duyệt.';
+    await tgSendMessage(chatId, msg);
+    return msg;
+  }
+  try {
+    const ok = await approveLeaveRequest(reqId, ctx.employeeId);
+    if (ok) {
+      const msg = `✅ Đã duyệt đơn xin nghỉ thành công! (${esc(reqId)})`;
+      await tgSendMessage(chatId, msg);
+      await auditLog(String(chatId), ctx.employeeId, 'approve_leave', { request_id: reqId });
+      return msg;
+    } else {
+      const msg = `❌ Không tìm thấy đơn chờ duyệt có mã ${esc(reqId)} hoặc bạn không có quyền.`;
+      await tgSendMessage(chatId, msg);
+      return msg;
+    }
+  } catch (err: unknown) {
+    const msg = `❌ Lỗi duyệt đơn: ${err instanceof Error ? err.message : String(err)}`;
+    await tgSendMessage(chatId, msg);
+    return msg;
+  }
 }
 
 // ─── OpenClaw Skill Executor ─────────────────────────────────────────────────
@@ -373,13 +467,13 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
     return;
   }
 
-  addMessage(chatId, 'user', text);
+  await addMessage(chatId, 'user', text);
   const t = text.trim().toLowerCase();
 
   // ── OpenClaw Skill Commands ───────────────────────────────
   if (t === '/help' || t === '/start' || t === 'help') {
     await tgSendMessage(chatId, buildHelpHtml());
-    addMessage(chatId, 'assistant', 'Đã gửi hướng dẫn');
+    await addMessage(chatId, 'assistant', 'Đã gửi hướng dẫn');
     await auditLog(String(chatId), ctx.employeeId, 'help', {});
     return;
   }
@@ -388,7 +482,7 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
     const skills = getLoadedSkills();
     const msg = `<b>🧩 OpenClaw Skills (${skills.length})</b>\n\n` + formatSkillsList(skills);
     await tgSendMessage(chatId, msg);
-    addMessage(chatId, 'assistant', `Listed ${skills.length} skills`);
+    await addMessage(chatId, 'assistant', `Listed ${skills.length} skills`);
     return;
   }
 
@@ -398,7 +492,7 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
     const emoji = r.ok ? '✅' : '❌';
     if (r.ok) reloadSkills();
     await tgSendMessage(chatId, `${emoji} ${esc(r.message)}`);
-    addMessage(chatId, 'assistant', r.message);
+    await addMessage(chatId, 'assistant', r.message);
     await auditLog(String(chatId), ctx.employeeId, 'install_skill', { name, ok: r.ok });
     return;
   }
@@ -409,7 +503,7 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
     const emoji = r.ok ? '✅' : '❌';
     if (r.ok) reloadSkills();
     await tgSendMessage(chatId, `${emoji} ${esc(r.message)}`);
-    addMessage(chatId, 'assistant', r.message);
+    await addMessage(chatId, 'assistant', r.message);
     await auditLog(String(chatId), ctx.employeeId, 'uninstall_skill', { name, ok: r.ok });
     return;
   }
@@ -418,14 +512,14 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
     const skills = reloadSkills();
     const msg = `🔄 Đã tải lại skills. Hiện có <b>${skills.length}</b> skill.`;
     await tgSendMessage(chatId, msg);
-    addMessage(chatId, 'assistant', msg);
+    await addMessage(chatId, 'assistant', msg);
     return;
   }
 
   const hop = parseHopDongCommand(text);
   if (hop) {
     const reply = await sendContractsFlow(chatId, ctx, hop.from, hop.to, hop.format);
-    addMessage(chatId, 'assistant', reply);
+    await addMessage(chatId, 'assistant', reply);
     return;
   }
 
@@ -436,7 +530,7 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
 
   void tgSendChatAction(chatId, 'typing');
 
-  const conversationContext = getContextSummary(chatId);
+  const conversationContext = await getContextSummary(chatId);
   const ctxLines = [
     `Người dùng: ${ctx.fullName}`,
     `Vai trò: ${ctx.role}`,
@@ -455,7 +549,7 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
       });
       if (react?.reply) {
         await tgSendMessagePlain(chatId, react.reply);
-        addMessage(chatId, 'assistant', react.reply.slice(0, 500));
+        await addMessage(chatId, 'assistant', react.reply.slice(0, 500));
         await auditLog(String(chatId), ctx.employeeId, 'react_agent', {
           steps: react.steps,
           tools: react.usedTools,
@@ -469,7 +563,7 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
       );
       if (natural) {
         await tgSendMessagePlain(chatId, natural.slice(0, 4090));
-        addMessage(chatId, 'assistant', natural.slice(0, 500));
+        await addMessage(chatId, 'assistant', natural.slice(0, 500));
         await auditLog(String(chatId), ctx.employeeId, 'react_agent_error', {
           err: String(err instanceof Error ? err.message : err),
         });
@@ -479,7 +573,7 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
         chatId,
         'Đã xảy ra lỗi xử lý. Vui lòng thử lại sau hoặc liên hệ IT. Gõ /help để xem lệnh cố định.'
       );
-      addMessage(chatId, 'assistant', 'lỗi xử lý agent');
+      await addMessage(chatId, 'assistant', 'lỗi xử lý agent');
       return;
     }
   }
@@ -498,13 +592,13 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
     const natural = await generateNaturalReply(text, ctxLines);
     if (natural) {
       await tgSendMessagePlain(chatId, natural.slice(0, 4090));
-      addMessage(chatId, 'assistant', natural.slice(0, 500));
+      await addMessage(chatId, 'assistant', natural.slice(0, 500));
       await auditLog(String(chatId), ctx.employeeId, 'natural_fallback', {});
       return;
     }
     const msg = 'Xin lỗi, tôi chưa hiểu. Gõ /help để xem những gì tôi có thể giúp.';
     await tgSendMessage(chatId, msg);
-    addMessage(chatId, 'assistant', msg);
+    await addMessage(chatId, 'assistant', msg);
     return;
   }
 
@@ -567,8 +661,25 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
         decision.args.from ? String(decision.args.from) : null,
         decision.args.to ? String(decision.args.to) : null, 'docx');
       break;
+    case 'export_pdf':
+      reply = await sendContractsFlow(chatId, ctx,
+        decision.args.from ? String(decision.args.from) : null,
+        decision.args.to ? String(decision.args.to) : null, 'pdf');
+      break;
     case 'leave_docx':
       reply = await handleLeaveDocx(chatId, ctx, decision.args);
+      break;
+    case 'request_leave':
+      reply = await handleRequestLeave(chatId, ctx, decision.args);
+      break;
+    case 'check_leave_balance':
+      reply = await handleCheckLeaveBalance(chatId, ctx);
+      break;
+    case 'list_pending_leaves':
+      reply = await handleListPendingLeaves(chatId, ctx);
+      break;
+    case 'approve_leave':
+      reply = await handleApproveLeave(chatId, ctx, decision.args);
       break;
     case 'run_shell': {
       const result = executeShell(String(decision.args.command ?? ''));
@@ -625,5 +736,5 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
       await tgSendMessage(chatId, reply);
   }
 
-  addMessage(chatId, 'assistant', reply.replace(/<[^>]+>/g, '').slice(0, 500));
+  await addMessage(chatId, 'assistant', reply.replace(/<[^>]+>/g, '').slice(0, 500));
 }

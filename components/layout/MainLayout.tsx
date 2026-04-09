@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { SlidePanelProvider } from '../../contexts/SlidePanelContext';
 import Auth from '../Auth';
 import ErrorBoundary from '../ErrorBoundary';
+import ChatWidget from '../ChatWidget';
 import RouteGuard from '../auth/RouteGuard';
 import { Unit, UserRole } from '../../types';
 import { UnitService } from '../../services';
@@ -235,6 +236,9 @@ const MainLayout: React.FC = () => {
 
                     {/* Global Search (Cmd+K) */}
                     <CommandPalette />
+                    
+                    {/* Floating Chat AI */}
+                    <ChatWidget />
 
                     {/* ═══ Floating Impersonation Banner ═══ */}
                     {isImpersonating && impersonatedUser && (

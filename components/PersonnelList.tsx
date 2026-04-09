@@ -525,7 +525,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                     <tr
                                         key={person.id}
                                         onClick={() => onSelectPersonnel(person.slug || person.id)}
-                                        className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
+                                        className="border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group cursor-pointer bg-white dark:bg-slate-900"
                                     >
                                         {/* Name & Position */}
                                         <td className="py-4 px-6">
@@ -630,7 +630,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                 ))}
                                 {filteredPersonnel.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="py-16 text-center text-slate-400">
+                                        <td colSpan={6} className="py-16 text-center text-slate-500 dark:text-slate-400">
                                             Không tìm thấy nhân viên nào
                                         </td>
                                     </tr>
@@ -642,9 +642,9 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800">
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            Hiển thị {((currentPage - 1) * pageSize) + 1}–{Math.min(currentPage * pageSize, totalCount)} trên tổng số {totalCount} nhân viên
+                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                            Hiển thị {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} / {totalCount} kết quả
                         </p>
                         <div className="flex items-center gap-2">
                             <button

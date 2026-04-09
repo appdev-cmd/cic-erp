@@ -1,0 +1,27 @@
+[
+  {
+    "input": "Hôm nay tôi có công việc gì cần xử lý phần mềm không?",
+    "expected_tool": "cic_erp_my_tasks",
+    "expected_args_must_contain": []
+  },
+  {
+    "input": "Cho tôi xin file Word báo cáo hợp đồng từ tháng 1",
+    "expected_tool": "cic_erp_generate_docx",
+    "expected_args_must_contain": ["title", "paragraphs", "filename"]
+  },
+  {
+    "input": "Tìm giúp hợp đồng của khách hàng Nguyễn Văn A",
+    "expected_tool": "cic_erp_search_contracts",
+    "expected_args_must_contain": ["keyword"]
+  },
+  {
+    "input": "Xuất báo cáo danh sách hợp đồng tháng này giúp tôi",
+    "expected_tool": "cic_erp_contracts_report",
+    "expected_args_must_contain": []
+  },
+  {
+    "input": "Tuần tới có hợp đồng nào hết hạn không tải ra giúp",
+    "expected_tool": "cic_erp_expiring_contracts",
+    "expected_args_must_contain": ["days"]
+  }
+]

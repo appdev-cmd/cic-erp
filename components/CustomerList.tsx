@@ -444,7 +444,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                                             { key: 'value', label: 'Giá trị', align: 'right' },
                                             { key: 'actions', label: '', align: 'center' },
                                         ].map((col, idx, arr) => (
-                                            <th key={col.key} className={`sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 py-4 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider relative group/th ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}`}>
+                                            <th key={col.key} className={`sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 py-4 px-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider relative group/th ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}`}>
                                                 {col.label}
                                                 {idx < arr.length - 1 && (
                                                     <div
@@ -462,7 +462,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                                 <tbody>
                                     {isLoading ? (
                                         <tr>
-                                            <td colSpan={7} className="py-12 text-center text-slate-500">Đang tải dữ liệu...</td>
+                                            <td colSpan={7} className="py-12 text-center text-slate-500 dark:text-slate-400">Đang tải dữ liệu...</td>
                                         </tr>
                                     ) : customers.length === 0 ? (
                                         <tr>
@@ -479,7 +479,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                                             return (
                                                 <tr
                                                     key={customer.id}
-                                                    className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
+                                                    className="border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group cursor-pointer bg-white dark:bg-slate-900"
                                                     onClick={() => onSelectCustomer?.(customer.id)}
                                                 >
                                                     <td className="py-4 px-3 text-center">
@@ -592,17 +592,17 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                                 )}
                                 {!hasMore && customers.length > 0 && !isLoading && (
                                     <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
-                                        Đã hiển thị tất cả {totalCount} đối tác
+                                        Đã hiển thị tất cả {totalCount} kết quả
                                     </div>
                                 )}
                             </div>
                         </div>
 
                         {/* STATUS BAR */}
-                        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
                             <div className="flex items-center justify-between">
-                                <div className="text-sm font-bold text-slate-500">
-                                    Hiển thị {customers.length} / {totalCount} đối tác
+                                <div className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                                    Hiển thị {customers.length} / {totalCount} kết quả
                                 </div>
                                 <button
                                     onClick={resetWidths}

@@ -626,7 +626,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                         <th
                                             key={col.key}
                                             onClick={col.sortable ? () => handleSort(col.sortKey!) : undefined}
-                                            className={`sticky top-0 z-20 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider relative group/th ${col.sortable ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 select-none' : ''} ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}`}
+                                            className={`sticky top-0 z-20 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider relative group/th ${col.sortable ? 'cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 select-none' : ''} ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : 'text-left'}`}
                                         >
                                             <span className={`flex items-center gap-1 ${col.align === 'right' ? 'justify-end' : col.align === 'center' ? 'justify-center' : ''}`}>
                                                 {col.label}
@@ -655,7 +655,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                         <tr
                                             key={product.id}
                                             onClick={() => onSelectProduct?.(product.id)}
-                                            className="border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors group cursor-pointer"
+                                            className="border-b border-slate-100 dark:border-slate-800 last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group cursor-pointer bg-white dark:bg-slate-900"
                                         >
                                             <td className="py-2.5 px-2 text-center">
                                                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -798,7 +798,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                             )}
                             {!hasMore && filteredProducts.length > 0 && !isLoading && (
                                 <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
-                                    Đã hiển thị tất cả {totalCount} sản phẩm
+                                    Đã hiển thị tất cả {totalCount} kết quả
                                 </div>
                             )}
                         </div>
@@ -806,10 +806,10 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                 )}
 
                 {/* STATUS BAR */}
-                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
                     <div className="flex items-center justify-between">
-                        <div className="text-sm font-bold text-slate-500">
-                            Hiển thị {filteredProducts.length} / {totalCount} sản phẩm
+                        <div className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                            Hiển thị {filteredProducts.length} / {totalCount} kết quả
                         </div>
                         <button
                             onClick={resetWidths}

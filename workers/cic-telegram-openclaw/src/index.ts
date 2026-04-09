@@ -1,9 +1,13 @@
 import Fastify from 'fastify';
+import PQueue from 'p-queue';
 import { config } from './config.js';
 import { openclawHandleMessage } from './agent/openclawAgent.js';
 import { runDailyAlerts } from './tools/cronAlerts.js';
 
 const app = Fastify({ logger: true });
+
+// Bảo vệ Local LLM khỏi quá sức, đồng thời tách riêng luồng chạy để Webhook trả về 200 HTTP OK ngay cho Telegram.
+const messageQueue = new PQueue({ concurrency: 2 });
 
 /** Telegram Update — trường tối thiểu bot cần */
 interface TgUpdate {
@@ -100,20 +104,23 @@ async function processTgUpdate(
     return { ok: true, chatId };
   }
 
-  try {
-    await openclawHandleMessage(chatId, text);
-  } catch (err) {
-    log.error(err);
+  // Đưa vào hàng đợi thay vì chạy trực tiếp, bắn lỗi riêng biệt
+  void messageQueue.add(async () => {
     try {
-      const { tgSendMessage } = await import('./telegramApi.js');
-      await tgSendMessage(
-        chatId,
-        'Đã xảy ra lỗi xử lý. Vui lòng thử lại sau hoặc liên hệ IT.'
-      );
-    } catch {
-      /* ignore */
+      await openclawHandleMessage(chatId, text);
+    } catch (err) {
+      log.error(err);
+      try {
+        const { tgSendMessage } = await import('./telegramApi.js');
+        await tgSendMessage(
+          chatId,
+          'Đã xảy ra lỗi hệ thống (Queue Error). Vui lòng thử lại sau.'
+        );
+      } catch {
+        /* ignore */
+      }
     }
-  }
+  });
 
   return { ok: true as const, chatId };
 }

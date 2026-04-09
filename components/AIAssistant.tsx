@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import {
   Send,
   Bot,
@@ -21,15 +22,106 @@ import {
   X,
   BookOpen,
   ExternalLink,
-  KeyRound
+  KeyRound,
+  Paperclip
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { streamEnterpriseAI } from '../services/aiService';
-import { getBusinessContext } from '../services/contextService';
+import { getBusinessContext, invalidateBusinessContext } from '../services/contextService';
+import { searchKnowledgeBase } from '../services/ragService';
+import { parseDocumentClientSide } from '../lib/documentReaderClient';
 import { cn } from '../lib/utils';
-import { toast } from 'sonner';
-import AIDataIngestion from './AIDataIngestion';
+// Formatter functions outside component to avoid reference changes during render
+const formatValue = (value: any) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value);
+const formatTooltip = (value: any) => new Intl.NumberFormat('vi-VN').format(Number(value));
+const PIE_COLORS = ['#4f46e5', '#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#6366f1'];
+const CHART_CURSOR = { fill: 'rgba(0,0,0,0.05)' };
+const LEGEND_STYLE = { fontSize: '12px', marginTop: '10px' };
+
+const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
+  const chartConfig = React.useMemo(() => {
+    try {
+      // LLMs often leave trailing commas or add backticks inside the block
+      let cleanStr = configStr.replace(/,\s*([\]}])/g, '$1').trim();
+      if (cleanStr.startsWith('```json')) cleanStr = cleanStr.substring(7);
+      if (cleanStr.startsWith('`')) cleanStr = cleanStr.replace(/^`+|`+$/g, '');
+      cleanStr = cleanStr.trim();
+
+      const config = JSON.parse(cleanStr);
+      if (!config.data || !Array.isArray(config.data) || config.data.length === 0) {
+        return { error: 'Dữ liệu mảng data: [] rỗng hoặc không tồn tại', raw: configStr };
+      }
+      return { config };
+    } catch (e: any) {
+      return { error: e.message, raw: configStr };
+    }
+  }, [configStr]);
+
+  if (chartConfig.error) {
+    return (
+      <div className="text-sm text-amber-600 border border-amber-200 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 my-2">
+        <p className="font-bold mb-2">⚠️ Dữ liệu biểu đồ từ AI chưa chuẩn định dạng JSON ({chartConfig.error}):</p>
+        <pre className="text-[10px] overflow-auto whitespace-pre-wrap">{chartConfig.raw}</pre>
+      </div>
+    );
+  }
+
+  const { type, data, xAxisKey, lines } = chartConfig.config;
+
+  const renderChart = () => {
+    switch (type) {
+      case 'bar':
+        return (
+          <BarChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
+            <XAxis dataKey={xAxisKey} fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis fontSize={12} tickFormatter={formatValue} tickLine={false} axisLine={false} />
+            <RechartsTooltip cursor={CHART_CURSOR} formatter={formatTooltip} />
+            <Legend wrapperStyle={LEGEND_STYLE} />
+            {lines?.map((line: any, i: number) => (
+              <Bar key={line.dataKey || i} dataKey={line.dataKey} fill={line.color || '#4f46e5'} radius={[4, 4, 0, 0]} name={line.name || line.dataKey} />
+            ))}
+          </BarChart>
+        );
+      case 'line':
+        return (
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
+            <XAxis dataKey={xAxisKey} fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis fontSize={12} tickFormatter={formatValue} tickLine={false} axisLine={false} />
+            <RechartsTooltip formatter={formatTooltip} />
+            <Legend wrapperStyle={LEGEND_STYLE} />
+            {lines?.map((line: any, i: number) => (
+              <Line key={line.dataKey || i} type="monotone" dataKey={line.dataKey} stroke={line.color || '#4f46e5'} strokeWidth={2} name={line.name || line.dataKey} />
+            ))}
+          </LineChart>
+        );
+      case 'pie':
+        return (
+          <PieChart>
+            <Pie data={data} dataKey={lines?.[0]?.dataKey || 'value'} nameKey={xAxisKey} cx="50%" cy="50%" outerRadius={80} label>
+              {data.map((entry: any, index: number) => (
+                <Cell key={"cell-" + index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+              ))}
+            </Pie>
+            <RechartsTooltip formatter={formatTooltip} />
+            <Legend wrapperStyle={LEGEND_STYLE} />
+          </PieChart>
+        );
+      default:
+        return <div className="text-sm text-slate-500">Loại biểu đồ không được hỗ trợ</div>;
+    }
+  };
+
+  return (
+    <div className="w-full h-80 my-4 p-4 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden flex flex-col justify-center">
+      <ResponsiveContainer width="99%" height={280}>
+        {renderChart()}
+      </ResponsiveContainer>
+    </div>
+  );
+}); // End of DynamicChart
 
 interface Message {
   id: string;
@@ -48,11 +140,11 @@ const AGENTS: Record<AgentType, { name: string; role: string; color: string; ico
     role: 'Trợ lý ảo Enterprise',
     color: 'bg-indigo-600',
     icon: Sparkles,
-    prompt: 'Bạn là Trợ lý AI Enterprise. Trả lời ngắn gọn, chuyên nghiệp, hỗ trợ mọi tác vụ quản trị.',
+    prompt: 'Bạn là Trợ lý AI Enterprise của CIC. Trả lời ngắn gọn, chuyên nghiệp. QUY TẮC QUAN TRỌNG: Khi user hỏi "doanh thu năm X", "quý X", "tháng X" → PHẢI tìm dữ liệu đúng khoảng thời gian đó từ Báo cáo Quản trị. KHÔNG BAO GIỜ trả lời bằng tổng tất cả thời gian khi user chỉ định thời gian cụ thể.',
     suggestions: [
-      'Tổng doanh thu công ty hiện tại bao nhiêu?',
-      'Phòng ban nào doanh thu cao nhất?',
-      'Ai là nhân viên xuất sắc nhất?',
+      'Tổng doanh thu công ty năm nay bao nhiêu?',
+      'Phòng ban nào doanh thu cao nhất năm nay?',
+      'Ai là nhân sự xuất sắc nhất năm nay?',
       'Tóm tắt tình hình hợp đồng tháng này'
     ]
   },
@@ -87,12 +179,25 @@ const AGENTS: Record<AgentType, { name: string; role: string; color: string; ico
     role: 'Chuyên gia Dữ liệu',
     color: 'bg-amber-600',
     icon: BarChart3,
-    prompt: 'Bạn là Chuyên gia Phân tích Dữ liệu. Nhiệm vụ: Phân tích xu hướng tài chính, KPI, dòng tiền. Format: Dùng bảng (Table) để so sánh số liệu, đưa ra nhận định (Insights) dựa trên data.',
+    prompt: `Bạn là Chuyên gia Phân tích Dữ liệu. QUY TẮC BẮT BUỘC: 
+(0) LUÔN LUÔN giao tiếp, nhận định và giải thích bằng TIẾNG VIỆT (Tuyệt đối không dùng tiếng Trung/Anh).
+(1) Khi user đề cập năm/quý/tháng cụ thể → PHẢI dùng dữ liệu đúng thời kỳ đó từ Báo cáo; 
+(2) Trả lời ngắn ngọn, đưa ra nhận định (Insights) dựa trên data; 
+(3) ĐỂ VẼ BIỂU ĐỒ, hãy trả về CHỈ 1 block JSON trong cặp backticks với language là "chart", ví dụ:
+\`\`\`chart
+{
+  "type": "bar",
+  "data": [{"name": "STC", "revenue": 1000}],
+  "xAxisKey": "name",
+  "lines": [{"dataKey": "revenue", "color": "#4f46e5", "name": "Doanh thu"}]
+}
+\`\`\`
+Hỗ trợ type: "bar", "line", "pie".`,
     suggestions: [
-      'So sánh doanh thu các đơn vị bằng bảng',
-      'Phân tích xu hướng dòng tiền 3 tháng gần nhất',
-      'Top 5 khách hàng có giá trị hợp đồng lớn nhất',
-      'KPI nào đang dưới mức mục tiêu?'
+      'So sánh doanh thu các đơn vị bằng biểu đồ',
+      'Vẽ biểu đồ doanh thu năm 2026',
+      'Đơn vị nào đạt doanh thu cao nhất năm nay?',
+      'Top 5 nhân sự xuất sắc nhất năm 2026'
     ]
   }
 };
@@ -138,6 +243,26 @@ const WELCOME_MESSAGE: Message = {
   timestamp: new Date()
 };
 
+const MARKDOWN_COMPONENTS: any = {
+  table: ({ node, ...props }: any) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg" {...props} /></div>,
+  th: ({ node, ...props }: any) => <th className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-left text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" {...props} />,
+  td: ({ node, ...props }: any) => <td className="px-4 py-2 border-t border-slate-100 dark:border-slate-700 text-sm" {...props} />,
+  ul: ({ node, ...props }: any) => <ul className="list-disc pl-5 space-y-1" {...props} />,
+  ol: ({ node, ...props }: any) => <ol className="list-decimal pl-5 space-y-1" {...props} />,
+  code: ({ node, className, children, ...props }: any) => {
+    const match = /language-(\w+)/.exec(className || '');
+    if (match && match[1] === 'chart') {
+      return <DynamicChart configStr={String(children).replace(/\n$/, '')} />;
+    }
+    return className ? (
+      <pre className="p-4 rounded-lg bg-slate-900 text-slate-50 overflow-x-auto my-4 text-sm font-mono"><code className={className} {...props}>{children}</code></pre>
+    ) : (
+      <code className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-xs font-mono text-rose-500 dark:text-rose-400" {...props}>{children}</code>
+    );
+  },
+  a: ({ node, ...props }: any) => <a className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold" target="_blank" rel="noopener noreferrer" {...props} />
+};
+
 const AIAssistant: React.FC = () => {
   const [currentAgent, setCurrentAgent] = useState<AgentType>(() => {
     return (localStorage.getItem(AGENT_STORAGE_KEY) as AgentType) || 'general';
@@ -157,12 +282,52 @@ const AIAssistant: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showAgentMenu, setShowAgentMenu] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>('chat');
+  
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [showSettings, setShowSettings] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'config' | 'guide'>('config');
+  const [settingsTab, setSettingsTab] = useState<'config' | 'guide' | 'local'>('config');
   const [customGeminiKey, setCustomGeminiKey] = useState(() => localStorage.getItem(CUSTOM_GEMINI_KEY) || '');
   const [customOpenAIKey, setCustomOpenAIKey] = useState(() => localStorage.getItem(CUSTOM_OPENAI_KEY) || '');
   const [customDeepseekKey, setCustomDeepseekKey] = useState(() => localStorage.getItem(CUSTOM_DEEPSEEK_KEY) || '');
+  const [localAIBaseURL, setLocalAIBaseURL] = useState(() => localStorage.getItem('cic_local_ai_base_url') || 'http://localhost:11434/v1');
+  const [localAITestResult, setLocalAITestResult] = useState<{ok: boolean; models: string[]} | null>(null);
+  const [localAITesting, setLocalAITesting] = useState(false);
+  const [widgetHistoryBanner, setWidgetHistoryBanner] = useState(false);
+
+  // ─── Import chat history from ChatWidget popup ──────────
+  useEffect(() => {
+    try {
+      const widgetHistory = localStorage.getItem('cic_widget_chat_history');
+      if (widgetHistory) {
+        setWidgetHistoryBanner(true);
+      }
+    } catch {}
+  }, []);
+
+  const importWidgetHistory = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('cic_widget_chat_history');
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {role: string; content: string; timestamp: string}[];
+      const imported: Message[] = parsed.map((m, i) => ({
+        id: `widget_${i}_${Date.now()}`,
+        role: m.role as 'user' | 'model',
+        content: m.content,
+        timestamp: new Date(m.timestamp),
+      }));
+      setMessages(prev => [...imported, ...prev]);
+      localStorage.removeItem('cic_widget_chat_history');
+      setWidgetHistoryBanner(false);
+      toast.success(`Đã nhập ${imported.length} tin nhắn từ Chat nhanh!`);
+    } catch { toast.error('Lỗi nhập lịch sử'); }
+  }, []);
+
+  const dismissWidgetHistory = useCallback(() => {
+    localStorage.removeItem('cic_widget_chat_history');
+    setWidgetHistoryBanner(false);
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -189,13 +354,34 @@ const AIAssistant: React.FC = () => {
     localStorage.setItem(CUSTOM_GEMINI_KEY, customGeminiKey);
     localStorage.setItem(CUSTOM_OPENAI_KEY, customOpenAIKey);
     localStorage.setItem(CUSTOM_DEEPSEEK_KEY, customDeepseekKey);
+    localStorage.setItem('cic_local_ai_base_url', localAIBaseURL);
     setShowSettings(false);
-    toast.success('Đã lưu cấu hình API Key!');
+    toast.success('Đã lưu cấu hình!');
   };
+
+  // ─── Test Local AI Connection ──────────────────────
+  const testLocalAI = useCallback(async () => {
+    setLocalAITesting(true);
+    setLocalAITestResult(null);
+    try {
+      // Ollama API: /api/tags returns list of models
+      const baseForOllama = localAIBaseURL.replace(/\/v1\/?$/, '');
+      const res = await fetch(`${baseForOllama}/api/tags`, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { models?: { name: string }[] };
+      const models = (data.models || []).map(m => m.name);
+      setLocalAITestResult({ ok: true, models });
+    } catch {
+      setLocalAITestResult({ ok: false, models: [] });
+    } finally {
+      setLocalAITesting(false);
+    }
+  }, [localAIBaseURL]);
 
   // ─── Pre-fetch business context ────────────────────────
   const [systemContext, setSystemContext] = useState<string>('');
   useEffect(() => {
+    invalidateBusinessContext(); // Force refresh khi mở page
     getBusinessContext().then(ctx => setSystemContext(ctx));
   }, []);
 
@@ -222,8 +408,30 @@ const AIAssistant: React.FC = () => {
 
   // ─── Send message ──────────────────────────────────────
   const handleSend = async (overrideInput?: string) => {
-    const messageText = overrideInput || input.trim();
-    if (!messageText || isTyping) return;
+    const rawText = overrideInput || input.trim();
+    if ((!rawText && attachedFiles.length === 0) || isTyping) return;
+
+    let messageText = rawText;
+    let fileContents = '';
+
+    if (attachedFiles.length > 0) {
+      try {
+        toast.info(`Đang trích xuất văn bản từ ${attachedFiles.length} file...`);
+        for (const file of attachedFiles) {
+          const parsed = await parseDocumentClientSide(file);
+          fileContents += `\n\n--- Trích xuất từ file: ${file.name} ---\n${parsed}\n--- Kết thúc file ---`;
+        }
+        setAttachedFiles([]);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (err: any) {
+        toast.error(err.message || 'Lỗi khi đọc file');
+        return;
+      }
+    }
+
+    if (fileContents) {
+      messageText = (messageText ? messageText + '\n\n' : '') + 'Dưới đây là nội dung tài liệu đính kèm:\n' + fileContents;
+    }
 
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -257,6 +465,13 @@ const AIAssistant: React.FC = () => {
     let fullContent = '';
 
     try {
+      // RAG: Tra cứu Knowledge Base
+      let ragContext = '';
+      try {
+        const ragResult = await searchKnowledgeBase(messageText, 3);
+        if (ragResult) ragContext = ragResult;
+      } catch { /* RAG offline - bỏ qua */ }
+
       const history = messages.map(m => ({
         role: m.role,
         content: m.content
@@ -265,6 +480,11 @@ const AIAssistant: React.FC = () => {
       let finalPrompt = AGENTS[currentAgent].prompt;
       if (['general', 'analyst', 'legal'].includes(currentAgent)) {
         finalPrompt = `${systemContext}\n\n${finalPrompt}`;
+      }
+
+      // Inject RAG context vào prompt
+      if (ragContext) {
+        finalPrompt += `\n\n═══ TÀI LIỆU TRÍCH DẪN (Knowledge Base) ═══\n${ragContext}\n\nHãy ưu tiên tham khảo tài liệu trích dẫn để trả lời nếu phù hợp.`;
       }
 
       const stream = streamEnterpriseAI(history, userMsg.content, currentModel, finalPrompt, controller.signal);
@@ -486,6 +706,18 @@ const AIAssistant: React.FC = () => {
         <AIDataIngestion />
       ) : (
         <>
+          {/* ═══ Widget History Import Banner ═════════════════ */}
+          {widgetHistoryBanner && (
+            <div className="mx-4 md:mx-6 mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl flex items-center gap-3">
+              <span className="text-lg">📥</span>
+              <div className="flex-1">
+                <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300">Có lịch sử chat từ popup</p>
+                <p className="text-[10px] text-indigo-500 dark:text-indigo-400">Nhập vào để tiếp tục cuộc trò chuyện</p>
+              </div>
+              <button onClick={importWidgetHistory} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer">Nhập</button>
+              <button onClick={dismissWidgetHistory} className="p-1 text-indigo-400 hover:text-indigo-600 cursor-pointer"><X size={14} /></button>
+            </div>
+          )}
           {/* ═══ Messages Area ════════════════════════════════ */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth">
             {messages.map((msg) => (
@@ -523,15 +755,7 @@ const AIAssistant: React.FC = () => {
                         <div className="prose prose-sm prose-indigo dark:prose-invert max-w-none break-words">
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
-                            components={{
-                              table: ({ node, ...props }) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg" {...props} /></div>,
-                              th: ({ node, ...props }) => <th className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-left text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400" {...props} />,
-                              td: ({ node, ...props }) => <td className="px-4 py-2 border-t border-slate-100 dark:border-slate-700 text-sm" {...props} />,
-                              ul: ({ node, ...props }) => <ul className="list-disc pl-5 space-y-1" {...props} />,
-                              ol: ({ node, ...props }) => <ol className="list-decimal pl-5 space-y-1" {...props} />,
-                              code: ({ node, ...props }) => <code className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-xs font-mono text-rose-500 dark:text-rose-400" {...props} />,
-                              a: ({ node, ...props }) => <a className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold" target="_blank" rel="noopener noreferrer" {...props} />
-                            }}
+                            components={MARKDOWN_COMPONENTS as any}
                           >
                             {msg.content}
                           </ReactMarkdown>
@@ -580,54 +804,95 @@ const AIAssistant: React.FC = () => {
           </div>
 
           {/* ═══ Input Area ═══════════════════════════════════ */}
-          < div className="p-3 md:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800" >
-            <div className="relative max-w-4xl mx-auto">
-              {/* Model Selector */}
-              <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10">
+          <div className="p-3 md:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+            <div className="max-w-4xl mx-auto">
+              {/* Model Selector — above input on mobile, inline on desktop */}
+              <div className="flex items-center gap-2 mb-2">
                 <select
                   value={currentModel}
                   onChange={(e) => setCurrentModel(e.target.value)}
-                  className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-[10px] font-bold text-slate-600 dark:text-slate-300 py-1.5 px-2 rounded-lg cursor-pointer focus:outline-none border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700 transition-all max-w-[120px]"
+                  className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-[10px] font-bold text-slate-600 dark:text-slate-300 py-1.5 px-2 rounded-lg cursor-pointer focus:outline-none border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700 transition-all"
                   title="Chọn Model AI"
                 >
-                  <optgroup label="🔑 Hệ thống (Gemini)">
-                    <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash</option>
-                    <option value="gemini-1.5-flash">⚡ Gemini 1.5 Flash</option>
-                    <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro</option>
+                  <optgroup label="🖥️ Local AI (Bảo mật 100%)">
+                    <option value="qwen2.5:7b">🧠 Qwen 2.5 — 7B (Khuyên dùng)</option>
+                    <option value="qwen2.5:14b">🧠 Qwen 2.5 — 14B (Chất lượng cao)</option>
+                    <option value="deepseek-r1:7b">🤔 DeepSeek R1 — 7B (Suy luận)</option>
                   </optgroup>
-                  <optgroup label="🔐 Cá nhân (cần API Key)">
-                    <option value="gpt-4o">🤖 GPT-4o</option>
-                    <option value="deepseek-r1">🤔 DeepSeek R1</option>
+                  <optgroup label="🔑 Cloud AI (Hệ thống)">
+                    <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash (Tốc độ, Mặc định)</option>
+                    <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro (Phân tích sâu)</option>
+                  </optgroup>
+                  <optgroup label="🔐 Cloud AI (Yêu cầu API Key)">
+                    <option value="gpt-4o">🤖 GPT-4o (Xịn nhất chung)</option>
+                    <option value="deepseek-r1">🤔 DeepSeek R1 (Suy luận đỉnh cao)</option>
                   </optgroup>
                 </select>
               </div>
 
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Nhập câu hỏi của bạn (Shift+Enter để xuống dòng)..."
-                className="w-full pl-[135px] pr-14 py-4 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-indigo-500 dark:focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 rounded-[20px] resize-none max-h-40 min-h-[56px] shadow-sm text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all"
-                rows={1}
-                disabled={isTyping}
-              />
+              {attachedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {attachedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-medium border border-indigo-100 dark:border-indigo-800/50">
+                      <Paperclip size={12} />
+                      <span className="max-w-[150px] truncate">{file.name}</span>
+                      <button onClick={() => setAttachedFiles(prev => prev.filter((_, i) => i !== idx))} className="hover:text-rose-500 ml-1">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              <button
-                onClick={isTyping ? handleStop : () => handleSend()}
-                disabled={!isTyping && !input.trim()}
-                className={cn(
-                  "absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer",
-                  isTyping
-                    ? "bg-rose-500 text-white shadow-lg hover:bg-rose-600 hover:scale-105 active:scale-95"
-                    : input.trim()
-                      ? "bg-indigo-600 text-white shadow-lg hover:scale-105 active:scale-95"
-                      : "bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
-                )}
-                title={isTyping ? "Dừng" : "Gửi"}
-              >
-                {isTyping ? <StopCircle size={20} /> : <Send size={20} />}
-              </button>
+              <div className="relative flex items-center">
+                <input
+                  type="file"
+                  multiple
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept=".txt,.csv,.md,.json,.docx"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                    }
+                  }}
+                />
+                
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer z-10"
+                  title="Đính kèm tài liệu (.docx, .txt, .csv)"
+                >
+                  <Paperclip size={18} />
+                </button>
+
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Hỏi AI hoặc đính kèm hợp đồng để phân tích..."
+                  className="w-full pl-12 pr-14 py-4 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-indigo-500 dark:focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 rounded-[20px] resize-none max-h-40 min-h-[56px] shadow-sm text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all"
+                  rows={1}
+                  disabled={isTyping}
+                />
+
+                <button
+                  onClick={isTyping ? handleStop : () => handleSend()}
+                  disabled={!isTyping && !input.trim() && attachedFiles.length === 0}
+                  className={cn(
+                    "absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+                    isTyping
+                      ? "bg-rose-500 text-white shadow-lg hover:bg-rose-600 hover:scale-105 active:scale-95"
+                      : (input.trim() || attachedFiles.length > 0)
+                        ? "bg-indigo-600 text-white shadow-lg hover:scale-105 active:scale-95"
+                        : "bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
+                  )}
+                  title={isTyping ? "Dừng" : "Gửi"}
+                >
+                  {isTyping ? <StopCircle size={20} /> : <Send size={20} />}
+                </button>
+              </div>
             </div>
             <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
               AI có thể mắc lỗi. Vui lòng kiểm tra lại các thông tin quan trọng.
@@ -666,8 +931,22 @@ const AIAssistant: React.FC = () => {
                 )}
               >
                 <KeyRound size={16} />
-                Cài đặt Key
+                API Keys
                 {settingsTab === 'config' && (
+                  <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full" />
+                )}
+              </button>
+              <button
+                onClick={() => setSettingsTab('local')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold transition-all cursor-pointer relative",
+                  settingsTab === 'local'
+                    ? "text-indigo-600 dark:text-indigo-400"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+              >
+                🖥️ Local AI
+                {settingsTab === 'local' && (
                   <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full" />
                 )}
               </button>
@@ -681,7 +960,7 @@ const AIAssistant: React.FC = () => {
                 )}
               >
                 <BookOpen size={16} />
-                Hướng dẫn lấy API
+                Hướng dẫn
                 {settingsTab === 'guide' && (
                   <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-indigo-500 rounded-full" />
                 )}
@@ -747,7 +1026,82 @@ const AIAssistant: React.FC = () => {
                   </button>
                 </div>
               </>
-            ) : (
+            ) : settingsTab === 'local' ? (
+              <>
+                <div className="p-4 md:p-6 space-y-4">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                    Cấu hình kết nối Ollama (Local AI). Dữ liệu không rời khỏi máy bạn — bảo mật 100%.
+                  </p>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 ml-1">Ollama Base URL</label>
+                    <input
+                      type="text"
+                      value={localAIBaseURL}
+                      onChange={(e) => setLocalAIBaseURL(e.target.value)}
+                      placeholder="http://localhost:11434/v1"
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono"
+                    />
+                  </div>
+
+                  <button
+                    onClick={testLocalAI}
+                    disabled={localAITesting}
+                    className="w-full px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 text-sm font-bold rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {localAITesting ? (
+                      <><span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" /> Đang kiểm tra...</>
+                    ) : (
+                      <>🔍 Kiểm tra kết nối</>
+                    )}
+                  </button>
+
+                  {localAITestResult && (
+                    <div className={cn(
+                      "rounded-xl p-4 border",
+                      localAITestResult.ok
+                        ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800"
+                        : "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800"
+                    )}>
+                      {localAITestResult.ok ? (
+                        <>
+                          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 mb-2">✅ Ollama đang chạy — {localAITestResult.models.length} models</p>
+                          <div className="space-y-1">
+                            {localAITestResult.models.map((m, i) => (
+                              <p key={i} className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">• {m}</p>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-bold text-rose-700 dark:text-rose-300">❌ Không kết nối được Ollama</p>
+                          <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">Kiểm tra: <code className="bg-rose-100 dark:bg-rose-900/30 px-1 rounded">ollama serve</code> đã chạy chưa?</p>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 p-3">
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">💡 Cài model mới: <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">ollama pull qwen2.5:7b</code></p>
+                  </div>
+                </div>
+
+                <div className="p-4 md:p-6 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 rounded-b-2xl">
+                  <button
+                    onClick={() => { setShowSettings(false); setSettingsTab('config'); }}
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-all"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={saveSettings}
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 cursor-pointer shadow-md shadow-indigo-200 dark:shadow-none transition-all"
+                  >
+                    Lưu cài đặt
+                  </button>
+                </div>
+              </>
+            ) : settingsTab === 'guide' ? (
               <div className="p-4 md:p-6 space-y-5 max-h-[60vh] overflow-y-auto">
                 {/* Google Gemini Guide */}
                 <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20 p-4">
@@ -860,7 +1214,7 @@ const AIAssistant: React.FC = () => {
                   </ul>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       )}
