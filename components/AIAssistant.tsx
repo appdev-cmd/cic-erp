@@ -815,7 +815,8 @@ const AIAssistant: React.FC = () => {
                   title="Chọn Model AI"
                 >
                   <optgroup label="🖥️ Local AI (Bảo mật 100%)">
-                    <option value="qwen2.5:7b">🧠 Qwen 2.5 — 7B (Khuyên dùng)</option>
+                    <option value="Qwen/Qwen2.5-7B-Instruct">⚡ Qwen 2.5 — 7B (Enterprise vLLM)</option>
+                    <option value="qwen2.5:7b">🧠 Qwen 2.5 — 7B (Ollama Cũ)</option>
                     <option value="qwen2.5:14b">🧠 Qwen 2.5 — 14B (Chất lượng cao)</option>
                     <option value="deepseek-r1:7b">🤔 DeepSeek R1 — 7B (Suy luận)</option>
                   </optgroup>
@@ -1082,7 +1083,7 @@ const AIAssistant: React.FC = () => {
                   )}
 
                   <div className="rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 p-3">
-                    <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">💡 Cài model mới: <code className="bg-amber-100 dark:bg-amber-900/30 px-1 rounded">ollama pull qwen2.5:7b</code></p>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">💡 vLLM Engine tự tải model. Tốc độ cao nhờ kiến trúc GPU Enterprise.</p>
                   </div>
                 </div>
 

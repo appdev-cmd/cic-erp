@@ -142,7 +142,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                 }));
             
             // Lấy model ưu tiên
-            const modelId = localStorage.getItem('cic_local_ai_model') || 'qwen2.5:7b';
+            const modelId = localStorage.getItem('cic_local_ai_model') || 'Qwen/Qwen2.5-7B-Instruct';
             
             const stream = streamOpenAIChat(
                 recentMessages, // Multi-turn history
@@ -164,7 +164,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
             setIsSearching(false);
             setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
-                text: "⚠️ Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng kiểm tra:\n- Ollama đang chạy (`ollama serve`)\n- Model đã pull (`ollama pull qwen2.5:7b`)",
+                text: "⚠️ Xin lỗi, tôi đang gặp sự cố kết nối nội bộ. Vui lòng kiểm tra:\n- Docker vLLM đang chạy (`docker ps`)\n- Model lớn đã tải xong chưa",
                 sender: 'ai',
                 timestamp: new Date()
             }]);

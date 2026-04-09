@@ -433,7 +433,10 @@ const LocalAISection: React.FC = () => {
                 <div>
                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Mô hình AI (Model)</label>
                     <select value={model} onChange={e => setModel(e.target.value)} className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 border-indigo-100 dark:border-indigo-900/50 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                        <optgroup label="Dòng Qwen (Khuyên dùng cho Tiếng Việt)">
+                        <optgroup label="Local API (vLLM)">
+                            <option value="Qwen/Qwen2.5-7B-Instruct">Qwen 2.5 7B (vLLM Enterprise)</option>
+                        </optgroup>
+                        <optgroup label="Dòng Qwen (Ollama)">
                             <option value="qwen2.5:7b">Qwen 2.5 (7B)</option>
                             <option value="qwen2.5:14b">Qwen 2.5 (14B)</option>
                             <option value="qwen2.5:32b">Qwen 2.5 (32B)</option>
