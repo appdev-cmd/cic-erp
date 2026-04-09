@@ -11,6 +11,16 @@ function getCustomDeepseekKey(): string | null {
     catch { return null; }
 }
 
+export function getLocalAIBaseURL(): string {
+    try { return localStorage.getItem('cic_local_ai_base_url') || 'http://localhost:11434/v1'; }
+    catch { return 'http://localhost:11434/v1'; }
+}
+
+export function isLocalAIPriority(): boolean {
+    try { return localStorage.getItem('cic_local_ai_priority') === 'true'; }
+    catch { return false; }
+}
+
 // ─── Helper: Gọi Edge Function an toàn ─────────────────────
 async function callEdgeFunction(action: string, payload: Record<string, any>): Promise<any> {
     const { data, error } = await supabase.functions.invoke('ai-proxy', {
@@ -44,11 +54,18 @@ async function isEdgeFunctionAvailable(): Promise<boolean> {
 }
 
 // Helper to create client based on provider for Direct Calls (Fallback)
-const createDirectClient = async (provider: 'openai' | 'deepseek') => {
+const createDirectClient = async (provider: 'openai' | 'deepseek' | 'local') => {
     // Dynamic import to avoid bundling if not used locally
     const { default: OpenAI } = await import('openai');
 
-    if (provider === 'openai') {
+    if (provider === 'local') {
+        const baseURL = getLocalAIBaseURL();
+        return new OpenAI({
+            baseURL: baseURL,
+            apiKey: 'ollama', // Any dummy key is fine for local
+            dangerouslyAllowBrowser: true,
+        });
+    } else if (provider === 'openai') {
         const apiKey = getCustomOpenAIKey() || import.meta.env.VITE_OPENAI_API_KEY;
         if (!apiKey) throw new Error("Missing OpenAI API Key. Vui lòng cấu hình trong Cài đặt.");
         return new OpenAI({
@@ -77,9 +94,13 @@ export async function* streamOpenAIChat(
         // Check abort before starting
         if (signal?.aborted) return;
 
-        const provider = modelId.includes('deepseek') ? 'deepseek' : 'openai';
+        let provider: 'openai' | 'deepseek' | 'local' = modelId.includes('deepseek') ? 'deepseek' : 'openai';
+        if (isLocalAIPriority() || modelId.includes('local') || modelId.includes('gemma') || modelId.includes('qwen') || modelId.includes('llama')) {
+            provider = 'local';
+        }
+
         const customKey = provider === 'deepseek' ? getCustomDeepseekKey() : getCustomOpenAIKey();
-        const shouldUseEdge = !customKey && await isEdgeFunctionAvailable();
+        const shouldUseEdge = provider !== 'local' && !customKey && await isEdgeFunctionAvailable();
 
         if (shouldUseEdge) {
             const { data, error } = await supabase.functions.invoke('ai-proxy', {
@@ -136,7 +157,7 @@ export async function* streamOpenAIChat(
             model: apiModelId,
             messages: messages,
             stream: true,
-            temperature: apiModelId === 'deepseek-reasoner' ? undefined : 0.7, // deepseek-reasoner ko cho phép chỉnh temperature
+            temperature: apiModelId.includes('reasoner') ? undefined : 0.7, // deepseek-reasoner doesn't support temp
         });
 
         for await (const chunk of stream) {
@@ -191,6 +212,27 @@ export async function analyzeContractWithDeepSeek(text: string): Promise<string>
 
 export async function querySystemDataWithDeepSeek(query: string, data: any): Promise<string> {
     try {
+        // If Local AI is preferred
+        if (isLocalAIPriority()) {
+            const client = await createDirectClient('local');
+            const modelName = localStorage.getItem('cic_local_ai_model') || 'qwen2.5';
+            const response = await client.chat.completions.create({
+                model: modelName,
+                messages: [
+                    {
+                        role: "system",
+                        content: "Bạn là trợ lý quản trị cấp cao của ContractPro. Dựa trên dữ liệu hệ thống được cung cấp, hãy trả lời câu hỏi của người dùng một cách chính xác, ngắn gọn và có phân tích chuyên môn. Bắt buộc format câu trả lời bằng Markdown."
+                    },
+                    {
+                        role: "user",
+                        content: `Dữ liệu hệ thống:\n${JSON.stringify(data)}\n\nCâu hỏi: ${query}`
+                    }
+                ],
+                temperature: 0.1,
+            });
+            return response.choices[0]?.message?.content || "Không có phản hồi từ Trợ lý Local AI.";
+        }
+
         const customKey = getCustomDeepseekKey();
         if (!customKey && await isEdgeFunctionAvailable()) {
             const resultData = await callEdgeFunction('query', { provider: 'deepseek', query, data });

@@ -6,20 +6,23 @@ import { Candidate, JobOpening } from '../../types/hrmTypes';
 interface Props {
   jobOpenings: JobOpening[];
   preSelectedJobId?: string;
+  candidate?: Candidate | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose, onSuccess }) => {
+const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candidate, onClose, onSuccess }) => {
+  const isEdit = !!candidate;
+  
   const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    phone: '',
-    education: '',
-    experience_years: 0,
+    full_name: candidate?.full_name || '',
+    email: candidate?.email || '',
+    phone: candidate?.phone || '',
+    education: candidate?.education || '',
+    experience_years: candidate?.experience_years || 0,
     job_opening_id: preSelectedJobId || '',
-    resume_url: '',
-    notes: ''
+    resume_url: candidate?.resume_url || '',
+    notes: candidate?.notes || ''
   });
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,23 +36,27 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
         finalResumeUrl = await recruitmentService.uploadResume(resumeFile);
       }
 
-      // 1. Create candidate
-      const candidate: Partial<Candidate> = {
+      const candidateData: Partial<Candidate> = {
         full_name: formData.full_name,
         email: formData.email,
         phone: formData.phone,
         education: formData.education,
         experience_years: formData.experience_years,
         resume_url: finalResumeUrl,
-        source: 'other',
+        source: candidate?.source || 'other',
       };
       
-      const newCand = await recruitmentService.createCandidate(candidate);
+      let savedCand;
+      if (isEdit) {
+        savedCand = await recruitmentService.updateCandidate(candidate.id, candidateData);
+      } else {
+        savedCand = await recruitmentService.createCandidate(candidateData);
+      }
 
-      // 2. Add to job opening if selected
-      if (formData.job_opening_id) {
+      // 2. Add to job opening if selected (chỉ áp dụng khi tạo mới)
+      if (!isEdit && formData.job_opening_id) {
         await recruitmentService.createApplication({
-          candidate_id: newCand.id,
+          candidate_id: savedCand.id,
           job_opening_id: formData.job_opening_id,
         });
       }
@@ -73,7 +80,7 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
       <div className="fixed inset-y-0 right-0 z-[110] w-full max-w-md bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
         <div className="px-6 py-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shrink-0">
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            Thêm Ứng viên Mới
+            {isEdit ? 'Cập nhật Ứng viên' : 'Thêm Ứng viên Mới'}
           </h2>
           <button
             type="button"
@@ -194,21 +201,23 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 dark:border-slate-800 pt-5 mt-2">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Ứng tuyển vào Vị trí</label>
-                <select
-                  value={formData.job_opening_id}
-                  onChange={e => setFormData({ ...formData, job_opening_id: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-slate-100"
-                >
-                  <option value="">(Chỉ lưu Ngân hàng CV, không ứng tuyển)</option>
-                  {jobOpenings.map(job => (
-                     <option key={job.id} value={job.id}>{job.title} - {job.department}</option>
-                  ))}
-                </select>
-              </div>
+              {!isEdit && (
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-5 mt-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Ứng tuyển vào Vị trí</label>
+                  <select
+                    value={formData.job_opening_id}
+                    onChange={e => setFormData({ ...formData, job_opening_id: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-slate-100"
+                  >
+                    <option value="">(Chỉ lưu Ngân hàng CV, không ứng tuyển)</option>
+                    {jobOpenings.map(job => (
+                       <option key={job.id} value={job.id}>{job.title} - {job.department}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               
-              {formData.job_opening_id && (
+              {!isEdit && formData.job_opening_id && (
                 <div>
                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Ghi chú ứng tuyển</label>
                    <textarea
@@ -239,7 +248,7 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
               }`}
             >
               <Save size={18} />
-              {isSubmitting ? 'Đang lưu...' : 'Thêm Ứng viên'}
+              {isSubmitting ? 'Đang lưu...' : (isEdit ? 'Cập nhật' : 'Thêm Ứng viên')}
             </button>
           </div>
         </form>

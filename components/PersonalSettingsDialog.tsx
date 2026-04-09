@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
-import { Save, Loader2, X, Settings, Sun, Moon, Palette } from 'lucide-react';
+import { Save, Loader2, X, Settings, Sun, Moon, Palette, Bot } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { EmployeeService } from '../services';
 import { Employee, Unit } from '../types';
@@ -272,6 +272,9 @@ const PersonalSettingsDialog: React.FC<PersonalSettingsDialogProps> = ({
                             <ThemeSection theme={theme} setTheme={setTheme} accent={accent} setAccent={setAccent} />
                         )}
 
+                        {/* Local AI Settings */}
+                        <LocalAISection />
+
                         {/* Avatar & Basic Info (readOnly for most fields) */}
                         <div className="flex gap-6">
                             <AvatarSection previewUrl={previewUrl} onFileChange={handleFileChange} />
@@ -393,5 +396,67 @@ const ThemeSection: React.FC<{
         </div>
     </div>
 );
+
+// ═══ Local AI Settings sub-component ═══
+const LocalAISection: React.FC = () => {
+    const [baseUrl, setBaseUrl] = useState(() => localStorage.getItem('cic_local_ai_base_url') || 'http://localhost:11434/v1');
+    const [model, setModel] = useState(() => localStorage.getItem('cic_local_ai_model') || 'qwen2.5');
+    const [priority, setPriority] = useState(() => localStorage.getItem('cic_local_ai_priority') === 'true');
+
+    const handleSave = () => {
+        localStorage.setItem('cic_local_ai_base_url', baseUrl);
+        localStorage.setItem('cic_local_ai_model', model);
+        localStorage.setItem('cic_local_ai_priority', priority ? 'true' : 'false');
+        toast.success('Đã lưu cấu hình AI nội bộ', { description: 'Sẽ có hiệu lực lập tức.' });
+    };
+
+    return (
+        <div className="p-4 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-lg border border-indigo-100 dark:border-indigo-800/30 space-y-4">
+            <div className="flex justify-between items-center border-b border-indigo-100 dark:border-indigo-800/30 pb-3">
+                <div>
+                    <h4 className="font-semibold flex items-center gap-2 text-indigo-900 dark:text-indigo-200">
+                        <Bot size={18} className="text-indigo-500" />
+                        Máy chủ AI Nội bộ (Local AI)
+                    </h4>
+                    <p className="text-[11px] text-indigo-600/70 dark:text-indigo-400/70 mt-0.5 ml-6">Cấu hình kết nối Ollama/vLLM tự host (Bảo mật 100%)</p>
+                </div>
+                <button type="button" onClick={handleSave} className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white dark:bg-indigo-500 rounded-md hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors shadow-sm">
+                    Lưu AI
+                </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Base URL (API Endpoint)</label>
+                    <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 border-indigo-100 dark:border-indigo-900/50 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
+                </div>
+                <div>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Mô hình AI (Model)</label>
+                    <select value={model} onChange={e => setModel(e.target.value)} className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 border-indigo-100 dark:border-indigo-900/50 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <optgroup label="Dòng Qwen (Khuyên dùng cho Tiếng Việt)">
+                            <option value="qwen2.5:7b">Qwen 2.5 (7B)</option>
+                            <option value="qwen2.5:14b">Qwen 2.5 (14B)</option>
+                            <option value="qwen2.5:32b">Qwen 2.5 (32B)</option>
+                        </optgroup>
+                        <optgroup label="Dòng Gemma (Google)">
+                            <option value="gemma2:9b">Gemma 2 (9B)</option>
+                            <option value="gemma2:27b">Gemma 2 (27B)</option>
+                        </optgroup>
+                        <optgroup label="Khác">
+                            <option value="llama3.1:8b">Llama 3.1 (8B)</option>
+                            <option value="phi3:mini">Phi 3 Mini</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+                <input type="checkbox" id="ai_priority" checked={priority} onChange={e => setPriority(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600" />
+                <label htmlFor="ai_priority" className="text-sm text-slate-700 dark:text-slate-300 font-medium cursor-pointer select-none">
+                    Luôn ưu tiên dùng Máy chủ AI Nội bộ (Ghi đè OpenAI/DeepSeek)
+                </label>
+            </div>
+        </div>
+    );
+};
 
 export default PersonalSettingsDialog;

@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Bot, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { querySystemDataWithDeepSeek } from '../services/openaiService';
+import { streamOpenAIChat } from '../services/openaiService';
+import { searchKnowledgeBase } from '../services/ragService';
 
 interface ChatWidgetProps {
     contextData: any; // Data to be passed to AI for context
@@ -22,6 +23,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -45,28 +47,62 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setIsLoading(true);
+        setIsSearching(true);
 
         try {
-            // Simplify context data to reduce token usage if needed
-            // For now, passing exactly what is provided, but typically you'd want to aggregate sensitive or large lists
-            const response = await querySystemDataWithDeepSeek(input, contextData);
+            // Bước 1: Gọi RAG để lấy tài liệu nội suy (Knowledge Base)
+            const ragContext = await searchKnowledgeBase(input, 3);
+            setIsSearching(false);
 
-            const aiMsg: Message = {
-                id: (Date.now() + 1).toString(),
-                text: response,
+            // Xây dựng System Instruction kết hợp System Data và RAG Context
+            const systemInst = `Bạn là trợ lý AI thông minh của Hệ thống CIC-ERP. Trả lời BẰNG TIẾNG VIỆT, sử dụng Markdown. 
+            
+Dữ liệu Trang hiện tại:
+\`\`\`json
+${JSON.stringify(contextData)}
+\`\`\`
+
+${ragContext ? `Tài liệu Trích dẫn (Knowledge Base):\n${ragContext}\n\nHãy tập trung sử dụng Tài liệu Trích dẫn để trả lời nếu được hỏi.` : ''}`;
+
+            const aiMsgId = (Date.now() + 1).toString();
+            // Thêm tin nhắn rỗng của AI để bắt đầu Stream
+            setMessages(prev => [...prev, {
+                id: aiMsgId,
+                text: '',
                 sender: 'ai',
                 timestamp: new Date()
-            };
-            setMessages(prev => [...prev, aiMsg]);
+            }]);
+
+            // Lịch sử gửi đi (chỉ gửi câu chat hiện tại để tiết kiệm context cho local, mở rộng sau)
+            const history = [{ role: 'user' as const, content: input }];
+            
+            // Lấy model ưu tiên
+            const modelId = localStorage.getItem('cic_local_ai_model') || 'qwen2.5:7b';
+            
+            const stream = streamOpenAIChat(
+                history.slice(0, -1), // Rỗng
+                input,
+                modelId,
+                systemInst
+            );
+
+            let accumulatedText = '';
+            for await (const chunk of stream) {
+                accumulatedText += chunk;
+                setMessages(prev => prev.map(msg => 
+                    msg.id === aiMsgId ? { ...msg, text: accumulatedText } : msg
+                ));
+            }
+
         } catch (error) {
             console.error(error);
-            const errorMsg: Message = {
+            setIsSearching(false);
+            setMessages(prev => [...prev, {
                 id: (Date.now() + 1).toString(),
-                text: "Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng thử lại sau.",
+                text: "Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng kiểm tra lại cấu hình Local AI.",
                 sender: 'ai',
                 timestamp: new Date()
-            };
-            setMessages(prev => [...prev, errorMsg]);
+            }]);
         } finally {
             setIsLoading(false);
         }
@@ -137,12 +173,18 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                             </div>
                         ))}
                         {isLoading && (
-                            <div className="flex justify-start">
-                                <div className="bg-white dark:bg-slate-800 p-3 rounded-lg rounded-tl-sm border border-slate-100 dark:border-slate-800 shadow-sm flex gap-1">
-                                    <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                    <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                    <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                                </div>
+                            <div className="flex justify-start items-center gap-2 text-[10px] text-slate-400 font-medium ml-2">
+                                {isSearching ? (
+                                    <>Đang tra cứu tài liệu nội bộ (RAG)...</>
+                                ) : (
+                                    <>
+                                        <div className="bg-white dark:bg-slate-800 p-2 rounded-lg rounded-tl-sm border border-slate-100 dark:border-slate-800 shadow-sm flex gap-1 items-center">
+                                            <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                            <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                            <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         )}
                         <div ref={messagesEndRef} />

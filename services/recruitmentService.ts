@@ -74,6 +74,14 @@ export const recruitmentService = {
     return data as JobOpening;
   },
 
+  async deleteJobOpening(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('job_openings')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
+
   // ── Candidates ──
   async getCandidates(): Promise<Candidate[]> {
     const { data, error } = await supabase
@@ -113,6 +121,14 @@ export const recruitmentService = {
 
     if (error) throw error;
     return data as Candidate;
+  },
+
+  async deleteCandidate(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('candidates')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
   },
 
   async uploadResume(file: File): Promise<string> {
@@ -208,6 +224,14 @@ export const recruitmentService = {
 
     if (error) throw error;
     return data as CandidateApplication;
+  },
+
+  async deleteApplication(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('applications')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
   },
 
   // ── Evaluations ──

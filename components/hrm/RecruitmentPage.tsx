@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Users, LayoutDashboard, Plus, Search, Filter, Edit } from 'lucide-react';
+import { Briefcase, Users, LayoutDashboard, Plus, Search, Filter, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { recruitmentService } from '../../services/recruitmentService';
 import { JobOpening, Candidate, CandidateApplication } from '../../types/hrmTypes';
@@ -63,6 +63,19 @@ const RecruitmentPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleDeleteJob = async (e: React.MouseEvent, job: JobOpening) => {
+    e.stopPropagation();
+    if (window.confirm(`CẢNH BÁO: Xóa vị trí "${job.title}" sẽ đồng thời hủy tất cả hồ sơ ứng viên đang theo vị trí này. Thao tác không thể hoàn tác!\n\nBạn có muốn tiếp tục xóa?`)) {
+      try {
+        await recruitmentService.deleteJobOpening(job.id);
+        loadData();
+      } catch (err) {
+        console.error(err);
+        alert('Có lỗi xảy ra khi xóa!');
+      }
+    }
+  };
 
   const loadData = async () => {
     setIsLoading(true);
@@ -268,6 +281,9 @@ const RecruitmentPage: React.FC = () => {
                            <button onClick={(e) => { e.stopPropagation(); openPanel({ title: `Chỉnh sửa: ${job.title}`, component: (<JobOpeningForm job={job} onClose={() => closePanel()} onSuccess={() => { closePanel(); loadData(); }} isInsidePanel={true} />) }); }} className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-50 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-900/30 rounded-lg transition-colors" title="Sửa vị trí">
                              <Edit size={16} />
                            </button>
+                           <button onClick={(e) => handleDeleteJob(e, job)} className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 bg-slate-50 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-900/30 rounded-lg transition-colors" title="Xóa vị trí">
+                             <Trash2 size={16} />
+                           </button>
                            <div className="flex bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 divide-x divide-slate-200 dark:divide-slate-700 shrink-0">
                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 px-3 py-1.5">
                                {job.application_count || 0} CV
@@ -305,11 +321,12 @@ const RecruitmentPage: React.FC = () => {
                         <th className="px-4 py-3">Kinh nghiệm</th>
                         <th className="px-4 py-3">Pipeline</th>
                         <th className="px-4 py-3">Ngày tạo</th>
+                        <th className="px-4 py-3 text-right">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {filteredCandidates.map(candidate => (
-                        <tr key={candidate.id} onClick={() => setSelectedCandidate(candidate)} className="hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors">
+                        <tr key={candidate.id} onClick={() => setSelectedCandidate(candidate)} className="hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors group">
                           <td className="px-4 py-3">
                             <div className="font-medium text-slate-900 dark:text-slate-100">{candidate.full_name}</div>
                             {candidate.is_blacklisted && <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded ml-2 font-bold tracking-wide">BLACKLIST</span>}
@@ -339,6 +356,21 @@ const RecruitmentPage: React.FC = () => {
                             )}
                           </td>
                           <td className="px-4 py-3">{formatDateShort(candidate.created_at)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }} className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg transition-colors bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-700" title="Chi tiết / Sửa">
+                                <Edit size={14} />
+                              </button>
+                              <button onClick={async (e) => {
+                                e.stopPropagation();
+                                if(window.confirm('CẢNH BÁO: Xóa ứng viên này sẽ đồng thời hủy toàn bộ lịch sử ứng tuyển của họ. Bạn có chắc chắn không?')) {
+                                  try { await recruitmentService.deleteCandidate(candidate.id); loadData(); } catch(err) { alert('Lỗi xóa ứng viên!'); }
+                                }
+                              }} className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg transition-colors bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-700" title="Xóa ứng viên">
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

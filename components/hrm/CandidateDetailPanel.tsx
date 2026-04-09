@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, MapPin, GraduationCap, Briefcase, Calendar, Star, FileText, Download } from 'lucide-react';
+import { X, User, Phone, Mail, MapPin, GraduationCap, Briefcase, Calendar, Star, FileText, Download, Trash2, Edit } from 'lucide-react';
 import { Candidate, CandidateApplication, ApplicationStage, ApplicationEvaluation } from '../../types/hrmTypes';
 import { recruitmentService } from '../../services/recruitmentService';
 import { formatDate, formatDateTime } from '../../utils/formatters';
@@ -12,6 +12,11 @@ const calculateDays = (start: string, end: string) => {
 
 interface Props {
   candidate?: Candidate;
+  application?: CandidateApplication;
+  jobOpenings?: JobOpening[]; // Dùng cho chức năng Edit
+  onClose: () => void;
+  onUpdate?: () => void;
+}
   application?: CandidateApplication;
   onClose: () => void;
   onUpdate?: () => void;
@@ -32,6 +37,8 @@ const STAGES: { id: ApplicationStage; label: string }[] = [
 const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose, onUpdate }) => {
   const { profile } = useAuth();
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'interview'>('info');
   const [historyApps, setHistoryApps] = useState<CandidateApplication[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -122,6 +129,32 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
     }
   };
 
+  const handleDelete = async () => {
+    if (!cand) return;
+    const isAppDeletion = !!application;
+    const confirmMessage = isAppDeletion 
+      ? 'Bạn có chắc chắn muốn rút hồ sơ của ứng viên này khỏi vị trí ứng tuyển hiện tại?'
+      : 'CẢNH BÁO: Xóa ứng viên này sẽ đồng thời hủy toàn bộ lịch sử ứng tuyển của họ. Bạn có chắc chắn không?';
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setIsDeleting(true);
+    try {
+      if (isAppDeletion) {
+        await recruitmentService.deleteApplication(application.id);
+      } else {
+        await recruitmentService.deleteCandidate(cand.id);
+      }
+      if (onUpdate) onUpdate();
+      onClose();
+    } catch (e) {
+      console.error(e);
+      alert('Đã xảy ra lỗi khi xóa!');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!cand) return null;
 
   return (
@@ -152,12 +185,30 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
               )}
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors cursor-pointer"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setShowEditForm(true)}
+              className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors cursor-pointer"
+              title="Sửa hồ sơ ứng viên"
+            >
+              <Edit size={18} />
+            </button>
+            <button 
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors cursor-pointer"
+              title={application ? "Rút hồ sơ ứng tuyển" : "Xóa ứng viên"}
+            >
+              {isDeleting ? <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"/> : <Trash2 size={18} />}
+            </button>
+            <div className="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-1"></div>
+            <button 
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         <div className="flex border-b border-slate-200 dark:border-slate-800 px-4 pt-2 shrink-0 bg-white dark:bg-slate-900">
@@ -447,8 +498,27 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
           )}
         </div>
       </div>
+
+      {/* Render form đè lên khi chọn Edit */}
+      {showEditForm && (
+        <React.Suspense fallback={<div>Loading...</div>}>
+          <CandidateFormBase 
+            jobOpenings={[]} 
+            candidate={cand} 
+            onClose={() => setShowEditForm(false)} 
+            onSuccess={() => {
+              setShowEditForm(false);
+              if (onUpdate) onUpdate();
+              // Lưu ý: data ở detail view có thể bị cũ. Nên lấy lại trên component cha
+            }}
+          />
+        </React.Suspense>
+      )}
     </>
   );
 };
+
+// Sử dụng lazy loading cho CandidateForm để tránh circular dependency nếu có
+const CandidateFormBase = React.lazy(() => import('./CandidateForm'));
 
 export default CandidateDetailPanel;
