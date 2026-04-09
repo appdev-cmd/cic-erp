@@ -62,7 +62,7 @@ const createDirectClient = async (provider: 'openai' | 'deepseek' | 'local') => 
         const baseURL = getLocalAIBaseURL();
         return new OpenAI({
             baseURL: baseURL,
-            apiKey: 'ollama', // Any dummy key is fine for local
+            apiKey: 'cic-secret-ai-2026', // Phải khớp với khoá bí mật thiết đặt bên vLLM
             dangerouslyAllowBrowser: true,
         });
     } else if (provider === 'openai') {
