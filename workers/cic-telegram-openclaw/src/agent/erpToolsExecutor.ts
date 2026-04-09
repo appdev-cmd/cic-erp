@@ -159,10 +159,22 @@ export async function executeErpTool(
       }
       case 'revenue_report': {
         const year = args.year != null ? Number(args.year) : undefined;
-        const rows = await fetchRevenueByMonth(ctx.employeeId, year);
+        const quarter = args.quarter != null ? Number(args.quarter) : undefined;
+        let rows = await fetchRevenueByMonth(ctx.employeeId, year);
+        if (quarter && quarter >= 1 && quarter <= 4) {
+          rows = rows.filter(r => {
+             const mMatch = r.month_label.match(/-(\d+)/);
+             if (mMatch) {
+                const m = parseInt(mMatch[1], 10);
+                return Math.ceil(m / 3) === quarter;
+             }
+             return true; // fallback
+          });
+        }
         return JSON.stringify({
           ok: true,
           year: year ?? 'current',
+          quarter: quarter ?? 'all',
           months: rows.map((r) => ({
             label: r.month_label,
             contracts: r.contract_count,

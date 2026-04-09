@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS leave_policies (
 -- ── Bảng 2: Số phép còn lại theo năm ──
 CREATE TABLE IF NOT EXISTS leave_balances (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
     year INTEGER NOT NULL,
     leave_type VARCHAR(50) NOT NULL REFERENCES leave_policies(leave_type),
     total_days NUMERIC(5,1) NOT NULL DEFAULT 12,
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS leave_balances (
 -- ── Bảng 3: Đơn xin nghỉ phép ──
 CREATE TABLE IF NOT EXISTS leave_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
     leave_type VARCHAR(50) NOT NULL REFERENCES leave_policies(leave_type),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
@@ -46,11 +46,11 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     total_days NUMERIC(5,1) NOT NULL DEFAULT 1,
     reason TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
-    approver_id UUID REFERENCES employees(id),
+    approver_id TEXT REFERENCES employees(id),
     approved_at TIMESTAMPTZ,
     rejection_reason TEXT,
     attachment_url TEXT,
-    unit_id UUID REFERENCES units(id),
+    unit_id TEXT REFERENCES units(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT leave_requests_status_check CHECK (status IN ('draft', 'pending', 'approved', 'rejected', 'cancelled')),

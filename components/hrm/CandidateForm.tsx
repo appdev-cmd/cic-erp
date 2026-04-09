@@ -18,14 +18,21 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
     education: '',
     experience_years: 0,
     job_opening_id: preSelectedJobId || '',
+    resume_url: '',
     notes: ''
   });
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      let finalResumeUrl = formData.resume_url;
+      if (resumeFile) {
+        finalResumeUrl = await recruitmentService.uploadResume(resumeFile);
+      }
+
       // 1. Create candidate
       const candidate: Partial<Candidate> = {
         full_name: formData.full_name,
@@ -33,6 +40,7 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
         phone: formData.phone,
         education: formData.education,
         experience_years: formData.experience_years,
+        resume_url: finalResumeUrl,
         source: 'other',
       };
       
@@ -56,9 +64,14 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="bg-white dark:bg-slate-900 px-6 py-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
+    <>
+      <div 
+        className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+      
+      <div className="fixed inset-y-0 right-0 z-[110] w-full max-w-md bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+        <div className="px-6 py-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shrink-0">
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
             Thêm Ứng viên Mới
           </h2>
@@ -71,10 +84,10 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden h-full">
-          <div className="p-6 space-y-5 overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="md:col-span-2">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden h-full">
+          <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+            <div className="grid grid-cols-1 gap-5">
+              <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                   Họ và tên <span className="text-red-500">*</span>
                 </label>
@@ -94,7 +107,7 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
                   type="text"
                   value={formData.education}
                   onChange={e => setFormData({ ...formData, education: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none"
                   placeholder="Đại học..."
                 />
               </div>
@@ -107,19 +120,19 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
                   step="0.5"
                   value={formData.experience_years}
                   onChange={e => setFormData({ ...formData, experience_years: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none"
                 />
               </div>
 
-              <div className="md:col-span-2">
-                <div className="grid grid-cols-2 gap-5">
+              <div>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Email</label>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={e => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none"
                       placeholder="email@example.com"
                     />
                   </div>
@@ -129,19 +142,64 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
                       type="tel"
                       value={formData.phone}
                       onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none"
                       placeholder="0912..."
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="md:col-span-2 border-t border-slate-100 dark:border-slate-800 pt-5 mt-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Hồ sơ / CV</label>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0">
+                      <Upload size={16} className="text-slate-600 dark:text-slate-400" />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tải file lên</span>
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept=".pdf,.doc,.docx"
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setResumeFile(file);
+                            setFormData(prev => ({ ...prev, resume_url: '' }));
+                          }
+                        }}
+                      />
+                    </label>
+                    {resumeFile && (
+                      <div className="flex items-center gap-2 flex-1 min-w-0 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-md border border-indigo-100 dark:border-indigo-800/50">
+                        <span className="text-sm font-medium text-indigo-700 dark:text-indigo-400 truncate">{resumeFile.name}</span>
+                        <button type="button" onClick={() => setResumeFile(null)} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300"><X size={14}/></button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 text-sm text-slate-400 dark:text-slate-500 font-medium">
+                    <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+                    HOẶC GẮN LINK
+                    <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1"></div>
+                  </div>
+
+                  <input
+                    type="url"
+                    disabled={!!resumeFile}
+                    value={formData.resume_url}
+                    onChange={e => setFormData({ ...formData, resume_url: e.target.value })}
+                    className={`w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${resumeFile ? 'opacity-50 bg-slate-50 dark:bg-slate-900 cursor-not-allowed text-slate-500' : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100'}`}
+                    placeholder="https://drive.google.com/..."
+                  />
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-5 mt-2">
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Ứng tuyển vào Vị trí</label>
                 <select
                   value={formData.job_opening_id}
                   onChange={e => setFormData({ ...formData, job_opening_id: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-slate-100"
+                  className="w-full px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-slate-100"
                 >
                   <option value="">(Chỉ lưu Ngân hàng CV, không ứng tuyển)</option>
                   {jobOpenings.map(job => (
@@ -151,21 +209,21 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
               </div>
               
               {formData.job_opening_id && (
-                <div className="md:col-span-2">
+                <div>
                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Ghi chú ứng tuyển</label>
                    <textarea
                      value={formData.notes || ''}
                      onChange={e => setFormData({ ...formData, notes: e.target.value })}
                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-slate-100"
                      placeholder="Nguồn ứng viên, nhận xét sơ bộ..."
-                     rows={2}
+                     rows={3}
                    />
                 </div>
               )}
             </div>
           </div>
 
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3 border-t border-slate-200 dark:border-slate-800 shrink-0">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800 flex justify-end gap-3 border-t border-slate-200 dark:border-slate-800 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -186,7 +244,7 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, onClose
           </div>
         </form>
       </div>
-    </div>
+    </>
   );
 };
 

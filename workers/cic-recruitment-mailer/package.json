@@ -1,0 +1,31 @@
+{
+  "name": "cic-recruitment-mailer",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.102.1",
+    "@types/imap-simple": "^4.2.10",
+    "@types/mailparser": "^3.4.6",
+    "@types/node": "^25.5.2",
+    "@types/nodemailer": "^8.0.0",
+    "@types/pdf-parse": "^1.1.5",
+    "axios": "^1.14.0",
+    "dotenv": "^17.4.1",
+    "form-data": "^4.0.5",
+    "imap-simple": "^5.1.0",
+    "mailparser": "^3.9.7",
+    "nodemailer": "^8.0.5",
+    "openai": "^6.33.0",
+    "pdf-parse": "^2.4.5",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  },
+  "type": "module"
+}

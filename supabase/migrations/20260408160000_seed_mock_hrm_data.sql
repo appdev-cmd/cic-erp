@@ -5,8 +5,8 @@
 
 DO $$
 DECLARE
-    first_unit_id UUID;
-    first_employee_id UUID;
+    first_unit_id TEXT;
+    first_employee_id TEXT;
     dev_job_id UUID;
     biz_job_id UUID;
     cand1_id UUID;

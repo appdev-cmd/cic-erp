@@ -5,6 +5,47 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "@sinclair/typebox";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
+import * as XLSX from "xlsx";
+import PDFDocument from "pdfkit";
+
+async function tgSendDocument(chatId: string, filename: string, buffer: Buffer): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) throw new Error("Chưa cấu hình TELEGRAM_BOT_TOKEN ở môi trường.");
+  const url = `https://api.telegram.org/bot${token}/sendDocument`;
+  
+  const form = new FormData();
+  form.append("chat_id", chatId);
+  form.append("document", new Blob([buffer]), filename);
+
+  const res = await fetch(url, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Telegram API Error: ${txt}`);
+  }
+}
+
+async function generatePDFBuffer(title: string, textContent: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument();
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.info.Title = title;
+      doc.fontSize(18).text(title, { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(12).text(textContent);
+      doc.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 
 /** Ngữ cảnh tool do OpenClaw inject (Telegram → requesterSenderId) */
 type ToolCtx = {
@@ -311,6 +352,87 @@ export default definePluginEntry({
           return textResult(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }));
         }
       },
+    }));
+    api.registerTool((ctx) => ({
+      name: "cic_erp_generate_docx",
+      description: "Sinh file Word (.docx) và gửi vào Telegram (dùng cho đơn từ, báo cáo chữ).",
+      parameters: Type.Object({
+        telegram_chat_id: optChat,
+        filename: Type.String({ description: "Tên file (phải kết thúc bằng .docx)" }),
+        title: Type.String({ description: "Tiêu đề chính của tài liệu" }),
+        paragraphs: Type.Array(Type.String(), { description: "Mảng các đoạn văn bản nội dung" })
+      }),
+      async execute(_id, params: Record<string, unknown>) {
+        try {
+          const chat = resolveChatId(ctx, params.telegram_chat_id as string | undefined);
+          if (!chat) throw new Error("Thiếu telegram_chat_id.");
+
+          const doc = new Document({
+            sections: [{
+              properties: {},
+              children: [
+                new Paragraph({ text: String(params.title), heading: HeadingLevel.HEADING_1 }),
+                ...(params.paragraphs as string[]).map(p => new Paragraph({ text: String(p), spacing: { before: 200 } }))
+              ],
+            }],
+          });
+          const buffer = await Packer.toBuffer(doc);
+          await tgSendDocument(chat, String(params.filename), buffer);
+          return textResult(`Đã tạo và gửi thành công file Word: ${params.filename}`);
+        } catch (e) {
+          return textResult(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }));
+        }
+      }
+    }));
+
+    api.registerTool((ctx) => ({
+      name: "cic_erp_generate_excel",
+      description: "Sinh file Excel (.xlsx) từ bảng dữ liệu (mảng các object) và gửi Telegram.",
+      parameters: Type.Object({
+        telegram_chat_id: optChat,
+        filename: Type.String({ description: "Tên file (kết thúc bằng .xlsx)" }),
+        sheet_name: Type.String(),
+        data: Type.Array(Type.Any(), { description: "Mảng chứa các object đại diện cho từng hàng" })
+      }),
+      async execute(_id, params: Record<string, unknown>) {
+        try {
+          const chat = resolveChatId(ctx, params.telegram_chat_id as string | undefined);
+          if (!chat) throw new Error("Thiếu telegram_chat_id.");
+
+          const wb = XLSX.utils.book_new();
+          const ws = XLSX.utils.json_to_sheet(params.data as any[]);
+          XLSX.utils.book_append_sheet(wb, ws, String(params.sheet_name).substring(0, 31));
+          
+          const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+          await tgSendDocument(chat, String(params.filename), buffer);
+          return textResult(`Đã tạo và gửi thành công file Excel: ${params.filename}`);
+        } catch (e) {
+          return textResult(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }));
+        }
+      }
+    }));
+
+    api.registerTool((ctx) => ({
+      name: "cic_erp_generate_pdf",
+      description: "Sinh file PDF (đơn giản, text) và gửi Telegram (Do font mặc định không có dấu tốt, xin hạn chế text dài).",
+      parameters: Type.Object({
+        telegram_chat_id: optChat,
+        filename: Type.String({ description: "Tên file (phải kết thúc bằng .pdf)" }),
+        title: Type.String(),
+        text_content: Type.String()
+      }),
+      async execute(_id, params: Record<string, unknown>) {
+        try {
+          const chat = resolveChatId(ctx, params.telegram_chat_id as string | undefined);
+          if (!chat) throw new Error("Thiếu telegram_chat_id.");
+
+          const buffer = await generatePDFBuffer(String(params.title), String(params.text_content));
+          await tgSendDocument(chat, String(params.filename), buffer);
+          return textResult(`Đã tạo và gửi thành công file PDF: ${params.filename}`);
+        } catch (e) {
+          return textResult(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }));
+        }
+      }
     }));
   },
 });

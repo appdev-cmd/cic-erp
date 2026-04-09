@@ -6,11 +6,15 @@ export async function tgSendChatAction(
   chatId: string | number,
   action: 'typing' | 'upload_document' = 'typing'
 ): Promise<void> {
-  await fetch(`${BASE}/sendChatAction`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, action }),
-  });
+  try {
+    await fetch(`${BASE}/sendChatAction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, action }),
+    });
+  } catch {
+    // Không crash process nếu Telegram API tạm thời không phản hồi
+  }
 }
 
 /** Tin nhắn thường (không HTML) — dùng cho câu trả lời tự nhiên từ LLM */

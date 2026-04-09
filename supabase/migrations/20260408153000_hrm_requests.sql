@@ -6,8 +6,8 @@
 -- 1. Internal Requests Table
 CREATE TABLE public.internal_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
-    unit_id UUID NOT NULL REFERENCES public.units(id),
+    employee_id TEXT NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+    unit_id TEXT NOT NULL REFERENCES public.units(id),
     
     type VARCHAR(50) NOT NULL, -- 'meeting_room', 'vehicle', 'stationery', 'other'
     title VARCHAR(255) NOT NULL,
@@ -20,8 +20,8 @@ CREATE TABLE public.internal_requests (
     status VARCHAR(50) NOT NULL DEFAULT 'pending_unit',
     
     -- Approvers
-    approver_unit_id UUID REFERENCES public.employees(id),
-    approver_admin_id UUID REFERENCES public.employees(id),
+    approver_unit_id TEXT REFERENCES public.employees(id),
+    approver_admin_id TEXT REFERENCES public.employees(id),
     rejection_reason TEXT,
     
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),

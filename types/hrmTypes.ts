@@ -152,6 +152,7 @@ export interface JobOpening {
   deadline: string | null;
   requester_id: string | null;
   recruiter_id: string | null;
+  interviewer_ids?: string[] | null;
   created_at: string;
   updated_at: string;
 
@@ -159,6 +160,7 @@ export interface JobOpening {
   unit_name?: string;
   requester_name?: string;
   recruiter_name?: string;
+  application_count?: number;
 }
 
 export interface Candidate {
@@ -186,6 +188,7 @@ export interface Candidate {
   blacklist_reason: string | null;
   created_at: string;
   updated_at: string;
+  applications?: any[];
 }
 
 export interface CandidateApplication {
@@ -211,6 +214,26 @@ export interface CandidateApplication {
   // Joined fields
   candidate?: Candidate;
   job_opening?: JobOpening;
+  evaluations?: ApplicationEvaluation[];
+}
+
+export interface ApplicationEvaluation {
+  id: string;
+  application_id: string;
+  evaluator_id: string;
+  rating: number | null;
+  notes: string | null;
+  criteria_scores: Record<string, any> | null;
+  created_at: string;
+  updated_at: string;
+
+  // Joined
+  evaluator?: {
+    id: string;
+    name: string;
+    avatar?: string;
+    position?: string;
+  };
 }
 
 // ── Requests (Phase 3 — placeholder types) ──

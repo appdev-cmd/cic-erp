@@ -15,7 +15,7 @@ NGUYÊN TẮC QUAN TRỌNG:
 1. Bạn phải TỰ ĐỘNG suy luận. Đừng ngại gọi nhiều tool liên tiếp nhau nếu cần. Ví dụ: gọi 'overdue_payments' xong, sau đó gọi 'export_xlsx' theo yêu cầu.
 2. Dữ liệu CHỈ LẤY từ output của tool, tuyệt đối KHÔNG MÀ ĐỊA ra dữ liệu giả, tên khách hàng giả hay số tiền giả.
 3. Nếu người dùng chỉ nói chuyện phím, chào hỏi, hãy trả lời tự nhiên.
-4. Quý 1 = 01-01 -> 03-31, Quý 2 = 04-01 -> 06-30, Quý 3 = 07-01 -> 09-30, Quý 4 = 10-01 -> 12-31 năm ${YEAR}.
+4. QUAN TRỌNG VỀ THỜI GIAN: Năm hiện tại là ${YEAR}. Quý 1 = ${YEAR}-01-01 -> ${YEAR}-03-31, Quý 2 = ${YEAR}-04-01 -> ${YEAR}-06-30, Quý 3 = ${YEAR}-07-01 -> ${YEAR}-09-30, Quý 4 = ${YEAR}-10-01 -> ${YEAR}-12-31. Khi người dùng hỏi "tháng X" hoặc "quý Y", BẮT BUỘC phải tư duy và quy đổi ra định dạng YYYY-MM-DD để truyền vào tham số "from" và "to". Tuyệt đối không để trống tham số khi người dùng có nói mốc thời gian. (Ví dụ: Tháng 4 năm nay -> from: "${YEAR}-04-01", to: "${YEAR}-04-30").
 5. export_docx / export_xlsx CHỈ DÀNH CHO BÁO CÁO HỢP ĐỒNG. Đơn xin nghỉ phép → dùng tool 'leave_docx' riêng.
 
 Hãy phản hồi người dùng bằng Tiếng Việt một cách chuyên nghiệp, thân thiện. Nếu có file đính kèm trong nội dung input của User, hãy đọc nội dung file đó trước khi trả lời.`;
@@ -27,7 +27,7 @@ const NATIVE_TOOLS_SCHEMA = [
   { type: 'function', function: { name: 'overdue_payments', description: 'Kiểm tra danh sách thanh toán trễ hạn, công nợ', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'expiring_contracts', description: 'Kiểm tra hợp đồng sắp hết hạn', parameters: { type: 'object', properties: { days: { type: 'number', description: 'Số ngày tới' } } } } },
   { type: 'function', function: { name: 'my_tasks', description: 'Xem danh sách task của người dùng hiện tại', parameters: { type: 'object', properties: {} } } },
-  { type: 'function', function: { name: 'revenue_report', description: 'Xem báo cáo doanh thu theo tháng / năm', parameters: { type: 'object', properties: { year: { type: 'number' } } } } },
+  { type: 'function', function: { name: 'revenue_report', description: 'Xem báo cáo doanh thu theo tháng / năm / quý', parameters: { type: 'object', properties: { year: { type: 'number' }, quarter: { type: 'number', description: 'Từ 1 đến 4' } } } } },
   { type: 'function', function: { name: 'export_xlsx', description: 'Trích xuất và gửi file Excel (danh sách Hợp Đồng)', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } } } },
   { type: 'function', function: { name: 'export_docx', description: 'Trích xuất và gửi file Word (báo cáo Hợp Đồng)', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } } } },
   { type: 'function', function: { name: 'leave_docx', description: 'Tạo đơn xin nghỉ phép định dạng Word', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, reason: { type: 'string' }, days: { type: 'number' } } } } },
@@ -40,7 +40,8 @@ const NATIVE_TOOLS_SCHEMA = [
 ];
 
 async function ollamaToolCallingTurn(messages: ChatMsg[]): Promise<{ message?: string; tool_calls?: any[] }> {
-  const url = `${config.ollamaHost}/api/chat`;
+  const isVllm = config.ollamaHost.includes('/v1');
+  const url = isVllm ? `${config.ollamaHost}/chat/completions` : `${config.ollamaHost}/api/chat`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000);
   try {
@@ -52,12 +53,27 @@ async function ollamaToolCallingTurn(messages: ChatMsg[]): Promise<{ message?: s
         messages,
         stream: false,
         tools: NATIVE_TOOLS_SCHEMA,
-        options: { temperature: 0.15, num_predict: 2000 },
+        temperature: 0.15, // Cho vLLM / OpenAI
+        max_tokens: 1000,
+        options: { temperature: 0.15, num_predict: 1000 }, // Cho Ollama cũ
       }),
       signal: controller.signal,
     });
-    if (!res.ok) return {};
-    const data = (await res.json()) as { message?: { content?: string, tool_calls?: any[] } };
+    if (!res.ok) {
+        console.error("Lỗi API:", await res.text());
+        return {};
+    }
+    const data = await res.json() as any;
+    
+    // Nếu là format OpenAI (vLLM)
+    if (data.choices && data.choices[0]) {
+      return {
+        message: data.choices[0].message?.content?.trim() || undefined,
+        tool_calls: data.choices[0].message?.tool_calls
+      };
+    }
+    
+    // Nếu là format Ollama
     return {
       message: data.message?.content?.trim() || undefined,
       tool_calls: data.message?.tool_calls
