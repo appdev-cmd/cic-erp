@@ -78,7 +78,7 @@ export const NAV_ITEMS = [
   { id: 'payments', label: 'Tài chính', icon: <Package size={20} /> },
   { id: 'projects', label: 'Dự án', icon: <Landmark size={20} /> },
   { id: 'analytics', label: 'Thống kê', icon: <PieChart size={20} />, devOnly: true },
-  { id: 'ai-assistant', label: 'AI Phân tích', icon: <BrainCircuit size={20} />, devOnly: true },
+  { id: 'ai-assistant', label: 'AI Phân tích', icon: <BrainCircuit size={20} /> },
   { id: 'tools', label: 'Công cụ', icon: <Wrench size={20} /> },
   { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
 
