@@ -42,6 +42,7 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
   // Notes state
   const [evaluations, setEvaluations] = useState<ApplicationEvaluation[]>([]);
   const [isLoadingEvals, setIsLoadingEvals] = useState(false);
+  const [localAppId, setLocalAppId] = useState<string | undefined>(application?.id);
 
   const [rating, setRating] = useState<number>(0);
   const [notes, setNotes] = useState<string>('');
@@ -51,11 +52,34 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
   const cand = candidate || application?.candidate;
   const evaluatorId = profile?.employeeId;
 
-  const loadEvaluations = async () => {
-    if (!application) return;
+  useEffect(() => {
+    if (cand) {
+      loadHistory();
+    }
+  }, [cand]);
+
+  const loadHistory = async () => {
+    if (!cand) return;
+    setIsLoadingHistory(true);
+    try {
+      const data = await recruitmentService.getApplicationsByCandidate(cand.id);
+      setHistoryApps(data);
+      if (!application && data.length > 0 && !localAppId) {
+        setLocalAppId(data[0].id);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const activeApp = application || historyApps.find(a => a.id === localAppId);
+
+  const loadEvaluations = async (appId: string) => {
     setIsLoadingEvals(true);
     try {
-      const data = await recruitmentService.getEvaluations(application.id);
+      const data = await recruitmentService.getEvaluations(appId);
       setEvaluations(data);
     } catch (e) {
       console.error(e);
@@ -65,37 +89,21 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
   };
 
   useEffect(() => {
-    if (application) {
-      loadEvaluations();
+    if (activeApp) {
+      loadEvaluations(activeApp.id);
+    } else {
+      setEvaluations([]);
     }
-  }, [application]);
-
-  useEffect(() => {
-    if (cand && !application) {
-      loadHistory();
-    }
-  }, [cand, application]);
-
-  const loadHistory = async () => {
-    if (!cand) return;
-    setIsLoadingHistory(true);
-    try {
-      const data = await recruitmentService.getApplicationsByCandidate(cand.id);
-      setHistoryApps(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
+  }, [activeApp?.id]);
 
   const handleStageChange = async (newStage: ApplicationStage) => {
-    if (!application) return;
+    if (!activeApp) return;
     setIsUpdating(true);
     try {
-      await recruitmentService.moveStage(application.id, newStage);
+      await recruitmentService.moveStage(activeApp.id, newStage);
       if (onUpdate) onUpdate();
-      // Optimistically update local view indirectly through parent remount or state
+      // Optimistically update local view
+      setHistoryApps(prev => prev.map(a => a.id === activeApp.id ? { ...a, stage: newStage } : a));
     } catch (e) {
       console.error(e);
       alert('Lỗi cập nhật vòng phỏng vấn');
@@ -105,16 +113,16 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
   };
 
   const handleSaveNotes = async () => {
-    if (!application || !evaluatorId) return;
+    if (!activeApp || !evaluatorId) return;
     setIsSavingNotes(true);
     try {
       await recruitmentService.upsertEvaluation({
-        application_id: application.id,
+        application_id: activeApp.id,
         evaluator_id: evaluatorId,
         rating,
         notes
       });
-      await loadEvaluations();
+      await loadEvaluations(activeApp.id);
       if (onUpdate) onUpdate();
       setIsEditingNotes(false);
     } catch (e) {
@@ -163,19 +171,21 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
       <div className="fixed inset-y-0 right-0 z-[110] w-full md:max-w-lg lg:max-w-xl bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
         <div className="px-6 py-5 flex items-start justify-between border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 shrink-0">
           <div>
-            {application && (
+            {activeApp && (
               <span className="inline-block px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider mb-2 border border-indigo-200 dark:border-indigo-800/50">
-                {STAGES.find(s => s.id === application.stage)?.label}
+                {STAGES.find(s => s.id === activeApp.stage)?.label}
               </span>
             )}
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 line-clamp-1">{cand.full_name}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-sm text-slate-500 dark:text-slate-400">Ngày {application ? 'apply' : 'tạo CV'}: {formatDate(application?.created_at || cand.created_at)}</p>
-              {application && application.stage_updated_at && application.stage === 'hired' && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {application ? `Ngày apply: ${formatDate(application.created_at)}` : `Ngày tạo CV: ${formatDate(cand.created_at)}`}
+              </p>
+              {activeApp && activeApp.stage_updated_at && activeApp.stage === 'hired' && (
                 <>
                   <span className="text-slate-300 dark:text-slate-600">•</span>
                   <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50">
-                    Time-to-Hire: {calculateDays(application.created_at, application.stage_updated_at)} ngày
+                    Time-to-Hire: {calculateDays(activeApp.created_at, activeApp.stage_updated_at)} ngày
                   </span>
                 </>
               )}
@@ -214,14 +224,12 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
           >
             Hồ sơ & Liên hệ
           </button>
-          {application && (
-            <button 
-              onClick={() => setActiveTab('interview')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${activeTab === 'interview' ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
-            >
-              Đánh giá & Chuyển vòng
-            </button>
-          )}
+          <button 
+            onClick={() => setActiveTab('interview')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors cursor-pointer ${activeTab === 'interview' ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}
+          >
+            Đánh giá & Chuyển vòng
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-white dark:bg-slate-900">
@@ -295,10 +303,9 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
                 </div>
               </div>
 
-              {!application && (
-                <div className="space-y-4">
-                  <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Lịch sử ứng tuyển</h3>
-                  <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Lịch sử ứng tuyển</h3>
+                <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
                     {isLoadingHistory ? (
                       <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-2">Đang tải lịch sử...</p>
                     ) : historyApps.length > 0 ? (
@@ -323,18 +330,40 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
                     )}
                   </div>
                 </div>
-              )}
             </div>
           )}
 
-          {activeTab === 'interview' && application && (
+          {activeTab === 'interview' && (
             <div className="space-y-8 animate-in fade-in duration-300">
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Chuyển Stage Nhanh</h3>
-                <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-                  <div className="flex flex-wrap gap-2">
-                    {STAGES.map(stage => {
-                      const isCurrent = stage.id === application.stage;
+              {!activeApp ? (
+                <div className="text-center py-12 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                  <Briefcase size={32} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Ứng viên chưa ứng tuyển vị trí nào</p>
+                  <p className="text-xs text-slate-500 mt-1">Chưa thể đánh giá hoặc chuyển vòng</p>
+                </div>
+              ) : (
+                <>
+                  {historyApps.length > 1 && !application && (
+                    <div className="space-y-2">
+                       <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Chọn vị trí đánh giá</label>
+                       <select 
+                         value={activeApp.id} 
+                         onChange={(e) => setLocalAppId(e.target.value)}
+                         className="w-full truncate px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer"
+                       >
+                         {historyApps.map(app => (
+                           <option key={app.id} value={app.id}>{app.job_opening?.title || 'Vị trí không xác định'} - ({STAGES.find(s=>s.id===app.stage)?.label})</option>
+                         ))}
+                       </select>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Chuyển Stage Nhanh</h3>
+                    <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                      <div className="flex flex-wrap gap-2">
+                        {STAGES.map(stage => {
+                          const isCurrent = stage.id === activeApp.stage;
                       const isDanger = ['rejected', 'withdrawn'].includes(stage.id);
                       return (
                         <button
@@ -490,6 +519,8 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
                   </div>
                 )}
               </div>
+              </>
+              )}
             </div>
           )}
         </div>

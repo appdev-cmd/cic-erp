@@ -167,7 +167,7 @@ const RecruitmentKanban: React.FC<Props> = ({ jobOpenings, initialJobId, refresh
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 dark:bg-indigo-400 rounded-l-lg opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         
                         <div className="flex justify-between items-start mb-1.5">
-                          <h4 className="font-medium text-slate-900 dark:text-slate-100 text-xs lg:text-sm leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          <h4 className="font-bold text-slate-900 dark:text-slate-100 text-[10px] uppercase tracking-wider leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                             {app.candidate?.full_name}
                           </h4>
                         </div>

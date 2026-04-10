@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Users, LayoutDashboard, Plus, Search, Filter, Edit, Trash2 } from 'lucide-react';
+import { Briefcase, Users, LayoutDashboard, Plus, Search, Filter, Edit, Trash2, X, LayoutGrid, List } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { recruitmentService } from '../../services/recruitmentService';
 import { JobOpening, Candidate, CandidateApplication, ApplicationStage } from '../../types/hrmTypes';
@@ -26,7 +26,12 @@ const APP_STAGES_MAP: Record<string, string> = {
 };
 
 const RecruitmentPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'jobs' | 'candidates'>('pipeline');
+  const [activeTab, setActiveTab] = useState<'jobs' | 'candidates'>(
+    (localStorage.getItem('recruitmentActiveTab') as any) || 'candidates'
+  );
+  const [viewMode, setViewMode] = useState<'list' | 'board'>(
+    (localStorage.getItem('recruitmentViewMode') as any) || 'list'
+  );
   const [jobOpenings, setJobOpenings] = useState<JobOpening[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +68,14 @@ const RecruitmentPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('recruitmentActiveTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('recruitmentViewMode', viewMode);
+  }, [viewMode]);
 
   const handleDeleteJob = async (e: React.MouseEvent, job: JobOpening) => {
     e.stopPropagation();
@@ -162,13 +175,31 @@ const RecruitmentPage: React.FC = () => {
             </button>
           )}
           {activeTab === 'candidates' && (
-            <button
-              onClick={() => setShowCandidateForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
-            >
-              <Plus size={18} />
-              <span>Thêm Ứng Viên</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 mr-2">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                  title="Xem dạng Bảng"
+                >
+                  <List size={18} />
+                </button>
+                <button
+                  onClick={() => setViewMode('board')}
+                  className={`p-1.5 rounded-md transition-all ${viewMode === 'board' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                  title="Xem dạng Kanban"
+                >
+                  <LayoutGrid size={18} />
+                </button>
+              </div>
+              <button
+                onClick={() => setShowCandidateForm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
+              >
+                <Plus size={18} />
+                <span>Thêm Ứng Viên</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -209,19 +240,22 @@ const RecruitmentPage: React.FC = () => {
       {/* Tabs */}
       <div className="flex items-center border-b border-slate-200 dark:border-slate-800">
         <button
-          onClick={() => setActiveTab('pipeline')}
-          className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
-            activeTab === 'pipeline'
+          onClick={() => setActiveTab('candidates')}
+          className={`flex items-center gap-2 px-6 py-3 border-b-2 font-medium text-sm transition-colors ${
+            activeTab === 'candidates'
               ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
-          <LayoutDashboard size={18} />
-          Pipeline
+          <Users size={18} />
+          Ứng viên
+          <span className="ml-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-300">
+            {filteredCandidates.length}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab('jobs')}
-          className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
+          className={`flex items-center gap-2 px-6 py-3 border-b-2 font-medium text-sm transition-colors ${
             activeTab === 'jobs'
               ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
@@ -233,17 +267,6 @@ const RecruitmentPage: React.FC = () => {
             {filteredJobs.length}
           </span>
         </button>
-        <button
-          onClick={() => setActiveTab('candidates')}
-          className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
-            activeTab === 'candidates'
-              ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400'
-              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
-          }`}
-        >
-          <Users size={18} />
-          Ngân hàng CV
-        </button>
       </div>
 
       {/* Content */}
@@ -254,7 +277,7 @@ const RecruitmentPage: React.FC = () => {
           </div>
         ) : (
           <>
-            {activeTab === 'pipeline' && (
+            {activeTab === 'candidates' && viewMode === 'board' && (
                <RecruitmentKanban jobOpenings={filteredJobs} initialJobId={kanbanInitialJobId} refreshTrigger={refreshTrigger} />
             )}
             
@@ -309,7 +332,7 @@ const RecruitmentPage: React.FC = () => {
               </div>
             )}
 
-            {activeTab === 'candidates' && (
+            {activeTab === 'candidates' && viewMode === 'list' && (
               <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
@@ -327,9 +350,9 @@ const RecruitmentPage: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {filteredCandidates.map(candidate => (
-                        <tr key={candidate.id} onClick={() => setSelectedCandidate(candidate)} className="hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors group">
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-slate-900 dark:text-slate-100">{candidate.full_name}</div>
+                        <tr key={candidate.id} onClick={() => setSelectedCandidate(candidate)} className="hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors group/row">
+                          <td className="px-4 py-3 text-[10px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">
+                            {candidate.full_name}
                             {candidate.is_blacklisted && <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded ml-2 font-bold tracking-wide">BLACKLIST</span>}
                           </td>
                           <td className="px-4 py-3">
@@ -342,10 +365,27 @@ const RecruitmentPage: React.FC = () => {
                             <div className="flex flex-col gap-2">
                               {candidate.applications && candidate.applications.length > 0 ? (
                                 candidate.applications.map((app: any) => (
-                                  <div key={app.id} className="h-7 flex items-center">
-                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate max-w-[180px]" title={app.job_opening?.title}>
+                                  <div key={app.id} className="h-7 flex items-center group/item">
+                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate max-w-[170px]" title={app.job_opening?.title}>
                                       • {app.job_opening?.title || 'Vị trí đã xóa'}
                                     </span>
+                                    <button 
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm(`Bạn có chắc muốn gỡ bỏ vị trí "${app.job_opening?.title}" khỏi hồ sơ ứng viên này?`)) {
+                                          try {
+                                            await recruitmentService.deleteApplication(app.id);
+                                            loadData();
+                                          } catch (err) {
+                                            alert('Lỗi gỡ bỏ vị trí!');
+                                          }
+                                        }
+                                      }}
+                                      className="ml-auto opacity-0 group-hover/item:opacity-100 p-0.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded transition-all"
+                                      title="Gỡ bỏ vị trí này"
+                                    >
+                                      <X size={12} />
+                                    </button>
                                   </div>
                                 ))
                               ) : (

@@ -274,12 +274,12 @@ const AIAssistant: React.FC = () => {
   const [currentModel, setCurrentModel] = useState<string>(() => {
     const saved = localStorage.getItem(MODEL_STORAGE_KEY);
     // Auto-reset stale model nếu model cũ không còn trên vLLM
-    const staleModels = ['Qwen3.5', 'gemma-3-9b', 'gemma-2-9b', 'Qwen2.5-7B', 'qwen2.5-7b'];
+    const staleModels = ['Qwen3.5', 'gemma-3-9b', 'gemma-2-9b', 'Qwen2.5-7B', 'qwen2.5-7b', 'cic-legal-14b'];
     if (saved && staleModels.some(s => saved.includes(s))) {
       localStorage.removeItem(MODEL_STORAGE_KEY);
-      return 'cic-legal-14b';
+      return 'cluster-1-legal';
     }
-    return saved || 'cic-legal-14b';
+    return saved || 'cluster-1-legal';
   });
 
   const [messages, setMessages] = useState<Message[]>(() => {

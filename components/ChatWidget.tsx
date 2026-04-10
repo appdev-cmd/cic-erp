@@ -142,7 +142,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                 }));
             
             // Lấy model ưu tiên
-            const modelId = localStorage.getItem('cic_local_ai_model') || 'Qwen/Qwen3.5-27B-Instruct-AWQ';
+            const modelId = localStorage.getItem('cic_local_ai_model') || 'cluster-1-legal';
             
             const stream = streamChat({
                 messages: [
