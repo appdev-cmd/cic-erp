@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Users, LayoutDashboard, Plus, Search, Filter, Edit, Trash2, X, LayoutGrid, List, Link as LinkIcon } from 'lucide-react';
+import { Briefcase, Users, LayoutDashboard, Plus, Search, Filter, Edit, Trash2, X, LayoutGrid, List, Link as LinkIcon, BarChart3 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { recruitmentService } from '../../services/recruitmentService';
 import { JobOpening, Candidate, CandidateApplication, ApplicationStage } from '../../types/hrmTypes';
@@ -12,6 +12,7 @@ import RecruitmentKanban from './RecruitmentKanban';
 import CandidateForm from './CandidateForm';
 import CandidateDetailPanel from './CandidateDetailPanel';
 import JobApplicationsPanel from './JobApplicationsPanel';
+import RecruitmentDashboard from './RecruitmentDashboard';
 import { toast } from 'sonner';
 
 const APP_STAGES_MAP: Record<string, string> = {
@@ -27,8 +28,8 @@ const APP_STAGES_MAP: Record<string, string> = {
 };
 
 const RecruitmentPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'jobs' | 'candidates'>(
-    (localStorage.getItem('recruitmentActiveTab') as any) || 'candidates'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs' | 'candidates'>(
+    (localStorage.getItem('recruitmentActiveTab') as any) || 'dashboard'
   );
   const [viewMode, setViewMode] = useState<'list' | 'board'>(
     (localStorage.getItem('recruitmentViewMode') as any) || 'list'
@@ -170,7 +171,7 @@ const RecruitmentPage: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          {activeTab === 'jobs' && (
+          {activeTab !== 'dashboard' && activeTab === 'jobs' && (
             <button
               onClick={() => {
                 openPanel({
@@ -307,6 +308,17 @@ const RecruitmentPage: React.FC = () => {
       {/* Tabs */}
       <div className="flex items-center border-b border-slate-200 dark:border-slate-800">
         <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex items-center gap-2 px-6 py-3 border-b-2 font-medium text-sm transition-colors ${
+            activeTab === 'dashboard'
+              ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
+          }`}
+        >
+          <BarChart3 size={18} />
+          Tổng quan
+        </button>
+        <button
           onClick={() => setActiveTab('candidates')}
           className={`flex items-center gap-2 px-6 py-3 border-b-2 font-medium text-sm transition-colors ${
             activeTab === 'candidates'
@@ -338,12 +350,16 @@ const RecruitmentPage: React.FC = () => {
 
       {/* Content */}
       <div className="mt-6">
-        {isLoading ? (
+        {isLoading && activeTab !== 'dashboard' ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 dark:border-indigo-400 truncate"></div>
           </div>
         ) : (
           <>
+            {activeTab === 'dashboard' && (
+              <RecruitmentDashboard />
+            )}
+            
             {activeTab === 'candidates' && viewMode === 'board' && (
                <RecruitmentKanban jobOpenings={filteredJobs} initialJobId={kanbanInitialJobId} refreshTrigger={refreshTrigger} />
             )}
