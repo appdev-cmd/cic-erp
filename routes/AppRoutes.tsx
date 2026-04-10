@@ -38,6 +38,7 @@ import {
     LazyRecruitmentPage as RecruitmentPage,
     LazyLeavePage as LeavePage,
     LazyRequestsPage as RequestsPage,
+    LazyAgentManagerPage as AgentManagerPage,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -83,6 +84,9 @@ export const router = createBrowserRouter([
 
             // AI Assistant
             { path: 'ai-assistant', element: <AIAssistantPage /> },
+
+            // Agent Manager
+            { path: 'agent-manager', element: <AgentManagerPage /> },
 
             // Tools
             { path: 'tools/*', element: <ToolsPage /> },

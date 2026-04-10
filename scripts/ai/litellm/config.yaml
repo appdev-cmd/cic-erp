@@ -1,0 +1,40 @@
+model_list:
+  # === Cụm 1: Khối Pháp lý & Nghiệp vụ (Port 8000) ===
+  - model_name: cluster-1-legal
+    litellm_params:
+      model: openai/cic-legal-14b
+      api_base: http://localhost:8000/v1
+      api_key: cic-local-2026
+
+  # === Cụm 2: Khối Siêu tư duy & Điều phối (Port 8001) ===
+  - model_name: cluster-2-thinking
+    litellm_params:
+      model: openai/qwen3.5-35b-a3b-moe
+      api_base: http://localhost:8001/v1
+      api_key: cic-local-2026
+
+  # === Danh sách dự phòng qua Ollama (Cổng 11434) ===
+  - model_name: qwen3.5-4b
+    litellm_params:
+      model: ollama/qwen3.5:4b
+      api_base: http://localhost:11434
+
+  # === Nhóm 2: Models chạy qua Ollama (Tự động nạp khi gọi - Port 11434) ===
+  # - model_name: deepseek-r1
+  #   litellm_params:
+  #     model: ollama/deepseek-r1
+  #     api_base: http://localhost:11434
+
+  # - model_name: qwen3.5-4b
+  #   litellm_params:
+  #     model: ollama/qwen3.5:4b
+  #     api_base: http://localhost:11434
+
+  # - model_name: llama3.1
+  #   litellm_params:
+  #     model: ollama/llama3.1
+  #     api_base: http://localhost:11434
+
+litellm_settings:
+  set_verbose: false
+  drop_params: true

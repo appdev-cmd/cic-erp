@@ -11,7 +11,7 @@ import {
   ContractWorkflowSteps, DEFAULT_WORKFLOW_STEPS
 } from '../types';
 import { UnitService, CustomerService, ProductService, ContractService, EmployeeService, ExecutionCostService, ExecutionCostType } from '../services';
-import { summarizeContractContent } from '../services/geminiService';
+import { summarizeContractContent } from '../services/ai';
 import QuickAddCustomerDialog from './ui/QuickAddCustomerDialog';
 import QuickAddProductDialog from './ui/QuickAddProductDialog';
 import QuickAddSupplierDialog from './ui/QuickAddSupplierDialog';

@@ -230,3 +230,95 @@ export async function approveLeaveRequest(requestId: string, approverId: string)
   if (error) throw new Error(error.message);
   return data != null;
 }
+
+// ============================================
+// INTERNAL REQUESTS (HỘI ĐỒNG, ĐẶT XE, V.V...)
+// ============================================
+
+export async function createInternalRequest(
+  employeeId: string,
+  unitId: string,
+  type: string,
+  title: string,
+  details: Record<string, any>
+): Promise<any> {
+  const { data, error } = await supabaseAdmin.from('internal_requests').insert([{
+    employee_id: employeeId,
+    unit_id: unitId,
+    type,
+    title,
+    status: 'pending_unit',
+    details
+  }]).select().single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+// ============================================
+// CRM (SPEED ENTRY & DEBT)
+// ============================================
+
+export async function createCustomer(
+  name: string,
+  phone: string,
+  email: string,
+  contactPerson: string,
+  notes: string
+): Promise<any> {
+  const { data, error } = await supabaseAdmin.from('customers').insert([{
+    name,
+    shortName: name.substring(0, 50),
+    phone,
+    email,
+    contactPerson,
+    notes,
+    industry: []
+  }]).select().single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function fetchCustomerDebt(customerKeyword: string): Promise<any[]> {
+  const { data: customers, error } = await supabaseAdmin
+    .from('customers')
+    .select('id, name')
+    .ilike('name', `%${customerKeyword}%`)
+    .limit(3);
+    
+  if (error) throw new Error(error.message);
+  if (!customers || customers.length === 0) return [];
+  
+  const results = [];
+  for (const c of customers) {
+    const { data: contracts } = await supabaseAdmin
+      .from('contracts')
+      .select(`
+        id, value, payment_terms ( amount_due, amount_paid )
+      `)
+      .eq('customer_id', c.id);
+      
+    let totalValue = 0;
+    let totalDue = 0;
+    let totalPaid = 0;
+    
+    if (contracts) {
+      for (const ct of contracts) {
+        totalValue += Number(ct.value) || 0;
+        if (ct.payment_terms) {
+          for (const pt of ct.payment_terms) {
+            totalDue += Number(pt.amount_due) || 0;
+            totalPaid += Number(pt.amount_paid) || 0;
+          }
+        }
+      }
+    }
+    results.push({
+      customerName: c.name,
+      totalValue,
+      totalDue,
+      totalPaid,
+      debt: totalDue - totalPaid
+    });
+  }
+  return results;
+}

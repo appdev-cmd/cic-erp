@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { Contract, Unit, Milestone, PaymentPhase, AdministrativeCosts, ContractDocument } from '../types';
 import { ContractService, UnitService, EmployeeService, CustomerService, DocumentService, WorkflowService, AuditLogService, AuditLog } from '../services';
-import { analyzeContractWithDeepSeek } from '../services/openaiService';
+import { analyzeContract as analyzeContractWithDeepSeek } from '../services/ai';
 import Tooltip from './ui/Tooltip';
 import ContractBusinessPlanTab from './ContractBusinessPlanTab';
 import ContractOverviewTab from './contract-detail/ContractOverviewTab';

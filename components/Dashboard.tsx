@@ -43,7 +43,7 @@ import { Skeleton } from './ui/Skeleton';
 import ErrorBoundary from './ErrorBoundary';
 import { ContractService, UnitService, EmployeeService, HistoricalProductionService } from '../services';
 import { Unit, KPIPlan, Contract, HistoricalProduction } from '../types';
-import { getSmartInsightsWithDeepSeek } from '../services/openaiService';
+import { getSmartInsights as getSmartInsightsWithDeepSeek } from '../services/ai';
 import { getChartColors, getAccentColor, getAccentColorLight, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill, isDarkTheme } from '../lib/themeColors';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { useImpersonation } from '../contexts/ImpersonationContext';

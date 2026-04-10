@@ -34,3 +34,29 @@ dist-ssr
 
 # Vercel
 .vercel
+
+# Python & venv
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# AI & Scripts temp
+scripts/auto-train/venv/
+scripts/auto-train/outputs_legal_qwen/
+scripts/auto-train/lora_model/
+scripts/ai/litellm/vllm/
+scripts/auto-prompt/failed_logs.txt
+*.log
+build_check.log
+build-log.txt
+tsc.log
+vllm_gemma.log
+
+# Scratch & Tests
+test_stats*.*
+test_status.ts
+test_vllm_*.py
+verify_tool.ts
+temp_employees.json
+tmp_parse.js

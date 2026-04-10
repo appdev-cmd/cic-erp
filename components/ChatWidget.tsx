@@ -3,7 +3,7 @@ import { MessageCircle, X, Send, Bot, User, Maximize2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { streamOpenAIChat } from '../services/openaiService';
+import { streamChat } from '../services/ai';
 import { searchKnowledgeBase } from '../services/ragService';
 import { getBusinessContext } from '../services/contextService';
 
@@ -142,14 +142,17 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                 }));
             
             // Lấy model ưu tiên
-            const modelId = localStorage.getItem('cic_local_ai_model') || 'Qwen/Qwen2.5-7B-Instruct';
+            const modelId = localStorage.getItem('cic_local_ai_model') || 'Qwen/Qwen3.5-27B-Instruct-AWQ';
             
-            const stream = streamOpenAIChat(
-                recentMessages, // Multi-turn history
-                input,
-                modelId,
-                systemInst
-            );
+            const stream = streamChat({
+                messages: [
+                    ...recentMessages.map(m => ({ role: m.role, content: m.content })),
+                    { role: 'user' as const, content: input },
+                ],
+                model: modelId,
+                systemInstruction: systemInst,
+                meta: { source: 'web-chat' as const },
+            });
 
             let accumulatedText = '';
             for await (const chunk of stream) {

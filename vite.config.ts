@@ -139,9 +139,32 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       port: 3000,
-      // SECURITY: Bind to localhost only — prevents LAN/WiFi exposure
-      // Use 'localhost' instead of '0.0.0.0' to block network access
       host: 'localhost',
+      proxy: {
+        '/api/vllm_gemma': {
+          target: 'http://localhost:8001/v1',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/vllm_gemma/, '')
+        },
+        '/api/vllm': {
+          target: 'http://localhost:4000/v1',  // LiteLLM Proxy
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/vllm/, '')
+        },
+        '/api/ollama': {
+          target: 'http://localhost:11434/v1',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/ollama/, '')
+        },
+        '/api/ollama_native': {
+          target: 'http://localhost:11434/api',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/ollama_native/, '')
+        }
+      },
+      watch: {
+        ignored: ['**/scripts/auto-train/venv/**'],
+      },
       fs: {
         // SECURITY: Block access to sensitive files even via Vite's file server
         deny: [

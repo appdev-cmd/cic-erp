@@ -201,6 +201,17 @@ async function runAutoOptimizer(iterations = 5) {
 
     console.log(`\n=> KẾT QUẢ VÒNG ${i + 1}: Đạt ${score}/${testCases.length} điểm.`);
 
+    // Ghi Log thất bại ra file để người dùng dễ theo dõi
+    if (failedLogs.length > 0) {
+      fs.writeFileSync(path.join(__dirname, 'failed_logs.txt'), failedLogs.join('\n----------------------------------------\n'));
+      console.log('📝 Đã trích xuất chi tiết các câu bị sai ra file failed_logs.txt');
+    } else {
+      // Xóa file log cũ nếu vòng này hoàn hảo
+      if (fs.existsSync(path.join(__dirname, 'failed_logs.txt'))) {
+        fs.unlinkSync(path.join(__dirname, 'failed_logs.txt'));
+      }
+    }
+
     if (score === testCases.length) {
       console.log("🎉 Hoàn hảo! System Prompt đã vượt qua toàn bộ Test Cases.");
       fs.writeFileSync(path.join(__dirname, 'system_prompt.txt'), currentPrompt); // Lưu lại

@@ -41,6 +41,7 @@ export const PUBLIC_ROUTES: { pattern: string; label: string }[] = [
     { pattern: '/analytics', label: 'Phân tích & Báo cáo' },
     { pattern: '/documents', label: 'Quản lý Tài liệu' },
     { pattern: '/ai-assistant', label: 'Trợ lý AI' },
+    { pattern: '/agent-manager', label: 'Quản lý AI Agents' },
     { pattern: '/tools/*', label: 'Công cụ nội bộ' },
     { pattern: '/chat', label: 'Chat nội bộ' },
     { pattern: '/tasks', label: 'Công việc' },

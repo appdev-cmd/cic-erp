@@ -39,50 +39,22 @@ const NATIVE_TOOLS_SCHEMA = [
   { type: 'function', function: { name: 'help', description: 'Gửi danh sách hướng dẫn, cú pháp lệnh chung', parameters: { type: 'object', properties: {} } } }
 ];
 
+import { callAgentTurn } from '../../../../services/ai/gateway';
+import type { ChatRequest } from '../../../../services/ai/types';
+
 async function ollamaToolCallingTurn(messages: ChatMsg[]): Promise<{ message?: string; tool_calls?: any[] }> {
-  const isVllm = config.ollamaHost.includes('/v1');
-  const url = isVllm ? `${config.ollamaHost}/chat/completions` : `${config.ollamaHost}/api/chat`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000);
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: config.ollamaModel,
-        messages,
-        stream: false,
-        tools: NATIVE_TOOLS_SCHEMA,
-        temperature: 0.15, // Cho vLLM / OpenAI
-        max_tokens: 1000,
-        options: { temperature: 0.15, num_predict: 1000 }, // Cho Ollama cũ
-      }),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-        console.error("Lỗi API:", await res.text());
-        return {};
-    }
-    const data = await res.json() as any;
-    
-    // Nếu là format OpenAI (vLLM)
-    if (data.choices && data.choices[0]) {
-      return {
-        message: data.choices[0].message?.content?.trim() || undefined,
-        tool_calls: data.choices[0].message?.tool_calls
-      };
-    }
-    
-    // Nếu là format Ollama
-    return {
-      message: data.message?.content?.trim() || undefined,
-      tool_calls: data.message?.tool_calls
+    const request: ChatRequest = {
+      model: config.ollamaModel,
+      messages: messages as any[],
+      tools: NATIVE_TOOLS_SCHEMA,
+      temperature: 0.15,
     };
+    
+    return await callAgentTurn(request);
   } catch (err) {
-    console.error("Lỗi gọi Ollama API:", err);
+    console.error("Lỗi gọi AI Gateway API:", err);
     return {};
-  } finally {
-    clearTimeout(timeout);
   }
 }
 

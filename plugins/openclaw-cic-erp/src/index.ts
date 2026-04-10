@@ -8,6 +8,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import * as XLSX from "xlsx";
 import PDFDocument from "pdfkit";
+import fs from "fs";
+import path from "path";
 
 async function tgSendDocument(chatId: string, filename: string, buffer: Buffer): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -36,6 +38,12 @@ async function generatePDFBuffer(title: string, textContent: string): Promise<Bu
       doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.info.Title = title;
+      
+      const fontPath = path.resolve(__dirname, '../assets/Roboto-Regular.ttf');
+      if (fs.existsSync(fontPath)) {
+        doc.font(fontPath);
+      }
+      
       doc.fontSize(18).text(title, { align: 'center' });
       doc.moveDown();
       doc.fontSize(12).text(textContent);

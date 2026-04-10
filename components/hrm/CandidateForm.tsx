@@ -207,11 +207,11 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
                   <select
                     value={formData.job_opening_id}
                     onChange={e => setFormData({ ...formData, job_opening_id: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-slate-100"
+                    className="w-full px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900 border border-indigo-200 dark:border-indigo-800 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 dark:text-slate-100"
                   >
-                    <option value="">(Chỉ lưu Ngân hàng CV, không ứng tuyển)</option>
+                    <option value="" className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">(Chỉ lưu Ngân hàng CV, không ứng tuyển)</option>
                     {jobOpenings.map(job => (
-                       <option key={job.id} value={job.id}>{job.title} - {job.department}</option>
+                       <option key={job.id} value={job.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{job.title} - {job.department}</option>
                     ))}
                   </select>
                 </div>

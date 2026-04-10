@@ -55,6 +55,7 @@ const ContractForm = lazyWithRetry(() => import('./ContractForm'));
 const PaymentList = lazyWithRetry(() => import('./PaymentList'));
 const Analytics = lazyWithRetry(() => import('./Analytics'));
 const AIAssistant = lazyWithRetry(() => import('./AIAssistant'));
+const AgentManager = lazyWithRetry(() => import('./AgentManager'));
 const PersonnelList = lazyWithRetry(() => import('./PersonnelList'));
 const PersonnelDetail = lazyWithRetry(() => import('./PersonnelDetail'));
 const CustomerList = lazyWithRetry(() => import('./CustomerList'));
@@ -549,6 +550,9 @@ export const LazyAnalyticsPage: React.FC = () => {
 
 // AI Assistant
 export const LazyAIAssistantPage: React.FC = () => withSuspense(<AIAssistant />);
+
+// Agent Manager
+export const LazyAgentManagerPage: React.FC = () => withSuspense(<AgentManager />);
 
 // ═══════════════════════════════════════════════════════════════════════
 // PERSONNEL MODULE — Slide Panel Integration

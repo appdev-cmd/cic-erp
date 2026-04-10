@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Briefcase, Users, LayoutDashboard, Plus, Search, Filter, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { recruitmentService } from '../../services/recruitmentService';
-import { JobOpening, Candidate, CandidateApplication } from '../../types/hrmTypes';
+import { JobOpening, Candidate, CandidateApplication, ApplicationStage } from '../../types/hrmTypes';
 import { formatDateShort, formatDate } from '../../utils/formatters';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
@@ -319,7 +319,8 @@ const RecruitmentPage: React.FC = () => {
                         <th className="px-4 py-3">Liên hệ</th>
                         <th className="px-4 py-3">Trình độ</th>
                         <th className="px-4 py-3">Kinh nghiệm</th>
-                        <th className="px-4 py-3">Pipeline</th>
+                        <th className="px-4 py-3">Vị trí ứng tuyển</th>
+                        <th className="px-4 py-3 text-center">Trạng thái</th>
                         <th className="px-4 py-3">Ngày tạo</th>
                         <th className="px-4 py-3 text-right">Thao tác</th>
                       </tr>
@@ -337,23 +338,80 @@ const RecruitmentPage: React.FC = () => {
                           </td>
                           <td className="px-4 py-3">{candidate.education || '-'}</td>
                           <td className="px-4 py-3">{candidate.experience_years} năm</td>
-                          <td className="px-4 py-3 min-w-[180px]">
-                            {candidate.applications && candidate.applications.length > 0 ? (
-                              <div className="flex flex-col gap-1.5">
-                                {candidate.applications.map((app: any) => (
-                                  <div key={app.id} className="text-xs flex flex-wrap items-center gap-1.5 mt-0.5">
-                                    <span className="font-medium text-slate-700 dark:text-slate-300 truncate max-w-[130px] 2xl:max-w-[160px]" title={app.job_opening?.title}>
+                          <td className="px-4 py-3 min-w-[200px]">
+                            <div className="flex flex-col gap-2">
+                              {candidate.applications && candidate.applications.length > 0 ? (
+                                candidate.applications.map((app: any) => (
+                                  <div key={app.id} className="h-7 flex items-center">
+                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate max-w-[180px]" title={app.job_opening?.title}>
                                       • {app.job_opening?.title || 'Vị trí đã xóa'}
                                     </span>
-                                    <span className="inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-semibold text-[9px] uppercase tracking-wider shrink-0">
-                                      {APP_STAGES_MAP[app.stage] || app.stage}
-                                    </span>
                                   </div>
-                                ))}
+                                ))
+                              ) : (
+                                <span className="text-xs text-slate-400 dark:text-slate-500 italic h-7 flex items-center">Chưa ứng tuyển</span>
+                              )}
+                              
+                              <div className="mt-1">
+                                <select
+                                  value=""
+                                  onChange={async (e) => {
+                                    e.stopPropagation();
+                                    if (e.target.value) {
+                                      try {
+                                        await recruitmentService.createApplication({
+                                          candidate_id: candidate.id,
+                                          job_opening_id: e.target.value,
+                                          stage: 'applied'
+                                        });
+                                        loadData();
+                                      } catch (err) {
+                                        alert('Lỗi ứng tuyển vị trí!');
+                                      }
+                                    }
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-[10px] w-full max-w-[180px] bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 rounded px-1.5 py-1 outline-none cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                >
+                                  <option value="" disabled className="bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400">+ Ứng tuyển vào vị trí...</option>
+                                  {jobOpenings.filter(j => j.status !== 'closed').map(j => (
+                                    <option key={j.id} value={j.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">{j.title}</option>
+                                  ))}
+                                </select>
                               </div>
-                            ) : (
-                              <span className="text-xs text-slate-400 dark:text-slate-500 italic mt-1 block">Chưa ứng tuyển</span>
-                            )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 min-w-[140px]">
+                            <div className="flex flex-col gap-2 items-center">
+                              {candidate.applications && candidate.applications.length > 0 ? (
+                                candidate.applications.map((app: any) => (
+                                  <div key={app.id} className="h-7 flex items-center">
+                                    <select
+                                      value={app.stage}
+                                      onChange={async (e) => {
+                                        e.stopPropagation();
+                                        const newStage = e.target.value as ApplicationStage;
+                                        try {
+                                          await recruitmentService.moveStage(app.id, newStage);
+                                          loadData();
+                                        } catch (err) {
+                                          alert('Lỗi chuyển trạng thái!');
+                                        }
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="inline-block px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 font-semibold text-[9px] uppercase tracking-wider outline-none cursor-pointer hover:border-indigo-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                    >
+                                      {Object.entries(APP_STAGES_MAP).map(([key, label]) => (
+                                        <option key={key} value={key} className="normal-case tracking-normal bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">{label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="h-7" />
+                              )}
+                              <div className="h-[26px]" /> {/* Spacer for create application dropdown */}
+                            </div>
                           </td>
                           <td className="px-4 py-3">{formatDateShort(candidate.created_at)}</td>
                           <td className="px-4 py-3 text-right">
@@ -392,7 +450,7 @@ const RecruitmentPage: React.FC = () => {
       
       {showCandidateForm && (
         <CandidateForm
-           jobOpenings={jobOpenings.filter(j => j.status === 'open')}
+           jobOpenings={jobOpenings.filter(j => j.status !== 'closed')}
            onClose={() => setShowCandidateForm(false)}
            onSuccess={() => { setShowCandidateForm(false); loadData(); }}
         />

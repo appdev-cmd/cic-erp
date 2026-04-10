@@ -16,13 +16,28 @@
 import { createClient, Session } from '@supabase/supabase-js';
 import { DEFAULT_SUPABASE_ANON_KEY, DEFAULT_SUPABASE_URL } from './supabaseDefaults';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+function getEnv(key: string, backup: string = ''): string {
+  try {
+    if (typeof (import.meta as any).env !== 'undefined') {
+      const val = (import.meta as any).env[key];
+      if (val) return val;
+    }
+  } catch {}
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      if (process.env[key]) return process.env[key] as string;
+    }
+  } catch {}
+  return backup;
+}
+
+const supabaseUrl = getEnv('VITE_SUPABASE_URL', DEFAULT_SUPABASE_URL);
 
 // If in dev bypass mode and service role key is provided, use it to instantly bypass all RLS
-const isDevBypass = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
-const supabaseKey = (isDevBypass && import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) 
-    ? import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY 
-    : (import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY);
+const isDevBypass = getEnv('VITE_DEV_BYPASS_AUTH') === 'true';
+const supabaseKey = (isDevBypass && getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY')) 
+    ? getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY') 
+    : (getEnv('VITE_SUPABASE_ANON_KEY', DEFAULT_SUPABASE_ANON_KEY));
 
 export const dataClient = createClient(supabaseUrl, supabaseKey, {
     auth: {

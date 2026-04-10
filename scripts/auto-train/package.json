@@ -1,0 +1,19 @@
+{
+  "name": "auto-train",
+  "type": "module",
+  "version": "1.0.0",
+  "main": "data_extractor.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^17.4.1",
+    "mammoth": "^1.12.0",
+    "node-fetch": "^3.3.2",
+    "pdf-parse": "^2.4.5"
+  }
+}

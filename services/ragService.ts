@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { getLocalAIBaseURL } from './openaiService';
+import { getLocalAIBaseURL } from './ai';
 
 /**
  * Gọi API Local để nhúng chuỗi văn bản thành mảng vector (embedding)

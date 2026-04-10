@@ -27,10 +27,13 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { streamEnterpriseAI } from '../services/aiService';
+import { streamEnterpriseAI } from '../services/ai';
 import { getBusinessContext, invalidateBusinessContext } from '../services/contextService';
 import { searchKnowledgeBase } from '../services/ragService';
 import { parseDocumentClientSide } from '../lib/documentReaderClient';
+import { useAuth } from '../contexts/AuthContext';
+import { routeUserToAgent } from '../services/ai/openclaw/router';
+import type { UserContext } from '../services/ai/openclaw/types';
 import { cn } from '../lib/utils';
 // Formatter functions outside component to avoid reference changes during render
 const formatValue = (value: any) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value);
@@ -264,11 +267,19 @@ const MARKDOWN_COMPONENTS: any = {
 };
 
 const AIAssistant: React.FC = () => {
+  const { profile: _profile } = useAuth();
   const [currentAgent, setCurrentAgent] = useState<AgentType>(() => {
     return (localStorage.getItem(AGENT_STORAGE_KEY) as AgentType) || 'general';
   });
   const [currentModel, setCurrentModel] = useState<string>(() => {
-    return localStorage.getItem(MODEL_STORAGE_KEY) || 'gemini-2.0-flash';
+    const saved = localStorage.getItem(MODEL_STORAGE_KEY);
+    // Auto-reset stale model nếu model cũ không còn trên vLLM
+    const staleModels = ['Qwen3.5', 'gemma-3-9b', 'gemma-2-9b', 'Qwen2.5-7B', 'qwen2.5-7b'];
+    if (saved && staleModels.some(s => saved.includes(s))) {
+      localStorage.removeItem(MODEL_STORAGE_KEY);
+      return 'cic-legal-14b';
+    }
+    return saved || 'cic-legal-14b';
   });
 
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -364,19 +375,80 @@ const AIAssistant: React.FC = () => {
     setLocalAITesting(true);
     setLocalAITestResult(null);
     try {
-      // Ollama API: /api/tags returns list of models
-      const baseForOllama = localAIBaseURL.replace(/\/v1\/?$/, '');
-      const res = await fetch(`${baseForOllama}/api/tags`, { signal: AbortSignal.timeout(5000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json() as { models?: { name: string }[] };
-      const models = (data.models || []).map(m => m.name);
-      setLocalAITestResult({ ok: true, models });
+      let models: string[] = [];
+
+      // Lấy từ Ollama Native Proxy
+      try {
+        const res = await fetch(`/api/ollama_native/tags`, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          const data = await res.json() as { models?: { name: string }[] };
+          if (data.models && data.models.length > 0) {
+            models = [...models, ...data.models.map(m => m.name)];
+          }
+        }
+      } catch (err) { console.log('Ollama timeout:', err); }
+
+      // Lấy từ vLLM Proxy
+      try {
+        const res = await fetch(`/api/vllm/models`, { 
+          signal: AbortSignal.timeout(3000),
+          headers: { 'Authorization': `Bearer sk-cic-2026` }
+        });
+        if (res.ok) {
+          const data = await res.json() as { data?: { id: string }[] };
+          if (data.data && data.data.length > 0) {
+            models = [...models, ...data.data.map(m => m.id)];
+          }
+        }
+      } catch (err) { console.log('vLLM timeout:', err); }
+
+      // Lấy từ vLLM Proxy (Gemma)
+      try {
+        const res = await fetch(`/api/vllm_gemma/models`, { 
+          signal: AbortSignal.timeout(3000),
+          headers: { 'Authorization': `Bearer sk-cic-2026` }
+        });
+        if (res.ok) {
+          const data = await res.json() as { data?: { id: string }[] };
+          if (data.data && data.data.length > 0) {
+            models = [...models, ...data.data.map(m => m.id)];
+          }
+        }
+      } catch (err) { console.log('vLLM Gemma timeout:', err); }
+
+      // Lấy từ localAIBaseURL nếu user nhập vào custom url không phải localhost
+      if (!localAIBaseURL.includes('localhost') && !localAIBaseURL.includes('127.0.0.1') && !localAIBaseURL.includes('/api/vllm')) {
+        let v1Url = localAIBaseURL;
+        if (!v1Url.includes('/v1')) v1Url = v1Url.replace(/\/$/, '') + '/v1';
+        try {
+          const res = await fetch(`${v1Url}/models`, { signal: AbortSignal.timeout(3000) });
+          if (res.ok) {
+            const data = await res.json() as { data?: { id: string }[] };
+            if (data.data && data.data.length > 0) {
+              models = [...models, ...data.data.map(m => m.id)];
+            }
+          }
+        } catch (err) { console.log('Custom local error:', err); }
+      }
+
+      // Xóa model trùng lặp
+      models = Array.from(new Set(models));
+
+      if (models.length > 0) {
+        setLocalAITestResult({ ok: true, models });
+      } else {
+        throw new Error('Không lấy được danh sách model');
+      }
     } catch {
       setLocalAITestResult({ ok: false, models: [] });
     } finally {
       setLocalAITesting(false);
     }
   }, [localAIBaseURL]);
+
+  useEffect(() => {
+    testLocalAI();
+  }, [testLocalAI]);
 
   // ─── Pre-fetch business context ────────────────────────
   const [systemContext, setSystemContext] = useState<string>('');
@@ -458,65 +530,97 @@ const AIAssistant: React.FC = () => {
 
     setMessages(prev => [...prev, botMsg]);
 
-    // Create AbortController for this stream
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    let fullContent = '';
+    const activeAgent = AGENTS[currentAgent] || Object.values(AGENTS)[0];
 
     try {
-      // RAG: Tra cứu Knowledge Base
-      let ragContext = '';
-      try {
-        const ragResult = await searchKnowledgeBase(messageText, 3);
-        if (ragResult) ragContext = ragResult;
-      } catch { /* RAG offline - bỏ qua */ }
+      // Lazy load to prevent circular logic if any
+      const { runReActLoop } = await import('../services/ai/openclaw/react-loop');
+      const { agentDefinitions } = await import('../services/ai/openclaw/agents/definitions');
+      const { erpToolsRegistry } = await import('../services/ai/openclaw/tools/registry');
 
-      const history = messages.map(m => ({
-        role: m.role,
+      // Lấy user context thật từ AuthContext
+      const _userContext: UserContext = {
+        userId: _profile?.id || 'web',
+        employeeId: _profile?.employeeId,
+        fullName: _profile?.fullName || 'Người dùng',
+        role: _profile?.role || 'NVKD',
+        unitId: _profile?.unitId,
+        unitCode: _profile?.unitCode,
+        email: _profile?.email,
+      };
+
+      // Auto-route agent dựa trên profile user (role + unitCode)
+      // Nếu user chọn agent cụ thể qua UI tab, vẫn ưu tiên lấy theo tab
+      // Ngược lại, route tự động theo phòng ban
+      const autoAgent = routeUserToAgent(_userContext);
+      let agentConf = autoAgent;
+      // Map 4 agent UI cũ sang agent definitions mới  
+      if (currentAgent === 'legal') agentConf = agentDefinitions['BGD'] || autoAgent;
+      if (currentAgent === 'drafter') agentConf = agentDefinitions['HCNS'] || autoAgent;
+      if (currentAgent === 'analyst') agentConf = agentDefinitions['TCKT'] || autoAgent;
+
+      // Extract existing history for LLM
+      const history = messages.filter(m => m.id !== 'welcome' && m.id !== botMsgId).map(m => ({
+        role: m.role as 'user'|'model',
         content: m.content
       }));
 
-      let finalPrompt = AGENTS[currentAgent].prompt;
-      if (['general', 'analyst', 'legal'].includes(currentAgent)) {
-        finalPrompt = `${systemContext}\n\n${finalPrompt}`;
-      }
+      // Track content that accumulates
+      let toolContent = '';
+      let streamContent = '';
 
-      // Inject RAG context vào prompt
-      if (ragContext) {
-        finalPrompt += `\n\n═══ TÀI LIỆU TRÍCH DẪN (Knowledge Base) ═══\n${ragContext}\n\nHãy ưu tiên tham khảo tài liệu trích dẫn để trả lời nếu phù hợp.`;
-      }
+      const result = await runReActLoop(
+        userMsg.content,
+        _userContext,
+        agentConf,
+        erpToolsRegistry,
+        history,
+        8,
+        controller.signal,
+        (toolName, args) => {
+          // Callback: tool đang được gọi → hiện indicator
+          toolContent += `\n\n> 🔍 *Hệ thống đang truy xuất dữ liệu từ công cụ \`${toolName}\`...*\n> \`\`\`json\n> ${JSON.stringify(args)}\n> \`\`\`\n\n`;
+          setMessages(prev => prev.map(m =>
+            m.id === botMsgId
+              ? { ...m, content: toolContent }
+              : m
+          ));
+        },
+        currentModel,
+        (chunk) => {
+          // Callback: streaming final answer → hiện chữ ngay lập tức
+          streamContent += chunk;
+          setMessages(prev => prev.map(m =>
+            m.id === botMsgId
+              ? { ...m, content: toolContent + streamContent }
+              : m
+          ));
+        }
+      );
 
-      const stream = streamEnterpriseAI(history, userMsg.content, currentModel, finalPrompt, controller.signal);
-
-      for await (const chunk of stream) {
-        if (controller.signal.aborted) break;
-        fullContent += chunk;
-        setMessages(prev => prev.map(m =>
-          m.id === botMsgId
-            ? { ...m, content: fullContent }
-            : m
-        ));
-      }
-
+      // Khi xong hoàn toàn
+      const finalContent = streamContent
+        ? toolContent + streamContent  // Đã stream rồi
+        : toolContent + result.reply;  // Fallback nếu không stream
       setMessages(prev => prev.map(m =>
         m.id === botMsgId
-          ? { ...m, isStreaming: false }
+          ? { ...m, content: finalContent, isStreaming: false }
           : m
       ));
 
     } catch (error: any) {
-      if (error?.name !== 'AbortError') {
-        console.error("Chat Error", error);
-        setMessages(prev => prev.map(m =>
-          m.id === botMsgId
-            ? { ...m, content: fullContent + "\n\n⚠️ Đã xảy ra lỗi kết nối.", isStreaming: false }
-            : m
-        ));
-      }
+      console.error("Chat Error", error);
+      const errDetail = error?.message || String(error);
+      setMessages(prev => prev.map(m =>
+        m.id === botMsgId
+          ? { ...m, content: `\n\n⚠️ Đã xảy ra lỗi kết nối.\n\n\`\`\`\n${errDetail}\n\`\`\``, isStreaming: false }
+          : m
+      ));
     } finally {
       setIsTyping(false);
-      abortControllerRef.current = null;
     }
   };
 
@@ -815,10 +919,16 @@ const AIAssistant: React.FC = () => {
                   title="Chọn Model AI"
                 >
                   <optgroup label="🖥️ Local AI (Bảo mật 100%)">
-                    <option value="Qwen/Qwen2.5-7B-Instruct">⚡ Qwen 2.5 — 7B (Enterprise vLLM)</option>
-                    <option value="qwen2.5:7b">🧠 Qwen 2.5 — 7B (Ollama Cũ)</option>
-                    <option value="qwen2.5:14b">🧠 Qwen 2.5 — 14B (Chất lượng cao)</option>
-                    <option value="deepseek-r1:7b">🤔 DeepSeek R1 — 7B (Suy luận)</option>
+                    {localAITestResult?.ok && localAITestResult.models.length > 0 ? (
+                      localAITestResult.models.map(m => (
+                        <option key={m} value={m}>🦖 {m} (Local)</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="qwen2.5-7b">🦖 Qwen 2.5 7B (Local)</option>
+                        <option value="qwen2.5-14b">🦖 Qwen 2.5 14B (Local)</option>
+                      </>
+                    )}
                   </optgroup>
                   <optgroup label="🔑 Cloud AI (Hệ thống)">
                     <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash (Tốc độ, Mặc định)</option>
@@ -826,6 +936,7 @@ const AIAssistant: React.FC = () => {
                   </optgroup>
                   <optgroup label="🔐 Cloud AI (Yêu cầu API Key)">
                     <option value="gpt-4o">🤖 GPT-4o (Xịn nhất chung)</option>
+                    <option value="deepseek-chat">💬 DeepSeek Chat V3 (Giá rẻ)</option>
                     <option value="deepseek-r1">🤔 DeepSeek R1 (Suy luận đỉnh cao)</option>
                   </optgroup>
                 </select>
@@ -1066,7 +1177,7 @@ const AIAssistant: React.FC = () => {
                     )}>
                       {localAITestResult.ok ? (
                         <>
-                          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 mb-2">✅ Ollama đang chạy — {localAITestResult.models.length} models</p>
+                          <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 mb-2">✅ Hệ thống Local AI (vLLM) sẵn sàng — {localAITestResult.models.length} models</p>
                           <div className="space-y-1">
                             {localAITestResult.models.map((m, i) => (
                               <p key={i} className="text-xs text-emerald-600 dark:text-emerald-400 font-mono">• {m}</p>

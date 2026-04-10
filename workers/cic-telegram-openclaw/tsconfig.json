@@ -4,11 +4,31 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "../../",
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "declaration": true
+    "declaration": true,
+    "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*",
+    "../../services/ai/**/*",
+    "../../services/contractService.ts",
+    "../../services/customerService.ts",
+    "../../services/personnelService.ts",
+    "../../services/productEditionService.ts",
+    "../../services/projectService.ts",
+    "../../services/candidateService.ts",
+    "../../services/leaveRequestService.ts",
+    "../../services/taskService.ts",
+    "../../services/auditLogService.ts",
+    "../../services/telegramNotificationService.ts",
+    "../../services/contractTagService.ts",
+    "../../services/contractTaskDefinitionService.ts",
+    "../../lib/dataClient.ts",
+    "../../lib/supabaseDefaults.ts",
+    "../../types.ts",
+    "../../types/**/*"
+  ]
 }

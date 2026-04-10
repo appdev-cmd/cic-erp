@@ -17,7 +17,8 @@ import {
     Clock,
     Award,
     Briefcase,
-    Activity
+    Activity,
+    Bot
 } from 'lucide-react';
 import { UnitService, EmployeeService, ContractService } from '../services';
 import { Unit, KPIPlan, Employee, Contract } from '../types';
@@ -26,6 +27,7 @@ import UnitSigningTab from './UnitSigningTab';
 import { usePermissionCheck } from '../hooks/usePermissions';
 
 import { formatDate } from '../utils/formatters';
+import UnitAgentChat from './UnitAgentChat';
 
 interface UnitDetailProps {
     unitId: string;
@@ -64,6 +66,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
 
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
+    const [showAgentChat, setShowAgentChat] = useState(false);
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -554,10 +557,18 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                     </div>
                 </div>
                 {canEditUnit && (
-                    <button onClick={() => setIsEditing(true)} className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+                    <button onClick={() => setIsEditing(true)} className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors" title="Chỉnh sửa">
                         <Pencil size={18} />
                     </button>
                 )}
+                <button
+                    onClick={() => setShowAgentChat(true)}
+                    className="flex items-center gap-2 px-3 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg shadow-amber-200/50 dark:shadow-none font-bold text-sm"
+                    title="Chat với Trợ lý AI"
+                >
+                    <Bot size={16} />
+                    <span className="hidden sm:inline">Trợ lý AI</span>
+                </button>
             </div>
 
             {/* Tabs */}
@@ -590,6 +601,14 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
             {activeTab === 'history' && renderHistoryTab()}
 
             <UnitForm isOpen={isEditing} onClose={() => setIsEditing(false)} onSave={handleEditSave} unit={unit} />
+
+            {/* AI Agent Chat SlidePanel */}
+            <UnitAgentChat
+                isOpen={showAgentChat}
+                onClose={() => setShowAgentChat(false)}
+                unitCode={unit.code}
+                unitName={unit.name}
+            />
         </div>
     );
 };
