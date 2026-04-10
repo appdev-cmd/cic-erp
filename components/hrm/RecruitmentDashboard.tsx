@@ -5,8 +5,18 @@ import { Users, Briefcase, TrendingUp, Clock, CheckCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { formatCurrency } from '../../utils/formatters';
 import { motion } from 'framer-motion';
+import { getChartColors, getTooltipStyle, getGridStroke, getCursorFill, isDarkTheme } from '../../lib/themeColors';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#10b981', '#f59e0b'];
+
+const SOURCE_MAP: Record<string, string> = {
+  'website': 'Website Cty',
+  'referral': 'Nội bộ giới thiệu',
+  'linkedin': 'LinkedIn',
+  'headhunt': 'Headhunt',
+  'job_board': 'Kênh tuyển dụng',
+  'other': 'Khác'
+};
 
 const RecruitmentDashboard: React.FC = () => {
   const [stats, setStats] = useState({
@@ -83,12 +93,12 @@ const RecruitmentDashboard: React.FC = () => {
       // Source Data
       const srcMap: Record<string, number> = {};
       applications.forEach((app: any) => {
-        const src = app.candidates?.source || 'Khác';
+        const src = app.candidates?.source || 'other';
         srcMap[src] = (srcMap[src] || 0) + 1;
       });
 
       const sd = Object.keys(srcMap).map(k => ({
-        name: k.charAt(0).toUpperCase() + k.slice(1),
+        name: SOURCE_MAP[k] || (k.charAt(0).toUpperCase() + k.slice(1)),
         value: srcMap[k]
       })).sort((a,b) => b.value - a.value);
 
@@ -170,13 +180,13 @@ const RecruitmentDashboard: React.FC = () => {
             <div className="-ml-4">
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={funnelData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                  <XAxis type="number" stroke="var(--text-secondary)" />
-                  <YAxis dataKey="name" type="category" stroke="var(--text-secondary)" width={80} tick={{ fontSize: 12 }} />
-                  <Tooltip cursor={{ fill: 'var(--bg-hover)' }} contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)', borderRadius: '8px' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={getGridStroke()} horizontal={false} />
+                  <XAxis type="number" stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" stroke="#64748b" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} width={80} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{ fill: getCursorFill() }} contentStyle={{ ...getTooltipStyle() }} itemStyle={{ fontWeight: 600, color: isDarkTheme() ? '#f1f5f9' : '#1e293b' }} />
                   <Bar dataKey="value" fill="#6366f1" radius={[0, 4, 4, 0]}>
                     {funnelData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -193,10 +203,10 @@ const RecruitmentDashboard: React.FC = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={sourceData} innerRadius={70} outerRadius={110} dataKey="value" nameKey="name" paddingAngle={2}>
-                      {sourceData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="rgba(0,0,0,0)" />)}
+                      {sourceData.map((_, i) => <Cell key={i} fill={getChartColors()[i % getChartColors().length]} strokeWidth={0} />)}
                     </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)', borderRadius: '8px' }} />
-                    <Legend layout="vertical" verticalAlign="middle" align="right" />
+                    <Tooltip contentStyle={{ ...getTooltipStyle() }} itemStyle={{ fontWeight: 600, color: isDarkTheme() ? '#f1f5f9' : '#1e293b' }} />
+                    <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
