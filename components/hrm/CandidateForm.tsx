@@ -30,7 +30,8 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
     education: candidate?.education || '',
     experience_years: candidate?.experience_years || 0,
     job_opening_id: preSelectedJobId || '',
-    notes: candidate?.notes || ''
+    notes: candidate?.notes || '',
+    source: candidate?.source || ''
   });
   const [existingAttachments, setExistingAttachments] = useState<{name: string, url: string}[]>(initialAttachments);
   const [resumeFiles, setResumeFiles] = useState<File[]>([]);
@@ -60,7 +61,7 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
         education: formData.education,
         experience_years: formData.experience_years,
         resume_url: finalResumeUrl,
-        source: candidate?.source || 'other',
+        source: formData.source || 'other',
       };
       
       let savedCand;
@@ -136,18 +137,35 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Số năm kinh nghiệm</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={formData.experience_years}
-                  onChange={e => setFormData({ ...formData, experience_years: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Số năm kinh nghiệm</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={formData.experience_years}
+                    onChange={e => setFormData({ ...formData, experience_years: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Nguồn Ứng viên (Source)</label>
+                  <select
+                    value={formData.source}
+                    onChange={e => setFormData({ ...formData, source: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none"
+                  >
+                    <option value="">Chọn nguồn (Mặc định: Khác)</option>
+                    <option value="website">Website Cty</option>
+                    <option value="referral">Nội bộ giới thiệu</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="headhunt">Headhunt</option>
+                    <option value="job_board">Kênh tuyển dụng</option>
+                    <option value="other">Khác</option>
+                  </select>
+                </div>
               </div>
-
               <div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
