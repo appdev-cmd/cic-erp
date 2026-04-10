@@ -1,4 +1,5 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 echo "🚀 Kích hoạt mạng lưới LiteLLM Proxy Gateway..."
 sudo docker rm -f litellm_proxy 2>/dev/null
 
@@ -6,8 +7,7 @@ sudo docker run -d \
     --name litellm_proxy \
     --network host \
     -e LITELLM_MASTER_KEY="sk-cic-2026" \
-    -e DATABASE_URL="postgresql://postgres:litellm_secret@127.0.0.1:5432/postgres" \
-    -v $(pwd)/config.yaml:/app/config.yaml \
+    -v "${SCRIPT_DIR}/config.yaml:/app/config.yaml:ro" \
     ghcr.io/berriai/litellm:main-latest \
     --config /app/config.yaml --port 4000
 

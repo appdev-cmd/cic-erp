@@ -39,6 +39,7 @@ import {
     LazyLeavePage as LeavePage,
     LazyRequestsPage as RequestsPage,
     LazyAgentManagerPage as AgentManagerPage,
+    LazyPublicApplicationForm as PublicApplicationForm,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -54,6 +55,12 @@ import {
 // ═══════════════════════════════════════════════════════════════════════
 
 export const router = createBrowserRouter([
+    // ════ PUBLIC ROUTES ════
+    {
+        path: '/jobs/:id/apply',
+        element: <PublicApplicationForm />,
+    },
+    // ════ PRIVATE ROUTES ════
     {
         path: '/',
         element: <MainLayout />,

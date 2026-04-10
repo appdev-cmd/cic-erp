@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Users, LayoutDashboard, Plus, Search, Filter, Edit, Trash2, X, LayoutGrid, List } from 'lucide-react';
+import { Briefcase, Users, LayoutDashboard, Plus, Search, Filter, Edit, Trash2, X, LayoutGrid, List, Link as LinkIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { recruitmentService } from '../../services/recruitmentService';
 import { JobOpening, Candidate, CandidateApplication, ApplicationStage } from '../../types/hrmTypes';
@@ -12,6 +12,7 @@ import RecruitmentKanban from './RecruitmentKanban';
 import CandidateForm from './CandidateForm';
 import CandidateDetailPanel from './CandidateDetailPanel';
 import JobApplicationsPanel from './JobApplicationsPanel';
+import { toast } from 'sonner';
 
 const APP_STAGES_MAP: Record<string, string> = {
   applied: 'Ứng tuyển',
@@ -47,6 +48,11 @@ const RecruitmentPage: React.FC = () => {
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed'>('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [candidateFilters, setCandidateFilters] = useState({
+    source: 'all',
+    experience: 'all'
+  });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Auth & Permissions
@@ -115,9 +121,20 @@ const RecruitmentPage: React.FC = () => {
   });
 
   const filteredCandidates = candidates.filter(cand => {
-    return cand.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const matchSearch = cand.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
            (cand.phone && cand.phone.includes(searchTerm)) ||
            (cand.email && cand.email.toLowerCase().includes(searchTerm.toLowerCase()));
+           
+    const exp = cand.experience_years || 0;
+    let matchExp = true;
+    if (candidateFilters.experience === '0') matchExp = exp === 0;
+    else if (candidateFilters.experience === '1-3') matchExp = exp >= 1 && exp <= 3;
+    else if (candidateFilters.experience === '3-5') matchExp = exp > 3 && exp <= 5;
+    else if (candidateFilters.experience === '5+') matchExp = exp > 5;
+    
+    const matchSource = candidateFilters.source === 'all' || cand.source === candidateFilters.source;
+    
+    return matchSearch && matchExp && matchSource;
   });
 
   if (profile && !hasAccess) {
@@ -230,12 +247,62 @@ const RecruitmentPage: React.FC = () => {
               <option value="closed">Đã đóng</option>
             </select>
           )}
-          <button className="flex items-center gap-2 px-3 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg transition-colors text-sm font-medium">
-            <Filter size={16} />
-            <span className="hidden sm:inline">Bộ lọc</span>
-          </button>
+          {activeTab === 'candidates' && (
+             <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-3 py-2 border rounded-lg transition-colors text-sm font-medium ${showFilters ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}
+             >
+                <Filter size={16} />
+                <span className="hidden sm:inline">Bộ lọc {Object.values(candidateFilters).filter(v => v !== 'all').length > 0 && `(${Object.values(candidateFilters).filter(v => v !== 'all').length})`}</span>
+             </button>
+          )}
         </div>
       </div>
+      
+      {/* Expanded Filters for Candidates */}
+      {activeTab === 'candidates' && showFilters && (
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in flex flex-wrap gap-4 items-end">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Kinh nghiệm</label>
+            <select 
+              value={candidateFilters.experience}
+              onChange={(e) => setCandidateFilters({...candidateFilters, experience: e.target.value})}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
+            >
+              <option value="all">Mọi mức độ</option>
+              <option value="0">Chưa có kinh nghiệm</option>
+              <option value="1-3">1 - 3 năm</option>
+              <option value="3-5">3 - 5 năm</option>
+              <option value="5+">Trên 5 năm</option>
+            </select>
+          </div>
+          <div className="flex-1 min-w-[200px]">
+             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Nguồn ứng viên</label>
+             <select 
+              value={candidateFilters.source}
+              onChange={(e) => setCandidateFilters({...candidateFilters, source: e.target.value})}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500/50"
+            >
+              <option value="all">Tất cả nguồn</option>
+              <option value="website">Website Cty</option>
+              <option value="referral">Nội bộ giới thiệu</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="headhunt">Headhunt</option>
+              <option value="job_board">Kênh tuyển dụng</option>
+              <option value="other">Khác</option>
+            </select>
+          </div>
+          
+          {(candidateFilters.experience !== 'all' || candidateFilters.source !== 'all') && (
+            <button 
+              onClick={() => setCandidateFilters({experience: 'all', source: 'all'})}
+              className="px-3 py-2 text-sm text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 underline underline-offset-2 transition-colors font-medium h-[38px] flex items-center"
+            >
+              Xóa lọc
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center border-b border-slate-200 dark:border-slate-800">
@@ -303,6 +370,9 @@ const RecruitmentPage: React.FC = () => {
                          <div className="flex items-center gap-2">
                            <button onClick={(e) => { e.stopPropagation(); openPanel({ title: `Chỉnh sửa: ${job.title}`, component: (<JobOpeningForm job={job} onClose={() => closePanel()} onSuccess={() => { closePanel(); loadData(); }} isInsidePanel={true} />) }); }} className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-50 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-900/30 rounded-lg transition-colors" title="Sửa vị trí">
                              <Edit size={16} />
+                           </button>
+                           <button onClick={(e) => { e.stopPropagation(); const url = `${window.location.origin}/jobs/${job.id}/apply`; navigator.clipboard.writeText(url); toast.success('Đã sao chép link ứng tuyển vòng ngoài!'); }} className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 bg-slate-50 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-900/30 rounded-lg transition-colors" title="Copy link ứng tuyển Public">
+                             <LinkIcon size={16} />
                            </button>
                            <button onClick={(e) => handleDeleteJob(e, job)} className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 bg-slate-50 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-900/30 rounded-lg transition-colors" title="Xóa vị trí">
                              <Trash2 size={16} />
@@ -455,8 +525,8 @@ const RecruitmentPage: React.FC = () => {
                           </td>
                           <td className="px-4 py-3">{formatDateShort(candidate.created_at)}</td>
                           <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }} className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg transition-colors bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-700" title="Chi tiết / Sửa">
+                            <div className="flex items-center justify-end gap-1 transition-opacity">
+                              <button onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }} className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg transition-colors bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800" title="Chi tiết / Sửa">
                                 <Edit size={14} />
                               </button>
                               <button onClick={async (e) => {

@@ -43,8 +43,9 @@ function getLocalAIBaseURL(model?: string): string {
   try {
     if (typeof window !== 'undefined') {
       const url = localStorage.getItem('cic_local_ai_base_url');
-      if (url && !url.includes('localhost') && !url.startsWith('/api')) {
-         return url; // Nếu user nhập IP local mạng LAN tự chế (e.g. 192.168.x.x)
+      // Chỉ chấp nhận IP mạng nội bộ (LAN), từ chối mọi URL bên ngoài
+      if (url && /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url)) {
+         return url;
       }
       if (isOllama) return '/api/ollama';
       if (isGemma) return '/api/vllm_gemma';  // Gemma models → port 8001
@@ -405,10 +406,11 @@ async function* streamOpenAICompatible(
 
   // Build messages array
   const messages: any[] = [];
+  // Only Gemma needs system→user workaround; Qwen supports system role natively
+  const needsSysWorkaround = request.model?.toLowerCase().includes('gemma');
   if (request.systemInstruction) {
-    // Gemma/local models don't support 'system' role
-    const sysRole = provider === 'local' ? 'user' : 'system';
-    const sysContent = provider === 'local' 
+    const sysRole = needsSysWorkaround ? 'user' : 'system';
+    const sysContent = needsSysWorkaround 
       ? `[HỆ THỐNG - CHỈ DẪN]\n${request.systemInstruction}\n\n(Hãy tuân thủ chỉ dẫn trên khi trả lời)`
       : request.systemInstruction;
     messages.push({ role: sysRole, content: sysContent });
@@ -416,8 +418,8 @@ async function* streamOpenAICompatible(
   for (const msg of request.messages) {
     let role = msg.role === 'model' ? 'assistant' : msg.role;
     let content = msg.content;
-    // Convert system → user for local models
-    if (role === 'system' && provider === 'local') {
+    // Convert system → user only for Gemma
+    if (role === 'system' && needsSysWorkaround) {
       role = 'user';
       content = `[HỆ THỐNG - CHỈ DẪN]\n${content}`;
     }
@@ -431,7 +433,7 @@ async function* streamOpenAICompatible(
     messages,
     stream: true,
     temperature: isReasoner ? undefined : (request.temperature ?? 0.7),
-    max_tokens: request.maxTokens,
+    max_tokens: provider === 'local' ? Math.min(request.maxTokens || 2048, 3000) : request.maxTokens,
   });
 
   for await (const chunk of stream) {
@@ -578,8 +580,9 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
       return out;
     });
 
-    // Bypassing vLLM issues with local models
-    if (isVllmOrLocal) {
+    // Bypassing vLLM issues with Gemma models (Qwen supports system role + tool calls)
+    const isGemmaModel = request.model?.toLowerCase().includes('gemma');
+    if (isVllmOrLocal && isGemmaModel) {
       formattedMessages = formattedMessages.map((m: any) => {
         // Gemma doesn't support 'system' role → convert to 'user'
         if (m.role === 'system') {
@@ -609,8 +612,10 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
       messages: formattedMessages,
       temperature: request.temperature ?? 0.15,
       stream: false,
+      max_tokens: isVllmOrLocal ? 3000 : undefined,
     };
-    if (request.tools && request.tools.length > 0 && !isVllmOrLocal) {
+    // Qwen supports tool calling via --enable-auto-tool-choice; only strip for Gemma
+    if (request.tools && request.tools.length > 0 && (!isVllmOrLocal || !isGemmaModel)) {
       payload.tools = request.tools;
     }
 

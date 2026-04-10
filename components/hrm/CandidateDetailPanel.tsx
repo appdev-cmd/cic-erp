@@ -4,6 +4,7 @@ import { Candidate, CandidateApplication, ApplicationStage, ApplicationEvaluatio
 import { recruitmentService } from '../../services/recruitmentService';
 import { formatDate, formatDateTime } from '../../utils/formatters';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 const calculateDays = (start: string, end: string) => {
   const diff = new Date(end).getTime() - new Date(start).getTime();
@@ -46,6 +47,14 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
 
   const [rating, setRating] = useState<number>(0);
   const [notes, setNotes] = useState<string>('');
+  const [criteriaScores, setCriteriaScores] = useState<Record<string, number>>({});
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [offerData, setOfferData] = useState({
+    offer_salary: 0,
+    offer_date: '',
+    onboard_date: '',
+    targetStage: ''
+  });
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
 
@@ -57,6 +66,16 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
       loadHistory();
     }
   }, [cand]);
+
+  const getAttachments = () => {
+    if (!cand?.resume_url) return [];
+    try {
+      const parsed = JSON.parse(cand.resume_url);
+      if (Array.isArray(parsed)) return parsed;
+    } catch(e) {}
+    return [{ name: 'Hồ sơ năng lực / CV', url: cand.resume_url }];
+  };
+  const attachments = getAttachments();
 
   const loadHistory = async () => {
     if (!cand) return;
@@ -75,6 +94,7 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
   };
 
   const activeApp = application || historyApps.find(a => a.id === localAppId);
+  const isInterviewStage = ['interview_1', 'interview_2', 'technical_test'].includes(activeApp?.stage || '');
 
   const loadEvaluations = async (appId: string) => {
     setIsLoadingEvals(true);
@@ -98,11 +118,17 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
 
   const handleStageChange = async (newStage: ApplicationStage) => {
     if (!activeApp) return;
+    
+    if (newStage === 'hired' || newStage === 'offer') {
+      setOfferData(prev => ({ ...prev, targetStage: newStage }));
+      setShowOfferModal(true);
+      return;
+    }
+
     setIsUpdating(true);
     try {
       await recruitmentService.moveStage(activeApp.id, newStage);
       if (onUpdate) onUpdate();
-      // Optimistically update local view
       setHistoryApps(prev => prev.map(a => a.id === activeApp.id ? { ...a, stage: newStage } : a));
     } catch (e) {
       console.error(e);
@@ -120,7 +146,8 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
         application_id: activeApp.id,
         evaluator_id: evaluatorId,
         rating,
-        notes
+        notes,
+        criteria_scores: isInterviewStage ? criteriaScores : undefined
       });
       await loadEvaluations(activeApp.id);
       if (onUpdate) onUpdate();
@@ -281,19 +308,27 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
               <div className="space-y-4">
                 <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Hồ sơ đính kèm</h3>
                 <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
-                  {cand.resume_url ? (
-                    <a href={cand.resume_url} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors group">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-md">
-                          <FileText size={16} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Hồ sơ năng lực / CV</p>
-                          <p className="text-xs text-slate-500">Tài liệu đính kèm</p>
-                        </div>
-                      </div>
-                      <Download size={16} className="text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
-                    </a>
+                  {attachments.length > 0 ? (
+                    <div className="space-y-2">
+                      {attachments.map((att: any, idx: number) => {
+                        const isUrl = att.name.startsWith('http');
+                        const extension = isUrl ? 'LINK' : (att.name.split('.').pop() || 'DOCUMENT').toUpperCase();
+                        return (
+                          <a key={idx} href={att.url} target="_blank" rel="noreferrer" className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors group">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-md shrink-0">
+                                <FileText size={16} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate" title={att.name}>{att.name}</p>
+                                <p className="text-xs text-slate-500">{extension}</p>
+                              </div>
+                            </div>
+                            <Download size={16} className="text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 shrink-0" />
+                          </a>
+                        );
+                      })}
+                    </div>
                   ) : (
                     <div className="text-center py-4 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
                       <FileText size={24} className="mx-auto text-slate-300 dark:text-slate-600 mb-2" />
@@ -432,6 +467,9 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
                                             onClick={() => {
                                                 setRating(ev.rating || 0);
                                                 setNotes(ev.notes || '');
+                                                if (ev.criteria_scores) {
+                                                    setCriteriaScores(ev.criteria_scores as Record<string, number>);
+                                                }
                                                 setIsEditingNotes(true);
                                             }}
                                             className="text-xs text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-400 hover:underline px-2 py-1 cursor-pointer"
@@ -485,6 +523,50 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
                           ))}
                         </div>
                     </div>
+                    {isInterviewStage && (
+                      <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
+                         <label className="text-xs font-bold text-slate-600 dark:text-slate-400 mb-3 block uppercase tracking-wider">Phiếu chấm điểm (Rubric)</label>
+                         <div className="space-y-3">
+                           {[
+                             { id: 'tech_skills', label: 'Kiến thức chuyên môn' },
+                             { id: 'experience', label: 'Kinh nghiệm thực tế' },
+                             { id: 'problem_solving', label: 'Tư duy & Phân tích' },
+                             { id: 'cultural_fit', label: 'Sự phù hợp văn hóa' },
+                             { id: 'communication', label: 'Kỹ năng Giao tiếp' }
+                           ].map(crit => (
+                             <div key={crit.id} className="flex flex-wrap items-center justify-between gap-2">
+                               <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{crit.label}</span>
+                               <div className="flex gap-1">
+                                 {[1, 2, 3, 4, 5].map(score => (
+                                    <button 
+                                      key={score}
+                                      onClick={() => {
+                                        setCriteriaScores(prev => {
+                                          const next = { ...prev, [crit.id]: score };
+                                          // Auto-calc avg rating
+                                          const vals: number[] = Object.values(next);
+                                          if (vals.length > 0) {
+                                            const avg = Math.round(vals.reduce((a,b)=>a+b,0) / vals.length);
+                                            setRating(avg);
+                                          }
+                                          return next;
+                                        });
+                                      }}
+                                      className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                                        criteriaScores[crit.id] === score 
+                                          ? 'bg-indigo-600 text-white' 
+                                          : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 hover:border-indigo-400'
+                                      }`}
+                                    >
+                                      {score}
+                                    </button>
+                                 ))}
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+                      </div>
+                    )}
                     <div>
                         <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2 block">Ghi chú & Nhận xét</label>
                         <textarea
@@ -525,6 +607,86 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
           )}
         </div>
       </div>
+
+      {/* Offer Modal */}
+      {showOfferModal && (
+        <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+              <h3 className="font-bold text-slate-800 dark:text-slate-200">
+                {(offerData as any).targetStage === 'hired' ? 'Xác nhận Tuyển dụng' : 'Gửi Job Offer'}
+              </h3>
+              <button onClick={() => setShowOfferModal(false)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer text-slate-400">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Mức lương Đề nghị (VND)</label>
+                 <input 
+                   type="number"
+                   value={offerData.offer_salary || ''}
+                   onChange={e => setOfferData({...offerData, offer_salary: parseInt(e.target.value)||0})}
+                   className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/50"
+                   placeholder="VND..."
+                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Ngày gửi Offer</label>
+                   <input 
+                     type="date"
+                     value={offerData.offer_date}
+                     onChange={e => setOfferData({...offerData, offer_date: e.target.value})}
+                     className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/50"
+                   />
+                 </div>
+                 {/* onboard_date using same input styles */}
+                 <div>
+                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Ngày nhận việc</label>
+                   <input 
+                     type="date"
+                     value={offerData.onboard_date}
+                     onChange={e => setOfferData({...offerData, onboard_date: e.target.value})}
+                     className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/50"
+                   />
+                 </div>
+              </div>
+              <div className="pt-4 flex gap-3">
+                 <button onClick={() => setShowOfferModal(false)} className="flex-1 py-2 font-medium bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors cursor-pointer">
+                   Hủy
+                 </button>
+                 <button 
+                  onClick={async () => {
+                    setIsUpdating(true);
+                    try {
+                      // Save extra offer data to application
+                      await supabase.from('applications').update({
+                        offer_salary: offerData.offer_salary,
+                        offer_date: offerData.offer_date || null,
+                        onboard_date: offerData.onboard_date || null
+                      }).eq('id', activeApp?.id);
+
+                      await recruitmentService.moveStage(activeApp!.id, (offerData as any).targetStage);
+                      setShowOfferModal(false);
+                      if (onUpdate) onUpdate();
+                      alert(`Đã cập nhật trạng thái thành ${(offerData as any).targetStage}`);
+                    } catch (e: any) {
+                      alert('Lỗi khi cập nhật trạng thái Offer');
+                    } finally {
+                      setIsUpdating(false);
+                    }
+                  }} 
+                  disabled={isUpdating}
+                  className="flex-1 py-2 font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors shadow-lg shadow-indigo-200/50 dark:shadow-none cursor-pointer"
+                 >
+                   Xác nhận
+                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Render form đè lên khi chọn Edit */}
       {showEditForm && (

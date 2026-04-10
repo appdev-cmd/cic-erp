@@ -10,5 +10,7 @@ sudo docker run -d --name vllm_server --gpus '"device=0"' \
     vllm/vllm-openai:latest \
     --model "unsloth/gemma-2-27b-it" \
     --gpu-memory-utilization 0.80 \
-    --max-model-len 8192
+    --max-model-len 8192 \
+    --enable-auto-tool-choice \
+    --tool-call-parser hermes
 echo "Gemma 2 27B Server Đã Kích Hoạt Offline Mode!"

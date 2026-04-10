@@ -16,12 +16,15 @@ sudo docker run -d --name vllm_server --gpus '"device=0"' \
     --model "unsloth/Qwen2.5-14B-Instruct" \
     --served-model-name "cic-legal-14b" \
     --gpu-memory-utilization 0.85 \
-    --max-model-len 8192 \
+    --max-model-len 32768 \
+    --enable-prefix-caching \
     --enforce-eager \
     --enable-lora \
     --max-lora-rank 32 \
     --lora-modules "cic-legal-14b=/model_lora/cic_legal_model" \
-    --api-key "cic-local-2026"
+    --api-key "cic-local-2026" \
+    --enable-auto-tool-choice \
+    --tool-call-parser hermes
 
 echo "----------------------------------------------------"
 echo "⚖️ vLLM (Qwen 14B Legal LoRA) đang khởi động..."

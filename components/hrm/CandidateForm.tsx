@@ -14,6 +14,15 @@ interface Props {
 const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candidate, onClose, onSuccess }) => {
   const isEdit = !!candidate;
   
+  const initialAttachments = (() => {
+    if (!candidate?.resume_url) return [];
+    try {
+      const parsed = JSON.parse(candidate.resume_url);
+      if (Array.isArray(parsed)) return parsed;
+    } catch(e) {}
+    return [{ name: 'Hồ sơ năng lực / CV', url: candidate.resume_url }];
+  })();
+
   const [formData, setFormData] = useState({
     full_name: candidate?.full_name || '',
     email: candidate?.email || '',
@@ -21,20 +30,28 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
     education: candidate?.education || '',
     experience_years: candidate?.experience_years || 0,
     job_opening_id: preSelectedJobId || '',
-    resume_url: candidate?.resume_url || '',
     notes: candidate?.notes || ''
   });
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [existingAttachments, setExistingAttachments] = useState<{name: string, url: string}[]>(initialAttachments);
+  const [resumeFiles, setResumeFiles] = useState<File[]>([]);
+  const [externalUrl, setExternalUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      let finalResumeUrl = formData.resume_url;
-      if (resumeFile) {
-        finalResumeUrl = await recruitmentService.uploadResume(resumeFile);
+      let uploadedAttachs: any[] = [];
+      for (const file of resumeFiles) {
+        const url = await recruitmentService.uploadResume(file);
+        uploadedAttachs.push({ name: file.name, url });
       }
+      
+      const allAttachments = [...existingAttachments, ...uploadedAttachs];
+      if (externalUrl) {
+         allAttachments.push({ name: externalUrl.split('/').pop() || 'Đính kèm tự do', url: externalUrl });
+      }
+      const finalResumeUrl = allAttachments.length > 0 ? JSON.stringify(allAttachments) : '';
 
       const candidateData: Partial<Candidate> = {
         full_name: formData.full_name,
@@ -62,9 +79,9 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
       }
 
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting candidate:', error);
-      alert('Đã xảy ra lỗi khi tạo ứng viên');
+      alert(`Đã xảy ra lỗi khi tạo ứng viên: ${error.message || JSON.stringify(error)}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -157,31 +174,40 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Hồ sơ / CV</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Hồ sơ / CV (Đính kèm nhiều file)</label>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0">
-                      <Upload size={16} className="text-slate-600 dark:text-slate-400" />
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tải file lên</span>
-                      <input 
-                        type="file" 
-                        className="hidden" 
-                        accept=".pdf,.doc,.docx"
-                        onChange={e => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setResumeFile(file);
-                            setFormData(prev => ({ ...prev, resume_url: '' }));
-                          }
-                        }}
-                      />
-                    </label>
-                    {resumeFile && (
-                      <div className="flex items-center gap-2 flex-1 min-w-0 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-md border border-indigo-100 dark:border-indigo-800/50">
-                        <span className="text-sm font-medium text-indigo-700 dark:text-indigo-400 truncate">{resumeFile.name}</span>
-                        <button type="button" onClick={() => setResumeFile(null)} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300"><X size={14}/></button>
-                      </div>
-                    )}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0">
+                        <Upload size={16} className="text-slate-600 dark:text-slate-400" />
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tải file lên</span>
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          multiple
+                          onChange={e => {
+                            if (e.target.files?.length) {
+                              setResumeFiles(prev => [...prev, ...Array.from(e.target.files as FileList)]);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="space-y-2 mt-2">
+                      {existingAttachments.map((att, idx) => (
+                        <div key={`existing-${idx}`} className="flex items-center gap-2 flex-1 min-w-0 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-md border border-indigo-100 dark:border-indigo-800/50">
+                          <span className="text-sm font-medium text-indigo-700 dark:text-indigo-400 truncate">{att.name}</span>
+                          <button type="button" onClick={() => setExistingAttachments(prev => prev.filter((_, i) => i !== idx))} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 ml-auto"><X size={14}/></button>
+                        </div>
+                      ))}
+                      {resumeFiles.map((f, idx) => (
+                        <div key={`new-${idx}`} className="flex items-center gap-2 flex-1 min-w-0 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
+                          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400 truncate">{f.name}</span>
+                          <button type="button" onClick={() => setResumeFiles(prev => prev.filter((_, i) => i !== idx))} className="text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 ml-auto"><X size={14}/></button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3 text-sm text-slate-400 dark:text-slate-500 font-medium">
@@ -192,10 +218,9 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
 
                   <input
                     type="url"
-                    disabled={!!resumeFile}
-                    value={formData.resume_url}
-                    onChange={e => setFormData({ ...formData, resume_url: e.target.value })}
-                    className={`w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${resumeFile ? 'opacity-50 bg-slate-50 dark:bg-slate-900 cursor-not-allowed text-slate-500' : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100'}`}
+                    value={externalUrl}
+                    onChange={e => setExternalUrl(e.target.value)}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     placeholder="https://drive.google.com/..."
                   />
                 </div>
