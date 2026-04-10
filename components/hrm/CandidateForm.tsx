@@ -128,13 +128,20 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Trình độ</label>
-                <input
-                  type="text"
+                <select
                   value={formData.education}
                   onChange={e => setFormData({ ...formData, education: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none"
-                  placeholder="Đại học..."
-                />
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                >
+                  <option value="">-- Chọn trình độ --</option>
+                  <option value="Trung học">Trung học</option>
+                  <option value="Trung cấp">Trung cấp</option>
+                  <option value="Cao đẳng">Cao đẳng</option>
+                  <option value="Cử nhân / Kỹ sư">Cử nhân / Kỹ sư</option>
+                  <option value="Thạc sĩ">Thạc sĩ</option>
+                  <option value="Tiến sĩ">Tiến sĩ</option>
+                  <option value="Khác">Khác</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
