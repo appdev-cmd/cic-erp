@@ -346,7 +346,7 @@ export const createTaskAiTool: OpenClawTool = {
 
 export const exportDocumentTool: OpenClawTool = {
   name: 'export_document',
-  description: 'Sinh file tài liệu báo cáo và trả về Link Download.',
+  description: 'Tạo file tài liệu báo cáo và trả về Link Tải xuống. KIÊN QUYẾT: Bạn KHÔNG ĐƯỢC TỰ BỊA SỐ LIỆU. Bạn PHẢI gọi các tool truy xuất dữ liệu (ví dụ: get_comparative_report, get_dashboard_kpi...) TRƯỚC để có dữ liệu thực tế, sau đó mới dùng tool này để xuất file.',
   schema: {
     title: { type: 'string', description: 'Tên báo cáo' },
     content: { type: 'string', description: 'Nội dung văn bản Markdown' }

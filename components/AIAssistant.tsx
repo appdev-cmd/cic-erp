@@ -1251,6 +1251,7 @@ const AIAssistant: React.FC = () => {
                         <div className="prose prose-sm prose-indigo dark:prose-invert max-w-none break-words">
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
+                            urlTransform={(url: string) => url}
                             components={MARKDOWN_COMPONENTS as any}
                           >
                             {msg.content}
