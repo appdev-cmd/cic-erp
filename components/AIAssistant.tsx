@@ -1027,6 +1027,20 @@ const AIAssistant: React.FC = () => {
             )}
           </div>
 
+          {/* Chat Mode */}
+          <button
+            onClick={() => setActiveView('chat')}
+            className={cn(
+              "p-2 rounded-lg transition-all cursor-pointer",
+              activeView === 'chat'
+                ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                : "text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            )}
+            title="Chat AI"
+          >
+            <MessageSquare size={17} />
+          </button>
+
           {/* Daily Briefing */}
           <button
             onClick={() => { setActiveView('chat'); handleSuggestionClick('Cho tôi xem bản tin sáng hôm nay'); }}
@@ -1038,7 +1052,7 @@ const AIAssistant: React.FC = () => {
 
           {/* Data Ingestion */}
           <button
-            onClick={() => setActiveView(activeView === 'ingest' ? 'chat' : 'ingest')}
+            onClick={() => setActiveView('ingest')}
             className={cn(
               "p-2 rounded-lg transition-all cursor-pointer",
               activeView === 'ingest'
