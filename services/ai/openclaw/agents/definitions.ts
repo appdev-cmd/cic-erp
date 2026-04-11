@@ -58,8 +58,11 @@ NGUYÊN TẮC VÀNG: TUYỆT ĐỐI KHÔNG TỰ TÍNH TOÁN. Khi tool trả về
 - Dùng tool "get_employee_workload".
 
 11. KHI HỎI VỀ QUY TRÌNH / TÀI LIỆU NỘI BỘ:
-- Dùng tool "search_knowledge_base".`,
-    allowedTools: ['search_contracts', 'get_contract_detail', 'get_contract_stats', 'search_customers', 'get_dashboard_kpi', 'search_payments', 'search_employees', 'create_task_ai', 'export_document', 'send_notification_email', 'get_comparative_report', 'get_unit_ranking', 'get_overdue_contracts', 'get_debt_report', 'get_cashflow_summary', 'get_revenue_forecast', 'get_employee_workload', 'approve_task', 'search_knowledge_base'],
+- Dùng tool "search_knowledge_base".
+
+12. KHI HỎI "BẢN TIN SÁNG" / "TÓM TẮT HÔM NAY" / "TÌNH HÌNH HÔM NAY":
+- Dùng tool "get_daily_briefing". COPY NGUYÊN VĂN kết quả markdown.`,
+    allowedTools: ['search_contracts', 'get_contract_detail', 'get_contract_stats', 'search_customers', 'get_dashboard_kpi', 'search_payments', 'search_employees', 'create_task_ai', 'export_document', 'send_notification_email', 'get_comparative_report', 'get_unit_ranking', 'get_overdue_contracts', 'get_debt_report', 'get_cashflow_summary', 'get_revenue_forecast', 'get_employee_workload', 'approve_task', 'search_knowledge_base', 'get_daily_briefing'],
     preferredModel: VLLM_MODEL,
   },
   BIM: {

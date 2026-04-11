@@ -899,6 +899,21 @@ export const searchKnowledgeBaseTool: OpenClawTool = {
   }
 };
 
+export const getDailyBriefingTool: OpenClawTool = {
+  name: 'get_daily_briefing',
+  description: 'Tạo bản tin sáng (Daily Briefing) tổng hợp: HĐ quá hạn, công nợ, task trễ, HĐ sắp hết hạn. Dùng khi user hỏi "bản tin sáng", "tóm tắt hôm nay", "tình hình hôm nay", "daily briefing".',
+  schema: {},
+  execute: async () => {
+    try {
+      const { generateDailyBriefing } = await import('../../../dailyBriefingService');
+      const briefing = await generateDailyBriefing();
+      return { briefing: briefing.summary };
+    } catch (err: any) {
+      return { error: 'Lỗi tạo bản tin: ' + err.message };
+    }
+  }
+};
+
 export const erpToolsRegistry: OpenClawTool[] = [
   searchContractsTool,
   getContractDetailTool,
@@ -920,4 +935,6 @@ export const erpToolsRegistry: OpenClawTool[] = [
   getEmployeeWorkloadTool,
   approveTaskTool,
   searchKnowledgeBaseTool,
+  // Phase 3 — Daily Briefing
+  getDailyBriefingTool,
 ];

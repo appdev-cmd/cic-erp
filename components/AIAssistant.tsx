@@ -28,7 +28,10 @@ import {
   Plus,
   Clock,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  AlertTriangle,
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -45,6 +48,7 @@ import * as AiHistory from '../services/aiChatHistoryService';
 import type { AiConversation } from '../services/aiChatHistoryService';
 import { toast } from 'sonner';
 import AIDataIngestion from './AIDataIngestion';
+import { dataClient } from '../lib/dataClient';
 // Formatter functions outside component to avoid reference changes during render
 const formatValue = (value: any) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value);
 const formatTooltip = (value: any) => new Intl.NumberFormat('vi-VN').format(Number(value));
@@ -355,6 +359,74 @@ const AIAssistant: React.FC = () => {
       AiHistory.getConversations(_profile.id).then(convs => setConversations(convs));
     }
   }, [_profile?.id]);
+
+  // ─── Proactive Alerts State ────────────────────────────
+  const [proactiveAlerts, setProactiveAlerts] = useState<{ icon: string; text: string; action: string; severity: 'danger' | 'warning' | 'info' }[]>([]);
+  const [alertsDismissed, setAlertsDismissed] = useState(false);
+
+  // Fetch proactive alerts on mount (only for Leadership/Admin roles)
+  useEffect(() => {
+    if (!_profile?.id || !['Admin', 'Leadership', 'UnitLeader'].includes(_profile?.role || '')) return;
+    const fetchAlerts = async () => {
+      try {
+        const alerts: typeof proactiveAlerts = [];
+        const today = new Date().toISOString().split('T')[0];
+
+        // 1. HĐ quá hạn (endDate < today, status is active)
+        const { data: overdueContracts, count: overdueCount } = await dataClient
+          .from('contracts')
+          .select('id', { count: 'exact', head: true })
+          .lt('end_date', today)
+          .in('status', ['Đang thực hiện', 'Tạm dừng']);
+        if (overdueCount && overdueCount > 0) {
+          alerts.push({
+            icon: '🔴',
+            text: `${overdueCount} hợp đồng đã quá hạn hoàn thành`,
+            action: 'Cho tôi xem danh sách hợp đồng quá hạn',
+            severity: 'danger'
+          });
+        }
+
+        // 2. HĐ sắp hết hạn (trong 30 ngày tới)
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + 30);
+        const { count: expiringCount } = await dataClient
+          .from('contracts')
+          .select('id', { count: 'exact', head: true })
+          .gte('end_date', today)
+          .lte('end_date', futureDate.toISOString().split('T')[0])
+          .in('status', ['Đang thực hiện']);
+        if (expiringCount && expiringCount > 0) {
+          alerts.push({
+            icon: '🟡',
+            text: `${expiringCount} hợp đồng sắp hết hạn (30 ngày)`,
+            action: 'Cho tôi xem các hợp đồng sắp hết hạn trong 30 ngày tới',
+            severity: 'warning'
+          });
+        }
+
+        // 3. Phiếu thu quá hạn
+        const { count: overduePayments } = await dataClient
+          .from('payments')
+          .select('id', { count: 'exact', head: true })
+          .lt('due_date', today)
+          .in('status', ['Đã xuất HĐ', 'Tạm ứng']);
+        if (overduePayments && overduePayments > 0) {
+          alerts.push({
+            icon: '💰',
+            text: `${overduePayments} phiếu thu/chi quá hạn thanh toán`,
+            action: 'Báo cáo công nợ chi tiết',
+            severity: 'danger'
+          });
+        }
+
+        setProactiveAlerts(alerts);
+      } catch (err) {
+        console.warn('Proactive alerts fetch failed:', err);
+      }
+    };
+    fetchAlerts();
+  }, [_profile?.id, _profile?.role]);
 
   // Load a specific conversation
   const loadConversation = useCallback(async (conv: AiConversation) => {
@@ -883,42 +955,49 @@ const AIAssistant: React.FC = () => {
       isFullScreen ? "fixed inset-0 z-50 rounded-none m-0" : "rounded-[24px] h-[calc(100vh-6rem)] md:h-[calc(100vh-7rem)] lg:h-[calc(100vh-8.5rem)] min-h-[500px] w-full max-w-7xl mx-auto relative"
     )}>
       {/* ═══ Header ═══════════════════════════════════════ */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-white via-white to-slate-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 shrink-0 z-10 relative">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 md:px-5 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 z-10 relative">
+        {/* Left: Agent Identity */}
+        <div className="flex items-center gap-2.5 min-w-0">
           <div className={cn(
-            "w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-2 ring-white/20",
+            "w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-md shrink-0",
             dynamicAgents[currentAgent]?.color
           )}>
-            {dynamicAgents[currentAgent]?.icon && React.createElement(dynamicAgents[currentAgent].icon, { size: 20 })}
+            {dynamicAgents[currentAgent]?.icon && React.createElement(dynamicAgents[currentAgent].icon, { size: 18 })}
           </div>
-          <div>
-            <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg flex items-center gap-2">
+          <div className="min-w-0">
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-1.5">
               AI Agent
-              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-indigo-100 to-violet-100 dark:from-indigo-900/40 dark:to-violet-900/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-wider border border-indigo-200/50 dark:border-indigo-700/50">v5.0</span>
+              <span className="px-1.5 py-px rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-wider">v5</span>
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-              <span className="relative flex h-2 w-2">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-[200px] md:max-w-[300px] flex items-center gap-1">
+              <span className="relative flex h-1.5 w-1.5 shrink-0">
                 <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", dynamicAgents[currentAgent]?.color)}></span>
-                <span className={cn("relative inline-flex rounded-full h-2 w-2", dynamicAgents[currentAgent]?.color)}></span>
+                <span className={cn("relative inline-flex rounded-full h-1.5 w-1.5", dynamicAgents[currentAgent]?.color)}></span>
               </span>
-              {dynamicAgents[currentAgent]?.name} • {dynamicAgents[currentAgent]?.role}
+              {dynamicAgents[currentAgent]?.name}
             </p>
           </div>
         </div>
 
-        {/* Agent Selector - Unified Dropdown */}
-        <div className="flex items-center gap-2 relative">
-          <div ref={agentMenuRef}>
-             <button
+        {/* Right: Actions */}
+        <div className="flex items-center gap-1">
+          {/* Agent Selector Dropdown */}
+          <div ref={agentMenuRef} className="relative">
+            <button
               onClick={() => setShowAgentMenu(!showAgentMenu)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+              className={cn(
+                "p-2 rounded-lg transition-all cursor-pointer",
+                showAgentMenu
+                  ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20"
+                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              )}
+              title="Chọn Agent"
             >
-              {dynamicAgents[currentAgent] && React.createElement(dynamicAgents[currentAgent].icon, { size: 14 })}
-              {dynamicAgents[currentAgent]?.name}
-              <ChevronDown size={12} className={cn("transition-transform", showAgentMenu && "rotate-180")} />
+              <Users size={17} />
             </button>
             {showAgentMenu && (
-              <div className="absolute top-full right-0 md:right-auto mt-1 min-w-[220px] max-w-[280px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 py-1 overflow-hidden" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              <div className="absolute top-full right-0 mt-1.5 w-[260px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl dark:shadow-black/40 z-50 py-1 overflow-hidden" style={{ maxHeight: '55vh', overflowY: 'auto' }}>
+                <p className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Chọn Agent</p>
                 {Object.entries(dynamicAgents).map(([key, agent]) => {
                   const Icon = agent.icon;
                   const isActive = currentAgent === key;
@@ -927,17 +1006,20 @@ const AIAssistant: React.FC = () => {
                       key={key}
                       onClick={() => switchAgent(key)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer text-left",
+                        "w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors cursor-pointer text-left",
                         isActive
-                          ? "bg-slate-50 dark:bg-slate-700/50 text-indigo-600 dark:text-indigo-400 font-bold border-l-2 border-indigo-500"
-                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 font-medium border-l-2 border-transparent"
+                          ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-bold"
+                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
                       )}
                     >
-                      <Icon size={16} className={isActive ? agent.color.replace('bg-', 'text-') : 'text-slate-400'} />
-                      <div className="truncate">
-                        <div className="font-semibold text-xs leading-none mb-1">{agent.name}</div>
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate">{agent.role}</div>
+                      <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0", agent.color)}>
+                        <Icon size={12} />
                       </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-xs truncate leading-tight">{agent.name}</div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{agent.role}</div>
+                      </div>
+                      {isActive && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></div>}
                     </button>
                   );
                 })}
@@ -945,56 +1027,74 @@ const AIAssistant: React.FC = () => {
             )}
           </div>
 
+          {/* Daily Briefing */}
           <button
-            onClick={() => setActiveView('ingest')}
-            className={cn(
-              "px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer",
-              activeView === 'ingest'
-                ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50"
-                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-            )}
-            title="Nạp dữ liệu bằng AI"
+            onClick={() => { setActiveView('chat'); handleSuggestionClick('Cho tôi xem bản tin sáng hôm nay'); }}
+            className="p-2 text-amber-500 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all cursor-pointer"
+            title="Bản tin sáng"
           >
-            <Database size={14} className={activeView === 'ingest' ? '' : 'text-slate-400'} />
-            <span className="hidden md:inline">Nạp dữ liệu</span>
+            <BookOpen size={17} />
           </button>
-        </div>
 
-        <div className="flex items-center gap-1">
+          {/* Data Ingestion */}
+          <button
+            onClick={() => setActiveView(activeView === 'ingest' ? 'chat' : 'ingest')}
+            className={cn(
+              "p-2 rounded-lg transition-all cursor-pointer",
+              activeView === 'ingest'
+                ? "text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20"
+                : "text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+            )}
+            title="Nạp dữ liệu"
+          >
+            <Database size={17} />
+          </button>
+
+          <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
+
+          {/* New Chat */}
           <button
             onClick={newConversation}
             className="p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all cursor-pointer"
             title="Cuộc trò chuyện mới"
           >
-            <Plus size={18} />
+            <Plus size={17} />
           </button>
+
+          {/* History */}
           <button
             onClick={() => { setShowHistory(!showHistory); if (!showHistory && _profile?.id) AiHistory.getConversations(_profile.id).then(c => setConversations(c)); }}
             className={cn("p-2 rounded-lg transition-all cursor-pointer", showHistory ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20" : "text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20")}
             title="Lịch sử hội thoại"
           >
-            <Clock size={18} />
+            <Clock size={17} />
           </button>
+
+          {/* Settings */}
           <button
             onClick={() => setShowSettings(true)}
-            className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all cursor-pointer"
+            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
             title="Cài đặt API Key"
           >
-            <Settings size={18} />
+            <Settings size={17} />
           </button>
+
+          {/* Clear */}
           <button
             onClick={clearChat}
             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all cursor-pointer"
             title="Xóa lịch sử"
           >
-            <Trash2 size={18} />
+            <Trash2 size={17} />
           </button>
+
+          {/* Fullscreen */}
           <button
             onClick={() => setIsFullScreen(!isFullScreen)}
-            className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all cursor-pointer"
+            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all cursor-pointer"
             title={isFullScreen ? "Thu nhỏ" : "Toàn màn hình"}
           >
-            {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            {isFullScreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
           </button>
         </div>
       </div>
@@ -1069,6 +1169,37 @@ const AIAssistant: React.FC = () => {
               <button onClick={dismissWidgetHistory} className="p-1 text-indigo-400 hover:text-indigo-600 cursor-pointer"><X size={14} /></button>
             </div>
           )}
+          {/* ═══ Proactive Alerts Banner ════════════════════ */}
+          {proactiveAlerts.length > 0 && !alertsDismissed && messages.length <= 1 && (
+            <div className="mx-4 md:mx-6 mt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle size={11} /> Cảnh báo ({proactiveAlerts.length})
+                </p>
+                <button onClick={() => setAlertsDismissed(true)} className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
+                  <X size={12} />
+                </button>
+              </div>
+              {proactiveAlerts.map((alert, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSuggestionClick(alert.action)}
+                  className={cn(
+                    "w-full text-left px-3 py-2.5 rounded-xl border text-xs font-medium flex items-center gap-2.5 transition-all cursor-pointer hover:-translate-y-0.5 hover:shadow-md",
+                    alert.severity === 'danger'
+                      ? "bg-rose-50 dark:bg-rose-900/15 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/25"
+                      : alert.severity === 'warning'
+                      ? "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/25"
+                      : "bg-sky-50 dark:bg-sky-900/15 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/25"
+                  )}
+                >
+                  <span className="text-base">{alert.icon}</span>
+                  <span className="flex-1">{alert.text}</span>
+                  <ChevronRight size={12} className="opacity-50" />
+                </button>
+              ))}
+            </div>
+          )}
           {/* ═══ Messages Area ════════════════════════════════ */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth">
             {messages.map((msg) => (
@@ -1133,23 +1264,68 @@ const AIAssistant: React.FC = () => {
             ))}
 
             {/* ═══ Suggestion Chips ═══════════════════════════ */}
-            {showSuggestions && (
-              <div className="flex flex-wrap gap-2 justify-center pt-2 pb-1">
-                {dynamicAgents[currentAgent]?.suggestions?.map((sug: string, idx: number) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSuggestionClick(sug)}
-                    className="px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 
-                  border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700
-                  rounded-full text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-400
-                  transition-all cursor-pointer flex items-center gap-1.5 shadow-sm hover:shadow"
-                  >
-                    <Zap size={10} className="text-indigo-400" />
-                    {sug}
-                  </button>
-                ))}
-              </div>
-            )}
+            {showSuggestions && (() => {
+              // Smart Quick Actions — Dynamic suggestions based on conversation context
+              const lastContent = (lastMsg?.content || '').toLowerCase();
+              const quickActions: { label: string; icon: string; action: string }[] = [];
+              
+              // Context-aware suggestions
+              if (lastContent.includes('hợp đồng') || lastContent.includes('contract')) {
+                quickActions.push(
+                  { label: 'HĐ quá hạn?', icon: '⚠️', action: 'Cho tôi xem danh sách hợp đồng quá hạn' },
+                  { label: 'Xem công nợ', icon: '💰', action: 'Báo cáo công nợ hiện tại' },
+                );
+              }
+              if (lastContent.includes('doanh thu') || lastContent.includes('kpi') || lastContent.includes('revenue')) {
+                quickActions.push(
+                  { label: 'So sánh quý', icon: '📊', action: 'So sánh doanh thu Q1 và Q2 năm nay' },
+                  { label: 'Dự báo doanh thu', icon: '📈', action: 'Dự báo doanh thu năm nay dựa trên pipeline' },
+                );
+              }
+              if (lastContent.includes('task') || lastContent.includes('công việc') || lastContent.includes('giao việc')) {
+                quickActions.push(
+                  { label: 'Ai đang bận?', icon: '👥', action: 'Xem khối lượng công việc của nhân viên' },
+                );
+              }
+              if (lastContent.includes('công nợ') || lastContent.includes('nợ')) {
+                quickActions.push(
+                  { label: 'Dòng tiền', icon: '💸', action: 'Tổng hợp dòng tiền thu chi năm nay' },
+                );
+              }
+              // Default suggestions if no context match
+              if (quickActions.length === 0) {
+                quickActions.push(
+                  { label: 'Tổng quan KPI', icon: '📊', action: 'Cho tôi xem KPI tổng quan công ty' },
+                  { label: 'HĐ quá hạn', icon: '⚠️', action: 'Có hợp đồng nào quá hạn không?' },
+                  { label: 'Công nợ', icon: '💰', action: 'Báo cáo công nợ hiện tại' },
+                  { label: 'Xếp hạng đơn vị', icon: '🏆', action: 'Xếp hạng đơn vị theo doanh thu' },
+                );
+              }
+              // Always add a general action
+              if (quickActions.length < 4) {
+                quickActions.push(
+                  { label: 'Xuất báo cáo', icon: '📋', action: 'Xuất báo cáo tổng hợp tình hình kinh doanh' },
+                );
+              }
+
+              return (
+                <div className="flex flex-wrap gap-2 justify-center pt-3 pb-1 px-4">
+                  {quickActions.slice(0, 4).map((qa, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSuggestionClick(qa.action)}
+                      className="group px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-violet-50 dark:hover:from-indigo-900/20 dark:hover:to-violet-900/20
+                    border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600
+                    rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-400
+                    transition-all duration-200 cursor-pointer flex items-center gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                    >
+                      <span className="text-sm">{qa.icon}</span>
+                      <span>{qa.label}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
 
             <div ref={messagesEndRef} />
           </div>
