@@ -119,7 +119,7 @@ export const getContractDetailTool: OpenClawTool = {
 
 export const getContractStatsTool: OpenClawTool = {
   name: 'get_contract_stats',
-  description: 'Lấy thống kê tổng quan: Tổng doanh thu, Tổng giá trị, Số lượng. ĐẶC BIÊT DÙNG KHI CẦN HỎI TỔNG QUAN, TỈ LỆ, CƠ CẤU (Bao nhiêu HĐ Mới, Bao nhiêu Gia hạn, Tỉ lệ thế nào). Không dùng search_contracts để đếm số lượng vì nó sẽ bị limit 10 hợp đồng.',
+  description: 'Lấy thống kê tổng quan: Tổng doanh thu, Tổng giá trị, Số lượng. ĐẶC BIÊT DÙNG KHI CẦN HỎI TỔNG QUAN, TỈ LỆ, CƠ CẤU (Bao nhiêu HĐ Mới, Bao nhiêu Gia hạn, Tỉ lệ các Đơn vị như thế nào), và tìm HỢP ĐỒNG LỚN NHẤT / NHỎ NHẤT. Không dùng search_contracts để đếm số lượng vì nó sẽ bị limit 10 hợp đồng.',
   schema: {
     status: { type: 'string', description: 'Trạng thái lọc. Dùng "All" nếu muốn xem tất cả.', enum: ['Processing', 'Completed', 'Suspended', 'Cancelled', 'All'] },
     unitId: { type: 'string', description: 'Mã phòng ban (để trống = toàn công ty)' },
@@ -141,6 +141,15 @@ export const getContractStatsTool: OpenClawTool = {
       unitId: unitFilter
     });
     
+    // Format values in max/min
+    const maxContract = res.maxContract ? { ...res.maxContract, value: fmtMoneyWithRaw(res.maxContract.value) } : null;
+    const minContract = res.minContract ? { ...res.minContract, value: fmtMoneyWithRaw(res.minContract.value) } : null;
+    const unitBreakdown = Object.entries(res.unitBreakdown || {}).map(([unit, data]: [string, any]) => ({
+       donVi: unit === 'UNKNOWN' ? 'Khác' : unit,
+       soLuongHopDong: data.count,
+       giaTri: fmtMoneyWithRaw(data.value)
+    }));
+
     return {
       tongSoHopDong: res.totalContracts,
       hopDongMoi: res.newContractsCount || 0,
@@ -148,6 +157,9 @@ export const getContractStatsTool: OpenClawTool = {
       tongGiaTriKyKet: fmtMoneyWithRaw(res.totalValue),
       tongDoanhThu: fmtMoneyWithRaw(res.totalRevenue),
       dongTienThucNhan: fmtMoneyWithRaw(res.totalCash),
+      phanBoTheoDonVi: unitBreakdown,
+      hopDongLonNhat: maxContract,
+      hopDongNhoNhat: minContract
     };
   }
 };

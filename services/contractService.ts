@@ -974,7 +974,10 @@ export const ContractService = {
         acceptanceCount: number,
         completedCount: number,
         newContractsCount?: number,
-        renewalContractsCount?: number
+        renewalContractsCount?: number,
+        maxContract?: { title: string, code: string, value: number, customer: string, unit_id: string } | null,
+        minContract?: { title: string, code: string, value: number, customer: string, unit_id: string } | null,
+        unitBreakdown?: Record<string, { count: number, value: number }>
     }> => {
         const { search, status, unitId, year, dateFrom, dateTo, salespersonId, classification, matchingCustomerIds } = params;
 
@@ -1009,7 +1012,7 @@ export const ContractService = {
 
         // Fetch ALL contracts with unit_allocations for allocation-aware filtering
         // OPTIMIZED: No payments JOIN — use pre-computed columns
-        let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, title, party_a, signed_date, unit_id, unit_allocations, employee_id, employee_allocations');
+        let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, title, contract_code, party_a, signed_date, unit_id, unit_allocations, employee_id, employee_allocations');
 
         if (search) {
             query = query.or(buildSearchFilter(search, matchingCustomerIds, unaccentMatchIds));
@@ -1107,6 +1110,10 @@ export const ContractService = {
         });
 
         // OPTIMIZED: Calculate aggregates from pre-computed columns — no payment recalculation
+        let maxContract: any = null;
+        let minContract: any = null;
+        const unitBreakdown: Record<string, { count: number, value: number }> = {};
+
         const financials = (data || []).reduce((acc, curr: any) => {
             const val = curr.value || 0;
             const rev = curr.actual_revenue || 0;
@@ -1136,6 +1143,26 @@ export const ContractService = {
                 const empPct = getEmployeeSharePct(curr, salespersonId);
                 fraction = fraction * empPct / 100;
             }
+            
+            const trueVal = val * fraction;
+
+            // Track Max and Min
+            if (trueVal > 0) {
+                if (!maxContract || trueVal > maxContract.value) {
+                    maxContract = { title: curr.title, code: curr.contract_code, value: trueVal, customer: curr.party_a, unit_id: curr.unit_id };
+                }
+                if (!minContract || trueVal < minContract.value) {
+                    minContract = { title: curr.title, code: curr.contract_code, value: trueVal, customer: curr.party_a, unit_id: curr.unit_id };
+                }
+            }
+
+            // Track Unit Breakdown
+            const unit = curr.unit_id || 'UNKNOWN';
+            if (!unitBreakdown[unit]) {
+                unitBreakdown[unit] = { count: 0, value: 0 };
+            }
+            unitBreakdown[unit].count += 1;
+            unitBreakdown[unit].value += trueVal;
 
             return {
                 totalContracts: acc.totalContracts + 1,
@@ -1148,7 +1175,7 @@ export const ContractService = {
             };
         }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0 });
 
-        return { ...financials, ...statusCounts };
+        return { ...financials, ...statusCounts, maxContract, minContract, unitBreakdown };
     },
 
     // OPTIMIZED RPC-BASED STATS with fallback

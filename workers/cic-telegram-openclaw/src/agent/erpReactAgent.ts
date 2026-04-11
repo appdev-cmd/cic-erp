@@ -72,7 +72,9 @@ async function ollamaToolCallingTurn(messages: ChatMsg[]): Promise<{ message?: s
         } catch (e) {}
 
         msg.tool_calls = [{
-          function: { name: functionName, arguments: args }
+          id: 'call_' + Math.random().toString(36).substring(2, 9),
+          type: 'function',
+          function: { name: functionName, arguments: JSON.stringify(args) }
         }];
         console.log(`[Polyfill] Extracted tool call: ${functionName}`, args);
       }
@@ -162,9 +164,10 @@ export async function runErpReactAgent(params: {
       // Trả output về cho model đắp lại
       messages.push({
         role: 'tool',
+        tool_call_id: tc.id,
         name: functionName,
         content: output.slice(0, 10000) // Tránh context window overflow
-      });
+      } as any);
     }
   }
 
