@@ -5,7 +5,7 @@ import {
   resolveTelegramContext, type ResolvedContext,
   fetchLeaveBalance, fetchPendingLeaves, createLeaveRequest, approveLeaveRequest
 } from '../supabaseClient.js';
-import { contractsToDocxBuffer, leaveRequestToDocxBuffer } from '../export/buildDocx.js';
+import { contractsToDocxBuffer, leaveRequestToDocxBuffer, revenueReportToDocxBuffer } from '../export/buildDocx.js';
 import { contractsToXlsxBuffer } from '../export/buildXlsx.js';
 import { decideTool, getLoadedSkills, reloadSkills } from '../llm/ollamaGemma.js';
 import { tgSendChatAction, tgSendDocument, tgSendMessage, tgSendMessagePlain } from '../telegramApi.js';
@@ -210,6 +210,20 @@ async function handleRevenueReport(chatId: number, ctx: ResolvedContext, year?: 
   await tgSendMessage(chatId, msg);
   await auditLog(String(chatId), ctx.employeeId, 'revenue_report', { year: y });
   return msg;
+}
+
+async function handleExportRevenueDocx(chatId: number, ctx: ResolvedContext, year?: number): Promise<string> {
+  const y = year ?? new Date().getFullYear();
+  const rows = await fetchRevenueByMonth(ctx.employeeId, y);
+  if (rows.length === 0) {
+    const msg = `Không có dữ liệu doanh thu năm ${y}.`;
+    await tgSendMessage(chatId, msg);
+    return msg;
+  }
+  const buf = await revenueReportToDocxBuffer(rows, `Báo cáo kết quả kinh doanh năm ${y} — ${ctx.fullName}`);
+  await tgSendDocument(chatId, `bao_cao_doanh_thu_${y}.docx`, buf, `Báo cáo Doanh thu năm ${y}`);
+  await auditLog(String(chatId), ctx.employeeId, 'export_revenue_docx', { year: y });
+  return `Đã gửi báo cáo doanh thu năm ${y} ra file Word`;
 }
 
 async function sendContractsFlow(
@@ -467,6 +481,16 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
     return;
   }
 
+  // --- BẢO MẬT BAN GIÁM ĐỐC ---
+  const ALLOWED_ADMIN_IDS = ['5754517299', '5156059305'];
+  if (ctx.role !== 'Leadership' && !ALLOWED_ADMIN_IDS.includes(String(chatId))) {
+    const msg = '⛔ Có vẻ bạn đã đi nhầm vào phòng của Ban Giám đốc. Bạn không có quyền truy cập Bot này!';
+    await tgSendMessage(chatId, msg);
+    await auditLog(String(chatId), ctx.employeeId, 'unauthorized_access_bod', { role: ctx.role });
+    return;
+  }
+  // -----------------------------
+
   await addMessage(chatId, 'user', text);
   const t = text.trim().toLowerCase();
 
@@ -650,6 +674,9 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
       break;
     case 'revenue_report':
       reply = await handleRevenueReport(chatId, ctx, decision.args.year ? Number(decision.args.year) : undefined);
+      break;
+    case 'export_revenue_docx':
+      reply = await handleExportRevenueDocx(chatId, ctx, decision.args.year ? Number(decision.args.year) : undefined);
       break;
     case 'export_xlsx':
       reply = await sendContractsFlow(chatId, ctx,

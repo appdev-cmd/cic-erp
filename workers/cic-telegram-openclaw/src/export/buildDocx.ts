@@ -8,7 +8,7 @@ import {
   TextRun,
   WidthType,
 } from 'docx';
-import type { ContractReportRow } from '../supabaseClient.js';
+import type { ContractReportRow, RevenueRow } from '../supabaseClient.js';
 
 function pText(text: string): Paragraph {
   return new Paragraph({ children: [new TextRun({ text })] });
@@ -56,6 +56,60 @@ export async function contractsToDocxBuffer(
             children: [new TextRun({ text: title, bold: true, size: 28 })],
           }),
           pText(`Số bản ghi: ${rows.length}`),
+          new Paragraph({ text: '' }),
+          table,
+        ],
+      },
+    ],
+  });
+
+  return Buffer.from(await Packer.toBuffer(doc));
+}
+
+function fmtMoney(amount: number): string {
+  if (amount >= 1e9) return (amount / 1e9).toFixed(2) + ' tỷ';
+  if (amount >= 1e6) return (amount / 1e6).toFixed(2) + ' triệu';
+  return amount.toLocaleString() + ' đ';
+}
+
+export async function revenueReportToDocxBuffer(
+  rows: RevenueRow[],
+  title: string
+): Promise<Buffer> {
+  const header = new TableRow({
+    children: ['Tháng', 'Số HĐ', 'Giá trị HĐ', 'Doanh thu'].map(
+      (h) =>
+        new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: h, bold: true })] })],
+        })
+    ),
+  });
+
+  const dataRows = rows.map(
+    (r) =>
+      new TableRow({
+        children: [
+          new TableCell({ children: [pText(r.month_label)] }),
+          new TableCell({ children: [pText(String(r.contract_count))] }),
+          new TableCell({ children: [pText(fmtMoney(Number(r.total_value)))] }),
+          new TableCell({ children: [pText(fmtMoney(Number(r.total_revenue)))] }),
+        ],
+      })
+  );
+
+  const table = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [header, ...dataRows],
+  });
+
+  const doc = new Document({
+    sections: [
+      {
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: title, bold: true, size: 28 })],
+          }),
+          pText(`Biểu đồ doanh thu báo cáo chi tiết`),
           new Paragraph({ text: '' }),
           table,
         ],

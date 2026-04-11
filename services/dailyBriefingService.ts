@@ -142,6 +142,58 @@ export async function generateDailyBriefing(): Promise<DailyBriefingData> {
     lines.push('');
   }
 
+  // Top 3 khách hàng nợ lớn nhất
+  try {
+    const { data: debtPayments } = await dataClient
+      .from('payments')
+      .select('amount, paid_amount, contract_id, contracts(customer_id, customers(name))')
+      .in('status', ['Chưa thanh toán', 'Pending', 'Đã xuất HĐ', 'Đã giao KH']);
+    
+    if (debtPayments && debtPayments.length > 0) {
+      const customerDebt: Record<string, { name: string; total: number }> = {};
+      for (const p of debtPayments) {
+        const owing = (p.amount || 0) - (p.paid_amount || 0);
+        if (owing <= 0) continue;
+        const cust = (p as any).contracts?.customers;
+        const custName = cust?.name || 'N/A';
+        const custId = (p as any).contracts?.customer_id || 'unknown';
+        if (!customerDebt[custId]) customerDebt[custId] = { name: custName, total: 0 };
+        customerDebt[custId].total += owing;
+      }
+      const top3Debt = Object.values(customerDebt).sort((a, b) => b.total - a.total).slice(0, 3);
+      if (top3Debt.length > 0) {
+        lines.push('### 💰 Top khách hàng nợ lớn nhất');
+        lines.push('| Khách hàng | Công nợ |');
+        lines.push('|------------|---------|');
+        top3Debt.forEach(d => {
+          lines.push(`| ${d.name} | **${fmtMoney(d.total)} VND** |`);
+        });
+        lines.push('');
+      }
+    }
+  } catch (e) { /* silent */ }
+
+  // Dự báo thu tiền tuần này
+  try {
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const nextWeekStr = nextWeek.toISOString().split('T')[0];
+    
+    const { data: upcomingPayments } = await dataClient
+      .from('payments')
+      .select('amount, due_date, status', { count: 'exact' })
+      .gte('due_date', today)
+      .lte('due_date', nextWeekStr)
+      .in('status', ['Chưa thanh toán', 'Pending', 'Đã xuất HĐ']);
+    
+    if (upcomingPayments && upcomingPayments.length > 0) {
+      const upcomingTotal = upcomingPayments.reduce((s: number, p: any) => s + (p.amount || 0), 0);
+      lines.push(`### 📅 Dự báo thu tiền tuần này (${upcomingPayments.length} phiếu)`);
+      lines.push(`- **Tổng dự kiến thu:** ${fmtMoney(upcomingTotal)} VND`);
+      lines.push('');
+    }
+  } catch (e) { /* silent */ }
+
   lines.push('---');
   lines.push('*Bấm vào gợi ý bên dưới để xem chi tiết hoặc giao việc xử lý.*');
 

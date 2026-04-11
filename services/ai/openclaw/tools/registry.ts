@@ -3,32 +3,9 @@ import { CustomerService } from '../../../customerService';
 import { PaymentService } from '../../../paymentService';
 import { UnitService } from '../../../unitService';
 import type { OpenClawTool, UserContext } from '../types';
-import { GLOBAL_VIEW_ROLES } from '../../../../lib/permissions';
 import { dataClient as supabase } from '../../../../lib/dataClient';
+import { fmtMoney, fmtMoneyWithRaw, calcChange, canViewAll, isBusinessUnit, getUnitFilter } from './_helpers';
 
-/** Helper: format số thành chuỗi tiền tệ dễ đọc, kèm giá trị thô */
-const fmtMoney = (v: number): string => {
-  if (v >= 1e9) return `${(v / 1e9).toFixed(2)} tỷ VND`;
-  if (v >= 1e6) return `${(v / 1e6).toFixed(1)} triệu VND`;
-  return `${v.toLocaleString('vi-VN')} VND`;
-};
-
-/** Helper: format tiền + kèm raw để LLM đối chiếu */
-const fmtMoneyWithRaw = (v: number): string => {
-  return `${fmtMoney(v)} (raw: ${v})`;
-};
-
-/** Helper: tính % tăng giảm giữa 2 số */
-const calcChange = (cur: number, prev: number): string => {
-  if (prev === 0) return cur > 0 ? '+∞' : '0%';
-  const change = ((cur - prev) / prev * 100).toFixed(1);
-  return Number(change) >= 0 ? `+${change}%` : `${change}%`;
-};
-
-/** Helper: Kiểm tra user có quyền xem toàn công ty không */
-const canViewAll = (ctx: UserContext): boolean => {
-  return GLOBAL_VIEW_ROLES.includes(ctx.role as any);
-};
 
 // ═══════════════════════════════════════════════
 // Tool 1: Tìm kiếm hợp đồng
@@ -79,26 +56,59 @@ export const searchContractsTool: OpenClawTool = {
 
 export const getContractDetailTool: OpenClawTool = {
   name: 'get_contract_detail',
-  description: 'Lấy thông tin chi tiết của 1 hợp đồng dựa vào contract id hoặc code',
+  description: 'Lấy thông tin chi tiết đầy đủ của 1 hợp đồng: giá trị, tiến độ thanh toán, rủi ro. Dùng khi user hỏi chi tiết 1 HĐ cụ thể.',
   schema: {
     contractId: { type: 'string', description: 'ID hợp đồng' }
   },
   execute: async (args) => {
     const data = await ContractService.getById(args.contractId);
     if (!data) return "Không tìm thấy hợp đồng.";
+    
+    const totalValue = data.value || 0;
+    const totalRevenue = data.actualRevenue || 0;
+    const totalCash = data.cashReceived || 0;
+    const receivables = data.receivables || 0;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Tính tiến độ thanh toán
+    const paymentProgress = totalValue > 0 ? ((totalCash / totalValue) * 100).toFixed(1) : '0';
+    
+    // Phát hiện rủi ro
+    const riskFlags: string[] = [];
+    if (data.status === 'Processing' && data.endDate && data.endDate < today) {
+      const daysLate = Math.ceil((Date.now() - new Date(data.endDate).getTime()) / 86400000);
+      riskFlags.push(`🔴 Quá hạn hoàn thành ${daysLate} ngày`);
+    }
+    if (receivables > 0) {
+      riskFlags.push(`💰 Công nợ phải thu: ${fmtMoney(receivables)}`);
+    }
+    const overduePhases = (data.paymentPhases || []).filter((p: any) => 
+      (p.status === 'Chưa thanh toán' || p.status === 'Pending') && p.dueDate && p.dueDate < today
+    );
+    if (overduePhases.length > 0) {
+      riskFlags.push(`⚠️ ${overduePhases.length} đợt thanh toán trễ hạn`);
+    }
+    
     return {
       title: data.title,
       code: data.contractCode,
-      value: fmtMoney(data.value || 0),
-      revenue: fmtMoney(data.actualRevenue || 0),
-      cash: fmtMoney(data.cashReceived || 0),
-      status: data.status,
-      category: data.category,
-      paymentPhases: data.paymentPhases?.map(p => ({
-        amount: fmtMoney(p.amount || 0),
-        status: p.status,
-        date: p.dueDate
-      }))
+      giaTriHD: fmtMoney(totalValue),
+      doanhThuThucHien: fmtMoney(totalRevenue),
+      tienDaThu: fmtMoney(totalCash),
+      tienConLai: fmtMoney(Math.max(totalValue - totalCash, 0)),
+      tienDoThanhToan: `${paymentProgress}%`,
+      congNoPhaiThu: fmtMoney(receivables),
+      trangThai: data.status,
+      loaiHD: data.category,
+      ngayKy: data.signedDate || '—',
+      ngayKetThuc: data.endDate || '—',
+      cacDotThanhToan: data.paymentPhases?.map((p: any) => ({
+        soTien: fmtMoney(p.amount || 0),
+        trangThai: p.status,
+        hanChot: p.dueDate || '—',
+        quaHan: (p.status === 'Chưa thanh toán' || p.status === 'Pending') && p.dueDate && p.dueDate < today
+      })),
+      canhBaoRuiRo: riskFlags.length > 0 ? riskFlags : ['✅ Không có cảnh báo'],
     };
   }
 };
@@ -109,7 +119,7 @@ export const getContractDetailTool: OpenClawTool = {
 
 export const getContractStatsTool: OpenClawTool = {
   name: 'get_contract_stats',
-  description: 'Lấy thống kê tổng quan: Tổng doanh thu, Tổng giá trị ký kết, Dòng tiền, Số lượng hợp đồng. Nếu người dùng hỏi "tổng" hoặc "toàn bộ" thì BẮT BUỘC status="All".',
+  description: 'Lấy thống kê tổng quan: Tổng doanh thu, Tổng giá trị, Số lượng. ĐẶC BIÊT DÙNG KHI CẦN HỎI TỔNG QUAN, TỈ LỆ, CƠ CẤU (Bao nhiêu HĐ Mới, Bao nhiêu Gia hạn, Tỉ lệ thế nào). Không dùng search_contracts để đếm số lượng vì nó sẽ bị limit 10 hợp đồng.',
   schema: {
     status: { type: 'string', description: 'Trạng thái lọc. Dùng "All" nếu muốn xem tất cả.', enum: ['Processing', 'Completed', 'Suspended', 'Cancelled', 'All'] },
     unitId: { type: 'string', description: 'Mã phòng ban (để trống = toàn công ty)' },
@@ -132,7 +142,9 @@ export const getContractStatsTool: OpenClawTool = {
     });
     
     return {
-      soLuongHopDong: res.totalContracts,
+      tongSoHopDong: res.totalContracts,
+      hopDongMoi: res.newContractsCount || 0,
+      hopDongGiaHan: res.renewalContractsCount || 0,
       tongGiaTriKyKet: fmtMoneyWithRaw(res.totalValue),
       tongDoanhThu: fmtMoneyWithRaw(res.totalRevenue),
       dongTienThucNhan: fmtMoneyWithRaw(res.totalCash),
@@ -209,8 +221,9 @@ export const getDashboardKpiTool: OpenClawTool = {
     const units = await UnitService.getWithStats(year, periodFilter);
     let tongKyKet = 0, tongDoanhThu = 0, tongLoiNhuan = 0, tongSoHD = 0;
 
+
     const results = units
-      .filter((u: any) => u.id !== 'all')
+      .filter(isBusinessUnit)
       .map((u: any) => {
         const signing = u.stats?.totalSigning || 0;
         const revenue = u.stats?.totalRevenue || 0;
@@ -294,15 +307,33 @@ import { NotificationService } from '../../../notificationService';
 
 export const searchEmployeesTool: OpenClawTool = {
   name: 'search_employees',
-  description: 'Tìm kiếm nhân sự theo tên (ví dụ: @Khang, @Mai) để lấy ID phục vụ việc giao task.',
+  description: 'Tìm kiếm nhân sự theo tên (ví dụ: Trần Văn A). LƯU Ý: NẾU TRONG [CONTEXT] ĐÃ CÓ MÃ ID NHÂN SỰ RỒI THÌ BỎ QUA TOOL NÀY VÀ DÙNG LUÔN ID ĐÓ CHO CREATE_TASK MÀ KHÔNG CẦN TÌM KIẾM!',
   schema: {
     searchName: { type: 'string', description: 'Tên nhân sự cần tìm' }
   },
   execute: async (args) => {
     const term = args.searchName.replace('@', '');
-    const { data: employees } = await supabase.from('employees').select('id, name, position').ilike('name', `%${term}%`).limit(3);
+    // Hỗ trợ tìm kiếm cả profiles lẫn employees
+    let { data: employees } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .ilike('full_name', `%${term}%`)
+      .limit(5);
+
+    if (!employees || employees.length === 0) {
+      // Fallback cho employees
+      const { data: emps } = await supabase.from('employees').select('id, name, position').ilike('name', `%${term}%`).limit(5);
+      if (emps && emps.length > 0) {
+        employees = emps.map((e: any) => ({ id: e.id, full_name: e.name, email: e.position }));
+      }
+    }
+
     if (!employees || employees.length === 0) return { error: `Không tìm thấy ai tên ${term}` };
-    return employees;
+    return employees.map((e: any) => ({
+      id: e.id,
+      ten: e.full_name,
+      thongTin: e.email || '—'
+    }));
   }
 };
 
@@ -312,7 +343,7 @@ export const createTaskAiTool: OpenClawTool = {
   schema: {
     title: { type: 'string', description: 'Tiêu đề công việc' },
     description: { type: 'string', description: 'Mô tả chi tiết công việc' },
-    assigneeIds: { type: 'array', items: { type: 'string' }, description: 'Danh sách ID nhân viên' },
+    assigneeIds: { type: 'array', items: { type: 'string' }, description: 'Danh sách ID nhân viên. BẮT BUỘC LẤY ID TỪ MỤC [CONTEXT] NẾU CÓ. CHỈ GỌI TOOL search_employees KHI TRONG CONTEXT KHÔNG CÓ ID.' },
     priority: { type: 'string', enum: ['high', 'medium', 'low'], description: 'Độ ưu tiên' },
     dueDate: { type: 'string', description: 'Hạn chót (YYYY-MM-DD)' },
     relatedEntityId: { type: 'string', description: 'ID của đối tượng liên quan (Hợp đồng, Khách hàng, Dự án...) lấy từ Context nếu có.' },
@@ -346,23 +377,151 @@ export const createTaskAiTool: OpenClawTool = {
 
 export const exportDocumentTool: OpenClawTool = {
   name: 'export_document',
-  description: 'Tạo file tài liệu báo cáo và trả về Link Tải xuống. KIÊN QUYẾT: Bạn KHÔNG ĐƯỢC TỰ BỊA SỐ LIỆU. Bạn PHẢI gọi các tool truy xuất dữ liệu (ví dụ: get_comparative_report, get_dashboard_kpi...) TRƯỚC để có dữ liệu thực tế, sau đó mới dùng tool này để xuất file.',
+  description: 'Tạo và đóng gói file báo cáo và trả về Link Tải xuống. \nLƯU Ý QUAN TRỌNG: \n1. Khách hàng thường thích BÁO CÁO CỰC KỲ CHI TIẾT. Hãy viết Thuyết minh dài, phân tích sâu.\n2. Nếu có dữ liệu số, HÃY tận dụng cú pháp markdown ` ```chart ` để nhúng biểu đồ (đặc biệt là biểu đồ doanh thu hàng tháng, so sánh, v.v..).\n3. Nếu báo cáo ĐANG CÓ BIỂU ĐỒ, bạn **PHẢI** chọn format=html (Bắt buộc) để người dùng xem được màu sắc, tương tác.\n4. Nếu chỉ xuất văn bản đơn thuần để in, mới dùng doc.',
   schema: {
     title: { type: 'string', description: 'Tên báo cáo' },
-    content: { type: 'string', description: 'Nội dung văn bản Markdown' }
+    content: { type: 'string', description: 'Nội dung văn bản Markdown cực kỳ chi tiết có kèm biểu đồ ` ```chart ` nếu phù hợp' },
+    format: { type: 'string', enum: ['doc', 'html'], description: 'Định dạng file xuất ra.' }
   },
   execute: async (args) => {
     try {
-      const fileName = `${args.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.md`;
-      const blob = new Blob([args.content], { type: 'text/markdown' });
-      
-      // Khởi tạo Data URL (vô hiệu hóa lỗi React Router thông qua markdown renderer)
-      const dataUrl = 'data:text/markdown;charset=utf-8,' + encodeURIComponent(args.content);
-      const downloadLink = `[📥 TẢI XUỐNG BÁO CÁO: ${args.title}](${dataUrl})`;
+      const { marked } = await import('marked');
+      const isHtml = args.format === 'html';
 
-      // Upload ngầm lên Supabase (không chặn main thread)
-      supabase.storage.from('documents').upload(`ai_reports/${fileName}`, blob).catch(console.error);
+      // 1. Phân tích Chart Json
+      let chartIds = 0;
+      const safeContentForExport = args.content.replace(/```chart\s*([\s\S]*?)```/gim, (match, jsonString) => {
+        if (!isHtml) {
+          return '\n\n*[Biểu đồ động bị ẩn khi xuất file Word. Vui lòng xem trên nền tảng CIC ERP để tương tác với biểu đồ]*\n\n';
+        }
+        
+        try {
+            const config = JSON.parse(jsonString);
+            chartIds++;
+            const id = 'aiChart_' + chartIds;
+            
+            let datasets = [];
+            if (config.lines && Array.isArray(config.lines)) {
+                 datasets = config.lines.map((line: any) => ({
+                     label: line.name || line.dataKey,
+                     data: config.data.map((d: any) => d[line.dataKey]),
+                     backgroundColor: line.color || '#3b82f6',
+                     borderColor: line.color || '#3b82f6',
+                     borderWidth: 2,
+                     borderRadius: config.type === 'bar' ? 4 : 0
+                 }));
+            }
+
+            const chartJsConfig = {
+                type: config.type === 'bar' ? 'bar' : 'line',
+                data: {
+                    labels: config.data.map((d: any) => d[config.xAxisKey || 'month' || 'name']),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        title: { display: !!config.title, text: config.title, font: { size: 16 } }
+                    }
+                }
+            };
+
+            return `
+            <div style="background: white; border-radius: 8px; border: 1px solid #e2e8f0; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin: 30px 0; height: 350px;">
+                <canvas id="${id}"></canvas>
+            </div>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    new Chart(
+                        document.getElementById('${id}'),
+                        ${JSON.stringify(chartJsConfig)}
+                    );
+                });
+            </script>
+            `;
+        } catch(e) {
+             return '<div style="color:red; border:1px dashed red; padding:10px;">Lỗi format biểu đồ JSON</div>';
+        }
+      });
+
+      // 2. Chuyển Markdown sang HTML
+      const htmlContent = await marked.parse(safeContentForExport);
+
+      let finalContent = '';
+      let fileName = '';
+      let contentType = '';
+
+      if (isHtml) {
+        fileName = `ai_reports/${args.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}.html`;
+        contentType = 'text/html;charset=utf-8';
+        finalContent = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${args.title}</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; font-size: 15px; line-height: 1.6; color: #1e293b; background: #f1f5f9; margin: 0; padding: 40px 20px; }
+  .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 50px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+  table { border-collapse: collapse; width: 100%; margin: 20px 0; font-size: 14px; }
+  table, th, td { border: 1px solid #e2e8f0; }
+  th, td { padding: 12px 16px; text-align: left; }
+  th { background-color: #f8fafc; font-weight: 600; color: #0f172a; white-space: nowrap; }
+  h1 { font-size: 28px; text-align: center; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 30px;}
+  h2 { font-size: 20px; color: #0f172a; margin-top: 40px; }
+  h3 { font-size: 16px; font-weight: 600; color: #334155; }
+</style>
+</head>
+<body>
+<div class="container">
+${htmlContent}
+</div>
+</body>
+</html>`;
+      } else {
+        fileName = `ai_reports/${args.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}.doc`;
+        contentType = 'application/msword;charset=utf-8';
+        finalContent = `
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset='utf-8'>
+<title>${args.title}</title>
+<style>
+  body { font-family: 'Times New Roman', serif; font-size: 14pt; line-height: 1.5; }
+  table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+  table, th, td { border: 1px solid black; }
+  th, td { padding: 8px; text-align: left; }
+  th { background-color: #f2f2f2; font-weight: bold; }
+  h1 { font-size: 22pt; text-align: center; font-weight: bold; }
+  h2 { font-size: 18pt; font-weight: bold; margin-top: 20px; }
+  h3 { font-size: 16pt; font-weight: bold; }
+</style>
+</head>
+<body>
+${htmlContent}
+</body>
+</html>`;
+      }
+
+      // Add BOM and upload
+      const blob = new Blob(['\uFEFF' + finalContent], { type: contentType });
       
+      const { error } = await supabase.storage.from('documents').upload(fileName, blob, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: contentType
+      });
+      
+      if (error) throw error;
+      
+      const { data } = supabase.storage.from('documents').getPublicUrl(fileName);
+      const downloadLink = `[📥 TẢI XUỐNG BÁO CÁO: ${args.title}](${data.publicUrl})`;
+
       return `Tạo file thành công! Bắt buộc cung cấp đường link này nguyên văn cho người dùng để họ bấm tải xuống:\n${downloadLink}`;
     } catch(err: any) {
       return `Lỗi tạo file: ${err.message}`;
@@ -489,8 +648,9 @@ export const getUnitRankingTool: OpenClawTool = {
     const units = await UnitService.getWithStats(year);
     const sortKey = args.sortBy === 'signing' ? 'totalSigning' : args.sortBy === 'profit' ? 'totalProfit' : 'totalRevenue';
 
+
     const sorted = units
-      .filter((u: any) => u.id !== 'all' && u.stats)
+      .filter((u: any) => isBusinessUnit(u) && u.stats)
       .sort((a: any, b: any) => (b.stats?.[sortKey] || 0) - (a.stats?.[sortKey] || 0))
       .map((u: any, i: number) => ({
         hang: i + 1,
@@ -716,49 +876,108 @@ export const getCashflowSummaryTool: OpenClawTool = {
 
 export const getRevenueForecastTool: OpenClawTool = {
   name: 'get_revenue_forecast',
-  description: 'Dự báo doanh thu dựa trên pipeline HĐ đang xử lý. Tính tổng giá trị HĐ chưa nghiệm thu, phân theo xác suất.',
+  description: 'Dự báo doanh thu dựa trên pipeline HĐ đang xử lý. Phân theo xác suất cao/trung bình/thấp + biểu đồ. Dùng khi user hỏi "dự báo", "forecast", "pipeline doanh thu".',
   schema: {
     year: { type: 'string', description: 'Năm (vd: 2026)' },
   },
   execute: async (args) => {
     const year = parseInt(args.year) || new Date().getFullYear();
+    const today = new Date().toISOString().split('T')[0];
     
     const { data: contracts } = await supabase
       .from('contracts')
-      .select('id, title, value, actual_revenue, status, end_date, unit_id, units(name)')
+      .select('id, title, value, actual_revenue, status, end_date, signed_date, unit_id, units(name)')
       .eq('status', 'Processing')
-      .gte('signed_date', `${year}-01-01`)
       .order('value', { ascending: false })
-      .limit(30);
+      .limit(50);
 
     if (!contracts || contracts.length === 0) {
-      return { message: 'Không có HĐ đang xử lý trong năm ' + year };
+      return `Không có HĐ đang xử lý. Dự báo doanh thu = 0.`;
     }
 
-    const pipeline = contracts.map((c: any) => {
-      const remaining = (c.value || 0) - (c.actual_revenue || 0);
-      return {
-        hopDong: c.title,
-        giaTriHD: fmtMoney(c.value || 0),
-        daGhiNhan: fmtMoney(c.actual_revenue || 0),
-        conLai: fmtMoney(Math.max(remaining, 0)),
-        donVi: c.units?.name || '—',
-        hanHoanThanh: c.end_date || '—',
+    // Phân loại xác suất dựa trên tiến độ thực hiện
+    const tiers = { high: [] as any[], medium: [] as any[], low: [] as any[] };
+    
+    for (const c of contracts as any[]) {
+      const val = c.value || 0;
+      const rev = c.actual_revenue || 0;
+      const remaining = Math.max(val - rev, 0);
+      const progress = val > 0 ? (rev / val) * 100 : 0;
+      
+      const item = {
+        title: c.title?.substring(0, 40),
+        value: val,
+        revenue: rev,
+        remaining,
+        unit: c.units?.name || '—',
+        endDate: c.end_date || '—',
+        progress: progress.toFixed(0) + '%',
       };
+      
+      // Xếp hạng: đã thực hiện > 50% = cao, 10-50% = TB, < 10% = thấp
+      if (progress >= 50) {
+        tiers.high.push(item);
+      } else if (progress >= 10) {
+        tiers.medium.push(item);
+      } else {
+        tiers.low.push(item);
+      }
+    }
+    
+    const sumRemaining = (arr: any[]) => arr.reduce((s, i) => s + i.remaining, 0);
+    const highRev = sumRemaining(tiers.high);
+    const medRev = sumRemaining(tiers.medium);
+    const lowRev = sumRemaining(tiers.low);
+    const totalRemaining = highRev + medRev + lowRev;
+    
+    // Weighted forecast: cao 90%, TB 60%, thấp 30%
+    const weightedForecast = highRev * 0.9 + medRev * 0.6 + lowRev * 0.3;
+    
+    // Biểu đồ
+    const chartJson = JSON.stringify({
+      type: 'bar',
+      title: `Pipeline Dự báo Doanh thu ${year}`,
+      xAxisKey: 'name',
+      data: [
+        { name: 'Cao (≥50%)', 'Doanh thu dự báo': Math.round(highRev / 1e9 * 100) / 100 },
+        { name: 'TB (10-50%)', 'Doanh thu dự báo': Math.round(medRev / 1e9 * 100) / 100 },
+        { name: 'Thấp (<10%)', 'Doanh thu dự báo': Math.round(lowRev / 1e9 * 100) / 100 },
+      ],
+      lines: [
+        { dataKey: 'Doanh thu dự báo', color: '#6366f1', name: 'Doanh thu còn lại (tỷ)' }
+      ],
+      unit: 'tỷ VND',
     });
-
-    const totalValue = contracts.reduce((s: number, c: any) => s + (c.value || 0), 0);
-    const totalRecognized = contracts.reduce((s: number, c: any) => s + (c.actual_revenue || 0), 0);
-    const totalRemaining = totalValue - totalRecognized;
-
-    return {
-      nam: year,
-      soHDDangXuLy: contracts.length,
-      tongGiaTriPipeline: fmtMoney(totalValue),
-      daGhiNhanDoanhThu: fmtMoney(totalRecognized),
-      duBaoConLai: fmtMoney(Math.max(totalRemaining, 0)),
-      chiTiet: pipeline.slice(0, 15),
-    };
+    
+    let md = `## 📈 DỰ BÁO DOANH THU NĂM ${year}\n\n`;
+    md += `### Tổng quan Pipeline\n`;
+    md += `- **Tổng HĐ đang xử lý:** ${contracts.length} HĐ\n`;
+    md += `- **Doanh thu còn lại (chưa ghi nhận):** ${fmtMoney(totalRemaining)}\n`;
+    md += `- **Dự báo có trọng số:** ${fmtMoney(Math.round(weightedForecast))}\n\n`;
+    
+    md += `### Phân tích theo Xác suất\n`;
+    md += `| Mức | Số HĐ | Doanh thu còn lại | Trọng số | Dự báo |\n`;
+    md += `|---|---|---|---|---|\n`;
+    md += `| 🟢 Cao (≥50% tiến độ) | ${tiers.high.length} | ${fmtMoney(highRev)} | 90% | ${fmtMoney(Math.round(highRev * 0.9))} |\n`;
+    md += `| 🟡 TB (10-50%) | ${tiers.medium.length} | ${fmtMoney(medRev)} | 60% | ${fmtMoney(Math.round(medRev * 0.6))} |\n`;
+    md += `| 🔴 Thấp (<10%) | ${tiers.low.length} | ${fmtMoney(lowRev)} | 30% | ${fmtMoney(Math.round(lowRev * 0.3))} |\n`;
+    md += `| **TỔNG** | **${contracts.length}** | **${fmtMoney(totalRemaining)}** | — | **${fmtMoney(Math.round(weightedForecast))}** |\n\n`;
+    
+    md += `\`\`\`chart\n${chartJson}\n\`\`\`\n\n`;
+    
+    // Top 5 HĐ lớn nhất
+    const top5 = [...contracts as any[]].sort((a: any, b: any) => (b.value || 0) - (a.value || 0)).slice(0, 5);
+    md += `### Top 5 HĐ giá trị lớn nhất\n`;
+    md += `| Tên HĐ | Giá trị | Đã ghi nhận | Còn lại | Đơn vị |\n`;
+    md += `|---|---|---|---|---|\n`;
+    top5.forEach((c: any) => {
+      const rem = Math.max((c.value || 0) - (c.actual_revenue || 0), 0);
+      md += `| ${c.title?.substring(0, 35)} | ${fmtMoney(c.value || 0)} | ${fmtMoney(c.actual_revenue || 0)} | ${fmtMoney(rem)} | ${c.units?.name || '—'} |\n`;
+    });
+    
+    md += `\n*(AI Instruction: Phân tích mức dự báo có trọng số, nhận xét pipeline có đủ khỏe không, và đề xuất hành động tăng xác suất chốt deal)*`;
+    
+    return md;
   }
 };
 
@@ -914,6 +1133,555 @@ export const getDailyBriefingTool: OpenClawTool = {
   }
 };
 
+export const getComprehensiveReportTool: OpenClawTool = {
+  name: 'get_comprehensive_report',
+  description: 'Dùng BẮT BUỘC khi người dùng yêu cầu "lập báo cáo", "lập báo cáo tổng kết" cho 1 năm. Tool trả về nội dung báo cáo Markdown gồm Bảng phân bổ và Biểu đồ.',
+  schema: {
+    year: { type: 'string', description: 'Năm cần lập báo cáo (vd: 2025, 2026)' }
+  },
+  execute: async (args, context: UserContext) => {
+    const year = args.year ? parseInt(args.year) : new Date().getFullYear();
+
+    // 1. Lấy dữ liệu KPI theo đơn vị
+    const units = await UnitService.getWithStats(year, undefined);
+    let tongKyKet = 0, tongDoanhThu = 0, tongLoiNhuan = 0, tongSoHD = 0, tongDongTien = 0;
+    
+
+    const unitRows = units
+      .filter(isBusinessUnit)
+      .map((u: any) => {
+        const signing = u.stats?.totalSigning || 0;
+        const revenue = u.stats?.totalRevenue || 0;
+        const profit = u.stats?.totalProfit || 0;
+        const cash = u.stats?.totalCash || 0;
+        const count = u.stats?.contractCount || 0;
+        tongKyKet += signing;
+        tongDoanhThu += revenue;
+        tongLoiNhuan += profit;
+        tongDongTien += cash;
+        tongSoHD += count;
+        return { name: u.name, signing, revenue, profit, cash, count };
+      });
+      
+    // Sort logic
+    unitRows.sort((a, b: any) => b.revenue - a.revenue);
+
+    // 2. Lấy dữ liệu biểu đồ các tháng trong năm
+    let monthlyData: any[] = [];
+    try {
+        const chartRes = await ContractService.getChartDataRPC('all', year.toString());
+        if (chartRes && chartRes.length > 0) {
+            monthlyData = chartRes;
+        }
+    } catch(e) { }
+
+    // Xây dựng JSON biểu đồ Recharts
+    const chartJson = JSON.stringify({
+      type: 'bar',
+      title: `Biến động doanh thu theo tháng năm ${year}`,
+      xAxisKey: 'month',
+      data: monthlyData.map((m: any) => ({
+        month: `Th.${m.month}`,
+        'Ký kết': Math.round(m.signing / 1e9 * 100) / 100,
+        'Doanh thu': Math.round(m.revenue / 1e9 * 100) / 100,
+        'Lợi nhuận': Math.round(m.profit / 1e9 * 100) / 100,
+      })),
+      lines: [
+        { dataKey: 'Doanh thu', color: '#10b981', name: 'Doanh thu (tỷ)' }
+      ],
+      unit: 'tỷ VND'
+    });
+
+    // 3. Build Markdown
+    let md = `## 📊 BÁO CÁO TỔNG KẾT KẾT QUẢ KINH DOANH NĂM ${year}\n\n`;
+    md += `### 1. Chỉ số Tổng quan toàn công ty\n`;
+    md += `- **Số hợp đồng**: ${tongSoHD} HĐ\n`;
+    md += `- **Tổng giá trị ký kết**: ${fmtMoney(tongKyKet)}\n`;
+    md += `- **Tổng doanh thu thực hiện**: ${fmtMoney(tongDoanhThu)}\n`;
+    md += `- **Dòng tiền thực nhận**: ${fmtMoney(tongDongTien)}\n`;
+    md += `- **Lợi nhuận gộp QT**: ${fmtMoney(tongLoiNhuan)}\n\n`;
+
+    md += `### 2. Biểu đồ Phân bổ (Theo tháng)\n`;
+    if (monthlyData.length > 0) {
+        md += `\`\`\`chart\n${chartJson}\n\`\`\`\n\n`;
+    } else {
+        md += `*(Chưa có dữ liệu biểu đồ chi tiết theo tháng)*\n\n`;
+    }
+
+    md += `### 3. Thành tích đóng góp theo Đơn vị\n`;
+    md += `| Xếp hạng | Đơn vị | Ký kết | Doanh thu | Dòng tiền | Lợi nhuận |\n`;
+    md += `|:---|:---|:---:|:---:|:---:|:---:|\n`;
+    unitRows.forEach((u: any, idx: number) => {
+        md += `| ${idx + 1} | ${u.name} | ${fmtMoney(u.signing)} | ${u.revenue > 0 ? `**${fmtMoney(u.revenue)}**` : `0`} | ${fmtMoney(u.cash)} | ${fmtMoney(u.profit)} |\n`;
+    });
+    
+    md += `\n*(AI Instruction: BẮT BUỘC paste toàn bộ bảng markdown và biểu đồ này ra cho user. Sau đó viết vài dòng thuyết minh dựa vào số liệu để báo cáo thêm chuyên nghiệp)*`;
+
+    return md;
+  }
+};
+
+export const getExpenseBreakdownTool: OpenClawTool = {
+  name: 'get_expense_breakdown',
+  description: 'Trích xuất cấu trúc các khoản chi phí (EXPENSE) theo danh mục. Dùng để xem tiền chi ra cho những mảng nào (lương, quản lý, hoa hồng...).',
+  schema: {
+    year: { type: 'string', description: 'Năm cần xem chi phí (VD: 2026). Có thể để trống để xem toàn bộ.', required: false }
+  },
+  execute: async (args, context) => {
+    let query = supabase.from('payments').select('amount, expense_category, payment_date').eq('voucher_type', 'EXPENSE').eq('status', 'Completed');
+    if (args.year) {
+      query = query.gte('payment_date', `${args.year}-01-01`).lte('payment_date', `${args.year}-12-31`);
+    }
+    const { data: payments } = await query;
+    if (!payments || payments.length === 0) return 'Không tìm thấy dữ liệu chi phí (EXPENSE).';
+
+    const categories: Record<string, number> = {};
+    let total = 0;
+    payments.forEach(p => {
+        const cat = p.expense_category || 'Khác';
+        categories[cat] = (categories[cat] || 0) + (p.amount || 0);
+        total += (p.amount || 0);
+    });
+
+    const chartData = Object.keys(categories).map(cat => ({
+        name: cat,
+        value: Math.round(categories[cat] / 1000000)
+    })).sort((a,b) => b.value - a.value);
+
+    const chartJson = JSON.stringify({
+      type: 'pie',
+      title: `Cơ cấu chi phí ${args.year ? `năm ${args.year}` : 'tổng'}`,
+      dataKey: 'value',
+      nameKey: 'name',
+      data: chartData,
+      unit: 'Triệu VNĐ'
+    });
+
+    let md = `## 💸 PHÂN TÍCH CƠ CẤU CHI PHÍ\n`;
+    md += `**Tổng chi:** ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(total)}\n\n`;
+    md += `\`\`\`chart\n${chartJson}\n\`\`\`\n\n`;
+    md += `| Danh mục | Số tiền (Triệu VNĐ) | Tỉ trọng |\n|:---|---:|---:|\n`;
+    chartData.forEach(d => {
+        const percent = ((d.value * 1000000 / total) * 100).toFixed(1);
+        md += `| ${d.name} | ${new Intl.NumberFormat('vi-VN').format(d.value)} | ${percent}% |\n`;
+    });
+    md += `\n*(AI Instruction: Hãy copy nguyên văn biểu đồ và nhận xét danh mục nào chiếm tỉ trọng cao nhất. BẮT BUỘC có cảnh báo 🚨 nếu chi phí nào đó quá lớn theo PROACTIVE ALERTS)*`;
+    return md;
+  }
+};
+
+export const getBudgetVarianceReportTool: OpenClawTool = {
+  name: 'get_budget_variance_report',
+  description: 'So sánh kết quả Kinh doanh Thực tế với Mục tiêu Ngân sách (Budget vs Actual) theo năm.',
+  schema: {
+    year: { type: 'string', description: 'Năm ngân sách (VD: 2026)', required: true }
+  },
+  execute: async (args, context) => {
+    const year = args.year || new Date().getFullYear().toString();
+    const { data: targets } = await supabase.from('unit_targets').select('unit_id, signing_target, revenue_target').eq('year', parseInt(year));
+    if (!targets || targets.length === 0) return `Không có dữ liệu Ngân sách / Mục tiêu cho năm ${year}.`;
+
+    const { UnitService } = await import('../../../unitService');
+    const allUnits = await UnitService.getAll();
+    if (!allUnits || allUnits.length === 0) return 'Không có dữ liệu Đơn vị.';
+
+    let md = `## 🎯 BÁO CÁO NGÂN SÁCH (BUDGET VS ACTUAL) NĂM ${year}\n\n`;
+    md += `| Đơn vị | Tiêu chí | Mục tiêu (Budget) | Thực tế (Actual) | Tỉ lệ % | Đánh giá |\n`;
+    md += `|:---|:---|---:|---:|---:|:---|\n`;
+
+    let totalRevTarget = 0, totalRevActual = 0;
+
+    for (const unit of allUnits) {
+       const uTarget = targets.find((t: any) => t.unit_id === unit.id);
+       if (!uTarget) continue;
+
+       let statRevenue = 0, statSigning = 0;
+       try {
+           const stats = await ContractService.getStatsRPC(unit.id, year.toString());
+           statRevenue = stats.totalRevenue || 0;
+           statSigning = stats.totalValue || 0;
+       } catch(e) {}
+
+       const revTarget = uTarget.revenue_target || 0;
+       const signTarget = uTarget.signing_target || 0;
+
+       totalRevTarget += revTarget;
+       totalRevActual += statRevenue;
+
+       if (revTarget > 0) {
+           const revPct = (statRevenue / revTarget) * 100;
+           const icon = revPct >= 100 ? '✅' : (revPct < 30 ? '🚨' : (revPct < 80 ? '⚠️' : '👍'));
+           md += `| ${unit.name} | Doanh thu | ${(revTarget/1e9).toFixed(1)}T | ${(statRevenue/1e9).toFixed(1)}T | **${revPct.toFixed(1)}%** | ${icon} |\n`;
+       }
+       if (signTarget > 0) {
+           const signPct = (statSigning / signTarget) * 100;
+           const icon = signPct >= 100 ? '✅' : (signPct < 30 ? '🚨' : (signPct < 80 ? '⚠️' : '👍'));
+           md += `| ${unit.name} | Ký kết | ${(signTarget/1e9).toFixed(1)}T | ${(statSigning/1e9).toFixed(1)}T | **${signPct.toFixed(1)}%** | ${icon} |\n`;
+       }
+    }
+
+    const totalPct = totalRevTarget > 0 ? ((totalRevActual / totalRevTarget) * 100).toFixed(1) : '0';
+    md += `\n**TỔNG TIẾN ĐỘ DOANH THU TOÀN CÔNG TY:** Đạt ${totalPct}%\n`;
+    md += `\n*(AI Instruction: BẮT BUỘC phân tích các phòng ban có tỉ lệ < 30% kèm icon 🚨 và đề xuất nhắc nhở đốc thúc)*`;
+
+    return md;
+  }
+};
+
+export const getHrHeadcountStatsTool: OpenClawTool = {
+  name: 'get_hr_headcount_stats',
+  description: 'Thống kê biến động nhân sự, xem tổng quy mô (headcount) báo cáo tuyển dụng, ứng viên và phễu tuyển dụng.',
+  schema: {},
+  execute: async (args, context) => {
+    const { data: employees } = await supabase.from('employees').select('id, department');
+    const totalEmployees = employees ? employees.length : 0;
+    const depts: Record<string, number> = {};
+    employees?.forEach((e: any) => {
+        const d = e.department || 'Chưa phân bổ';
+        depts[d] = (depts[d] || 0) + 1;
+    });
+
+    const { data: jobs } = await supabase.from('job_openings').select('*').in('status', ['open', 'urgent', 'draft']);
+    const openJobs = jobs ? jobs.length : 0;
+    const totalNeeds = jobs ? jobs.reduce((sum: number, j: any) => sum + (j.quantity || 1), 0) : 0;
+
+    const { data: applications } = await supabase.from('applications').select('stage, offer_salary');
+    
+    let md = `## 👥 BÁO CÁO NHÂN SỰ & TUYỂN DỤNG\n`;
+    md += `### 1. Quy mô Nhân sự (Headcount)\n`;
+    md += `- **Tổng số nhân sự hiện tại:** ${totalEmployees} người\n`;
+    md += `- **Phân bổ theo khối:**\n`;
+    Object.keys(depts).forEach(d => {
+        md += `  - ${d}: ${depts[d]} người\n`;
+    });
+
+    md += `\n### 2. Tình hình Tuyển dụng\n`;
+    md += `- **Vị trí đang mở (Open Jobs):** ${openJobs} job (Cần tuyển: ${totalNeeds} người)\n`;
+    if (applications) {
+       const stages: Record<string, number> = {};
+       applications.forEach((a: any) => {
+          stages[a.stage] = (stages[a.stage] || 0) + 1;
+       });
+       md += `- **Phễu ứng viên (Pipeline):**\n`;
+       md += `  - Ứng tuyển mới: ${stages['applied'] || 0}\n`;
+       md += `  - Sàng lọc (Screening): ${stages['screening'] || 0}\n`;
+       md += `  - Phỏng vấn: ${(stages['interview_1'] || 0) + (stages['interview_2'] || 0)}\n`;
+       md += `  - Đã Offer: ${stages['offer'] || 0}\n`;
+       md += `  - Đã Hired: ${stages['hired'] || 0}\n`;
+    }
+
+    md += `\n*(AI Instruction: BẮT BUỘC nhận xét quy mô nhân sự hiện tại so với nhu cầu tuyển dụng mở, và nếu có chức danh cần gấp hãy chỉ ra 🚨)*`;
+
+    return md;
+  }
+};
+
+// ═══════════════════════════════════════════════
+// Tool 25: Hồ sơ Khách hàng 360°
+// ═══════════════════════════════════════════════
+
+export const getCustomer360Tool: OpenClawTool = {
+  name: 'get_customer_360',
+  description: 'Xem hồ sơ 360° của khách hàng/đối tác: tổng HĐ, doanh thu, lịch sử thanh toán, công nợ, đánh giá. Dùng khi user hỏi "tình hình khách hàng X", "khách hàng ABC thế nào".',
+  schema: {
+    customerId: { type: 'string', description: 'ID khách hàng (nếu biết)' },
+    customerName: { type: 'string', description: 'Tên khách hàng (dùng khi chưa biết ID)' },
+  },
+  execute: async (args) => {
+    let customerId = args.customerId;
+    
+    // Tìm theo tên nếu không có ID
+    if (!customerId && args.customerName) {
+      const { data: found } = await supabase
+        .from('customers')
+        .select('id, name')
+        .ilike('name', `%${args.customerName}%`)
+        .limit(1);
+      if (found && found.length > 0) {
+        customerId = found[0].id;
+      } else {
+        return { error: `Không tìm thấy khách hàng tên "${args.customerName}"` };
+      }
+    }
+    
+    if (!customerId) return { error: 'Cần cung cấp customerId hoặc customerName' };
+    
+    // Lấy thông tin KH
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('id', customerId)
+      .single();
+    
+    if (!customer) return { error: 'Không tìm thấy khách hàng.' };
+    
+    // Lấy HĐ liên quan
+    const { data: contracts } = await supabase
+      .from('contracts')
+      .select('id, title, value, actual_revenue, cash_received, status, signed_date, end_date')
+      .eq('customer_id', customerId)
+      .order('signed_date', { ascending: false })
+      .limit(20);
+    
+    const allContracts = contracts || [];
+    const totalContracts = allContracts.length;
+    const totalValue = allContracts.reduce((s, c: any) => s + (c.value || 0), 0);
+    const totalRevenue = allContracts.reduce((s, c: any) => s + (c.actual_revenue || 0), 0);
+    const totalCash = allContracts.reduce((s, c: any) => s + (c.cash_received || 0), 0);
+    const activeContracts = allContracts.filter((c: any) => c.status === 'Processing').length;
+    
+    // Lấy công nợ
+    const { data: payments } = await supabase
+      .from('payments')
+      .select('amount, paid_amount, due_date, status')
+      .in('contract_id', allContracts.map((c: any) => c.id))
+      .in('status', ['Chưa thanh toán', 'Pending', 'Đã xuất HĐ', 'Đã giao KH']);
+    
+    let totalDebt = 0;
+    let overdueDebt = 0;
+    const today = new Date().toISOString().split('T')[0];
+    (payments || []).forEach((p: any) => {
+      const owing = (p.amount || 0) - (p.paid_amount || 0);
+      if (owing > 0) {
+        totalDebt += owing;
+        if (p.due_date && p.due_date < today) overdueDebt += owing;
+      }
+    });
+    
+    let md = `## 🏢 HỒ SƠ KHÁCH HÀNG 360°: ${customer.name}\n\n`;
+    md += `### Thông tin cơ bản\n`;
+    md += `- **Tên**: ${customer.name}\n`;
+    md += `- **MST**: ${customer.tax_code || '—'}\n`;
+    md += `- **Loại**: ${customer.type || '—'}\n`;
+    md += `- **Ngành**: ${Array.isArray(customer.industry) ? customer.industry.join(', ') : customer.industry || '—'}\n`;
+    md += `- **Đánh giá**: ${customer.rating || '—'}\n\n`;
+    
+    md += `### Tổng quan Hợp đồng\n`;
+    md += `| Chỉ số | Giá trị |\n|---|---|\n`;
+    md += `| Tổng số HĐ | **${totalContracts}** |\n`;
+    md += `| HĐ đang thực hiện | **${activeContracts}** |\n`;
+    md += `| Tổng giá trị ký kết | **${fmtMoney(totalValue)}** |\n`;
+    md += `| Doanh thu đã ghi nhận | **${fmtMoney(totalRevenue)}** |\n`;
+    md += `| Tiền đã thu | **${fmtMoney(totalCash)}** |\n`;
+    md += `| Công nợ phải thu | **${fmtMoney(totalDebt)}** |\n`;
+    if (overdueDebt > 0) {
+      md += `| 🚨 Nợ quá hạn | **${fmtMoney(overdueDebt)}** |\n`;
+    }
+    
+    md += `\n### Danh sách HĐ gần nhất\n`;
+    md += `| Tên HĐ | Giá trị | Trạng thái |\n|---|---|---|\n`;
+    allContracts.slice(0, 10).forEach((c: any) => {
+      md += `| ${c.title?.substring(0, 40)} | ${fmtMoney(c.value || 0)} | ${c.status} |\n`;
+    });
+    
+    // Đề xuất
+    const suggestions: string[] = [];
+    if (overdueDebt > 0) suggestions.push(`🚨 Cần liên hệ thu hồi ${fmtMoney(overdueDebt)} nợ quá hạn`);
+    if (activeContracts > 3) suggestions.push(`📋 Đang có ${activeContracts} HĐ hoạt động — cần theo dõi sát tiến độ`);
+    if (totalContracts >= 5) suggestions.push(`⭐ Khách hàng lớn (${totalContracts} HĐ) — nên duy trì mối quan hệ`);
+    
+    if (suggestions.length > 0) {
+      md += `\n### 💡 Đề xuất\n`;
+      suggestions.forEach(s => { md += `- ${s}\n`; });
+    }
+    
+    md += `\n*(AI Instruction: Phân tích tổng quan khách hàng này: đánh giá mức độ quan trọng, rủi ro công nợ, và gợi ý hành động)*`;
+    
+    return md;
+  }
+};
+
+// ═══════════════════════════════════════════════
+// Tool 26: Timeline HĐ sắp hết hạn
+// ═══════════════════════════════════════════════
+
+export const getContractExpiryTimelineTool: OpenClawTool = {
+  name: 'get_contract_expiry_timeline',
+  description: 'Xem timeline HĐ sắp hết hạn trong 30/60/90 ngày tới. Dùng khi user hỏi "HĐ nào sắp hết hạn", "thanh lý HĐ", "gia hạn HĐ".',
+  schema: {
+    days: { type: 'string', description: 'Số ngày tới (30, 60, 90). Mặc định: 60' },
+  },
+  execute: async (args) => {
+    const days = parseInt(args.days) || 60;
+    const today = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(today.getDate() + days);
+    
+    const todayStr = today.toISOString().split('T')[0];
+    const futureStr = futureDate.toISOString().split('T')[0];
+    
+    const { data: contracts } = await supabase
+      .from('contracts')
+      .select('id, title, contract_code, value, actual_revenue, end_date, status, unit_id, units(name)')
+      .gte('end_date', todayStr)
+      .lte('end_date', futureStr)
+      .eq('status', 'Processing')
+      .order('end_date')
+      .limit(30);
+    
+    if (!contracts || contracts.length === 0) {
+      return `Không có HĐ nào hết hạn trong ${days} ngày tới. ✅`;
+    }
+    
+    const totalValue = contracts.reduce((s, c: any) => s + (c.value || 0), 0);
+    
+    let md = `## 📅 TIMELINE HĐ SẮP HẾT HẠN (${days} ngày tới)\n\n`;
+    md += `**Tổng cộng:** ${contracts.length} HĐ — Giá trị: **${fmtMoney(totalValue)}**\n\n`;
+    
+    md += `| # | Hết hạn | Mã HĐ | Tên HĐ | Giá trị | Đơn vị | Còn |\n`;
+    md += `|---|---|---|---|---|---|---|\n`;
+    
+    contracts.forEach((c: any, i: number) => {
+      const daysLeft = Math.ceil((new Date(c.end_date).getTime() - today.getTime()) / 86400000);
+      const urgency = daysLeft <= 7 ? '🔴' : daysLeft <= 30 ? '🟡' : '🟢';
+      md += `| ${i + 1} | ${c.end_date} | ${c.contract_code || '—'} | ${c.title?.substring(0, 35)} | ${fmtMoney(c.value || 0)} | ${(c as any).units?.name || '—'} | ${urgency} ${daysLeft} ngày |\n`;
+    });
+    
+    // Phân nhóm theo urgency
+    const urgent = contracts.filter((c: any) => {
+      const d = Math.ceil((new Date(c.end_date).getTime() - today.getTime()) / 86400000);
+      return d <= 7;
+    });
+    const soon = contracts.filter((c: any) => {
+      const d = Math.ceil((new Date(c.end_date).getTime() - today.getTime()) / 86400000);
+      return d > 7 && d <= 30;
+    });
+    
+    md += `\n### Tóm tắt\n`;
+    md += `- 🔴 **Cần xử lý ngay** (≤ 7 ngày): ${urgent.length} HĐ\n`;
+    md += `- 🟡 **Lên kế hoạch** (8-30 ngày): ${soon.length} HĐ\n`;
+    md += `- 🟢 **Theo dõi** (>30 ngày): ${contracts.length - urgent.length - soon.length} HĐ\n`;
+    
+    md += `\n*(AI Instruction: Phân tích HĐ nào cần gia hạn, HĐ nào cần thanh lý. Đề xuất cụ thể cho mỗi nhóm 🔴)*`;
+    
+    return md;
+  }
+};
+
+// ═══════════════════════════════════════════════
+// Tool 27: Phân tích Thông minh Tự động
+// ═══════════════════════════════════════════════
+
+export const getSmartInsightsTool: OpenClawTool = {
+  name: 'get_smart_insights',
+  description: 'Phân tích đa chiều tự động: so sánh KPI tháng này vs tháng trước, đơn vị tụt mạnh nhất, xu hướng công nợ, top rủi ro. Dùng khi user hỏi "phân tích", "insights", "đánh giá tổng quan", "tư vấn chiến lược".',
+  schema: {},
+  execute: async (args, context: UserContext) => {
+    const year = new Date().getFullYear();
+    const month = new Date().getMonth() + 1;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Song song query tất cả dữ liệu cần thiết
+    const [
+      unitsData,
+      overdueRes,
+      debtRes,
+      tasksRes,
+    ] = await Promise.all([
+      UnitService.getWithStats(year),
+      supabase
+        .from('contracts')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'Processing')
+        .lt('end_date', today),
+      supabase
+        .from('payments')
+        .select('amount, paid_amount, due_date, status')
+        .in('status', ['Chưa thanh toán', 'Pending', 'Đã xuất HĐ', 'Đã giao KH']),
+      supabase
+        .from('tasks')
+        .select('id, due_date', { count: 'exact' })
+        .lt('due_date', today)
+        .is('completed_at', null),
+    ]);
+
+    // 1. Phân tích đơn vị
+    const businessUnits = unitsData
+      .filter(isBusinessUnit)
+      .filter((u: any) => u.stats);
+
+    const unitAnalysis = businessUnits.map((u: any) => {
+      const rev = u.stats?.totalRevenue || 0;
+      const sign = u.stats?.totalSigning || 0;
+      const conversionRate = sign > 0 ? ((rev / sign) * 100).toFixed(0) : '0';
+      return {
+        name: u.name,
+        revenue: rev,
+        signing: sign,
+        conversionRate: conversionRate + '%',
+        contractCount: u.stats?.contractCount || 0,
+      };
+    }).sort((a: any, b: any) => a.revenue - b.revenue);
+
+    // 2. Tổng công nợ
+    let totalDebt = 0;
+    let overdueDebt = 0;
+    (debtRes.data || []).forEach((p: any) => {
+      const owing = (p.amount || 0) - (p.paid_amount || 0);
+      if (owing > 0) {
+        totalDebt += owing;
+        if (p.due_date && p.due_date < today) overdueDebt += owing;
+      }
+    });
+
+    const overdueContracts = overdueRes.count || 0;
+    const overdueTasks = tasksRes.count || 0;
+
+    // 3. Build insights
+    let md = `## 🧠 PHÂN TÍCH THÔNG MINH — ${new Date().toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}\n\n`;
+
+    // KPI tổng quan
+    const totalRev = businessUnits.reduce((s: number, u: any) => s + (u.stats?.totalRevenue || 0), 0);
+    const totalSign = businessUnits.reduce((s: number, u: any) => s + (u.stats?.totalSigning || 0), 0);
+    md += `### 📊 KPI Tổng quan ${year}\n`;
+    md += `- **Ký kết:** ${fmtMoney(totalSign)}\n`;
+    md += `- **Doanh thu:** ${fmtMoney(totalRev)}\n`;
+    md += `- **Tỷ lệ chuyển đổi (DT/KK):** ${totalSign > 0 ? ((totalRev / totalSign) * 100).toFixed(0) : 0}%\n\n`;
+
+    // Cảnh báo
+    const alerts: string[] = [];
+    if (overdueContracts > 0) alerts.push(`🔴 **${overdueContracts} HĐ quá hạn** hoàn thành — cần đốc thúc ngay`);
+    if (overdueDebt > 0) alerts.push(`💰 **Nợ quá hạn:** ${fmtMoney(overdueDebt)} — cần liên hệ thu hồi`);
+    if (overdueTasks > 5) alerts.push(`📌 **${overdueTasks} task trễ deadline** — cần rà soát phân công`);
+    
+    if (alerts.length > 0) {
+      md += `### ⚠️ Cảnh báo Cần xử lý\n`;
+      alerts.forEach(a => { md += `- ${a}\n`; });
+      md += `\n`;
+    }
+
+    // Đơn vị yếu nhất
+    if (unitAnalysis.length > 0) {
+      md += `### 📉 Đơn vị Cần Chú ý\n`;
+      const weakest = unitAnalysis.slice(0, 3);
+      md += `| Đơn vị | Doanh thu | Ký kết | Tỷ lệ chuyển đổi |\n`;
+      md += `|---|---|---|---|\n`;
+      weakest.forEach((u: any) => {
+        const icon = u.revenue === 0 ? '🚨' : '⚠️';
+        md += `| ${icon} ${u.name} | ${fmtMoney(u.revenue)} | ${fmtMoney(u.signing)} | ${u.conversionRate} |\n`;
+      });
+      md += `\n`;
+    }
+
+    // Đề xuất hành động
+    md += `### 💡 Đề xuất Hành động (Top 3)\n`;
+    const actions: string[] = [];
+    if (overdueContracts > 0) actions.push(`1. **Họp khẩn về ${overdueContracts} HĐ quá hạn** — giao việc cho PM rà soát tiến độ`);
+    if (overdueDebt > 0) actions.push(`${actions.length + 1}. **Thu hồi công nợ** ${fmtMoney(overdueDebt)} — ưu tiên khách hàng nợ lớn nhất`);
+    if (unitAnalysis.length > 0 && unitAnalysis[0].revenue === 0) {
+      actions.push(`${actions.length + 1}. **Đốc thúc ${unitAnalysis[0].name}** — chưa ghi nhận doanh thu`);
+    }
+    if (actions.length === 0) {
+      actions.push(`1. ✅ Chưa phát hiện vấn đề nghiêm trọng — tiếp tục theo dõi KPI hàng tuần`);
+    }
+    actions.forEach(a => { md += `- ${a}\n`; });
+
+    md += `\n*(AI Instruction: Bổ sung nhận xét chiến lược dựa trên số liệu trên. Phân tích xu hướng và đề xuất quyết định cụ thể cho BGĐ)*`;
+
+    return md;
+  }
+};
+
 export const erpToolsRegistry: OpenClawTool[] = [
   searchContractsTool,
   getContractDetailTool,
@@ -937,4 +1705,17 @@ export const erpToolsRegistry: OpenClawTool[] = [
   searchKnowledgeBaseTool,
   // Phase 3 — Daily Briefing
   getDailyBriefingTool,
+  
+  // Phase 4 - Comprehensive Report
+  getComprehensiveReportTool,
+  getExpenseBreakdownTool,
+  getBudgetVarianceReportTool,
+  getHrHeadcountStatsTool,
+
+  // Phase 5 — v6.0: Customer & Timeline
+  getCustomer360Tool,
+  getContractExpiryTimelineTool,
+
+  // Phase 6 — v6.0: Smart Insights
+  getSmartInsightsTool,
 ];

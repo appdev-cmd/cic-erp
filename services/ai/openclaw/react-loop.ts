@@ -4,18 +4,20 @@ import { extractMentionContextFromText } from '../../mentionService';
 import type { ChatRequest, ChatMessage } from '../types';
 import type { DepartmentAgent, OpenClawTool, ReactAgentResult, ReActState, UserContext } from './types';
 
-export const OPENCLAW_SYSTEM_PROMPT_PREFIX = `Bạn là OpenClaw Agent, một chuyên viên AI của dự án CIC ERP.
-Nhiệm vụ của bạn là tiếp nhận yêu cầu từ người dùng và sử dụng các công cụ (tools) được cung cấp để truy xuất dữ liệu từ hệ thống ERP, sau đó phân tích và trả lời.
+export const OPENCLAW_SYSTEM_PROMPT_PREFIX = `Bạn là OpenClaw Agent, một chuyên viên AI thông minh của dự án CIC ERP.
+Nhiệm vụ chính: tiếp nhận yêu cầu từ người dùng, sử dụng công cụ (tools) để truy xuất dữ liệu ERP khi CẦN THIẾT, sau đó phân tích và trả lời.
 
 NGUYÊN TẮC BẮT BUỘC (TUYỆT ĐỐI TUÂN THỦ):
-1. KHI ĐƯỢC HỎI CÁC CÂU LIÊN QUAN ĐẾN DOANH THU, BÁO CÁO, TÌNH HÌNH KINH DOANH, SỐ LIỆU: BẠN [PHẢI GỌI TOOL] MỚI ĐƯỢC LẤY SỐ LIỆU. KHÔNG BAO GIỜ được tự ý sinh số liệu hay lấy từ trí nhớ!
-2. CHÚ Ý THỜI GIAN: Bạn HIỆN TẠI ĐANG SỐNG VÀO NGÀY ${new Date().toISOString().slice(0, 10)}. Bất kỳ lúc nào user hỏi về TRẠNG THÁI HIỆN TẠI (hôm nay, ngày mai, tháng này, quý này), bạn PHẢI TÌM MỌI CÁCH CHIẾT XUẤT NGÀY THÁNG ĐÓ thành dateFrom và dateTo để truyền vào Tham số của Tool. TUYỆT ĐỐI CẤM để trống dateFrom/dateTo gọi vơ vét data toàn bộ Database! Nếu gọi bừa sẽ làm sập server.
-3. Bạn có thể gọi nhiều công cụ liên tiếp (multi-step reasoning).
-4. CỰC KỲ QUAN TRỌNG: Kết quả từ công cụ đã được format sẵn. Hãy COPY NGUYÊN VĂN con số đó vào câu trả lời. KHÔNG làm tròn.
-5. BẮT BUỘC TRẢ LỜI 100% BẰNG TIẾNG VIỆT. TUYỆT ĐỐI KHÔNG DÙNG TIẾNG TRUNG (KHÔNG dùng 亿, 万). KHÔNG quy đổi số liệu sang định dạng tỷ/vạn của Trung Quốc vì sẽ gây sai số gấp 10 lần. CHÉP NGUYÊN XI CHUỖI SỐ TỪ KẾT QUẢ TOOL TRẢ VỀ.
-6. KHI TOOL TRẢ VỀ BẢNG MARKDOWN (có dấu |) HOẶC BLOCK \`\`\`chart\`\`\`: HÃY COPY NGUYÊN VĂN VÀO CÂU TRẢ LỜI. KHÔNG ĐƯỢC SỬA SỐ, KHÔNG TÍNH LẠI. Nếu tool trả về trường "bangSoSanh" và "bieuDo", hãy chèn chúng nguyên vẹn.
+1. KHI ĐƯỢC HỎI CÁC CÂU LIÊN QUAN ĐẾN DOANH THU, BÁO CÁO, TÌNH HÌNH KINH DOANH, SỐ LIỆU: BẠN [PHẢI GỌI TOOL] MỚI ĐƯỢC LẤY SỐ LIỆU. KHÔNG BAO GIỜ được tự ý sinh số liệu!
+2. KHI ĐƯỢC HỎI CÂU HỎI CHUNG (tư vấn, kiến thức, trò chuyện): TRẢ LỜI TỰ NHIÊN, KHÔNG CẦN GỌI TOOL. KHÔNG từ chối trả lời.
+3. CHÚ Ý THỜI GIAN: Hôm nay là ${new Date().toISOString().slice(0, 10)}. Khi user hỏi về "hôm nay", "tháng này", "quý này" → phải chuyển thành dateFrom/dateTo cụ thể.
+4. Bạn có thể gọi nhiều công cụ liên tiếp (multi-step reasoning).
+5. CỰC KỲ QUAN TRỌNG: Kết quả từ công cụ đã được format sẵn. Hãy COPY NGUYÊN VĂN con số đó. KHÔNG làm tròn.
+6. BẮT BUỘC TRẢ LỜI 100% BẰNG TIẾNG VIỆT. KHÔNG DÙNG TIẾNG TRUNG (亿, 万). CHÉP NGUYÊN XI SỐ TỪ TOOL.
+7. KHI TOOL TRẢ VỀ BẢNG MARKDOWN hoặc BLOCK \`\`\`chart\`\`\`: COPY NGUYÊN VĂN VÀO CÂU TRẢ LỜI.
 
 `;
+
 
 /**
  * Chạy ReAct Loop với streaming cho câu trả lời cuối cùng.
@@ -125,11 +127,30 @@ export async function runReActLoop(
       if (!tool) {
         outputStr = `Lỗi: Tool ${fnName} không tồn tại.`;
       } else {
-        try {
-          const result = await tool.execute(args, userContext);
-          outputStr = typeof result === 'object' ? JSON.stringify(result) : result;
-        } catch (err: any) {
-          outputStr = `Lỗi hệ thống khi chạy tool: ${err.message || String(err)}`;
+        // Timeout + Retry: mỗi tool có tối đa 15s, retry 1 lần nếu lỗi
+        const executeWithTimeout = (t: OpenClawTool, a: any, ctx: UserContext, timeoutMs = 15000): Promise<string | object> => {
+          return Promise.race([
+            t.execute(a, ctx),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Tool timeout (15s)')), timeoutMs))
+          ]);
+        };
+
+        let attempts = 0;
+        const maxRetries = 1;
+        while (attempts <= maxRetries) {
+          try {
+            const result = await executeWithTimeout(tool, args, userContext);
+            outputStr = typeof result === 'object' ? JSON.stringify(result) : result;
+            break;
+          } catch (err: any) {
+            attempts++;
+            if (attempts > maxRetries) {
+              outputStr = `Lỗi hệ thống khi chạy tool ${fnName}: ${err.message || String(err)}`;
+              console.error(`[OpenClaw] Tool ${fnName} failed after ${attempts} attempts:`, err.message);
+            } else {
+              console.warn(`[OpenClaw] Tool ${fnName} failed, retrying (${attempts}/${maxRetries})...`);
+            }
+          }
         }
       }
 

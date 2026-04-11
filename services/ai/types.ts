@@ -36,6 +36,7 @@ export interface ChatMessage {
 export interface ChatRequest {
   messages: ChatMessage[];
   model: string;
+  baseUrl?: string;
   systemInstruction?: string;
   temperature?: number;
   maxTokens?: number;

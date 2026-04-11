@@ -89,8 +89,8 @@ export const router = createBrowserRouter([
             { path: 'reports', element: <ReportListPage /> },
             { path: 'reports/:id', element: <ReportViewerPage /> },
 
-            // AI Assistant
-            { path: 'ai-assistant', element: <AIAssistantPage /> },
+            // AI Assistant (Rendered globally in MainLayout to persist state, dummy route here to prevent 404)
+            { path: 'ai-assistant', element: null },
 
             // Agent Manager
             { path: 'agent-manager', element: <AgentManagerPage /> },

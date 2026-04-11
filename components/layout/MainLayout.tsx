@@ -22,6 +22,7 @@ import { useImpersonation } from '../../contexts/ImpersonationContext';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import { useAutoTaskEngine } from '../../hooks/useAutoTaskEngine';
 import { TaskActionHandler } from '../tasks/TaskActionHandler';
+import { LazyAIAssistantPage as AIAssistantPage } from '../LazyPages';
 
 const MainLayout: React.FC = () => {
     const navigate = useNavigate();
@@ -219,7 +220,12 @@ const MainLayout: React.FC = () => {
                             <div className={`${contentMaxWidthClass} mx-auto`}>
                                 {/* Pass context to child routes via Outlet — wrapped by RouteGuard for deny-by-default protection */}
                                 <RouteGuard>
-                                    <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, periodFilter, setPeriodFilter, theme, setTheme, accent, setAccent }} />
+                                    <div style={{ display: location.pathname.startsWith('/ai-assistant') ? 'none' : 'block' }}>
+                                        <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, periodFilter, setPeriodFilter, theme, setTheme, accent, setAccent }} />
+                                    </div>
+                                    <div style={{ display: location.pathname.startsWith('/ai-assistant') ? 'block' : 'none' }}>
+                                        <AIAssistantPage />
+                                    </div>
                                 </RouteGuard>
                             </div>
                         </main>

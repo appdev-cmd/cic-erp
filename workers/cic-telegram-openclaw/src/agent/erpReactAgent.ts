@@ -1,5 +1,7 @@
 import { config, ollamaEnabled } from '../config.js';
 import type { ResolvedContext } from '../supabaseClient.js';
+import { agentDefinitions } from '../../../../services/ai/openclaw/agents/definitions.js';
+import { erpToolsRegistry } from '../../../../services/ai/openclaw/tools/registry.js';
 import { executeErpTool, isValidAgentTool } from './erpToolsExecutor.js';
 import { generateNaturalReply } from '../llm/naturalChat.js';
 
@@ -9,67 +11,81 @@ export type ChatMsg =
 
 const YEAR = new Date().getFullYear();
 
-const AGENT_SYSTEM = `Bạn là OpenClaw Agent trên Telegram — một chuyên viên trợ lý của CIC ERP. Bạn có quyền gọi các tool (functions) để truy xuất dữ liệu từ Database hoặc thao tác với file.
+// Đồng bộ 100% System Prompt từ Web Trợ lý Ban Giám Đốc
+const AGENT_SYSTEM = agentDefinitions['BGD'].systemPrompt;
 
-NGUYÊN TẮC QUAN TRỌNG:
-1. Bạn phải TỰ ĐỘNG suy luận. Đừng ngại gọi nhiều tool liên tiếp nhau nếu cần. Ví dụ: gọi 'overdue_payments' xong, sau đó gọi 'export_xlsx' theo yêu cầu.
-2. Dữ liệu CHỈ LẤY từ output của tool, tuyệt đối KHÔNG MÀ ĐỊA ra dữ liệu giả, tên khách hàng giả hay số tiền giả.
-3. Nếu người dùng chỉ nói chuyện phím, chào hỏi, hãy trả lời tự nhiên.
-4. QUAN TRỌNG VỀ THỜI GIAN: Năm hiện tại là ${YEAR}. Quý 1 = ${YEAR}-01-01 -> ${YEAR}-03-31, Quý 2 = ${YEAR}-04-01 -> ${YEAR}-06-30, Quý 3 = ${YEAR}-07-01 -> ${YEAR}-09-30, Quý 4 = ${YEAR}-10-01 -> ${YEAR}-12-31. Khi người dùng hỏi "tháng X" hoặc "quý Y", BẮT BUỘC phải tư duy và quy đổi ra định dạng YYYY-MM-DD để truyền vào tham số "from" và "to". Tuyệt đối không để trống tham số khi người dùng có nói mốc thời gian. (Ví dụ: Tháng 4 năm nay -> from: "${YEAR}-04-01", to: "${YEAR}-04-30").
-5. export_docx / export_xlsx CHỈ DÀNH CHO BÁO CÁO HỢP ĐỒNG. Đơn xin nghỉ phép → dùng tool 'leave_docx' riêng.
+const webAllowedTools = new Set(agentDefinitions['BGD'].allowedTools);
 
-Hãy phản hồi người dùng bằng Tiếng Việt một cách chuyên nghiệp, thân thiện. Nếu có file đính kèm trong nội dung input của User, hãy đọc nội dung file đó trước khi trả lời.`;
-
-const NATIVE_TOOLS_SCHEMA = [
-  { type: 'function', function: { name: 'dashboard', description: 'Xem tổng quan công ty: số lượng hợp đồng, tổng giá trị, nợ...', parameters: { type: 'object', properties: {} } } },
-  { type: 'function', function: { name: 'list_contracts', description: 'Xem danh sách hợp đồng', parameters: { type: 'object', properties: { from: { type: 'string', description: 'YYYY-MM-DD' }, to: { type: 'string', description: 'YYYY-MM-DD' } } } } },
-  { type: 'function', function: { name: 'search_contracts', description: 'Tìm hợp đồng theo từ khoá', parameters: { type: 'object', properties: { keyword: { type: 'string' } }, required: ['keyword'] } } },
-  { type: 'function', function: { name: 'overdue_payments', description: 'Kiểm tra danh sách thanh toán trễ hạn, công nợ', parameters: { type: 'object', properties: {} } } },
-  { type: 'function', function: { name: 'expiring_contracts', description: 'Kiểm tra hợp đồng sắp hết hạn', parameters: { type: 'object', properties: { days: { type: 'number', description: 'Số ngày tới' } } } } },
-  { type: 'function', function: { name: 'my_tasks', description: 'Xem danh sách task của người dùng hiện tại', parameters: { type: 'object', properties: {} } } },
-  { type: 'function', function: { name: 'revenue_report', description: 'Xem báo cáo doanh thu theo tháng / năm / quý', parameters: { type: 'object', properties: { year: { type: 'number' }, quarter: { type: 'number', description: 'Từ 1 đến 4' } } } } },
-  { type: 'function', function: { name: 'export_xlsx', description: 'Trích xuất và gửi file Excel (danh sách Hợp Đồng)', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } } } },
-  { type: 'function', function: { name: 'export_docx', description: 'Trích xuất và gửi file Word (báo cáo Hợp Đồng)', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } } } } },
-  { type: 'function', function: { name: 'leave_docx', description: 'Tạo đơn xin nghỉ phép định dạng Word', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, reason: { type: 'string' }, days: { type: 'number' } } } } },
-  { type: 'function', function: { name: 'save_report', description: 'Lưu báo cáo hợp đồng vào local disk (không gửi Telegram trực tiếp)', parameters: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, format: { type: 'string', enum: ['xlsx', 'docx'] } } } } },
-  { type: 'function', function: { name: 'run_shell', description: 'Chạy một lệnh hệ thống terminal', parameters: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] } } },
-  { type: 'function', function: { name: 'list_files', description: 'Liệt kê các file trong hệ thống', parameters: { type: 'object', properties: { path: { type: 'string' } } } } },
-  { type: 'function', function: { name: 'read_file', description: 'Đọc nội dung một file', parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } } },
-  { type: 'function', function: { name: 'clear_memory', description: 'Xoá lịch sử hội thoại của Agent', parameters: { type: 'object', properties: {} } } },
-  { type: 'function', function: { name: 'help', description: 'Gửi danh sách hướng dẫn, cú pháp lệnh chung', parameters: { type: 'object', properties: {} } } }
-];
-
-import { callAgentTurn } from '../../../../services/ai/gateway';
-import type { ChatRequest } from '../../../../services/ai/types';
+// Tự động map schema từ Zod-like schema của Web Tools
+const NATIVE_TOOLS_SCHEMA = erpToolsRegistry
+  .filter(tool => webAllowedTools.has(tool.name))
+  .map(tool => ({
+    type: 'function',
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: {
+        type: 'object',
+        properties: tool.schema || {},
+      }
+    }
+  }));
 
 async function ollamaToolCallingTurn(messages: ChatMsg[]): Promise<{ message?: string; tool_calls?: any[] }> {
   try {
-    const request: ChatRequest = {
+    const url = `${config.ollamaHost}/v1/chat/completions`; // LiteLLM/Ollama OpenAI compatible endpoint
+    const body = {
       model: config.ollamaModel,
-      messages: messages as any[],
+      messages: messages,
       tools: NATIVE_TOOLS_SCHEMA,
       temperature: 0.15,
     };
     
-    return await callAgentTurn(request);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer sk-cic-2026'
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(60000),
+    });
+    
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`API error ${res.status}: ${errText}`);
+    }
+    
+    const data = await res.json() as any;
+    const msg = data.choices[0].message;
+    
+    // Polyfill cho LLM vLLM đôi khi trả về tool dưới dạng văn bản thô
+    if (!msg.tool_calls && msg.content && msg.content.includes('call:')) {
+      const match = msg.content.match(/call:([a-zA-Z0-9_]+)\{([^}]*)\}/);
+      if (match) {
+        const functionName = match[1];
+        let args = {};
+        try {
+          let argsStr = '{' + match[2] + '}';
+          argsStr = argsStr.replace(/([a-zA-Z0-9_]+):/g, '"$1":').replace(/'/g, '"');
+          args = JSON.parse(argsStr);
+        } catch (e) {}
+
+        msg.tool_calls = [{
+          function: { name: functionName, arguments: args }
+        }];
+        console.log(`[Polyfill] Extracted tool call: ${functionName}`, args);
+      }
+    }
+    
+    return {
+      message: msg.content,
+      tool_calls: msg.tool_calls
+    };
   } catch (err) {
-    console.error("Lỗi gọi AI Gateway API:", err);
+    console.error("Lỗi gọi AI API:", err);
     return {};
   }
-}
-
-function guardLeaveInsteadOfContractExport(
-  userText: string,
-  tool: string,
-  args: Record<string, unknown>
-): { tool: string; args: Record<string, unknown> } {
-  if (
-    (tool === 'export_docx' || tool === 'export_xlsx') &&
-    /ngh[ỉi]\s*ph[ée]p|xin\s*ngh[ỉi]|đơn\s*xin\s*ngh[ỉi]|gi[ấa]y\s*xin\s*ngh[ỉi]/i.test(userText)
-  ) {
-    return { tool: 'leave_docx', args: {} };
-  }
-  return { tool, args };
 }
 
 export type ReactAgentResult = {
@@ -124,7 +140,7 @@ export async function runErpReactAgent(params: {
         args = typeof tc.function.arguments === 'string' ? JSON.parse(tc.function.arguments) : tc.function.arguments;
       } catch { }
 
-      const guarded = guardLeaveInsteadOfContractExport(params.userText, functionName, args);
+      const guarded = { tool: functionName, args };
       let output = '';
 
       if (!isValidAgentTool(guarded.tool)) {
@@ -134,6 +150,10 @@ export async function runErpReactAgent(params: {
         try {
           const result = await executeErpTool(params.chatId, params.ctx, guarded.tool, guarded.args);
           output = result;
+
+          // Web tools không cần TERMINAL_TOOLS do nó xử lý hoàn toàn qua LLM
+          // Trừ tool export_document có thể cần can thiệp nếu cần. 
+          const TERMINAL_TOOLS: string[] = []; // Tạm tắt short-circuit cho web tools vì web tools thiết kế để LLM đọc và phản hồi
         } catch (err: unknown) {
           output = `Lỗi hệ thống khi gọi tool: ${err instanceof Error ? err.message : String(err)}`;
         }

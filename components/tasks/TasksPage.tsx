@@ -1692,6 +1692,20 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
     }
   }, [onSelectTask, openPanel, closePanel, loadData, visibilityContext.userId]);
 
+  // Read ?taskId= query param and auto-open (e.g., from AI assistant link)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const taskIdQuery = searchParams.get('taskId');
+      if (taskIdQuery) {
+        // Xóa param khỏi URL sau khi xử lý
+        window.history.replaceState({}, '', window.location.pathname);
+        // Delay một chút để đảm bảo UI/PanelContext đã sẵn sàng
+        setTimeout(() => handleSelectTask(taskIdQuery), 100);
+      }
+    }
+  }, [handleSelectTask]);
+
   const handleTogglePin = useCallback(async (taskId: string) => {
     try {
       const pinned = await TaskService.togglePin(taskId);

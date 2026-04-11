@@ -279,7 +279,7 @@ const AIAssistant: React.FC = () => {
   
   const dynamicAgents = React.useMemo(() => {
     const _context: UserContext = {
-      userId: _profile?.id || 'web',
+      userId: _profile?.employeeId || _profile?.id || 'web',
       fullName: _profile?.fullName || 'Người dùng',
       role: _profile?.role || 'Guest',
       unitCode: _profile?.unitCode
@@ -693,8 +693,18 @@ const AIAssistant: React.FC = () => {
       try {
         toast.info(`Đang trích xuất văn bản từ ${attachedFiles.length} file...`);
         for (const file of attachedFiles) {
-          const parsed = await parseDocumentClientSide(file);
-          fileContents += `\n\n--- Trích xuất từ file: ${file.name} ---\n${parsed}\n--- Kết thúc file ---`;
+          if (file.type.indexOf('image/') === 0) {
+            const reader = new FileReader();
+            const base64Promise = new Promise<string>((resolve) => {
+               reader.onload = (e) => resolve(e.target?.result as string);
+               reader.readAsDataURL(file);
+            });
+            const b64 = await base64Promise;
+            fileContents += `\n\n![Image](${b64})`;
+          } else {
+            const parsed = await parseDocumentClientSide(file);
+            fileContents += `\n\n--- Trích xuất từ file: ${file.name} ---\n${parsed}\n--- Kết thúc file ---`;
+          }
         }
         setAttachedFiles([]);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -756,7 +766,7 @@ const AIAssistant: React.FC = () => {
 
       // Lấy user context thật từ AuthContext
       const _userContext: UserContext = {
-        userId: _profile?.id || 'web',
+        userId: _profile?.employeeId || _profile?.id || 'web',
         employeeId: _profile?.employeeId,
         fullName: _profile?.fullName || 'Người dùng',
         role: _profile?.role || 'NVKD',
@@ -1358,8 +1368,8 @@ const AIAssistant: React.FC = () => {
                     title="Chọn Model AI"
                   >
                     <optgroup label="🖥️ Local AI (Bảo mật 100%)">
-                      <option value="qwen2.5-7b">🌱 Qwen 2.5 7B (Bảo mật & Tốc độ x2)</option>
-                      <option value="qwen3.5-27b">⚡ Qwen 3.5 27B (Tốc độ VIP)</option>
+                      <option value="gemma-4-26b">💎 Gemma 4 26B (Siêu Trí Tuệ & Code)</option>
+                      <option value="qwen2.5-vl-7b">👁️ Qwen-VL 7B (Đọc ảnh & Hoá đơn)</option>
                     </optgroup>
                     <optgroup label="🔑 Cloud AI (Hệ thống)">
                       <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash (Tốc độ, Mặc định)</option>
@@ -1425,7 +1435,7 @@ const AIAssistant: React.FC = () => {
                   multiple
                   ref={fileInputRef}
                   className="hidden"
-                  accept=".txt,.csv,.md,.json,.docx"
+                  accept=".txt,.csv,.md,.json,.docx,image/*"
                   onChange={(e) => {
                     if (e.target.files) {
                       setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
@@ -1444,6 +1454,19 @@ const AIAssistant: React.FC = () => {
                 <textarea
                   ref={inputRef}
                   value={input}
+                  onPaste={(e) => {
+                    const items = e.clipboardData.items;
+                    const filesToAttach: File[] = [];
+                    for (let i = 0; i < items.length; i++) {
+                      if (items[i].type.indexOf('image') !== -1) {
+                        const file = items[i].getAsFile();
+                        if (file) filesToAttach.push(file);
+                      }
+                    }
+                    if (filesToAttach.length > 0) {
+                      setAttachedFiles(prev => [...prev, ...filesToAttach]);
+                    }
+                  }}
                   onChange={(e) => {
                     const val = e.target.value;
                     setInput(val);

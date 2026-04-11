@@ -436,14 +436,67 @@ async function* streamOpenAICompatible(
     max_tokens: provider === 'local' ? Math.min(request.maxTokens || 2048, 3000) : request.maxTokens,
   });
 
+  let buffer = '';
   for await (const chunk of stream) {
     if (request.signal?.aborted) {
       stream.controller.abort();
       return;
     }
     const content = chunk.choices[0]?.delta?.content || '';
-    if (content) yield content;
+    if (!content) continue;
+    
+    buffer += content;
+    
+    while(buffer.length > 0) {
+       const startIdx = buffer.indexOf('<|tool');
+       if (startIdx === -1) {
+          // No start tag found. Check for partial tags at the end.
+          let matchPartial = false;
+          const openTag = '<|tool_call|>';
+          for (let i = 1; i <= openTag.length; i++) {
+             if (buffer.endsWith(openTag.slice(0, i))) {
+                matchPartial = true;
+                const safePart = buffer.slice(0, buffer.length - i);
+                if (safePart) yield safePart;
+                buffer = buffer.slice(buffer.length - i);
+                break;
+             }
+          }
+          if (!matchPartial) {
+             yield buffer;
+             buffer = '';
+          }
+          break;
+       } else {
+          // Found <|tool...
+          if (startIdx > 0) {
+             yield buffer.slice(0, startIdx);
+             buffer = buffer.slice(startIdx);
+             continue; // Re-evaluate
+          }
+          // Buffer starts with <|tool...
+          // Wait for the full block
+          const closeBracket = buffer.indexOf('}>');
+          const closeTag = buffer.indexOf('<|/tool_call|>');
+          
+          let endIdx = -1;
+          if (closeTag !== -1) endIdx = closeTag + 14; // length of <|/tool_call|>
+          else if (closeBracket !== -1) endIdx = closeBracket + 2;
+          
+          if (endIdx === -1) {
+             // If buffer is getting too large and we still haven't found closing, just clear it
+             if (buffer.length > 500) {
+                 buffer = '';
+             }
+             break; // Wait for more chunks to close the tag
+          }
+          
+          // Discard the entire block
+          buffer = buffer.slice(endIdx);
+       }
+    }
   }
+  if (buffer) yield buffer;
 }
 
 // ═══════════════════════════════════════
@@ -539,6 +592,69 @@ export async function* streamEnterpriseAI(
 // AGENT TURN (Tool Calling)
 // ═══════════════════════════════════════
 
+function extractGemmaToolCalls(content: string): { tool_calls: any[], cleaned_content: string } | null {
+    let tool_calls: any[] = [];
+    if (!content.includes('<|tool_call|>') && !content.includes('call:')) return null;
+
+    // Use balanced brace matching for nested JSON (e.g. export_document with chart JSON)
+    const callPattern = /(?:<\|tool_call\|>)?\s*call:([a-zA-Z0-9_]+)\{/g;
+    let match;
+    let hasMatch = false;
+    let cleaned_content = content;
+    const toRemove: string[] = [];
+    
+    while ((match = callPattern.exec(content)) !== null) {
+        hasMatch = true;
+        const fnName = match[1];
+        const braceStart = match.index + match[0].length - 1;
+        
+        // Balanced brace matching
+        let depth = 0;
+        let end = braceStart;
+        for (let i = braceStart; i < content.length; i++) {
+          if (content[i] === '{') depth++;
+          else if (content[i] === '}') {
+            depth--;
+            if (depth === 0) { end = i; break; }
+          }
+        }
+        
+        const fullMatchStr = content.substring(match.index, end + 1);
+        toRemove.push(fullMatchStr);
+        
+        let rawJson = content.substring(braceStart, end + 1);
+        // Clean up any tool_call tags inside
+        rawJson = rawJson.replace(/<\|\/?tool_call\|?>/g, '');
+        // Fix unquoted keys
+        let jsonStr = rawJson.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/gs, '$1"$2":');
+        
+        try {
+            const argsObj = JSON.parse(jsonStr);
+            tool_calls.push({
+                id: 'call_' + Math.random().toString(36).substr(2, 9),
+                type: 'function',
+                function: {
+                    name: fnName,
+                    arguments: JSON.stringify(argsObj)
+                }
+            });
+        } catch (e) {
+            console.error('[Gemma Parser] Failed to parse JSON args:', jsonStr.substring(0, 200));
+        }
+    }
+    
+    if (!hasMatch) return null;
+    
+    for (const rm of toRemove) {
+        cleaned_content = cleaned_content.replace(rm, '');
+    }
+    // Dọn dẹp nốt thẻ đóng nếu có sót lại
+    cleaned_content = cleaned_content.replace(/<\|\/?tool_call\|?>/g, '').trim();
+    
+    return { tool_calls, cleaned_content };
+}
+
+
 /**
  * Gọi 1 turn của Agent. Trả về cả message và tool_calls (không stream).
  */
@@ -594,8 +710,9 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
         if (m.role === 'assistant' && m.tool_calls) {
           return {
             role: 'assistant',
-            content: m.content || "Đang xử lý dữ liệu với công cụ..."
-          }; // Strip tool_calls from Assistant history
+            content: m.content || "Đang xử lý dữ liệu với công cụ...",
+            tool_calls: m.tool_calls
+          };
         }
         if (m.role === 'tool') {
           return {
@@ -614,9 +731,23 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
       stream: false,
       max_tokens: isVllmOrLocal ? 3000 : undefined,
     };
-    // Qwen supports tool calling via --enable-auto-tool-choice; only strip for Gemma
-    if (request.tools && request.tools.length > 0 && (!isVllmOrLocal || !isGemmaModel)) {
-      payload.tools = request.tools;
+    // Always pass tools
+    if (request.tools && request.tools.length > 0) {
+      if (isVllmOrLocal && isGemmaModel) {
+        // Manually inject tools schema for Gemma models because vLLM chat templates for Gemma 
+        // might ignore the tools array payload.
+        const toolsDesc = request.tools.map(t => 
+           `- Tên công cụ: ${t.function.name}\n  Mô tả: ${t.function.description}\n  Tham số: ${JSON.stringify(t.function.parameters)}`
+        ).join('\n\n');
+        
+        formattedMessages.unshift({
+           role: 'user',
+           content: `[HỆ THỐNG BẮT BUỘC]
+Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doanh nghiệp, KPI, công nợ, báo cáo. Danh sách công cụ hiện có:\n\n${toolsDesc}\n\nĐể gọi công cụ, BẠN PHẢI TRẢ VỀ CHÍNH XÁC CÚ PHÁP NÀY TRONG CÂU TRẢ LỜI NGAY LẬP TỨC VÀ KHÔNG VIẾT THÊM GÌ KHÁC:\ncall:ten_cong_cu{"tham_so": "gia tri"}\n\nVí dụ: call:get_debt_report{"sortBy":"amount"}`
+        });
+      } else {
+        payload.tools = request.tools;
+      }
     }
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -637,9 +768,23 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
 
     const data = await res.json() as any;
     if (data.choices && data.choices[0]) {
+      let content = data.choices[0].message?.content || undefined;
+      let tool_calls = data.choices[0].message?.tool_calls;
+      
+      // Fallback for Gemma-like models that output <|tool_call|> text
+      if (!tool_calls || tool_calls.length === 0) {
+        if (content && (content.includes('<|tool_call|>') || content.includes('call:'))) {
+            const extracted = extractGemmaToolCalls(content);
+            if (extracted && extracted.tool_calls.length > 0) {
+               tool_calls = extracted.tool_calls;
+               content = extracted.cleaned_content || undefined;
+            }
+        }
+      }
+
       return {
-        message: data.choices[0].message?.content || undefined,
-        tool_calls: data.choices[0].message?.tool_calls
+        message: content,
+        tool_calls
       };
     }
     

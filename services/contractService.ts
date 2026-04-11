@@ -972,7 +972,9 @@ export const ContractService = {
         suspendedCount: number,
         handoverCount: number,
         acceptanceCount: number,
-        completedCount: number
+        completedCount: number,
+        newContractsCount?: number,
+        renewalContractsCount?: number
     }> => {
         const { search, status, unitId, year, dateFrom, dateTo, salespersonId, classification, matchingCustomerIds } = params;
 
@@ -1082,7 +1084,7 @@ export const ContractService = {
         };
 
         // Count statuses from unfiltered data (but respecting unit + salesperson filter)
-        const statusCounts = { processingCount: 0, suspendedCount: 0, handoverCount: 0, acceptanceCount: 0, completedCount: 0 };
+        const statusCounts = { processingCount: 0, suspendedCount: 0, handoverCount: 0, acceptanceCount: 0, completedCount: 0, newContractsCount: 0, renewalContractsCount: 0 };
         (statusData || []).forEach((c: any) => {
             if (isFilteringByUnit) {
                 let matchedPct = 0;
@@ -1092,6 +1094,11 @@ export const ContractService = {
                 if (matchedPct === 0) return;
             }
             if (salespersonId && !isEmployeeInContract(c, salespersonId)) return;
+            
+            const cat = c.category || 'Mới';
+            if (cat === 'Mới') statusCounts.newContractsCount++;
+            else if (['Gia hạn', 'Bảo trì'].includes(cat)) statusCounts.renewalContractsCount++;
+
             if (c.status === 'Processing') statusCounts.processingCount++;
             else if (c.status === 'Suspended') statusCounts.suspendedCount++;
             else if (c.status === 'Handover') statusCounts.handoverCount++;
@@ -1154,7 +1161,9 @@ export const ContractService = {
         totalRevenueProfit: number,
         totalCash: number,
         activeCount: number,
-        pendingCount: number
+        pendingCount: number,
+        newContractsCount?: number,
+        renewalContractsCount?: number
     }> => {
         const logPrefix = '[ContractService.getStatsRPC]';
         console.log(`${logPrefix} START (Forcing DIRECT QUERY)`, {
@@ -1187,10 +1196,12 @@ export const ContractService = {
         acceptanceCount: number,
         suspendedCount: number,
         handoverCount: number,
+        newContractsCount: number,
+        renewalContractsCount: number
     }> => {
         console.log('[ContractService.getStatsFallback] Using pre-computed columns');
         // OPTIMIZED: No payments JOIN — use pre-computed columns on contracts table
-        let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, unit_id, unit_allocations, end_date');
+        let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, category, unit_id, unit_allocations, end_date');
 
         // Only apply year filter at query level (unit filter is done in JS for allocation support)
         if (year && year !== 'All' && year !== 'all') {
@@ -1238,7 +1249,7 @@ export const ContractService = {
                 totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0,
                 activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0,
                 processingCount: 0, acceptanceCount: 0, suspendedCount: 0,
-                handoverCount: 0
+                handoverCount: 0, newContractsCount: 0, renewalContractsCount: 0
             };
         }
 
@@ -1252,6 +1263,7 @@ export const ContractService = {
             const adminProfit = curr.admin_profit || 0;
             const revProfit = curr.rev_profit || 0;
             const cash = curr.cash_received || 0;
+            const cat = curr.category || 'Mới';
 
             // Determine this unit's share percentage using shared helper
             let sharePct = 100;
@@ -1279,11 +1291,13 @@ export const ContractService = {
                 acceptanceCount: acc.acceptanceCount + (curr.status === 'Acceptance' ? 1 : 0),
                 processingCount: acc.processingCount + (curr.status === 'Processing' ? 1 : 0),
                 handoverCount: acc.handoverCount + (curr.status === 'Handover' ? 1 : 0),
+                newContractsCount: acc.newContractsCount + (cat === 'Mới' ? 1 : 0),
+                renewalContractsCount: acc.renewalContractsCount + (['Gia hạn', 'Bảo trì'].includes(cat) ? 1 : 0),
                 expiredCount: acc.expiredCount + (
                     ['Processing', 'Acceptance'].includes(curr.status) && curr.end_date && new Date(curr.end_date) < new Date() ? 1 : 0
                 )
             };
-        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, suspendedCount: 0, handoverCount: 0 });
+        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, suspendedCount: 0, handoverCount: 0, newContractsCount: 0, renewalContractsCount: 0 });
     },
 
     /**

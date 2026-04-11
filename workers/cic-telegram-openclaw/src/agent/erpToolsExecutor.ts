@@ -19,6 +19,8 @@ import { contractsToXlsxBuffer } from '../export/buildXlsx.js';
 import { tgSendDocument } from '../telegramApi.js';
 import { executeShell, listFiles, readFile, writeFile, saveReport } from '../tools/shellTool.js';
 import { clearHistory } from '../memory/conversationMemory.js';
+import { erpToolsRegistry } from '../../../../services/ai/openclaw/tools/registry.js';
+import type { UserContext } from '../../../../services/ai/openclaw/types.js';
 
 function fmtMoney(n: number | null): string {
   if (n == null || isNaN(n)) return '0';
@@ -28,13 +30,6 @@ function fmtMoney(n: number | null): string {
 }
 
 const VALID_AGENT_TOOLS = new Set([
-  'dashboard',
-  'list_contracts',
-  'search_contracts',
-  'overdue_payments',
-  'expiring_contracts',
-  'my_tasks',
-  'revenue_report',
   'export_xlsx',
   'export_docx',
   'export_pdf',
@@ -50,10 +45,14 @@ const VALID_AGENT_TOOLS = new Set([
   'check_leave_balance',
   'list_pending_leaves',
   'approve_leave',
+  'export_revenue_docx',
 ]);
 
 export function isValidAgentTool(name: string): boolean {
-  return VALID_AGENT_TOOLS.has(name);
+  if (VALID_AGENT_TOOLS.has(name)) return true;
+  // Bổ sung check từ Web Tools
+  if (erpToolsRegistry.some(t => t.name === name)) return true;
+  return false;
 }
 
 export async function executeErpTool(
@@ -187,6 +186,24 @@ export async function executeErpTool(
             value_fmt: fmtMoney(Number(r.total_value)),
             revenue_fmt: fmtMoney(Number(r.total_revenue)),
           })),
+        });
+      }
+      case 'export_revenue_docx': {
+        const year = args.year != null ? Number(args.year) : undefined;
+        let rows = await fetchRevenueByMonth(ctx.employeeId, year);
+        if (rows.length === 0) return JSON.stringify({ ok: false, error: 'Không có dữ liệu doanh thu.' });
+        
+        // Dynamic import the revenue builder
+        const { revenueReportToDocxBuffer } = await import('../export/buildDocx.js');
+        const y = year ?? new Date().getFullYear();
+        const buf = await revenueReportToDocxBuffer(rows, `Báo cáo kết quả kinh doanh năm ${y} — ${ctx.fullName}`);
+        const fn = `bao_cao_doanh_thu_${y}.docx`;
+        await tgSendDocument(chatId, fn, buf, `Báo cáo Doanh thu năm ${y}`);
+        return JSON.stringify({
+          ok: true,
+          sent: 'export_revenue_docx',
+          filename: fn,
+          note: 'File đã gửi trong Telegram.',
         });
       }
       case 'export_xlsx': {
@@ -350,8 +367,20 @@ export async function executeErpTool(
           ],
         });
       }
-      default:
-        return JSON.stringify({ error: 'Tool chưa triển khai' });
+      default: {
+        const webTool = erpToolsRegistry.find(t => t.name === tool);
+        if (webTool) {
+          const userContext: UserContext = {
+            employeeId: ctx.employeeId,
+            unitId: ctx.unitId || '',
+            role: 'User', // Mặc định là User, web tool sẽ tự check canViewAll() qua unitId
+            fullName: ctx.fullName || 'Agent',
+          };
+          const rawResult = await webTool.execute(args, userContext);
+          return typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
+        }
+        return JSON.stringify({ error: 'Tool chưa triển khai: ' + tool });
+      }
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

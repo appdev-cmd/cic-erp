@@ -13,8 +13,8 @@ import type { AIModel, AIProvider } from './types';
 export const AI_MODELS: AIModel[] = [
   // ─── Local Models (vLLM) ──────────────────
   {
-    id: 'Qwen3.5-27B-Instruct-AWQ',
-    name: 'Qwen 3.5 27B (vLLM)',
+    id: 'gemma-4-26b',
+    name: 'Gemma 4 26B (vLLM)',
     provider: 'local',
     contextWindow: 8192,
     supportsVision: false,
