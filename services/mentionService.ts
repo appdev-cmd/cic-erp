@@ -229,3 +229,55 @@ export function parseMentions(text: string): {
 
     return { parts };
 }
+
+/**
+ * AI Helper: Parse và lấy ra Context mô tả các mention cho LLM
+ */
+export function extractMentionContextFromText(text: string): {
+    cleanText: string;
+    contextString: string;
+} {
+    const mentionSet = new Set<string>();
+    const typeLabels: Record<MentionType, string> = {
+        user: 'nhân sự',
+        contract: 'hợp đồng',
+        customer: 'khách hàng',
+        product: 'sản phẩm',
+        unit: 'đơn vị',
+    };
+
+    // Step 1: Extract hidden markdown comment mentions: [//]: # (@[type:id:label])
+    const hiddenRegex = /\[\/\/\]: # \(@\[(user|contract|customer|product|unit):([^:]+):([^\]]+)\]\)/g;
+    let hiddenMatch;
+    while ((hiddenMatch = hiddenRegex.exec(text)) !== null) {
+        const type = hiddenMatch[1] as MentionType;
+        const id = hiddenMatch[2];
+        const label = hiddenMatch[3];
+        const t = typeLabels[type] || type;
+        mentionSet.add(`- ${t} "${label}" (ID: ${id})`);
+    }
+    // Remove hidden comments from text
+    let cleanedText = text.replace(/\n?\[\/\/\]: # \(@\[[^\]]+\]\)/g, '').trim();
+
+    // Step 2: Also extract inline @[type:id:label] mentions (legacy format)
+    const { parts } = parseMentions(cleanedText);
+    let cleanText = '';
+    for (const p of parts) {
+        if (p.type === 'text') {
+            cleanText += p.content;
+        } else if (p.mention) {
+            cleanText += p.mention.label;
+            const t = typeLabels[p.mention.type] || p.mention.type;
+            mentionSet.add(`- ${t} "${p.mention.label}" (ID: ${p.mention.id})`);
+        }
+    }
+
+    let contextString = '';
+    if (mentionSet.size > 0) {
+        contextString = `\n[CONTEXT] User đang đề cập đến các đối tượng sau trên hệ thống. Hãy ưu tiên sử dụng thông tin và ID này khi gọi tool:\n` + 
+                        Array.from(mentionSet).join('\n');
+    }
+
+    return { cleanText: cleanText || cleanedText, contextString };
+}
+

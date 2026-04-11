@@ -23,7 +23,12 @@ import {
   BookOpen,
   ExternalLink,
   KeyRound,
-  Paperclip
+  Paperclip,
+  MessageSquare,
+  Plus,
+  Clock,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -31,10 +36,15 @@ import { streamEnterpriseAI } from '../services/ai';
 import { getBusinessContext, invalidateBusinessContext } from '../services/contextService';
 import { searchKnowledgeBase } from '../services/ragService';
 import { parseDocumentClientSide } from '../lib/documentReaderClient';
+import { searchMentions, encodeMention, type MentionResult } from '../services/mentionService';
 import { useAuth } from '../contexts/AuthContext';
 import { routeUserToAgent } from '../services/ai/openclaw/router';
 import type { UserContext } from '../services/ai/openclaw/types';
 import { cn } from '../lib/utils';
+import * as AiHistory from '../services/aiChatHistoryService';
+import type { AiConversation } from '../services/aiChatHistoryService';
+import { toast } from 'sonner';
+import AIDataIngestion from './AIDataIngestion';
 // Formatter functions outside component to avoid reference changes during render
 const formatValue = (value: any) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value);
 const formatTooltip = (value: any) => new Intl.NumberFormat('vi-VN').format(Number(value));
@@ -55,6 +65,42 @@ const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
       if (!config.data || !Array.isArray(config.data) || config.data.length === 0) {
         return { error: 'Dữ liệu mảng data: [] rỗng hoặc không tồn tại', raw: configStr };
       }
+
+      // ═══ AUTO-NORMALIZE: Chuyển đổi mọi format về chuẩn { xAxisKey, lines } ═══
+      
+      // 1) Tìm xAxisKey: ưu tiên config → fallback 'name' nếu có trong data
+      if (!config.xAxisKey) {
+        const firstItem = config.data[0];
+        if (firstItem.name !== undefined) config.xAxisKey = 'name';
+        else if (firstItem.label !== undefined) config.xAxisKey = 'label';
+        else config.xAxisKey = Object.keys(firstItem)[0];
+      }
+
+      // 2) Tìm lines: ưu tiên config.lines → chuyển từ config.keys → auto-detect
+      if (!config.lines || !Array.isArray(config.lines) || config.lines.length === 0) {
+        const chartColors = config.colors || ['#6366f1', '#94a3b8', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'];
+        
+        if (config.keys && Array.isArray(config.keys)) {
+          // Format từ tool: { keys: ['kyTruoc', 'kyNay'], colors: [...] }
+          config.lines = config.keys.map((key: string, i: number) => ({
+            dataKey: key,
+            color: chartColors[i % chartColors.length],
+            name: key // Sẽ hiển thị label trên legend
+          }));
+        } else {
+          // Auto-detect: lấy tất cả numeric keys (trừ xAxisKey)
+          const firstItem = config.data[0];
+          const numericKeys = Object.keys(firstItem).filter(k => 
+            k !== config.xAxisKey && typeof firstItem[k] === 'number'
+          );
+          config.lines = numericKeys.map((key: string, i: number) => ({
+            dataKey: key,
+            color: chartColors[i % chartColors.length],
+            name: key
+          }));
+        }
+      }
+
       return { config };
     } catch (e: any) {
       return { error: e.message, raw: configStr };
@@ -70,7 +116,7 @@ const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
     );
   }
 
-  const { type, data, xAxisKey, lines } = chartConfig.config;
+  const { type, data, xAxisKey, lines, title, unit } = chartConfig.config;
 
   const renderChart = () => {
     switch (type) {
@@ -78,8 +124,8 @@ const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
         return (
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
-            <XAxis dataKey={xAxisKey} fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis fontSize={12} tickFormatter={formatValue} tickLine={false} axisLine={false} />
+            <XAxis dataKey={xAxisKey} fontSize={11} tickLine={false} axisLine={false} />
+            <YAxis fontSize={11} tickFormatter={formatValue} tickLine={false} axisLine={false} />
             <RechartsTooltip cursor={CHART_CURSOR} formatter={formatTooltip} />
             <Legend wrapperStyle={LEGEND_STYLE} />
             {lines?.map((line: any, i: number) => (
@@ -91,8 +137,8 @@ const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
         return (
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" opacity={0.2} vertical={false} />
-            <XAxis dataKey={xAxisKey} fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis fontSize={12} tickFormatter={formatValue} tickLine={false} axisLine={false} />
+            <XAxis dataKey={xAxisKey} fontSize={11} tickLine={false} axisLine={false} />
+            <YAxis fontSize={11} tickFormatter={formatValue} tickLine={false} axisLine={false} />
             <RechartsTooltip formatter={formatTooltip} />
             <Legend wrapperStyle={LEGEND_STYLE} />
             {lines?.map((line: any, i: number) => (
@@ -118,10 +164,14 @@ const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
   };
 
   return (
-    <div className="w-full h-80 my-4 p-4 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden flex flex-col justify-center">
-      <ResponsiveContainer width="99%" height={280}>
-        {renderChart()}
-      </ResponsiveContainer>
+    <div className="w-full my-4 p-4 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl shadow-sm overflow-hidden">
+      {title && <p className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 text-center">{title}</p>}
+      <div className="h-72">
+        <ResponsiveContainer width="99%" height="100%">
+          {renderChart()}
+        </ResponsiveContainer>
+      </div>
+      {unit && <p className="text-[10px] text-slate-400 text-right mt-1">Đơn vị: {unit}</p>}
     </div>
   );
 }); // End of DynamicChart
@@ -134,79 +184,30 @@ interface Message {
   timestamp: Date;
 }
 
-type AgentType = 'general' | 'legal' | 'drafter' | 'analyst';
-type ActiveView = 'chat' | 'ingest';
+import { getVisibleAgents } from '../services/ai/openclaw/router';
+import * as Icons from 'lucide-react';
 
-const AGENTS: Record<AgentType, { name: string; role: string; color: string; icon: any; prompt: string; suggestions: string[] }> = {
-  general: {
-    name: 'Tổng quát',
-    role: 'Trợ lý ảo Enterprise',
-    color: 'bg-indigo-600',
-    icon: Sparkles,
-    prompt: 'Bạn là Trợ lý AI Enterprise của CIC. Trả lời ngắn gọn, chuyên nghiệp. QUY TẮC QUAN TRỌNG: Khi user hỏi "doanh thu năm X", "quý X", "tháng X" → PHẢI tìm dữ liệu đúng khoảng thời gian đó từ Báo cáo Quản trị. KHÔNG BAO GIỜ trả lời bằng tổng tất cả thời gian khi user chỉ định thời gian cụ thể.',
-    suggestions: [
-      'Tổng doanh thu công ty năm nay bao nhiêu?',
-      'Phòng ban nào doanh thu cao nhất năm nay?',
-      'Ai là nhân sự xuất sắc nhất năm nay?',
-      'Tóm tắt tình hình hợp đồng tháng này'
-    ]
-  },
-  legal: {
-    name: 'Pháp chế & Rủi ro',
-    role: 'Chuyên gia Pháp lý',
-    color: 'bg-rose-600',
-    icon: Scale,
-    prompt: 'Bạn là Chuyên gia Pháp chế cao cấp. Nhiệm vụ: Rà soát hợp đồng, cảnh báo rủi ro pháp lý, trích dẫn Luật Đấu thầu/Xây dựng/Dân sự Việt Nam. Phong cách: Nghiêm túc, chính xác, cảnh báo rõ ràng.',
-    suggestions: [
-      'Những điều khoản bắt buộc trong hợp đồng xây dựng?',
-      'Rủi ro pháp lý khi ký phụ lục hợp đồng?',
-      'Quy định bảo lãnh thực hiện hợp đồng theo luật Đấu thầu?',
-      'Checklist kiểm tra hợp đồng trước khi ký'
-    ]
-  },
-  drafter: {
-    name: 'Soạn thảo',
-    role: 'Thư ký Điều hành',
-    color: 'bg-emerald-600',
-    icon: PenTool,
-    prompt: 'Bạn là Thư ký Điều hành chuyên nghiệp. Nhiệm vụ: Soạn thảo email, công văn, tờ trình, phụ lục hợp đồng. Output: Format chuẩn văn bản hành chính, ngôn từ trang trọng, lịch sự.',
-    suggestions: [
-      'Soạn email thông báo gia hạn hợp đồng',
-      'Viết tờ trình đề xuất duyệt hợp đồng mới',
-      'Soạn công văn đề nghị thanh toán',
-      'Viết biên bản nghiệm thu công trình'
-    ]
-  },
-  analyst: {
-    name: 'Phân tích số liệu',
-    role: 'Chuyên gia Dữ liệu',
-    color: 'bg-amber-600',
-    icon: BarChart3,
-    prompt: `Bạn là Chuyên gia Phân tích Dữ liệu. QUY TẮC BẮT BUỘC: 
-(0) LUÔN LUÔN giao tiếp, nhận định và giải thích bằng TIẾNG VIỆT (Tuyệt đối không dùng tiếng Trung/Anh).
-(1) Khi user đề cập năm/quý/tháng cụ thể → PHẢI dùng dữ liệu đúng thời kỳ đó từ Báo cáo; 
-(2) Trả lời ngắn ngọn, đưa ra nhận định (Insights) dựa trên data; 
-(3) ĐỂ VẼ BIỂU ĐỒ, hãy trả về CHỈ 1 block JSON trong cặp backticks với language là "chart", ví dụ:
-\`\`\`chart
-{
-  "type": "bar",
-  "data": [{"name": "STC", "revenue": 1000}],
-  "xAxisKey": "name",
-  "lines": [{"dataKey": "revenue", "color": "#4f46e5", "name": "Doanh thu"}]
-}
-\`\`\`
-Hỗ trợ type: "bar", "line", "pie".`,
-    suggestions: [
-      'So sánh doanh thu các đơn vị bằng biểu đồ',
-      'Vẽ biểu đồ doanh thu năm 2026',
-      'Đơn vị nào đạt doanh thu cao nhất năm nay?',
-      'Top 5 nhân sự xuất sắc nhất năm 2026'
-    ]
-  }
+const ICON_MAP: Record<string, any> = {
+  Sparkles: Icons.Sparkles,
+  Scale: Icons.Scale,
+  PenTool: Icons.PenTool,
+  BarChart3: Icons.BarChart3,
+  Crown: Icons.Crown,
+  Box: Icons.Box,
+  Leaf: Icons.Leaf,
+  HardHat: Icons.HardHat,
+  Monitor: Icons.Monitor,
+  Calculator: Icons.Calculator,
+  Compass: Icons.Compass,
+  Users: Icons.Users,
+  MapPin: Icons.MapPin,
+  Shield: Icons.Shield,
+  Download: Icons.Download,
+  Terminal: Icons.Terminal,
 };
 
-// ─── LocalStorage Helpers ────────────────────────────────
-const STORAGE_KEY = 'cic_ai_chat_history';
+type ActiveView = 'chat' | 'ingest';
+const getStorageKey = (userId?: string) => userId ? `cic_ai_chat_history_${userId}` : 'cic_ai_chat_history';
 const MODEL_STORAGE_KEY = 'cic_ai_model';
 const AGENT_STORAGE_KEY = 'cic_ai_agent';
 
@@ -214,7 +215,7 @@ export const CUSTOM_GEMINI_KEY = 'cic_custom_gemini_key';
 export const CUSTOM_OPENAI_KEY = 'cic_custom_openai_key';
 export const CUSTOM_DEEPSEEK_KEY = 'cic_custom_deepseek_key';
 
-const saveMessages = (messages: Message[]) => {
+const saveMessages = (messages: Message[], userId?: string) => {
   try {
     // Only save last 50 messages to avoid localStorage bloat
     const toSave = messages.slice(-50).map(m => ({
@@ -222,13 +223,13 @@ const saveMessages = (messages: Message[]) => {
       isStreaming: false,
       timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp
     }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(toSave));
   } catch { /* localStorage full or unavailable */ }
 };
 
-const loadMessages = (): Message[] => {
+const loadMessages = (userId?: string): Message[] => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(getStorageKey(userId));
     if (!stored) return [];
     const parsed = JSON.parse(stored);
     return parsed.map((m: any) => ({
@@ -263,29 +264,76 @@ const MARKDOWN_COMPONENTS: any = {
       <code className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-xs font-mono text-rose-500 dark:text-rose-400" {...props}>{children}</code>
     );
   },
-  a: ({ node, ...props }: any) => <a className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold" target="_blank" rel="noopener noreferrer" {...props} />
+  a: ({ node, ...props }: any) => {
+    const isExport = props.href?.startsWith('data:') || props.href?.startsWith('blob:');
+    return <a className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold" target="_blank" rel="noopener noreferrer" download={isExport ? 'BaoCao_Export.md' : undefined} {...props} />;
+  }
 };
 
 const AIAssistant: React.FC = () => {
   const { profile: _profile } = useAuth();
-  const [currentAgent, setCurrentAgent] = useState<AgentType>(() => {
-    return (localStorage.getItem(AGENT_STORAGE_KEY) as AgentType) || 'general';
+  
+  const dynamicAgents = React.useMemo(() => {
+    const _context: UserContext = {
+      userId: _profile?.id || 'web',
+      fullName: _profile?.fullName || 'Người dùng',
+      role: _profile?.role || 'Guest',
+      unitCode: _profile?.unitCode
+    };
+    const visible = getVisibleAgents(_context);
+    const agentMap: Record<string, any> = {};
+    visible.forEach(a => {
+      agentMap[a.id] = {
+        name: a.name,
+        role: a.description || 'Trợ lý AI',
+        color: a.color || 'bg-indigo-600',
+        icon: (a.icon && ICON_MAP[a.icon]) || Icons.Bot,
+        prompt: a.systemPrompt,
+        suggestions: a.allowedTools && a.allowedTools.length > 0 
+          ? ['Dữ liệu hôm nay thế nào?', 'Tóm tắt báo cáo gần nhất'] 
+          : ['Bạn có thể giúp gì cho tôi?']
+      };
+    });
+    // Add default SYSTEM general if not present
+    if (!agentMap['SYSTEM']) {
+      agentMap['SYSTEM'] = {
+        name: 'Tổng quát',
+        role: 'Trợ lý ảo Enterprise',
+        color: 'bg-indigo-600',
+        icon: Icons.Sparkles,
+        prompt: 'Bạn là Trợ lý AI Enterprise của CIC.',
+        suggestions: ['Tổng doanh thu công ty năm nay bao nhiêu?', 'Ai là nhân sự xuất sắc nhất năm nay?']
+      };
+    }
+    return agentMap;
+  }, [_profile]);
+
+  const [currentAgent, setCurrentAgent] = useState<string>(() => {
+    return localStorage.getItem(AGENT_STORAGE_KEY) || 'SYSTEM';
   });
   const [currentModel, setCurrentModel] = useState<string>(() => {
     const saved = localStorage.getItem(MODEL_STORAGE_KEY);
     // Auto-reset stale model nếu model cũ không còn trên vLLM
-    const staleModels = ['Qwen3.5', 'gemma-3-9b', 'gemma-2-9b', 'Qwen2.5-7B', 'qwen2.5-7b', 'cic-legal-14b'];
+    const staleModels = ['Qwen3.5', 'gemma-3-9b', 'gemma-2-9b', 'Qwen2.5-14B', 'qwen2.5-14b', 'cic-legal-14b', 'qwen-2.5-14b'];
     if (saved && staleModels.some(s => saved.includes(s))) {
       localStorage.removeItem(MODEL_STORAGE_KEY);
-      return 'cluster-1-legal';
+      return 'qwen2.5-7b';
     }
-    return saved || 'cluster-1-legal';
+    return saved || 'qwen2.5-7b';
   });
 
   const [messages, setMessages] = useState<Message[]>(() => {
-    const saved = loadMessages();
-    return saved.length > 0 ? saved : [WELCOME_MESSAGE];
+    // We will initialize empty or load from global if no user, but will trigger effect below when user ready
+    return [WELCOME_MESSAGE];
   });
+
+  // Re-load messages strictly when the user account changes
+  useEffect(() => {
+    if (_profile?.id) {
+      const saved = loadMessages(_profile.id);
+      setMessages(saved.length > 0 ? saved : [WELCOME_MESSAGE]);
+    }
+  }, [_profile?.id]);
 
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -294,6 +342,42 @@ const AIAssistant: React.FC = () => {
   const [showAgentMenu, setShowAgentMenu] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>('chat');
   
+  // ─── Chat History State ─────────────────────────────────
+  const [conversations, setConversations] = useState<AiConversation[]>([]);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const activeConvIdRef = useRef<string | null>(null);
+  activeConvIdRef.current = activeConvId;
+
+  // Load conversations on mount
+  useEffect(() => {
+    if (_profile?.id) {
+      AiHistory.getConversations(_profile.id).then(convs => setConversations(convs));
+    }
+  }, [_profile?.id]);
+
+  // Load a specific conversation
+  const loadConversation = useCallback(async (conv: AiConversation) => {
+    setActiveConvId(conv.id);
+    setShowHistory(false);
+    const msgs = await AiHistory.getMessages(conv.id);
+    if (msgs.length > 0) {
+      setMessages(msgs.map(m => ({
+        id: m.id,
+        role: m.role as 'user' | 'model',
+        content: m.content,
+        timestamp: new Date(m.created_at),
+      })));
+    }
+  }, []);
+
+  // Start new conversation
+  const newConversation = useCallback(() => {
+    setActiveConvId(null);
+    setMessages([WELCOME_MESSAGE]);
+    setShowHistory(false);
+  }, []);
+
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -306,6 +390,53 @@ const AIAssistant: React.FC = () => {
   const [localAITestResult, setLocalAITestResult] = useState<{ok: boolean; models: string[]} | null>(null);
   const [localAITesting, setLocalAITesting] = useState(false);
   const [widgetHistoryBanner, setWidgetHistoryBanner] = useState(false);
+
+  // ─── Mention State ──────────────────────────────────────
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionResults, setMentionResults] = useState<MentionResult[]>([]);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionStartPos, setMentionStartPos] = useState<number | null>(null);
+  const [selectedMentions, setSelectedMentions] = useState<MentionResult[]>([]);
+
+  const handleSearchMention = async (q: string) => {
+    try {
+      const results = await searchMentions(q);
+      setMentionResults(results);
+      setMentionIndex(0);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const insertMention = (item: MentionResult) => {
+    if (mentionStartPos === null) return;
+    const val = inputRef.current?.value || input;
+    const beforePart = val.slice(0, mentionStartPos);
+    
+    // Find end of current query text inside input
+    const cursor = inputRef.current?.selectionStart || val.length;
+    const afterPart = val.slice(cursor);
+    
+    // Insert: @Label
+    const mentionText = `@${item.label} `;
+    const newInput = beforePart + mentionText + afterPart;
+    
+    setInput(newInput);
+    setShowMentionDropdown(false);
+    setSelectedMentions(prev => {
+      if (!prev.find(p => p.id === item.id)) return [...prev, item];
+      return prev;
+    });
+    
+    // Focus back and set cursor
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        const newCursorPos = beforePart.length + mentionText.length;
+        inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
+  };
 
   // ─── Import chat history from ChatWidget popup ──────────
   useEffect(() => {
@@ -352,10 +483,10 @@ const AIAssistant: React.FC = () => {
 
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
-  // ─── Persist messages ───────────────────────────────────
+  // ─── Persist messages  // Save messages whenever they change
   useEffect(() => {
-    if (!isTyping) saveMessages(messages);
-  }, [messages, isTyping]);
+    if (!isTyping && _profile?.id) saveMessages(messages, _profile.id);
+  }, [messages, isTyping, _profile?.id]);
 
   // ─── Persist model/agent selection ──────────────────────
   useEffect(() => { localStorage.setItem(MODEL_STORAGE_KEY, currentModel); }, [currentModel]);
@@ -505,6 +636,15 @@ const AIAssistant: React.FC = () => {
       messageText = (messageText ? messageText + '\n\n' : '') + 'Dưới đây là nội dung tài liệu đính kèm:\n' + fileContents;
     }
 
+    // Inject hidden mentions back into the messageText string so react-loop can extract them
+    if (selectedMentions.length > 0) {
+      const activeMentions = selectedMentions.filter(m => rawText.includes(`@${m.label}`));
+      if (activeMentions.length > 0) {
+        const hiddenTags = activeMentions.map(m => `[//]: # (${encodeMention(m)})`).join('\n');
+        messageText += `\n\n${hiddenTags}`;
+      }
+    }
+
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -514,6 +654,7 @@ const AIAssistant: React.FC = () => {
 
     setMessages(prev => [...prev, userMsg]);
     setInput('');
+    setSelectedMentions([]);
     setIsTyping(true);
 
     // Reset textarea height
@@ -533,7 +674,7 @@ const AIAssistant: React.FC = () => {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    const activeAgent = AGENTS[currentAgent] || Object.values(AGENTS)[0];
+    const activeAgent = dynamicAgents[currentAgent] || Object.values(dynamicAgents)[0];
 
     try {
       // Lazy load to prevent circular logic if any
@@ -560,13 +701,17 @@ const AIAssistant: React.FC = () => {
       // Map 4 agent UI cũ sang agent definitions mới  
       if (currentAgent === 'legal') agentConf = agentDefinitions['BGD'] || autoAgent;
       if (currentAgent === 'drafter') agentConf = agentDefinitions['HCNS'] || autoAgent;
-      if (currentAgent === 'analyst') agentConf = agentDefinitions['TCKT'] || autoAgent;
+      if (currentAgent === 'analyst') agentConf = agentDefinitions['BGD'] || autoAgent;
 
       // Extract existing history for LLM
-      const history = messages.filter(m => m.id !== 'welcome' && m.id !== botMsgId).map(m => ({
-        role: m.role as 'user'|'model',
-        content: m.content
-      }));
+      const history = messages.filter(m => m.id !== 'welcome' && m.id !== botMsgId).map(m => {
+        // Loại bỏ phần text indicator UI để LLM không bị rối context
+        const cleanContent = m.content.replace(/> 🔍 \*Hệ thống đang truy xuất dữ liệu từ công cụ(.*?)\*\n\n/g, '').trim();
+        return {
+          role: m.role as 'user'|'model',
+          content: cleanContent
+        };
+      });
 
       // Track content that accumulates
       let toolContent = '';
@@ -581,8 +726,11 @@ const AIAssistant: React.FC = () => {
         8,
         controller.signal,
         (toolName, args) => {
-          // Callback: tool đang được gọi → hiện indicator
-          toolContent += `\n\n> 🔍 *Hệ thống đang truy xuất dữ liệu từ công cụ \`${toolName}\`...*\n> \`\`\`json\n> ${JSON.stringify(args)}\n> \`\`\`\n\n`;
+          // Callback: tool đang được gọi → hiện indicator siêu gọn
+          const friendlyName = toolName === 'get_contract_stats' ? 'thống kê hợp đồng' : 
+                               toolName === 'get_dashboard_kpi' ? 'chỉ số KPI' : 
+                               toolName === 'export_document' ? 'đóng gói file' : toolName;
+          toolContent += `\n\n> 🔍 *Hệ thống đang truy xuất dữ liệu từ công cụ \`${friendlyName}\`...*\n\n`;
           setMessages(prev => prev.map(m =>
             m.id === botMsgId
               ? { ...m, content: toolContent }
@@ -611,6 +759,28 @@ const AIAssistant: React.FC = () => {
           : m
       ));
 
+      // ─── AUTO-SAVE to DB ────────────────────────
+      if (_profile?.id) {
+        try {
+          let convId = activeConvIdRef.current;
+          if (!convId) {
+            // Tạo conversation mới
+            const title = AiHistory.generateTitle(userMsg.content);
+            const conv = await AiHistory.createConversation(_profile.id, currentAgent, currentModel, title);
+            if (conv) {
+              convId = conv.id;
+              setActiveConvId(conv.id);
+              setConversations(prev => [conv, ...prev]);
+            }
+          }
+          if (convId) {
+            // Lưu cả user msg và bot reply
+            await AiHistory.saveMessage(convId, 'user', userMsg.content);
+            await AiHistory.saveMessage(convId, 'model', finalContent);
+          }
+        } catch (e) { console.warn('[aiChatHistory] save error:', e); }
+      }
+
     } catch (error: any) {
       console.error("Chat Error", error);
       const errDetail = error?.message || String(error);
@@ -637,17 +807,46 @@ const AIAssistant: React.FC = () => {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showMentionDropdown && mentionResults.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex(prev => (prev + 1) % mentionResults.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex(prev => (prev - 1 + mentionResults.length) % mentionResults.length);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        insertMention(mentionResults[mentionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowMentionDropdown(false);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const clearChat = () => {
+  const clearChat = async () => {
     if (window.confirm('Xóa toàn bộ lịch sử chat?')) {
+      // Xóa conversation hiện tại khỏi DB nếu có
+      if (activeConvId) {
+        await AiHistory.deleteConversation(activeConvId);
+        setConversations(prev => prev.filter(c => c.id !== activeConvId));
+        setActiveConvId(null);
+      }
       setMessages([WELCOME_MESSAGE]);
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(getStorageKey(_profile?.id));
     }
   };
 
@@ -662,10 +861,10 @@ const AIAssistant: React.FC = () => {
     handleSend(suggestion);
   };
 
-  const switchAgent = (key: AgentType) => {
+  const switchAgent = (key: string) => {
     setCurrentAgent(key);
     setShowAgentMenu(false);
-    const agent = AGENTS[key];
+    const agent = dynamicAgents[key];
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
       role: 'model',
@@ -684,103 +883,98 @@ const AIAssistant: React.FC = () => {
       isFullScreen ? "fixed inset-0 z-50 rounded-none m-0" : "rounded-[24px] h-[calc(100vh-6rem)] md:h-[calc(100vh-7rem)] lg:h-[calc(100vh-8.5rem)] min-h-[500px] w-full max-w-7xl mx-auto relative"
     )}>
       {/* ═══ Header ═══════════════════════════════════════ */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 z-10 relative">
+      <div className="flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-white via-white to-slate-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 shrink-0 z-10 relative">
         <div className="flex items-center gap-3">
           <div className={cn(
-            "w-10 h-10 rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none",
-            AGENTS[currentAgent].color
+            "w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-2 ring-white/20",
+            dynamicAgents[currentAgent]?.color
           )}>
-            {React.createElement(AGENTS[currentAgent].icon, { size: 20 })}
+            {dynamicAgents[currentAgent]?.icon && React.createElement(dynamicAgents[currentAgent].icon, { size: 20 })}
           </div>
           <div>
             <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg flex items-center gap-2">
-              Trợ lý AI Enterprise
-              <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-wider">v4.0</span>
+              AI Agent
+              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-indigo-100 to-violet-100 dark:from-indigo-900/40 dark:to-violet-900/40 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-wider border border-indigo-200/50 dark:border-indigo-700/50">v5.0</span>
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
-              <span className={cn("w-2 h-2 rounded-full", AGENTS[currentAgent].color)}></span>
-              {AGENTS[currentAgent].name} • {AGENTS[currentAgent].role}
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", dynamicAgents[currentAgent]?.color)}></span>
+                <span className={cn("relative inline-flex rounded-full h-2 w-2", dynamicAgents[currentAgent]?.color)}></span>
+              </span>
+              {dynamicAgents[currentAgent]?.name} • {dynamicAgents[currentAgent]?.role}
             </p>
           </div>
         </div>
 
-        {/* Agent Selector - Desktop: inline tabs */}
-        <div className="hidden md:flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-          {(Object.entries(AGENTS) as [AgentType, typeof AGENTS[AgentType]][]).map(([key, agent]) => {
-            const Icon = agent.icon;
-            const isActive = activeView === 'chat' && currentAgent === key;
-            return (
-              <button
-                key={key}
-                onClick={() => { switchAgent(key); setActiveView('chat'); }}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold transition-all cursor-pointer",
-                  isActive
-                    ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
-                )}
-                title={agent.role}
-              >
-                <Icon size={14} className={isActive ? agent.color.replace('bg-', 'text-') : ''} />
-                {agent.name}
-              </button>
-            );
-          })}
-          {/* Nạp dữ liệu tab */}
+        {/* Agent Selector - Unified Dropdown */}
+        <div className="flex items-center gap-2 relative">
+          <div ref={agentMenuRef}>
+             <button
+              onClick={() => setShowAgentMenu(!showAgentMenu)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+            >
+              {dynamicAgents[currentAgent] && React.createElement(dynamicAgents[currentAgent].icon, { size: 14 })}
+              {dynamicAgents[currentAgent]?.name}
+              <ChevronDown size={12} className={cn("transition-transform", showAgentMenu && "rotate-180")} />
+            </button>
+            {showAgentMenu && (
+              <div className="absolute top-full right-0 md:right-auto mt-1 min-w-[220px] max-w-[280px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 py-1 overflow-hidden" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                {Object.entries(dynamicAgents).map(([key, agent]) => {
+                  const Icon = agent.icon;
+                  const isActive = currentAgent === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => switchAgent(key)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer text-left",
+                        isActive
+                          ? "bg-slate-50 dark:bg-slate-700/50 text-indigo-600 dark:text-indigo-400 font-bold border-l-2 border-indigo-500"
+                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 font-medium border-l-2 border-transparent"
+                      )}
+                    >
+                      <Icon size={16} className={isActive ? agent.color.replace('bg-', 'text-') : 'text-slate-400'} />
+                      <div className="truncate">
+                        <div className="font-semibold text-xs leading-none mb-1">{agent.name}</div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate">{agent.role}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={() => setActiveView('ingest')}
             className={cn(
-              "px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold transition-all cursor-pointer",
+              "px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer",
               activeView === 'ingest'
-                ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-slate-100"
-                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
+                ? "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-800/50"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
             )}
             title="Nạp dữ liệu bằng AI"
           >
-            <Database size={14} className={activeView === 'ingest' ? 'text-violet-500' : ''} />
-            Nạp dữ liệu
+            <Database size={14} className={activeView === 'ingest' ? '' : 'text-slate-400'} />
+            <span className="hidden md:inline">Nạp dữ liệu</span>
           </button>
-        </div>
-
-        {/* Agent Selector - Mobile: dropdown */}
-        <div className="flex md:hidden relative" ref={agentMenuRef}>
-          <button
-            onClick={() => setShowAgentMenu(!showAgentMenu)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
-          >
-            {React.createElement(AGENTS[currentAgent].icon, { size: 14 })}
-            {AGENTS[currentAgent].name}
-            <ChevronDown size={12} className={cn("transition-transform", showAgentMenu && "rotate-180")} />
-          </button>
-          {showAgentMenu && (
-            <div className="absolute top-full right-0 mt-1 w-52 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 py-1 overflow-hidden">
-              {(Object.entries(AGENTS) as [AgentType, typeof AGENTS[AgentType]][]).map(([key, agent]) => {
-                const Icon = agent.icon;
-                const isActive = currentAgent === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => switchAgent(key)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer",
-                      isActive
-                        ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-bold"
-                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
-                    )}
-                  >
-                    <Icon size={16} className={agent.color.replace('bg-', 'text-')} />
-                    <div className="text-left">
-                      <div className="font-semibold">{agent.name}</div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500">{agent.role}</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         <div className="flex items-center gap-1">
+          <button
+            onClick={newConversation}
+            className="p-2 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-all cursor-pointer"
+            title="Cuộc trò chuyện mới"
+          >
+            <Plus size={18} />
+          </button>
+          <button
+            onClick={() => { setShowHistory(!showHistory); if (!showHistory && _profile?.id) AiHistory.getConversations(_profile.id).then(c => setConversations(c)); }}
+            className={cn("p-2 rounded-lg transition-all cursor-pointer", showHistory ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20" : "text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20")}
+            title="Lịch sử hội thoại"
+          >
+            <Clock size={18} />
+          </button>
           <button
             onClick={() => setShowSettings(true)}
             className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all cursor-pointer"
@@ -804,6 +998,59 @@ const AIAssistant: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* ═══ Chat History Sidebar ═══ */}
+      {showHistory && (
+        <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 max-h-[40vh] overflow-y-auto">
+          <div className="px-4 py-2 flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <MessageSquare size={13} /> Lịch sử hội thoại ({conversations.length})
+            </p>
+            <button onClick={() => setShowHistory(false)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
+              <X size={14} />
+            </button>
+          </div>
+          {conversations.length === 0 ? (
+            <p className="px-4 py-6 text-center text-xs text-slate-400">Chưa có cuộc hội thoại nào</p>
+          ) : (
+            <div className="pb-2">
+              {conversations.map(conv => (
+                <button
+                  key={conv.id}
+                  onClick={() => loadConversation(conv)}
+                  className={cn(
+                    "w-full text-left px-4 py-2.5 text-sm transition-colors cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 flex items-start gap-3 group",
+                    activeConvId === conv.id && "bg-indigo-50 dark:bg-indigo-900/20 border-l-2 border-indigo-500"
+                  )}
+                >
+                  <MessageSquare size={14} className="mt-0.5 text-slate-400 group-hover:text-indigo-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
+                      {conv.title || 'Cuộc hội thoại không có tiêu đề'}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {new Date(conv.updated_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (window.confirm('Xóa cuộc hội thoại này?')) {
+                        await AiHistory.deleteConversation(conv.id);
+                        setConversations(prev => prev.filter(c => c.id !== conv.id));
+                        if (activeConvId === conv.id) newConversation();
+                      }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-500 transition-all cursor-pointer"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ═══ Conditional Render: Chat or Data Ingestion ═══ */}
       {activeView === 'ingest' ? (
@@ -836,7 +1083,7 @@ const AIAssistant: React.FC = () => {
                   "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border",
                   msg.role === 'user'
                     ? "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
-                    : cn("border-transparent text-white shadow-md shadow-indigo-200 dark:shadow-none", AGENTS[currentAgent].color)
+                    : cn("border-transparent text-white shadow-md shadow-indigo-200 dark:shadow-none", dynamicAgents[currentAgent]?.color)
                 )}>
                   {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
                 </div>
@@ -888,7 +1135,7 @@ const AIAssistant: React.FC = () => {
             {/* ═══ Suggestion Chips ═══════════════════════════ */}
             {showSuggestions && (
               <div className="flex flex-wrap gap-2 justify-center pt-2 pb-1">
-                {AGENTS[currentAgent].suggestions.map((sug, idx) => (
+                {dynamicAgents[currentAgent]?.suggestions?.map((sug: string, idx: number) => (
                   <button
                     key={idx}
                     onClick={() => handleSuggestionClick(sug)}
@@ -912,34 +1159,33 @@ const AIAssistant: React.FC = () => {
             <div className="max-w-4xl mx-auto">
               {/* Model Selector — above input on mobile, inline on desktop */}
               <div className="flex items-center gap-2 mb-2">
-                <select
-                  value={currentModel}
-                  onChange={(e) => setCurrentModel(e.target.value)}
-                  className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-[10px] font-bold text-slate-600 dark:text-slate-300 py-1.5 px-2 rounded-lg cursor-pointer focus:outline-none border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700 transition-all"
-                  title="Chọn Model AI"
-                >
-                  <optgroup label="🖥️ Local AI (Bảo mật 100%)">
-                    {localAITestResult?.ok && localAITestResult.models.length > 0 ? (
-                      localAITestResult.models.map(m => (
-                        <option key={m} value={m}>🦖 {m} (Local)</option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="qwen2.5-7b">🦖 Qwen 2.5 7B (Local)</option>
-                        <option value="qwen2.5-14b">🦖 Qwen 2.5 14B (Local)</option>
-                      </>
-                    )}
-                  </optgroup>
-                  <optgroup label="🔑 Cloud AI (Hệ thống)">
-                    <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash (Tốc độ, Mặc định)</option>
-                    <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro (Phân tích sâu)</option>
-                  </optgroup>
-                  <optgroup label="🔐 Cloud AI (Yêu cầu API Key)">
-                    <option value="gpt-4o">🤖 GPT-4o (Xịn nhất chung)</option>
-                    <option value="deepseek-chat">💬 DeepSeek Chat V3 (Giá rẻ)</option>
-                    <option value="deepseek-r1">🤔 DeepSeek R1 (Suy luận đỉnh cao)</option>
-                  </optgroup>
-                </select>
+                {['Admin', 'Leadership', 'Dev'].includes(_profile?.role || '') ? (
+                  <select
+                    value={currentModel}
+                    onChange={(e) => setCurrentModel(e.target.value)}
+                    className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-[10px] font-bold text-slate-600 dark:text-slate-300 py-1.5 px-2 rounded-lg cursor-pointer focus:outline-none border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700 transition-all"
+                    title="Chọn Model AI"
+                  >
+                    <optgroup label="🖥️ Local AI (Bảo mật 100%)">
+                      <option value="qwen2.5-7b">🌱 Qwen 2.5 7B (Bảo mật & Tốc độ x2)</option>
+                      <option value="qwen3.5-27b">⚡ Qwen 3.5 27B (Tốc độ VIP)</option>
+                    </optgroup>
+                    <optgroup label="🔑 Cloud AI (Hệ thống)">
+                      <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash (Tốc độ, Mặc định)</option>
+                      <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro (Phân tích sâu)</option>
+                    </optgroup>
+                    <optgroup label="🔐 Cloud AI (Yêu cầu API Key)">
+                      <option value="gpt-4o">🤖 GPT-4o (Xịn nhất chung)</option>
+                      <option value="deepseek-chat">💬 DeepSeek Chat V3 (Giá rẻ)</option>
+                      <option value="deepseek-r1">🤔 DeepSeek R1 (Suy luận đỉnh cao)</option>
+                    </optgroup>
+                  </select>
+                ) : (
+                  <div className="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                    <Database size={12} />
+                    <span>Qwen 2.5 7B (Bảo mật & Tốc độ)</span>
+                  </div>
+                )}
               </div>
 
               {attachedFiles.length > 0 && (
@@ -957,6 +1203,32 @@ const AIAssistant: React.FC = () => {
               )}
 
               <div className="relative flex items-center">
+                {showMentionDropdown && mentionResults.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-2 w-72 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+                    <div className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900/50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700">
+                      Đề xuất tag
+                    </div>
+                    <div className="max-h-48 overflow-y-auto p-1">
+                      {mentionResults.map((item, idx) => (
+                        <button
+                          key={`${item.type}-${item.id}`}
+                          onClick={(e) => { e.preventDefault(); insertMention(item); }}
+                          onMouseEnter={() => setMentionIndex(idx)}
+                          className={cn(
+                            "w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors",
+                            idx === mentionIndex ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300" : "hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300"
+                          )}
+                        >
+                          <span className="text-base leading-none pt-0.5">{item.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold truncate">{item.label}</div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{item.sublabel}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <input
                   type="file"
                   multiple
@@ -981,7 +1253,21 @@ const AIAssistant: React.FC = () => {
                 <textarea
                   ref={inputRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setInput(val);
+                    const cursor = e.target.selectionStart;
+                    const textBeforeCursor = val.slice(0, cursor);
+                    const match = textBeforeCursor.match(/@([a-zA-Z0-9_\-\sàáãạảăắằẳẵặâấầẩẫậèéẹẻẽêềếểễệđìíĩỉịòóõọỏôốồổỗộơớờởỡợùúũụủưứừửữựỳỵỷỹýÀÁÃẠẢĂẮẰẲẴẶÂẤẦẨẪẬÈÉẸẺẼÊỀẾỂỄỆĐÌÍĨỈỊÒÓÕỌỎÔỐỒỔỖỘƠỚỜỞỠỢÙÚŨỤỦƯỨỪỬỮỰỲỴỶỸÝ]*)$/);
+                    if (match) {
+                      const query = match[1];
+                      setMentionStartPos(match.index !== undefined ? match.index : null);
+                      setShowMentionDropdown(true);
+                      handleSearchMention(query);
+                    } else {
+                      setShowMentionDropdown(false);
+                    }
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder="Hỏi AI hoặc đính kèm hợp đồng để phân tích..."
                   className="w-full pl-12 pr-14 py-4 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-indigo-500 dark:focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 rounded-[20px] resize-none max-h-40 min-h-[56px] shadow-sm text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all"

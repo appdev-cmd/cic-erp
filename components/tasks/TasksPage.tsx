@@ -1617,6 +1617,21 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // ─── Realtime Subscription: Auto-refresh khi task được tạo/sửa/xóa ───
+  useEffect(() => {
+    const channel = dataClient
+      .channel('tasks-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+        // Auto-reload khi có thay đổi (INSERT từ AI Agent, UPDATE status, DELETE)
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      dataClient.removeChannel(channel);
+    };
+  }, [loadData]);
+
   // Tasks are primarily governed by visibilityContext and personal filters
   // Therefore, we do not filter personal tasks out by the global selectedUnit.
   const filteredTasks = tasks;

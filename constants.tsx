@@ -79,8 +79,7 @@ export const NAV_ITEMS = [
   { id: 'payments', label: 'Tài chính', icon: <Package size={20} /> },
   { id: 'projects', label: 'Dự án', icon: <Landmark size={20} /> },
   { id: 'analytics', label: 'Thống kê', icon: <PieChart size={20} />, devOnly: true },
-  { id: 'ai-assistant', label: 'AI Phân tích', icon: <BrainCircuit size={20} /> },
-  { id: 'agent-manager', label: 'Quản lý AI', icon: <Bot size={20} /> },
+  { id: 'ai-assistant', label: 'AI Agent', icon: <BrainCircuit size={20} /> },
   { id: 'tools', label: 'Công cụ', icon: <Wrench size={20} /> },
   { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
 
@@ -93,6 +92,7 @@ export const NAV_ITEMS = [
   { id: 'hrm', label: 'Nhân sự HR', icon: <Briefcase size={20} /> },
   { id: 'products', label: 'Sản phẩm/DV', icon: <Package size={20} /> },
   { id: 'customers', label: 'Đối tác', icon: <Handshake size={20} /> },
+  { id: 'agent-manager', label: 'Danh sách Agent', icon: <Bot size={20} /> },
   { id: 'user-guide', label: 'Hướng dẫn', icon: <HelpCircle size={20} /> },
 
   { id: 'settings', label: 'Cài đặt', icon: <Settings size={20} /> },

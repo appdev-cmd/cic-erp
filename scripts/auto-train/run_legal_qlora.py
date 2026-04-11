@@ -12,7 +12,7 @@ print("🛑 [1/5] Đang ngắt tạm thời vLLM Server để lấy toàn bộ 1
 subprocess.run(["sudo", "docker", "stop", "vllm_server"], stderr=subprocess.DEVNULL)
 print("✅ Đã giải phóng RAM!")
 
-os.environ["HF_HUB_OFFLINE"] = "1"
+# os.environ["HF_HUB_OFFLINE"] = "1"
 
 print("🚀 [2/5] Khởi động Unsloth Framework. Chuẩn bị Load Model Gemma 4 31B...")
 max_seq_length = 4096 # Giữ vừa phải cho 31B + 128GB VRAM
@@ -97,12 +97,12 @@ try:
     model.save_pretrained(save_path) # Chỉ lưu phần khôn thêm (lora) tránh tốn vài chục GB ổ cứng
     tokenizer.save_pretrained(save_path)
     
-    print(f"🎉 Hoàn tất Auto-Trainer! Bộ não nâng cấp đã được lưu tại {save_path}")
+    print(f"🎉 Hoàn tất Auto-Trainer! Bộ năng nâng cấp đã được lưu tại {save_path}")
     print("🔄 Đang khởi động lại vLLM Server để áp dụng bộ não mới...")
-    subprocess.run(["sudo", "docker", "start", "vllm_server"])
+    subprocess.run(["bash", "/home/cic-ai/cic-project/cic-erp/scripts/ai/vllm/start_legal_vllm.sh"])
     print("✨ vLLM Server Đã Lên!")
 
 except Exception as e:
     print(f"❌ LỖI NGHIÊM TRỌNG TRONG QUÁ TRÌNH TRAIN: {e}")
     print("🔄 Cố gắng khôi phục lại vLLM Server vì lỗi...")
-    subprocess.run(["sudo", "docker", "start", "vllm_server"])
+    subprocess.run(["bash", "/home/cic-ai/cic-project/cic-erp/scripts/ai/vllm/start_legal_vllm.sh"])

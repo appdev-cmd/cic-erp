@@ -13,9 +13,9 @@ const __dirname = path.dirname(__filename);
 
 // Config API - We use vLLM running on localhost with Llama 70B (Or Qwen fallback)
 const API_BASE = 'http://127.0.0.1:8000/v1';
-const API_KEY = 'empty';
-const TEACHER_MODEL = 'hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4';
-const FALLBACK_MODEL = 'Qwen/Qwen3.5-27B-Instruct-AWQ';
+const API_KEY = 'cic-local-2026';
+const TEACHER_MODEL = 'cic-legal-14b';
+const FALLBACK_MODEL = 'cic-legal-14b';
 
 const LEGAL_DOCS_DIR = path.join(__dirname, 'data/legal_docs');
 const OUTPUT_FILE = path.join(__dirname, 'dataset/legal_training_data.jsonl');
@@ -25,9 +25,15 @@ async function extractTextFromFile(filePath) {
     if (ext === '.txt') {
         return fs.readFileSync(filePath, 'utf8');
     } else if (ext === '.pdf') {
-        const dataBuffer = fs.readFileSync(filePath);
-        const data = await pdf(dataBuffer);
-        return data.text;
+        const { execSync } = require('child_process');
+        try {
+            // Dùng pdftotext của hệ thống để trích xuất text chuẩn xác nhất
+            const text = execSync(`pdftotext "${filePath}" -`, { encoding: 'utf8', maxBuffer: 100 * 1024 * 1024 });
+            return text;
+        } catch (e) {
+            console.error(`Lỗi trích xuất PDF với pdftotext cho file ${filePath}:`, e.message);
+            return '';
+        }
     } else if (ext === '.docx') {
         const result = await mammoth.extractRawText({ path: filePath });
         return result.value;
@@ -68,10 +74,11 @@ VĂN BẢN (Nguồn: ${fileContext}):`;
 
         const data = await response.json();
         if (data.error) {
-           if (data.error.message.includes('does not exist') && !useFallback) {
+           const errMsg = data.error.message || data.error.toString() || '';
+           if (errMsg.includes('does not exist') && !useFallback) {
                return await generateQAPairs(chunkText, fileContext, true);
            }
-           throw new Error(data.error.message);
+           throw new Error(errMsg);
         }
 
         let content = data.choices[0].message.content.trim();

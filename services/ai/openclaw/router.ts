@@ -54,17 +54,16 @@ export function routeUserToAgent(context: UserContext): DepartmentAgent {
  * - UNIT_SCOPED_ROLES (NVKD, NVKT...) → chỉ agent đơn vị mình + SYSTEM + BGD
  */
 export function getVisibleAgents(context: UserContext): DepartmentAgent[] {
-  const globalRoles = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
+  const globalRoles = ['Admin', 'Leadership', 'Dev'];
   const allAgents = Object.values(agentDefinitions);
 
   if (globalRoles.includes(context.role)) {
     return allAgents;
   }
 
-  // Unit-scoped: chỉ thấy agent đơn vị mình + BGD + SYSTEM  
+  // Unit-scoped: chỉ thấy agent đơn vị mình
   const unitCode = (context.unitCode || '').toUpperCase();
   return allAgents.filter(a => 
-    a.departmentId === '*' || // BGD, SYSTEM
     a.departmentId === unitCode
   );
 }

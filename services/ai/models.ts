@@ -46,7 +46,7 @@ export const AI_MODELS: AIModel[] = [
     isEnabled: true,
   },
   {
-    id: 'cluster-1-legal',
+    id: 'qwen2.5-14b',
     name: 'Cụm 1 — Pháp chế AI (14B)',
     provider: 'local',
     contextWindow: 4096,

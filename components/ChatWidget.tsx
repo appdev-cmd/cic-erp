@@ -73,7 +73,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
         scrollToBottom();
     }, [messages, isOpen]);
 
-    // ─── Expand: Phóng lớn sang AI Phân tích ───────────────────
+    // ─── Expand: Phóng lớn sang AI Agent ───────────────────
     const handleExpand = () => {
         // Lưu lịch sử chat (bỏ welcome message) vào localStorage
         const chatHistory = messages.filter(m => m.id !== 'welcome').map(m => ({
@@ -142,7 +142,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                 }));
             
             // Lấy model ưu tiên
-            const modelId = localStorage.getItem('cic_local_ai_model') || 'cluster-1-legal';
+            const modelId = localStorage.getItem('cic_local_ai_model') || 'qwen2.5-14b';
             
             const stream = streamChat({
                 messages: [

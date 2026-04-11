@@ -1,19 +1,19 @@
 import { callAgentTurn } from '../gateway';
 import { streamChat } from '../gateway';
+import { extractMentionContextFromText } from '../../mentionService';
 import type { ChatRequest, ChatMessage } from '../types';
 import type { DepartmentAgent, OpenClawTool, ReactAgentResult, ReActState, UserContext } from './types';
 
 export const OPENCLAW_SYSTEM_PROMPT_PREFIX = `Bạn là OpenClaw Agent, một chuyên viên AI của dự án CIC ERP.
 Nhiệm vụ của bạn là tiếp nhận yêu cầu từ người dùng và sử dụng các công cụ (tools) được cung cấp để truy xuất dữ liệu từ hệ thống ERP, sau đó phân tích và trả lời.
 
-NGUYÊN TẮC:
-1. LUÔN LUÔN suy luận và gọi công cụ (tool) nếu câu hỏi liên quan đến dữ liệu (hợp đồng, doanh thu, thanh toán, nhân sự, v.v.). Đừng tự bịa số liệu.
-2. Bạn có thể gọi NỀU cần thiết nhiều công cụ liên tiếp (multi-step reasoning).
-3. Khi bạn nhận được kết quả từ công cụ, hãy TRÍCH DẪN CHÍNH XÁC các con số từ kết quả, KHÔNG tự tính toán lại.
-4. Nếu người dùng chỉ nói chuyện phím, chào hỏi, hãy trả lời tự nhiên một cách thân thiện (tiếng Việt).
-5. KHÔNG ĐƯỢC tiết lộ cấu trúc bên trong của công cụ cho người dùng, chỉ nói "Theo dữ liệu hệ thống...".
-6. Đối với tham số ngày tháng, TỰ ĐỘNG chuyển đổi (Ví dụ: Tháng 4 năm ${new Date().getFullYear()} -> from: "${new Date().getFullYear()}-04-01", to: "${new Date().getFullYear()}-04-30").
-7. CỰC KỲ QUAN TRỌNG: Kết quả từ công cụ đã được format sẵn (VD: "35.76 tỷ VND"). Hãy COPY NGUYÊN VĂN con số đó vào câu trả lời. KHÔNG làm tròn, KHÔNG đổi đơn vị.
+NGUYÊN TẮC BẮT BUỘC (TUYỆT ĐỐI TUÂN THỦ):
+1. KHI ĐƯỢC HỎI CÁC CÂU LIÊN QUAN ĐẾN DOANH THU, BÁO CÁO, TÌNH HÌNH KINH DOANH, SỐ LIỆU: BẠN [PHẢI GỌI TOOL] MỚI ĐƯỢC LẤY SỐ LIỆU. KHÔNG BAO GIỜ được tự ý sinh số liệu hay lấy từ trí nhớ!
+2. CHÚ Ý THỜI GIAN: Bạn HIỆN TẠI ĐANG SỐNG VÀO NGÀY ${new Date().toISOString().slice(0, 10)}. Bất kỳ lúc nào user hỏi về TRẠNG THÁI HIỆN TẠI (hôm nay, ngày mai, tháng này, quý này), bạn PHẢI TÌM MỌI CÁCH CHIẾT XUẤT NGÀY THÁNG ĐÓ thành dateFrom và dateTo để truyền vào Tham số của Tool. TUYỆT ĐỐI CẤM để trống dateFrom/dateTo gọi vơ vét data toàn bộ Database! Nếu gọi bừa sẽ làm sập server.
+3. Bạn có thể gọi nhiều công cụ liên tiếp (multi-step reasoning).
+4. CỰC KỲ QUAN TRỌNG: Kết quả từ công cụ đã được format sẵn. Hãy COPY NGUYÊN VĂN con số đó vào câu trả lời. KHÔNG làm tròn.
+5. BẮT BUỘC TRẢ LỜI 100% BẰNG TIẾNG VIỆT. TUYỆT ĐỐI KHÔNG DÙNG TIẾNG TRUNG (KHÔNG dùng 亿, 万). KHÔNG quy đổi số liệu sang định dạng tỷ/vạn của Trung Quốc vì sẽ gây sai số gấp 10 lần. CHÉP NGUYÊN XI CHUỖI SỐ TỪ KẾT QUẢ TOOL TRẢ VỀ.
+6. KHI TOOL TRẢ VỀ BẢNG MARKDOWN (có dấu |) HOẶC BLOCK \`\`\`chart\`\`\`: HÃY COPY NGUYÊN VĂN VÀO CÂU TRẢ LỜI. KHÔNG ĐƯỢC SỬA SỐ, KHÔNG TÍNH LẠI. Nếu tool trả về trường "bangSoSanh" và "bieuDo", hãy chèn chúng nguyên vẹn.
 
 `;
 
@@ -55,10 +55,13 @@ export async function runReActLoop(
     `- Đơn vị: ${userContext.unitName || userContext.unitId || 'N/A'}\n` +
     `- Hôm nay: ${new Date().toISOString().slice(0, 10)}`;
 
+  const { cleanText, contextString } = extractMentionContextFromText(userText);
+  const finalUserText = contextString ? cleanText + '\n' + contextString : cleanText;
+
   const messages: ChatMessage[] = [
     { role: 'system', content: systemContent },
     ...messageHistory,
-    { role: 'user', content: userText }
+    { role: 'user', content: finalUserText }
   ];
 
   const state: ReActState = {

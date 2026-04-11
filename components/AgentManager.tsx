@@ -86,7 +86,7 @@ const AgentManager: React.FC = () => {
             <div className="p-2.5 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl text-white shadow-lg">
               <Sparkles size={22} />
             </div>
-            Quản lý AI Agents
+            Danh sách Agent
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Cấu hình trợ lý AI cho từng phòng ban • {activeCount}/{agents.length} đang hoạt động • {totalUsage.toLocaleString()} lượt sử dụng

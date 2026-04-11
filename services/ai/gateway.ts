@@ -28,7 +28,7 @@ function getConfig(): GatewayConfig {
   return {
     localBaseURL: getLocalAIBaseURL(),
     localApiKey: 'sk-cic-2026',  // LiteLLM master key
-    defaultModel: 'cluster-1-legal',   // LiteLLM model alias — Cụm 1
+    defaultModel: 'qwen2.5-14b',   // LiteLLM model alias — Cụm 1
     maxRetries: 2,
     timeoutMs: 120000,
     enableLogging: true,
