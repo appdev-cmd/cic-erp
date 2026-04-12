@@ -20,6 +20,16 @@ import DateInput from './ui/DateInput';
 import AcceptanceDialog from './ui/AcceptanceDialog';
 import { useColumnResize } from '../hooks/useColumnResize';
 
+import { 
+  computeDatesFromPeriodYear, 
+  CONTRACT_TABLE_COLUMNS, 
+  ACTIVE_STATUSES, 
+  ContractListStats, 
+  ContractListWarningChips,
+  TABLE_HEADERS 
+} from './ContractListSubComponents';
+import { ContractListTableRow } from './ContractListTableRow';
+
 // Inline debounce hook if not exists, but better to check. 
 // For now, I'll use a simple useEffect debounce logic.
 
@@ -66,34 +76,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [tagFilterIds, setTagFilterIds] = useState<string[] | undefined>(undefined);
   const [contractTagsMap, setContractTagsMap] = useState<Map<string, string[]>>(new Map());
 
-  // Helper: compute dateFrom/dateTo from period + year (pure function)
-  const computeDatesFromPeriodYear = (period: string, year: string): { from: string; to: string } => {
-    if (period && period !== '') {
-      const y = (year && year !== 'All') ? parseInt(year) : new Date().getFullYear();
-      if (period.startsWith('M')) {
-        const m = parseInt(period.substring(1));
-        const first = `${y}-${String(m).padStart(2, '0')}-01`;
-        const lastDay = new Date(y, m, 0).getDate();
-        const last = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-        return { from: first, to: last };
-      }
-      if (period.startsWith('Q')) {
-        const q = parseInt(period.substring(1));
-        const sm = (q - 1) * 3 + 1;
-        const em = q * 3;
-        const first = `${y}-${String(sm).padStart(2, '0')}-01`;
-        const lastDay = new Date(y, em, 0).getDate();
-        const last = `${y}-${String(em).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-        return { from: first, to: last };
-      }
-    }
-    // "Cả năm"
-    if (year && year !== 'All') {
-      const y = parseInt(year);
-      return { from: `${y}-01-01`, to: `${y}-12-31` };
-    }
-    return { from: '', to: '' };
-  };
+  // Helper: compute dateFrom/dateTo from period + year (imported)
 
   // Date range filter — initialized from period+year (NOT stale localStorage)
   const initialDates = useMemo(() => computeDatesFromPeriodYear(periodFilter, yearFilter), []);
@@ -148,34 +131,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [acceptancePendingId, setAcceptancePendingId] = useState<string | null>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
-  // === Resizable columns ===
-  const CONTRACT_TABLE_COLUMNS = useMemo(() => [
-    { key: 'stt', defaultWidth: 36, minWidth: 30 },
-    { key: 'contractCode', defaultWidth: 140, minWidth: 80 },
-    { key: 'title', defaultWidth: 380, minWidth: 150 },
-    { key: 'value', defaultWidth: 115, minWidth: 70 },
-    { key: 'revenue', defaultWidth: 115, minWidth: 70 },
-    { key: 'cash', defaultWidth: 115, minWidth: 70 },
-    { key: 'adminProfit', defaultWidth: 115, minWidth: 70 },
-    { key: 'revProfit', defaultWidth: 115, minWidth: 70 },
-    { key: 'margin', defaultWidth: 52, minWidth: 40 },
-    { key: 'status', defaultWidth: 130, minWidth: 80 },
-    { key: 'actions', defaultWidth: 42, minWidth: 32 },
-  ], []);
-
   const { columnWidths, onResizeStart, isResizing, resetWidths } = useColumnResize({
     tableId: 'contract-list',
     userId: realProfile?.id,
     columns: CONTRACT_TABLE_COLUMNS,
   });
-
-  const ACTIVE_STATUSES = [
-    { value: 'Processing', label: 'Đang thực hiện', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800' },
-    { value: 'Suspended', label: 'Tạm dừng/Huỷ', color: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800' },
-    { value: 'Handover', label: 'Bàn giao', color: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800' },
-    { value: 'Acceptance', label: 'Nghiệm thu/TL', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800' },
-    { value: 'Completed', label: 'Hoàn thành', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' },
-  ];
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -761,115 +721,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       </div>
 
       {/* COLLAPSIBLE STATS SECTION */}
-      <div>
-
-        {/* Animated Container */}
-        <div
-          className="overflow-hidden transition-all duration-300 ease-in-out"
-          style={{
-            maxHeight: statsCollapsed ? '0px' : '300px',
-            opacity: statsCollapsed ? 0 : 1,
-            marginTop: statsCollapsed ? '0px' : '0px',
-          }}
-        >
-          <div className="space-y-3 pb-1">
-            {/* SCORE CARDS */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-              {/* Total Contracts */}
-              <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 dark-card-glow">
-                <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
-                  <Briefcase size={20} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng số hồ sơ</p>
-                  <p className="text-xl font-black text-slate-900 dark:text-slate-100">{metrics.totalContracts}</p>
-                </div>
-              </div>
-
-              {/* Total Value */}
-              <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 dark-card-glow">
-                <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                  <DollarSign size={20} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng giá trị ký</p>
-                  <p className="text-base font-black text-indigo-600 dark:text-indigo-400">
-                    {formatCurrency(metrics.totalValue)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Revenue */}
-              <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 dark-card-glow">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <TrendingUp size={20} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Doanh thu thực tế</p>
-                  <p className="text-base font-black text-emerald-600 dark:text-emerald-400">
-                    {formatCurrency(metrics.totalRevenue)}
-                  </p>
-                </div>
-              </div>
-
-              {/* LNG Quản trị */}
-              <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 dark-card-glow">
-                <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                  <DollarSign size={20} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">LNG Quản trị</p>
-                  <p className="text-base font-black text-amber-600 dark:text-amber-400">
-                    {formatCurrency(metrics.totalProfit)}
-                  </p>
-                </div>
-              </div>
-
-              {/* LNG Doanh thu */}
-              <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 dark-card-glow">
-                <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                  <DollarSign size={20} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">LNG Doanh thu</p>
-                  <p className="text-base font-black text-purple-600 dark:text-purple-400">
-                    {formatCurrency(metrics.totalRevenueProfit)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* STATUS FILTER CARDS */}
-            {(() => {
-              const statusCards: { status: ContractStatus; label: string; count: number; icon: React.ReactNode; color: string; bgColor: string }[] = [
-                { status: 'Processing', label: 'Đang thực hiện', count: metrics.processingCount, icon: <Clock size={16} />, color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-900/25 border border-orange-100 dark:border-orange-800/40' },
-                { status: 'Suspended', label: 'Tạm dừng/Huỷ', count: metrics.suspendedCount, icon: <AlertCircle size={16} />, color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/25 border border-red-100 dark:border-red-800/40' },
-                { status: 'Handover', label: 'Bàn giao', count: metrics.handoverCount, icon: <PackageCheck size={16} />, color: 'text-cyan-600 dark:text-cyan-400', bgColor: 'bg-cyan-50 dark:bg-cyan-900/25 border border-cyan-100 dark:border-cyan-800/40' },
-                { status: 'Acceptance', label: 'Nghiệm thu/TL', count: metrics.acceptanceCount, icon: <FileText size={16} />, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/25 border border-blue-100 dark:border-blue-800/40' },
-                { status: 'Completed', label: 'Hoàn thành', count: metrics.completedCount, icon: <CheckCircle size={16} />, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-50 dark:bg-emerald-900/25 border border-emerald-100 dark:border-emerald-800/40' },
-              ];
-              return (
-                <div className="grid grid-cols-5 gap-2">
-                  {statusCards.map(sc => (
-                    <button
-                      key={sc.status}
-                      onClick={() => setStatusFilter(statusFilter === sc.status ? 'All' : sc.status)}
-                      className={`${sc.bgColor} rounded-lg px-2 py-2 flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] ${statusFilter === sc.status ? 'ring-2 ring-indigo-500 shadow-lg' : ''
-                        }`}
-                    >
-                      <div className={sc.color}>{sc.icon}</div>
-                      <div>
-                        <p className={`text-[9px] font-bold ${sc.color} uppercase`}>{sc.label}</p>
-                        <p className={`text-lg font-black ${sc.color}`}>{sc.count}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      </div>
+      <ContractListStats
+        metrics={metrics}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        statsCollapsed={statsCollapsed}
+      />
 
       <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 shadow-md flex flex-wrap gap-3 items-center">
         {/* Search + Tag suggestions */}
@@ -995,75 +852,12 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         )}
       </div>
 
-      {/* WARNING FILTER CHIPS — chỉ hiện khi có cảnh báo */}
-      {hasAnyWarning && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Cảnh báo:</span>
-          {warningCounts.overdueAdvance > 0 && (
-            <button
-              onClick={() => setWarningFilter(warningFilter === 'overdueAdvance' ? 'none' : 'overdueAdvance')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
-                warningFilter === 'overdueAdvance'
-                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-400 dark:border-amber-600 ring-2 ring-amber-500/40 shadow-sm'
-                  : 'bg-amber-50 dark:bg-amber-900/15 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700'
-              }`}
-            >
-              <AlertTriangle size={13} />
-              QH tạm ứng
-              <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                warningFilter === 'overdueAdvance'
-                  ? 'bg-amber-500 text-white'
-                  : 'bg-amber-200 dark:bg-amber-800 text-amber-700 dark:text-amber-300'
-              }`}>{warningCounts.overdueAdvance}</span>
-            </button>
-          )}
-          {warningCounts.overduePayment > 0 && (
-            <button
-              onClick={() => setWarningFilter(warningFilter === 'overduePayment' ? 'none' : 'overduePayment')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
-                warningFilter === 'overduePayment'
-                  ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-400 dark:border-red-600 ring-2 ring-red-500/40 shadow-sm'
-                  : 'bg-red-50 dark:bg-red-900/15 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 hover:border-red-300 dark:hover:border-red-700'
-              }`}
-            >
-              <AlertCircle size={13} />
-              QH thanh toán
-              <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                warningFilter === 'overduePayment'
-                  ? 'bg-red-500 text-white'
-                  : 'bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-300'
-              }`}>{warningCounts.overduePayment}</span>
-            </button>
-          )}
-          {warningCounts.acceptedNoInvoice > 0 && (
-            <button
-              onClick={() => setWarningFilter(warningFilter === 'acceptedNoInvoice' ? 'none' : 'acceptedNoInvoice')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
-                warningFilter === 'acceptedNoInvoice'
-                  ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-400 dark:border-purple-600 ring-2 ring-purple-500/40 shadow-sm'
-                  : 'bg-purple-50 dark:bg-purple-900/15 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900/30 hover:border-purple-300 dark:hover:border-purple-700'
-              }`}
-            >
-              <FileText size={13} />
-              Chưa xuất HĐ
-              <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                warningFilter === 'acceptedNoInvoice'
-                  ? 'bg-purple-500 text-white'
-                  : 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300'
-              }`}>{warningCounts.acceptedNoInvoice}</span>
-            </button>
-          )}
-          {warningFilter !== 'none' && (
-            <button
-              onClick={() => setWarningFilter('none')}
-              className="p-1.5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
-              title="Bỏ lọc cảnh báo"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      )}
+      {/* WARNING FILTER CHIPS */}
+      <ContractListWarningChips
+        warningCounts={warningCounts}
+        warningFilter={warningFilter}
+        setWarningFilter={setWarningFilter}
+      />
 
       {/* TABLE */}
       <div className={`bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)] ${isResizing ? 'select-none' : ''}`}>
@@ -1076,19 +870,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </colgroup>
           <thead>
             <tr className="z-20">
-              {[
-                { key: 'stt', label: 'STT', align: 'center' },
-                { key: 'contractCode', label: 'Số HĐ', align: 'center', sortKey: 'signedDate' },
-                { key: 'title', label: 'Nội dung hợp đồng', align: 'center', sortKey: 'title' },
-                { key: 'value', label: 'Ký kết', align: 'center', sortKey: 'value' },
-                { key: 'revenue', label: 'Doanh thu', align: 'center', sortKey: 'actualRevenue' },
-                { key: 'cash', label: 'Tiền về', align: 'center' },
-                { key: 'adminProfit', label: 'LNG quản trị', align: 'center', color: 'text-amber-700 dark:text-amber-400', sortKey: 'adminProfit' },
-                { key: 'revProfit', label: 'LNG theo DT', align: 'center', color: 'text-purple-700 dark:text-purple-400', sortKey: 'revProfit' },
-                { key: 'margin', label: 'Tỷ suất', align: 'center' },
-                { key: 'status', label: 'Trạng thái', align: 'center', sortKey: 'status' },
-                { key: 'actions', label: '', align: 'center' },
-              ].map((col, idx) => (
+              {TABLE_HEADERS.map((col, idx) => (
                 <th
                   key={idx}
                   className={`sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-1.5 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 relative group/th
@@ -1166,370 +948,27 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
                   Không tìm thấy hợp đồng nào
                 </td>
               </tr>
-            ) : displayContracts.map((contract, index) => {
-              // Allocation info (tagged by ContractService.list for collaborative contracts)
-              const allocationRole = (contract as any)._allocationRole as 'lead' | 'support' | undefined;
-              const allocationPct = (contract as any)._allocationPct as number | undefined;
-              const employeePct = (contract as any)._employeePct as number | undefined;
-              const isCollaborative = allocationRole === 'support';
-              const hasAllocation = allocationPct !== undefined && allocationPct < 100;
-              const hasEmployeeAllocation = employeePct !== undefined && employeePct < 100;
-              // Combined fraction: unitPct × employeePct (when both present)
-              let allocFraction = 1;
-              if (hasAllocation && hasEmployeeAllocation) {
-                allocFraction = (allocationPct / 100) * (employeePct / 100);
-              } else if (hasAllocation) {
-                allocFraction = allocationPct / 100;
-              } else if (hasEmployeeAllocation) {
-                allocFraction = employeePct / 100;
-              }
-              const isAllocated = allocFraction < 1;
-              // Show tooltip whenever contract has multi-unit or multi-employee allocations
-              // (regardless of current filter — always show breakdown for collaborative contracts)
-              const unitAllocs: any[] = contract.unitAllocations || [];
-              const empAllocs: any[] = contract.employeeAllocations || [];
-              const showAllocTooltip = unitAllocs.length > 1 || empAllocs.length > 1
-                || (unitAllocs.length === 1 && empAllocs.length > 0);
-              // Hierarchical tooltip: unit → employees nested under each unit
-              const buildAllocTooltip = (label: string, fullValue: number): string => {
-                if (!showAllocTooltip) return `${label}: ${formatCurrency(fullValue)}`;
-                const lines: string[] = [`${label} gốc: ${formatCurrency(fullValue)}`];
-                if (unitAllocs.length > 0) {
-                  unitAllocs.forEach((a: any) => {
-                    const unitName = units.find(u => u.id === a.unitId)?.name || a.unitId;
-                    const unitPct = a.percent || 0;
-                    const unitValue = Math.round(fullValue * unitPct / 100);
-                    lines.push(`${a.role === 'lead' ? '▸ Chủ trì' : '▹ Phối hợp'} ${unitName} ${unitPct}% = ${formatCurrency(unitValue)}`);
-                    if (a.role === 'lead' && empAllocs.length > 0) {
-                      // Lead unit: show all employees from employeeAllocations
-                      empAllocs.forEach((emp: any) => {
-                        const empName = salespeople.find(s => s.id === emp.employeeId)?.name || '?';
-                        const empPctVal = emp.percent || 100;
-                        const empValue = Math.round(fullValue * unitPct / 100 * empPctVal / 100);
-                        lines.push(`  - ${empName} ${empPctVal}% × ${unitPct}% = ${formatCurrency(empValue)}`);
-                      });
-                    } else if (a.role === 'support' && a.employeeId) {
-                      // Support unit: show single PIC
-                      const empName = salespeople.find(s => s.id === a.employeeId)?.name || '?';
-                      lines.push(`  - ${empName} 100% × ${unitPct}% = ${formatCurrency(unitValue)}`);
-                    }
-                  });
-                } else if (empAllocs.length > 0) {
-                  // No unit allocation data, only employee allocations
-                  empAllocs.forEach((emp: any) => {
-                    const empName = salespeople.find(s => s.id === emp.employeeId)?.name || '?';
-                    const empPctVal = emp.percent || 100;
-                    const empValue = Math.round(fullValue * empPctVal / 100);
-                    lines.push(`  - ${empName} ${empPctVal}% = ${formatCurrency(empValue)}`);
-                  });
-                }
-                return lines.join('\n');
-              };
-
-              // Apply allocation fraction to ALL financial metrics when viewing by unit
-              const adminProfit = Math.round((contract.adminProfit || 0) * allocFraction);
-              // Doanh thu thực tế: chỉ hiển thị actual_revenue (ghi nhận sau xuất hóa đơn), không fallback
-              const revenue = Math.round((contract.actualRevenue || 0) * allocFraction);
-              const cashReceived = Math.round((contract.cashReceived || 0) * allocFraction);
-              const advanceAmount = Math.round((contract.advanceAmount || 0) * allocFraction);
-              const revProfit = Math.round((contract.revProfit || 0) * allocFraction);
-              // Tỷ suất LN = LNG Quản trị / Doanh thu dự kiến (Sum outputPrice * quantity)
-              const expectedRevenue = (contract.lineItems || []).reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0) * allocFraction;
-              const margin = expectedRevenue > 0 ? (adminProfit / expectedRevenue) * 100 : 0;
-              const leadAllocEmp = contract.employeeAllocations?.find((a: any) => a.role === 'lead') || contract.employeeAllocations?.[0];
-              const picEmployeeId = leadAllocEmp?.employeeId || contract.salespersonId;
-              const salesperson = salespeople.find(s => s.id === picEmployeeId);
-
-              // STT - sequential across infinite scroll
-              const stt = index + 1;
-
-              return (
-                <tr
-                  key={contract.id}
-                  onClick={() => onSelectContract(contract.id)}
-                  className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800 last:border-b-0 ${isCollaborative ? 'bg-blue-50 dark:bg-blue-900/20' : index % 2 !== 0 ? 'bg-slate-50 dark:bg-slate-900' : 'bg-white dark:bg-slate-900'}`}
-                  title={isCollaborative ? `HĐ phối hợp — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * (allocationPct || 100) / 100))}` : allocationRole === 'lead' && allocationPct !== undefined && allocationPct < 100 ? `HĐ chủ trì — Phân bổ ${allocationPct}% — Giá trị: ${formatCurrency(Math.round((contract.value || 0) * allocationPct / 100))}` : undefined}
-                >
-                  <td className="px-1.5 py-2 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                    {stt.toString().padStart(2, '0')}
-                  </td>
-                  {/* Số HĐ + Phụ trách KD */}
-                  <td className="px-2 py-2 overflow-hidden" title={`${contract.id}\n${contract.signedDate ? formatDate(contract.signedDate) : 'Chưa ký'}\n${salesperson?.name || 'Chưa gán'}${contract.customerContractNumber ? '\nSố HĐ KH: ' + contract.customerContractNumber : ''}`}>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 ${contract.contractType === 'HĐ' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'}`}>
-                        {contract.contractType}
-                      </div>
-                      <div>
-                        <p
-                          className="text-xs font-black text-slate-900 dark:text-slate-100 leading-none hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-1"
-                        >
-                          <span className="truncate">{contract.contractCode}</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(contract.contractCode || contract.id);
-                              toast.success(`Đã copy: ${contract.contractCode}`);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer flex-shrink-0"
-                            title="Copy số HĐ"
-                          >
-                            <Copy size={11} />
-                          </button>
-                        </p>
-                        <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-tighter">
-                          {contract.signedDate ? formatDate(contract.signedDate) : 'Chưa ký'}
-                        </p>
-                        {contract.customerContractNumber && (
-                          <p className="text-[8px] font-bold text-amber-600 dark:text-amber-400 mt-0.5 truncate">
-                            📋 {contract.customerContractNumber}
-                          </p>
-                        )}
-                        <p className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 mt-0.5 truncate">
-                          {salesperson?.name || 'Chưa gán'}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  {/* Nội dung HĐ + Khách hàng */}
-                  <td className="px-3 py-2 text-[11px] font-bold text-slate-800 dark:text-slate-200" title={`${contract.title}\n${contract.partyA}${contract.endUserName ? '\nEnd User: ' + contract.endUserName : ''}`}>
-                    <div className="flex items-center gap-2">
-                      <p className="line-clamp-2">{contract.title}</p>
-                      {isCollaborative && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 whitespace-nowrap flex-shrink-0" title={`Đơn vị phối hợp — Phân bổ ${allocationPct}%`}>
-                          Phối hợp {allocationPct}%
-                        </span>
-                      )}
-                      {!isCollaborative && allocationRole === 'lead' && allocationPct !== undefined && allocationPct < 100 && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap flex-shrink-0" title={`Đơn vị chủ trì — Phân bổ ${allocationPct}%`}>
-                          Chủ trì {allocationPct}%
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      {(() => {
-                        const customerInfo = contract.customerId ? customersData.get(contract.customerId) : null;
-                        const displayCustomerName = customerInfo ? customerInfo.name : contract.partyA;
-                        const displayShortName = customerInfo?.shortName;
-                        const shouldShowShortName = displayShortName && displayShortName !== displayCustomerName && displayCustomerName !== `${displayShortName} (${displayShortName})`;
-
-                        return (
-                          <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1" title={contract.endUserName ? `End User: ${contract.endUserName}` : undefined}>
-                            {displayCustomerName}
-                            {shouldShowShortName && (
-                              <span className="text-cyan-600 dark:text-cyan-400 font-bold"> ({displayShortName})</span>
-                            )}
-                          </p>
-                        );
-                      })()}
-                      {contract.endUserName && (
-                        <p className="text-[9px] font-bold text-teal-600 dark:text-teal-400 mt-0.5 truncate max-w-[220px]" title={`End User: ${contract.endUserName}`}>
-                          👤 {contract.endUserName}
-                        </p>
-                      )}
-                    </div>
-                    {/* Personal tags inline */}
-                    {contractTagsMap.get(contract.id)?.length ? (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {contractTagsMap.get(contract.id)!.slice(0, 3).map(tag => (
-                          <span key={tag} className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[8px] font-bold bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                            <Hash size={7} className="opacity-60" />{tag}
-                          </span>
-                        ))}
-                        {(contractTagsMap.get(contract.id)?.length || 0) > 3 && (
-                          <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500">+{(contractTagsMap.get(contract.id)?.length || 0) - 3}</span>
-                        )}
-                      </div>
-                    ) : null}
-                  </td>
-                  {/* Ký kết — hiển thị giá trị phân bổ (ĐV% × NV%), hover xem chi tiết */}
-                  <td className="px-1.5 py-2 text-right overflow-hidden">
-                    <span
-                      className={`text-[11px] font-bold ${showAllocTooltip ? 'text-indigo-700 dark:text-indigo-400 cursor-help' : 'text-slate-900 dark:text-slate-100'}`}
-                      title={buildAllocTooltip('Ký kết', contract.value || 0)}
-                    >
-                      {formatCurrency(Math.round((contract.value || 0) * allocFraction))}
-                    </span>
-                  </td>
-                  {/* Doanh thu */}
-                  <td className="px-1.5 py-2 text-right overflow-hidden">
-                    <span
-                      className={`text-[11px] font-bold ${showAllocTooltip ? 'text-emerald-700 dark:text-emerald-400 cursor-help' : 'text-slate-900 dark:text-slate-100'}`}
-                      title={buildAllocTooltip('Doanh thu', contract.actualRevenue || 0)}
-                    >
-                      {formatCurrency(revenue)}
-                    </span>
-                    {invoiceMap.get(contract.id) && invoiceMap.get(contract.id)!.length > 0 && (
-                      <p className="text-[8px] font-bold text-blue-500 dark:text-blue-400 mt-0.5 truncate max-w-[120px]" title={`Số HĐ: ${invoiceMap.get(contract.id)!.join(', ')}`}>
-                        HĐ: {invoiceMap.get(contract.id)!.join(', ')}
-                      </p>
-                    )}
-                  </td>
-                  {/* Tiền về */}
-                  <td className="px-1.5 py-2 text-right overflow-hidden">
-                    {cashReceived > 0 ? (
-                      advanceAmount > 0 && advanceAmount >= cashReceived ? (
-                        // All cash is from advance payments
-                        <span
-                          className="text-[11px] font-bold text-amber-600 dark:text-amber-400 cursor-help"
-                          title={showAllocTooltip
-                            ? `${buildAllocTooltip('Tiền về', contract.cashReceived || 0)}\n💰 Tạm ứng: ${formatCurrency(advanceAmount)} (chưa xuất HĐ)`
-                            : `💰 Tạm ứng: ${formatCurrency(advanceAmount)} (chưa xuất HĐ)`}
-                        >
-                          {formatCurrency(cashReceived)}
-                          <span className="block text-[8px] font-bold text-amber-500/70 dark:text-amber-500/60 uppercase tracking-wider mt-0.5">Tạm ứng</span>
-                        </span>
-                      ) : advanceAmount > 0 ? (
-                        // Mixed: some advance + some regular
-                        <span
-                          className="cursor-help"
-                          title={showAllocTooltip
-                            ? `${buildAllocTooltip('Tiền về', contract.cashReceived || 0)}\nTiền về: ${formatCurrency(cashReceived - advanceAmount)} + Tạm ứng: ${formatCurrency(advanceAmount)}`
-                            : `Tiền về: ${formatCurrency(cashReceived - advanceAmount)} + Tạm ứng: ${formatCurrency(advanceAmount)}`}
-                        >
-                          <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400">{formatCurrency(cashReceived - advanceAmount)}</span>
-                          <span className="block text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">+ TU: {formatCurrency(advanceAmount)}</span>
-                        </span>
-                      ) : (
-                        // Normal cash received
-                        <span
-                          className={`text-[11px] font-bold text-blue-700 dark:text-blue-400 ${showAllocTooltip ? 'cursor-help' : ''}`}
-                          title={buildAllocTooltip('Tiền về', contract.cashReceived || 0)}
-                        >
-                          {formatCurrency(cashReceived)}
-                        </span>
-                      )
-                    ) : (
-                      <span className="text-[11px] font-bold text-slate-400 dark:text-slate-600">
-                        {formatCurrency(0)}
-                      </span>
-                    )}
-                    {/* Còn thiếu = Tổng giá trị xuất HĐ sau VAT - Tổng tiền về */}
-                    {(() => {
-                      const invoiced = Math.round((contract.invoicedAmount || 0) * allocFraction);
-                      const outstanding = invoiced - cashReceived;
-                      if (invoiced > 0 && outstanding > 0) {
-                        return (
-                          <p className="text-[9px] font-bold text-rose-600 dark:text-rose-400 mt-0.5" title={`Còn thiếu: ${formatCurrency(outstanding)} = Đã xuất HĐ ${formatCurrency(invoiced)} − Tiền về ${formatCurrency(cashReceived)}`}>
-                            −{formatCurrency(outstanding)}
-                          </p>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </td>
-                  {/* LNG Quản trị */}
-                  <td className="px-1.5 py-2 text-right overflow-hidden">
-                    <span
-                      className={`text-[11px] font-bold text-amber-700 dark:text-amber-400 ${showAllocTooltip ? 'cursor-help' : ''}`}
-                      title={buildAllocTooltip('LNG Quản trị', contract.adminProfit || 0)}
-                    >
-                      {formatCurrency(adminProfit)}
-                    </span>
-                  </td>
-                  {/* LNG theo DT */}
-                  <td className="px-1.5 py-2 text-right overflow-hidden">
-                    <span
-                      className={`text-[11px] font-bold text-purple-700 dark:text-purple-400 ${showAllocTooltip ? 'cursor-help' : ''}`}
-                      title={buildAllocTooltip('LNG theo DT', contract.revProfit || 0)}
-                    >
-                      {formatCurrency(revProfit)}
-                    </span>
-                  </td>
-                  {/* Tỷ suất LN/DT */}
-                  <td className="px-1.5 py-2 text-right">
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${margin > 50 ? 'bg-emerald-100/50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
-                      {margin.toFixed(0)}%
-                    </span>
-                  </td>
-                  <td className="px-1.5 py-2 text-left">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-1">
-                        <div className="relative inline-block" ref={statusDropdownId === contract.id ? statusDropdownRef : undefined}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setStatusDropdownId(statusDropdownId === contract.id ? null : contract.id);
-                            }}
-                            disabled={changingStatusId === contract.id}
-                            className={`group/status flex items-center justify-start gap-1 px-2 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold shadow-sm transition-all focus:ring-2 focus:ring-orange-500 cursor-pointer whitespace-nowrap ${contract.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/20' :
-                              contract.status === 'Processing' ? 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 hover:bg-orange-500/20' :
-                                contract.status === 'Suspended' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 hover:bg-rose-500/20' :
-                                  contract.status === 'Handover' ? 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 hover:bg-cyan-500/20' :
-                                    contract.status === 'Acceptance' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 hover:bg-blue-500/20' :
-                                      'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                              }`}
-                            title="Click để đổi trạng thái"
-                          >
-                            {changingStatusId === contract.id ? (
-                              <Loader2 size={12} className="animate-spin shrink-0" />
-                            ) : (
-                              <>
-                                <span className="truncate">{CONTRACT_STATUS_LABELS[contract.status] || contract.status}</span>
-                                <ChevronDown size={12} className="opacity-0 group-hover/status:opacity-50 transition-opacity shrink-0" />
-                              </>
-                            )}
-                          </button>
-                          {statusDropdownId === contract.id && (
-                            <div className="absolute z-50 top-full mt-1 right-0 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                              <div className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Chuyển trạng thái</div>
-                              {ACTIVE_STATUSES.map(s => (
-                                <button
-                                  key={s.value}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleQuickStatusChange(contract.id, s.value, contract.status);
-                                  }}
-                                  className={`w-full text-left px-3 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${contract.status === s.value
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-                                    }`}
-                                >
-                                  <span className={`w-2 h-2 rounded-full ${s.value === 'Processing' ? 'bg-orange-500' :
-                                    s.value === 'Suspended' ? 'bg-rose-500' :
-                                      s.value === 'Handover' ? 'bg-cyan-500' :
-                                        s.value === 'Acceptance' ? 'bg-blue-500' : 'bg-emerald-500'
-                                    }`} />
-                                  {s.label}
-                                  {contract.status === s.value && <Check size={14} className="ml-auto text-indigo-500" />}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {/* Warning badges — shown below status for visibility */}
-                      {getWarningBadges(contract.warnings).length > 0 && (
-                        <div className="flex flex-wrap gap-0.5">
-                          {getWarningBadges(contract.warnings).map((badge, i) => (
-                            <span
-                              key={i}
-                              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold whitespace-nowrap ${badge.color}`}
-                              title={badge.label}
-                            >
-                              {badge.icon} {badge.label}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-1 py-2 text-center">
-                    {(onClone && (isGlobalScope || contract.unitId === profile?.unitId)) && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onClone(contract);
-                        }}
-                        className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                        title="Nhân bản hợp đồng"
-                      >
-                        <Copy size={15} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+            ) : displayContracts.map((contract, index) => (
+              <ContractListTableRow
+                key={contract.id}
+                contract={contract}
+                index={index}
+                onSelectContract={onSelectContract}
+                units={units}
+                salespeople={salespeople}
+                customersData={customersData}
+                contractTagsMap={contractTagsMap}
+                invoiceMap={invoiceMap}
+                statusDropdownId={statusDropdownId}
+                setStatusDropdownId={setStatusDropdownId}
+                statusDropdownRef={statusDropdownRef}
+                changingStatusId={changingStatusId}
+                handleQuickStatusChange={handleQuickStatusChange}
+                onClone={onClone}
+                isGlobalScope={isGlobalScope}
+                profile={profile}
+              />
+            ))}
           </tbody>
         </table>
 

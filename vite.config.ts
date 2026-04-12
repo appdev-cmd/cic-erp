@@ -203,6 +203,9 @@ export default defineConfig(({ mode }) => {
             // Heavy libs — lazy-loaded only when needed
             'xlsx': ['xlsx'],
             'recharts': ['recharts'],
+            'pdf': ['jspdf', 'jspdf-autotable', 'pdfjs-dist'],
+            'ui-vendor': ['lucide-react', 'framer-motion', '@dnd-kit/core', '@dnd-kit/utilities'],
+            'ai-vendor': ['@google/generative-ai', 'openai'],
             // Supabase SDK
             'supabase': ['@supabase/supabase-js'],
             // React core

@@ -88,8 +88,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Hide devOnly items on production (only show on localhost)
   const isDevLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-  const managementItems = NAV_ITEMS.filter(item => ['dashboard', 'tasks', 'projects', 'contracts', 'payments', 'analytics', 'documents', 'reports', 'ai-assistant', 'tools'].includes(item.id) && !hiddenItems.has(item.id) && (!item.devOnly || isDevLocal));
-  const categoryItems = NAV_ITEMS.filter(item => ['units', 'personnel', 'hrm', 'products', 'customers', 'agent-manager', 'user-guide'].includes(item.id) && !hiddenItems.has(item.id) && (!item.devOnly || isDevLocal));
+  const managementItems = NAV_ITEMS.filter(item => ['dashboard', 'tasks', 'projects', 'contracts', 'payments', 'analytics', 'documents', 'hrm', 'ai-assistant', 'tools'].includes(item.id) && !hiddenItems.has(item.id) && (!item.devOnly || isDevLocal));
+  const categoryItems = NAV_ITEMS.filter(item => ['units', 'personnel', 'products', 'customers', 'agent-manager', 'user-guide'].includes(item.id) && !hiddenItems.has(item.id) && (!item.devOnly || isDevLocal));
   const settingsItem = NAV_ITEMS.find(item => item.id === 'settings' && !hiddenItems.has(item.id));
 
   return (

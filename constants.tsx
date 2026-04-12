@@ -84,15 +84,14 @@ export const NAV_ITEMS = [
   { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
 
   { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} />, devOnly: true },
-  { id: 'reports', label: 'Báo cáo', icon: <ClipboardList size={20} />, devOnly: true },
+  { id: 'hrm', label: 'Nhân sự HR', icon: <Briefcase size={20} /> },
 
   // Danh mục
   { id: 'units', label: 'Đơn vị', icon: <Building2 size={20} /> },
-  { id: 'personnel', label: 'DS Nhân viên', icon: <Users size={20} /> },
-  { id: 'hrm', label: 'Nhân sự HR', icon: <Briefcase size={20} /> },
+  { id: 'personnel', label: 'Nhân viên', icon: <Users size={20} /> },
   { id: 'products', label: 'Sản phẩm/DV', icon: <Package size={20} /> },
   { id: 'customers', label: 'Đối tác', icon: <Handshake size={20} /> },
-  { id: 'agent-manager', label: 'Danh sách Agent', icon: <Bot size={20} /> },
+  { id: 'agent-manager', label: 'Agent', icon: <Bot size={20} /> },
   { id: 'user-guide', label: 'Hướng dẫn', icon: <HelpCircle size={20} /> },
 
   { id: 'settings', label: 'Cài đặt', icon: <Settings size={20} /> },

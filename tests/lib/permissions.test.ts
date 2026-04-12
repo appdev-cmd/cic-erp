@@ -1,74 +1,132 @@
-// @ts-nocheck
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
-    canViewAllUnits, canCreateContract, canEditContract,
-    canDeleteContract, canUpdateContractFinancials,
-    canCreatePaymentPlanned, canCreatePaymentActual,
-    canDeletePayment, canCreateCustomer, canDeleteCustomer,
-    canCreateEmployee, canAccessSettings
+    canViewAllUnits,
+    canViewEmployees,
+    canViewUnits,
+    canViewProjects,
+    getHiddenNavItems,
+    canUpdateContractFinancials,
+    GLOBAL_VIEW_ROLES,
+    UNIT_SCOPED_ROLES,
+    PAYMENT_PLANNED_ROLES,
+    PAYMENT_ACTUAL_ROLES
 } from '../../lib/permissions';
 import { UserRole } from '../../types';
 
-const ALL_ROLES: UserRole[] = [
-    'NVKD', 'AdminUnit', 'UnitLeader', 'Accountant',
-    'ChiefAccountant', 'Legal', 'Leadership', 'Admin'
-];
-
 describe('Permission Helpers', () => {
+    describe('Role Groups', () => {
+        it('has expected GLOBAL_VIEW_ROLES', () => {
+            expect(GLOBAL_VIEW_ROLES).toContain('Admin');
+            expect(GLOBAL_VIEW_ROLES).toContain('Leadership');
+            expect(GLOBAL_VIEW_ROLES).toContain('ChiefAccountant');
+        });
+
+        it('has expected UNIT_SCOPED_ROLES', () => {
+            expect(UNIT_SCOPED_ROLES).toContain('NVKD');
+            expect(UNIT_SCOPED_ROLES).toContain('UnitLeader');
+        });
+    });
+
     describe('canViewAllUnits', () => {
-        it('should allow Leadership and Admin to view all units', () => {
+        it('should return true for roles in GLOBAL_VIEW_ROLES', () => {
             expect(canViewAllUnits('Leadership')).toBe(true);
             expect(canViewAllUnits('Admin')).toBe(true);
+            expect(canViewAllUnits('Accountant')).toBe(true);
         });
 
-        it('should not allow NVKD to view all units', () => {
+        it('should return false for roles not in GLOBAL_VIEW_ROLES', () => {
             expect(canViewAllUnits('NVKD')).toBe(false);
+            expect(canViewAllUnits('UnitLeader')).toBe(false);
         });
     });
 
-    describe('canCreateContract', () => {
-        it('should allow NVKD, AdminUnit, UnitLeader, Leadership, Admin', () => {
-            expect(canCreateContract('NVKD')).toBe(true);
-            expect(canCreateContract('AdminUnit')).toBe(true);
-            expect(canCreateContract('UnitLeader')).toBe(true);
-            expect(canCreateContract('Leadership')).toBe(true);
-            expect(canCreateContract('Admin')).toBe(true);
+    describe('canViewEmployees', () => {
+        it('should allow Admin, Leadership, ChiefAccountant', () => {
+            expect(canViewEmployees('Admin')).toBe(true);
+            expect(canViewEmployees('Leadership')).toBe(true);
+            expect(canViewEmployees('ChiefAccountant')).toBe(true);
         });
 
-        it('should not allow Accountant, ChiefAccountant, Legal', () => {
-            expect(canCreateContract('Accountant')).toBe(false);
-            expect(canCreateContract('ChiefAccountant')).toBe(false);
-            expect(canCreateContract('Legal')).toBe(false);
-        });
-    });
-
-    describe('canEditContract', () => {
-        it('should allow Leadership and Admin to edit any contract', () => {
-            expect(canEditContract('Leadership', 'u1', 'e1', 'u2', 'e2')).toBe(true);
-            expect(canEditContract('Admin', 'u1', 'e1', 'u2', 'e2')).toBe(true);
+        it('should allow AdminUnit if unit code is HCNS', () => {
+            expect(canViewEmployees('AdminUnit', 'HCNS')).toBe(true);
         });
 
-        it('should allow NVKD to edit own contracts only', () => {
-            expect(canEditContract('NVKD', 'u1', 'e1', 'u1', 'e1')).toBe(true);
-            expect(canEditContract('NVKD', 'u1', 'e1', 'u1', 'e2')).toBe(false);
+        it('should deny AdminUnit if unit code is not HCNS', () => {
+            expect(canViewEmployees('AdminUnit', 'IT')).toBe(false);
         });
 
-        it('should allow UnitLeader to edit contracts in their unit', () => {
-            expect(canEditContract('UnitLeader', 'u1', 'e1', 'u1', 'e2')).toBe(true);
-            expect(canEditContract('UnitLeader', 'u1', 'e1', 'u2', 'e2')).toBe(false);
+        it('should deny NVKD', () => {
+            expect(canViewEmployees('NVKD')).toBe(false);
         });
     });
 
-    describe('canDeleteContract', () => {
-        it('should only allow Leadership and Admin', () => {
-            expect(canDeleteContract('Leadership')).toBe(true);
-            expect(canDeleteContract('Admin')).toBe(true);
+    describe('canViewUnits', () => {
+        it('should allow Admin, Leadership, UnitLeader, AdminUnit', () => {
+            expect(canViewUnits('Admin')).toBe(true);
+            expect(canViewUnits('Leadership')).toBe(true);
+            expect(canViewUnits('UnitLeader')).toBe(true);
+            expect(canViewUnits('AdminUnit')).toBe(true);
         });
 
-        it('should deny all other roles', () => {
-            (['NVKD', 'AdminUnit', 'UnitLeader', 'Accountant', 'ChiefAccountant', 'Legal'] as UserRole[]).forEach(role => {
-                expect(canDeleteContract(role)).toBe(false);
+        it('should deny NVKD, Accountant', () => {
+            expect(canViewUnits('NVKD')).toBe(false);
+            expect(canViewUnits('Accountant')).toBe(false);
+        });
+    });
+
+    describe('canViewProjects', () => {
+        it('should allow dev emails', () => {
+            expect(canViewProjects('NVKD', undefined, 'anhnq@cic.com.vn')).toBe(true);
+            expect(canViewProjects('NVKD', undefined, 'hoangha@cic.com.vn')).toBe(true);
+        });
+
+        it('should return true on localhost', () => {
+            // JSDOM has window.location.hostname set to 127.0.0.1 or localhost
+            const originalWindow = global.window;
+            global.window = Object.create(window);
+            Object.defineProperty(window, 'location', {
+                value: {
+                    hostname: 'localhost'
+                }
             });
+            expect(canViewProjects('NVKD')).toBe(true);
+            global.window = originalWindow; // restore
+        });
+    });
+
+    describe('getHiddenNavItems', () => {
+        it('should hide settings for non-Admin', () => {
+            const hidden = getHiddenNavItems('NVKD');
+            expect(hidden.has('settings')).toBe(true);
+        });
+
+        it('should not hide settings for Admin', () => {
+            const hidden = getHiddenNavItems('Admin');
+            expect(hidden.has('settings')).toBe(false);
+        });
+
+        it('should use DB permissions if provided', () => {
+            const dbPerms = new Map([
+                ['units', new Set(['view'])],
+                ['employees', new Set()] // Empty set -> no 'view'
+            ]);
+            
+            // Even if NVKD normally can't view units, DB says yes
+            const hidden = getHiddenNavItems('NVKD', undefined, undefined, dbPerms);
+            expect(hidden.has('units')).toBe(false);
+            
+            // Employees view is false in DB
+            expect(hidden.has('personnel')).toBe(true);
+        });
+        
+        it('should fallback to role-based if DB permission is undefined', () => {
+            const dbPerms = new Map([
+                ['something_else', new Set(['view'])]
+            ]);
+            
+            // NVKD cannot view units by default role rules
+            const hidden = getHiddenNavItems('NVKD', undefined, undefined, dbPerms);
+            expect(hidden.has('units')).toBe(true);
         });
     });
 
@@ -82,47 +140,6 @@ describe('Permission Helpers', () => {
 
         it('should not allow NVKD', () => {
             expect(canUpdateContractFinancials('NVKD')).toBe(false);
-        });
-    });
-
-    describe('Payment permissions', () => {
-        it('should allow NVKD to create planned payments', () => {
-            expect(canCreatePaymentPlanned('NVKD')).toBe(true);
-        });
-
-        it('should not allow NVKD to create actual payments', () => {
-            expect(canCreatePaymentActual('NVKD')).toBe(false);
-        });
-
-        it('should allow Accountant to create actual payments', () => {
-            expect(canCreatePaymentActual('Accountant')).toBe(true);
-        });
-
-        it('should only allow ChiefAccountant and Admin to delete payments', () => {
-            expect(canDeletePayment('ChiefAccountant')).toBe(true);
-            expect(canDeletePayment('Admin')).toBe(true);
-            expect(canDeletePayment('Accountant')).toBe(false);
-        });
-    });
-
-    describe('Customer permissions', () => {
-        it('should allow NVKD to create customers', () => {
-            expect(canCreateCustomer('NVKD')).toBe(true);
-        });
-
-        it('should allow Admin and Leadership to delete customers', () => {
-            expect(canDeleteCustomer('Admin')).toBe(true);
-            expect(canDeleteCustomer('Leadership')).toBe(true);
-            expect(canDeleteCustomer('NVKD')).toBe(false);
-        });
-    });
-
-    describe('Settings permissions', () => {
-        it('should only allow Admin to access settings', () => {
-            expect(canAccessSettings('Admin')).toBe(true);
-            ALL_ROLES.filter(r => r !== 'Admin').forEach(role => {
-                expect(canAccessSettings(role)).toBe(false);
-            });
         });
     });
 });

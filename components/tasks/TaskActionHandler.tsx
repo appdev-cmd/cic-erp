@@ -23,7 +23,7 @@ export const TaskActionHandler: React.FC = () => {
         try {
           const [contract, payments] = await Promise.all([
             ContractService.getById(entityId),
-            PaymentService.getByContract(entityId)
+            PaymentService.getByContractId(entityId)
           ]);
 
           if (contract) {

@@ -39,21 +39,21 @@ const RouteAuditPanel: React.FC = () => {
                     Route công khai ({PUBLIC_ROUTES.length})
                     <span className="text-[10px] font-medium text-slate-400">— ai đăng nhập cũng vào được</span>
                 </h4>
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b border-slate-200 dark:border-slate-700">
-                                <th className="text-left px-4 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">URL</th>
-                                <th className="text-left px-4 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mô tả</th>
-                                <th className="text-center px-4 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Trạng thái</th>
+                            <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                                <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">URL</th>
+                                <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mô tả</th>
+                                <th className="text-center px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng thái</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                             {PUBLIC_ROUTES.map((route, i) => (
-                                <tr key={route.pattern} className={i % 2 === 0 ? 'bg-white dark:bg-slate-900' : ''}>
-                                    <td className="px-4 py-2 font-mono text-xs text-blue-600 dark:text-blue-400">{route.pattern}</td>
-                                    <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{route.label}</td>
-                                    <td className="px-4 py-2 text-center">
+                                <tr key={route.pattern} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 bg-white dark:bg-slate-900">
+                                    <td className="px-4 py-3 font-mono text-xs text-blue-600 dark:text-blue-400">{route.pattern}</td>
+                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{route.label}</td>
+                                    <td className="px-4 py-3 text-center">
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
                                             <Globe size={10} /> PUBLIC
                                         </span>
@@ -66,38 +66,38 @@ const RouteAuditPanel: React.FC = () => {
             </div>
 
             {/* Protected Routes by Module */}
-            <div>
+            <div className="mt-8">
                 <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
                     <Lock size={16} className="text-rose-500" />
                     Route được bảo vệ ({ROUTE_PERMISSION_MAP.length})
                     <span className="text-[10px] font-medium text-slate-400">— yêu cầu quyền truy cập</span>
                 </h4>
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b border-slate-200 dark:border-slate-700">
-                                <th className="text-left px-4 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phân hệ</th>
-                                <th className="text-left px-4 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">URL</th>
-                                <th className="text-left px-4 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mô tả</th>
-                                <th className="text-center px-4 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quyền cần</th>
+                            <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                                <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Phân hệ</th>
+                                <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">URL</th>
+                                <th className="text-left px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mô tả</th>
+                                <th className="text-center px-4 py-3 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Quyền cần</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                             {Object.entries(protectedByModule).map(([module, entries]) => (
                                 <React.Fragment key={module}>
                                     {entries.map((entry, i) => (
-                                        <tr key={entry.pattern} className={i % 2 === 0 ? 'bg-white dark:bg-slate-900' : ''}>
+                                        <tr key={entry.pattern} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/80 bg-white dark:bg-slate-900">
                                             {i === 0 && (
                                                 <td
-                                                    className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 align-top border-r border-slate-100 dark:border-slate-800"
+                                                    className="px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 align-top border-r border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800"
                                                     rowSpan={entries.length}
                                                 >
                                                     {module}
                                                 </td>
                                             )}
-                                            <td className="px-4 py-2 font-mono text-xs text-rose-600 dark:text-rose-400">{entry.pattern}</td>
-                                            <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{entry.label}</td>
-                                            <td className="px-4 py-2 text-center">
+                                            <td className="px-4 py-3 font-mono text-xs text-rose-600 dark:text-rose-400">{entry.pattern}</td>
+                                            <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{entry.label}</td>
+                                            <td className="px-4 py-3 text-center">
                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 font-mono">
                                                     {entry.resource}.{entry.action}
                                                 </span>
