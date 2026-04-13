@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, MapPin, TrendingUp, Calendar, Building2, Filter, X } from 'lucide-react';
+import { Search, Plus, MapPin, TrendingUp, Calendar, Building2, Filter, X, Globe, EyeOff, Star } from 'lucide-react';
 import { ProjectService } from '../services';
 import { BIMProject, BIMProjectStatus, BIM_PROJECT_STATUS_LABELS } from '../types';
 import { toast } from 'sonner';
@@ -81,7 +81,7 @@ const ProgressBar: React.FC<{ label: string; value: number; color: string }> = (
 );
 
 // ── Project Card Component ──────────────────────────────────────────────
-const ProjectCard: React.FC<{ project: BIMProject; index: number; onClick: () => void }> = ({ project, index, onClick }) => {
+const ProjectCard: React.FC<{ project: BIMProject; index: number; onClick: () => void; onToggleWeb: (e: React.MouseEvent, p: BIMProject) => void; onToggleFeatured: (e: React.MouseEvent, p: BIMProject) => void }> = ({ project, index, onClick, onToggleWeb, onToggleFeatured }) => {
   const statusCfg = STATUS_CONFIG[project.status] || STATUS_CONFIG['30_CHUANBI'];
   const thumbnail = project.thumbnailUrl || getPlaceholder(index);
 
@@ -100,6 +100,33 @@ const ProjectCard: React.FC<{ project: BIMProject; index: number; onClick: () =>
         />
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+
+        {/* Web status toggles - top left */}
+        <div className="absolute top-3 left-3 flex gap-1.5 z-10">
+          <button
+            onClick={(e) => onToggleWeb(e, project)}
+            title={project.isPublishedWeb ? "Ẩn khỏi Web" : "Hiển thị trên Web"}
+            className={`p-1.5 rounded-md backdrop-blur-sm transition-all border ${
+              project.isPublishedWeb 
+                ? 'bg-emerald-500/80 hover:bg-emerald-600/90 border-emerald-400 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]' 
+                : 'bg-black/40 hover:bg-black/60 border-white/20 text-slate-300'
+            }`}
+          >
+            {project.isPublishedWeb ? <Globe size={14} /> : <EyeOff size={14} />}
+          </button>
+          
+          <button
+            onClick={(e) => onToggleFeatured(e, project)}
+            title={project.isFeaturedWeb ? "Bỏ nổi bật" : "Đánh dấu nổi bật"}
+            className={`p-1.5 rounded-md backdrop-blur-sm transition-all border ${
+              project.isFeaturedWeb 
+                ? 'bg-amber-500/80 hover:bg-amber-600/90 border-amber-400 text-white shadow-[0_0_10px_rgba(245,158,11,0.5)]' 
+                : 'bg-black/40 hover:bg-black/60 border-white/20 text-slate-300'
+            }`}
+          >
+            <Star size={14} className={project.isFeaturedWeb ? "fill-white" : ""} />
+          </button>
+        </div>
 
         {/* Status badge — top right */}
         <div className={`absolute top-3 right-3 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${statusCfg.bg} ${statusCfg.text} backdrop-blur-sm border border-white/20 dark:border-slate-700/50`}>
@@ -190,6 +217,28 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
     };
     fetch();
   }, [refreshKey]);
+
+  const toggleWeb = async (e: React.MouseEvent, project: BIMProject) => {
+    e.stopPropagation();
+    try {
+      const updated = await ProjectService.update(project.id, { isPublishedWeb: !project.isPublishedWeb });
+      setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
+      toast.success(updated.isPublishedWeb ? 'Đã hiển thị trên Web' : 'Đã ẩn khỏi Web');
+    } catch (error: any) {
+      toast.error('Lỗi khi cập nhật Web: ' + error.message);
+    }
+  };
+
+  const toggleFeatured = async (e: React.MouseEvent, project: BIMProject) => {
+    e.stopPropagation();
+    try {
+      const updated = await ProjectService.update(project.id, { isFeaturedWeb: !project.isFeaturedWeb });
+      setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
+      toast.success(updated.isFeaturedWeb ? 'Đã ghim nổi bật' : 'Đã bỏ ghim nổi bật');
+    } catch (error: any) {
+      toast.error('Lỗi khi cập nhật nổi bật: ' + error.message);
+    }
+  };
 
   // Filter & search
   const filteredProjects = useMemo(() => {
@@ -350,6 +399,8 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
               project={project}
               index={idx}
               onClick={() => onSelectProject(project.id)}
+              onToggleWeb={toggleWeb}
+              onToggleFeatured={toggleFeatured}
             />
           ))}
         </div>

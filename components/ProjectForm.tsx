@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Save, X, MapPin, Building2, Calendar, TrendingUp, FileText, Loader2, FileSignature, Image, Clipboard, Upload } from 'lucide-react';
+import { Save, X, MapPin, Building2, Calendar, TrendingUp, FileText, Loader2, FileSignature, Image, Clipboard, Upload, Plus, Trash2 } from 'lucide-react';
 import DateInput from './ui/DateInput';
 import { ProjectService, ContractService, CustomerService } from '../services';
 import { BIMProject, BIMProjectStatus, BIM_PROJECT_STATUS_LABELS } from '../types';
@@ -64,6 +64,19 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [summary, setSummary] = useState(project?.summary || '');
   const [seoTitle, setSeoTitle] = useState(project?.seoTitle || '');
   const [seoDescription, setSeoDescription] = useState(project?.seoDescription || '');
+  const [webCategory, setWebCategory] = useState(project?.webCategory || '');
+  const [webClientName, setWebClientName] = useState(project?.webClientName || '');
+  
+  // Parse JSON/Array for webStats
+  const [webStats, setWebStats] = useState<{label: string, value: string}[]>(() => {
+    let stats = project?.webStats;
+    if (typeof stats === 'string') {
+      try { stats = JSON.parse(stats); } catch(e){ stats = []; }
+    }
+    return Array.isArray(stats) && stats.length > 0 
+      ? stats 
+      : [{ label: "Năm hoàn thành", value: "" }, { label: "Quy mô", value: "" }];
+  });
 
   // Auto-generate slug when name changes
   useEffect(() => {
@@ -230,6 +243,9 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         summary: summary.trim() || undefined,
         seoTitle: seoTitle.trim() || undefined,
         seoDescription: seoDescription.trim() || undefined,
+        webCategory: webCategory.trim() || undefined,
+        webClientName: webClientName.trim() || undefined,
+        webStats: JSON.stringify(webStats.filter(s => s.label.trim() || s.value.trim())),
       };
 
       let result: BIMProject;
@@ -660,6 +676,75 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
               />
               <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Dự án tiêu biểu</span>
             </label>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          <div>
+            <label className={labelCls}>Lĩnh vực hiển thị (Web)</label>
+            <input
+              type="text"
+              value={webCategory}
+              onChange={e => setWebCategory(e.target.value)}
+              placeholder="VD: Cầu đường, Toà nhà thương mại..."
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Khách hàng (Tên hiển thị Web)</label>
+            <input
+              type="text"
+              value={webClientName}
+              onChange={e => setWebClientName(e.target.value)}
+              placeholder="VD: Tập đoàn Vingroup"
+              className={inputCls}
+            />
+          </div>
+          
+          <div className="md:col-span-2 mt-2">
+            <label className={labelCls}>Chỉ số dự án (Project Stats - hiển thị thẻ)</label>
+            <div className="space-y-2">
+              {webStats.map((stat, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={stat.label}
+                    onChange={e => {
+                      const newStats = [...webStats];
+                      newStats[idx].label = e.target.value;
+                      setWebStats(newStats);
+                    }}
+                    placeholder="VD: Diện tích"
+                    className="flex-1 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    value={stat.value}
+                    onChange={e => {
+                      const newStats = [...webStats];
+                      newStats[idx].value = e.target.value;
+                      setWebStats(newStats);
+                    }}
+                    placeholder="VD: 15,000 m2"
+                    className="flex-1 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setWebStats(webStats.filter((_, i) => i !== idx))}
+                    className="p-2 text-rose-500 hover:bg-rose-50 rounded"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setWebStats([...webStats, { label: '', value: '' }])}
+                className="text-xs font-bold text-indigo-600 flex items-center gap-1 mt-2"
+              >
+                <Plus size={12} /> Thêm chỉ số phụ
+              </button>
+            </div>
           </div>
         </div>
 
