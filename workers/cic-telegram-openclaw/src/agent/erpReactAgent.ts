@@ -76,6 +76,7 @@ async function ollamaToolCallingTurn(messages: ChatMsg[]): Promise<{ message?: s
           type: 'function',
           function: { name: functionName, arguments: JSON.stringify(args) }
         }];
+        msg.content = ""; // Xóa content thô để tránh AI học lỏm và bị lặp (Infinite Loop)
         console.log(`[Polyfill] Extracted tool call: ${functionName}`, args);
       }
     }

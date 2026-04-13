@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, RefreshCw } from 'lucide-react';
+import { Save, Loader2, RefreshCw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import Modal from './ui/Modal';
 import RichTextEditor from './ui/RichTextEditor';
@@ -29,10 +29,28 @@ const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isIn
         seoTitleVi: '',
         seoDescriptionVi: '',
         thumbnailUrl: '',
+        tags: [] as string[],
     });
 
     const [isAutoSlug, setIsAutoSlug] = useState(true);
     const [isLoadingPost, setIsLoadingPost] = useState(false);
+    const [tagInput, setTagInput] = useState('');
+
+    const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const tag = tagInput.trim();
+            if (tag && !formData.tags.includes(tag)) {
+                setFormData(prev => ({ ...prev, tags: [...prev.tags, tag] }));
+            }
+            setTagInput('');
+        }
+    };
+
+    const removeTag = (tagToRemove: string) => {
+        setFormData(prev => ({ ...prev, tags: prev.tags.filter(t => t !== tagToRemove) }));
+    };
+
 
     // Initialize form data
     useEffect(() => {
@@ -49,6 +67,7 @@ const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isIn
                 seoTitleVi: post.seoTitleVi || '',
                 seoDescriptionVi: post.seoDescriptionVi || '',
                 thumbnailUrl: post.thumbnailUrl || '',
+                tags: post.tags || [],
             });
             setIsAutoSlug(false); // Don't auto-generate slug for existing posts unless user wants to
             
@@ -79,6 +98,7 @@ const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isIn
                 seoTitleVi: '',
                 seoDescriptionVi: '',
                 thumbnailUrl: '',
+                tags: [],
             });
             setIsAutoSlug(true);
         }
@@ -248,6 +268,29 @@ const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isIn
 
                 {/* Content Section */}
                 <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                            Từ khóa / Tags
+                        </label>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                            {formData.tags.map(tag => (
+                                <span key={tag} className="flex items-center gap-1 px-2.5 py-1 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 text-xs font-medium border border-indigo-200 dark:border-indigo-800">
+                                    {tag}
+                                    <button type="button" onClick={() => removeTag(tag)} className="text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-200"><X size={12} /></button>
+                                </span>
+                            ))}
+                        </div>
+                        <input
+                            type="text"
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyDown={handleAddTag}
+                            placeholder="Nhập từ khóa và nhấn Enter..."
+                            className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200"
+                        />
+                        <p className="text-[10px] text-slate-500 mt-1">Nhấn Enter hoặc Dấu phẩy (,) để thêm từ khóa mới.</p>
+                    </div>
+
                     <div>
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
                             Tóm tắt ngắn gọn

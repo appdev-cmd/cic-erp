@@ -13,6 +13,8 @@ const NewsList: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<PostStatus | 'all'>('all');
+    const [categoryFilter, setCategoryFilter] = useState<string>('all');
+    const [categories, setCategories] = useState<any[]>([]);
     
     // Form state
     const [editingPost, setEditingPost] = useState<NewsPost | undefined>(undefined);
@@ -34,6 +36,7 @@ const NewsList: React.FC = () => {
     }, []);
 
     useEffect(() => {
+        NewsService.getCategories().then(setCategories).catch(console.error);
         fetchPosts();
     }, [fetchPosts]);
 
@@ -42,9 +45,10 @@ const NewsList: React.FC = () => {
             const matchesSearch = post.titleVi.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                   (post.slug && post.slug.toLowerCase().includes(searchQuery.toLowerCase()));
             const matchesStatus = statusFilter === 'all' || post.status === statusFilter;
-            return matchesSearch && matchesStatus;
+            const matchesCategory = categoryFilter === 'all' || post.categoryId === categoryFilter;
+            return matchesSearch && matchesStatus && matchesCategory;
         });
-    }, [posts, searchQuery, statusFilter]);
+    }, [posts, searchQuery, statusFilter, categoryFilter]);
 
     const handleAdd = () => {
         setEditingPost(undefined);
@@ -135,10 +139,10 @@ const NewsList: React.FC = () => {
 
     const getStatusStyle = (status: PostStatus) => {
         switch (status) {
-            case 'published': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-            case 'draft': return 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border-amber-200 dark:border-amber-800';
-            case 'archived': return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
-            default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+            case 'published': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50';
+            case 'draft': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/50';
+            case 'archived': return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+            default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700';
         }
     };
 
@@ -194,6 +198,17 @@ const NewsList: React.FC = () => {
                 </div>
                 
                 <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                    <option value="all">Tất cả chuyên mục</option>
+                    {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.nameVi}</option>
+                    ))}
+                </select>
+
+                <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as any)}
                     className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -248,8 +263,13 @@ const NewsList: React.FC = () => {
                                                         </span>
                                                     )}
                                                     {post.isFeatured && (
-                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400">
+                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50">
                                                             Nổi bật
+                                                        </span>
+                                                    )}
+                                                    {post.tags && post.tags.length > 0 && (
+                                                        <span className="text-[10px] font-medium px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">
+                                                            +{post.tags.length} từ khóa
                                                         </span>
                                                     )}
                                                 </div>
