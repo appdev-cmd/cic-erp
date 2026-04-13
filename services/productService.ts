@@ -34,6 +34,11 @@ const mapProduct = (p: any): Product => ({
     seoTitle: p.seo_title,
     seoDescription: p.seo_description,
     viewCount: p.view_count,
+    featuresDetails: p.features_details,
+    systemRequirements: p.system_requirements,
+    videoUrl: p.video_url,
+    brochureUrl: p.brochure_url,
+    demoUrl: p.demo_url,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
 });
@@ -140,6 +145,11 @@ export const ProductService = {
             summary: data.summary || null,
             seo_title: data.seoTitle || null,
             seo_description: data.seoDescription || null,
+            features_details: data.featuresDetails || null,
+            system_requirements: data.systemRequirements || null,
+            video_url: data.videoUrl || null,
+            brochure_url: data.brochureUrl || null,
+            demo_url: data.demoUrl || null,
         };
         const { data: res, error } = await supabase.from('products').insert(payload).select(SELECT_WITH_JOINS).single();
         if (error) throw error;
@@ -172,6 +182,11 @@ export const ProductService = {
         if (data.summary !== undefined) payload.summary = data.summary || null;
         if (data.seoTitle !== undefined) payload.seo_title = data.seoTitle || null;
         if (data.seoDescription !== undefined) payload.seo_description = data.seoDescription || null;
+        if (data.featuresDetails !== undefined) payload.features_details = data.featuresDetails || null;
+        if (data.systemRequirements !== undefined) payload.system_requirements = data.systemRequirements || null;
+        if (data.videoUrl !== undefined) payload.video_url = data.videoUrl || null;
+        if (data.brochureUrl !== undefined) payload.brochure_url = data.brochureUrl || null;
+        if (data.demoUrl !== undefined) payload.demo_url = data.demoUrl || null;
         
         payload.updated_at = new Date().toISOString();
 

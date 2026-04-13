@@ -246,7 +246,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
         summary: '',
         seoTitle: '',
         seoDescription: '',
+        featuresDetails: '',
+        systemRequirements: '',
+        videoUrl: '',
+        brochureUrl: '',
+        demoUrl: '',
     });
+
+    const [activeTab, setActiveTab] = useState<'basic' | 'web' | 'contracts'>('basic');
 
     // Data lists
     const [units, setUnits] = useState<Unit[]>([]);
@@ -362,6 +369,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 summary: product.summary || '',
                 seoTitle: product.seoTitle || '',
                 seoDescription: product.seoDescription || '',
+                featuresDetails: product.featuresDetails || '',
+                systemRequirements: product.systemRequirements || '',
+                videoUrl: product.videoUrl || '',
+                brochureUrl: product.brochureUrl || '',
+                demoUrl: product.demoUrl || '',
             });
             setSelectedSupplierName(product.supplierName || '');
             setSelectedBrandName(product.brandName || '');
@@ -386,7 +398,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 summary: '',
                 seoTitle: '',
                 seoDescription: '',
+                featuresDetails: '',
+                systemRequirements: '',
+                videoUrl: '',
+                brochureUrl: '',
+                demoUrl: '',
             });
+            setActiveTab('basic');
             setSelectedSupplierName('');
             setSelectedBrandName('');
         }
@@ -469,7 +487,30 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={product ? 'Chỉnh sửa Sản phẩm' : 'Thêm Sản phẩm mới'} size="lg">
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg mb-6">
+                <button
+                    onClick={() => setActiveTab('basic')}
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'basic' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}
+                >
+                    Thông tin cơ bản
+                </button>
+                <button
+                    onClick={() => setActiveTab('web')}
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'web' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}
+                >
+                    Web & Marketing
+                </button>
+                <button
+                    onClick={() => setActiveTab('contracts')}
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'contracts' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}
+                >
+                    Hợp đồng liên quan
+                </button>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-5">
+                {/* ── TAB: THÔNG TIN CƠ BẢN ── */}
+                <div className={activeTab === 'basic' ? 'block space-y-5' : 'hidden'}>
                 {/* Row 1: Code (auto-generated) */}
                 <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
@@ -667,6 +708,10 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                         </select>
                     </div>
                 </div>
+                </div>
+
+                {/* ── TAB: WEB & MARKETING ── */}
+                <div className={activeTab === 'web' ? 'block space-y-5' : 'hidden'}>
 
                 {/* Row 5: Web Content & Description */}
                 <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
@@ -748,6 +793,74 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                         />
                     </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Video Youtube (Link)</label>
+                            <input
+                                type="text"
+                                value={formData.videoUrl}
+                                onChange={e => setFormData(prev => ({ ...prev, videoUrl: e.target.value }))}
+                                placeholder="https://youtube.com/watch?v=..."
+                                className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Link tải Demo (.exe / .zip)</label>
+                            <input
+                                type="text"
+                                value={formData.demoUrl}
+                                onChange={e => setFormData(prev => ({ ...prev, demoUrl: e.target.value }))}
+                                placeholder="https://..."
+                                className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200"
+                            />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Tài liệu giới thiệu / Brochure (.pdf)</label>
+                            <input
+                                type="text"
+                                value={formData.brochureUrl}
+                                onChange={e => setFormData(prev => ({ ...prev, brochureUrl: e.target.value }))}
+                                placeholder="https://..."
+                                className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <RichTextEditor
+                            label="Tính năng chính (Dành riêng cho Web)"
+                            value={formData.featuresDetails}
+                            onChange={(val) => setFormData(prev => ({ ...prev, featuresDetails: val }))}
+                            minHeight="150px"
+                        />
+                    </div>
+                    
+                    <div>
+                        <RichTextEditor
+                            label="Yêu cầu hệ thống (System Requirements)"
+                            value={formData.systemRequirements}
+                            onChange={(val) => setFormData(prev => ({ ...prev, systemRequirements: val }))}
+                            minHeight="150px"
+                        />
+                    </div>
+                </div>
+                </div>
+
+                {/* ── TAB: HỢP ĐỒNG LIÊN QUAN ── */}
+                <div className={activeTab === 'contracts' ? 'block' : 'hidden'}>
+                    {!product ? (
+                        <div className="p-8 text-center text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                            Vui lòng lưu sản phẩm trước khi xem các hợp đồng liên quan.
+                        </div>
+                    ) : (
+                        <div className="p-8 text-center bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2">Chưa có dữ liệu Hợp đồng liên quan</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                Tính năng liệt kê hợp đồng dựa trên hóa đơn có chứa sản phẩm "{product.name}" đang được hoàn thiện.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Row 7: Active Toggle */}

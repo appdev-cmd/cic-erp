@@ -40,24 +40,20 @@ function getLocalAIBaseURL(model?: string): string {
   const isOllama = model ? model.includes(':') : false;
   const isGemma = model ? model.toLowerCase().includes('gemma') : false;
 
+  const cloudUrl = 'https://ai-api.cic.com.vn:9443/v1';
+
   try {
     if (typeof window !== 'undefined') {
       const url = localStorage.getItem('cic_local_ai_base_url');
-      // Chỉ chấp nhận IP mạng nội bộ (LAN), từ chối mọi URL bên ngoài
-      if (url && /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url)) {
+      // Cho phép IP nội bộ và domain của CIC
+      if (url && /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|ai-api\.cic\.com\.vn)/.test(url)) {
          return url;
       }
-      if (isOllama) return '/api/ollama';
-      if (isGemma) return '/api/vllm_gemma';  // Gemma models → port 8001
-      return '/api/vllm'; // Qwen/others → port 4000 (LiteLLM Proxy)
+      return cloudUrl;
     }
-    if (isOllama) return 'http://localhost:11434/v1';
-    if (isGemma) return 'http://localhost:8001/v1';
-    return process.env.LOCAL_AI_BASE_URL || 'http://localhost:4000/v1';
+    return process.env.LOCAL_AI_BASE_URL || cloudUrl;
   } catch { 
-    if (isOllama) return 'http://localhost:11434/v1';
-    if (isGemma) return 'http://localhost:8001/v1';
-    return 'http://localhost:4000/v1'; 
+    return cloudUrl; 
   }
 }
 

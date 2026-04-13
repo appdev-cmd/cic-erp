@@ -19,7 +19,9 @@ import {
     ArrowUp,
     ArrowDown,
     Building2,
-    RotateCcw
+    RotateCcw,
+    Globe,
+    EyeOff
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { ProductService, UnitService, BrandService, CustomerService } from '../services';
@@ -201,6 +203,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
         { key: 'price', defaultWidth: 130, minWidth: 80 },
         { key: 'margin', defaultWidth: 80, minWidth: 50 },
         { key: 'status', defaultWidth: 100, minWidth: 60 },
+        { key: 'web', defaultWidth: 80, minWidth: 60 },
         { key: 'brand', defaultWidth: 100, minWidth: 60 },
         { key: 'supplier', defaultWidth: 120, minWidth: 60 },
         { key: 'actions', defaultWidth: 45, minWidth: 35 },
@@ -248,6 +251,22 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
         if (confirmed) {
             await ProductService.delete(id);
             setProducts(prev => prev.filter(p => p.id !== id));
+        }
+    };
+
+    const handleToggleWeb = async (product: Product) => {
+        if (!allowUpdate) {
+            toast.error('Bạn không có quyền chỉnh sửa');
+            return;
+        }
+        try {
+            const updated = await ProductService.update(product.id, { isPublishedWeb: !product.isPublishedWeb });
+            if (updated) {
+                setProducts(prev => prev.map(p => p.id === product.id ? updated : p));
+                toast.success(updated.isPublishedWeb ? 'Đã hiển thị sản phẩm lên Web' : 'Đã ẩn sản phẩm khỏi Web');
+            }
+        } catch (error) {
+            toast.error('Lỗi khi cập nhật trạng thái Web');
         }
     };
 
@@ -619,6 +638,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                         { key: 'price', label: 'Đơn giá', align: 'right', sortable: true, sortKey: 'base_price' },
                                         { key: 'margin', label: 'Biên LN', align: 'right', sortable: false },
                                         { key: 'status', label: 'Trạng thái', align: 'center', sortable: true, sortKey: 'is_active' },
+                                        { key: 'web', label: 'Web/App', align: 'center', sortable: true, sortKey: 'is_published_web' },
                                         { key: 'brand', label: 'Hãng', align: 'left', sortable: false },
                                         { key: 'supplier', label: 'NCC', align: 'left', sortable: false },
                                         { key: 'actions', label: '', align: 'center', sortable: false },
@@ -723,6 +743,21 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                                         Ngừng bán
                                                     </span>
                                                 )}
+                                            </td>
+
+                                            {/* Web Status */}
+                                            <td className="py-2.5 px-3 text-center">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleToggleWeb(product); }}
+                                                    className={`p-1.5 rounded-md transition-colors ${
+                                                        product.isPublishedWeb 
+                                                        ? 'text-sky-600 bg-sky-100 hover:bg-sky-200 dark:bg-sky-900/40 dark:text-sky-400' 
+                                                        : 'text-slate-400 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700'
+                                                    }`}
+                                                    title={product.isPublishedWeb ? "Đang xuất bản trên Web" : "Đang ẩn khỏi Web (Nhấp để xuất bản)"}
+                                                >
+                                                    {product.isPublishedWeb ? <Globe size={15} /> : <EyeOff size={15} />}
+                                                </button>
                                             </td>
 
                                             {/* Brand */}

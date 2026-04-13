@@ -32,6 +32,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
     const allowUpdate = can('products', 'update');
     const confirmDialog = useConfirmDialog();
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'basic' | 'web' | 'contracts'>('basic');
 
     const [product, setProduct] = useState<Product | null>(null);
     const [unit, setUnit] = useState<Unit | null>(null);
@@ -193,96 +194,214 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Info */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Financial Summary */}
-                    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Giá bán (Dự kiến)</p>
-                                <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                                    {formatCurrency(product.basePrice)}
-                                </p>
-                                <p className="text-[10px] text-slate-400">/{product.unit}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Giá vốn (Ước tính)</p>
-                                <p className="text-2xl font-black text-slate-600 dark:text-slate-300">
-                                    {formatCurrency(product.costPrice || 0)}
-                                </p>
-                                <p className="text-[10px] text-slate-400">/{product.unit}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Biên lợi nhuận</p>
-                                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                                    {margin}%
-                                </p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đơn vị phụ trách</p>
-                                <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                                    {unit?.name || 'Chưa phân công'}
-                                </p>
-                            </div>
-                        </div>
+                    {/* Tab Navigation */}
+                    <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                        <button
+                            onClick={() => setActiveTab('basic')}
+                            className={`flex-1 py-2.5 text-sm font-bold rounded-md transition-all ${activeTab === 'basic' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}
+                        >
+                            Thông tin chung
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('web')}
+                            className={`flex-1 py-2.5 text-sm font-bold rounded-md transition-all ${activeTab === 'web' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}
+                        >
+                            Web & Marketing
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('contracts')}
+                            className={`flex-1 py-2.5 text-sm font-bold rounded-md transition-all ${activeTab === 'contracts' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}
+                        >
+                            Hợp đồng liên quan
+                        </button>
                     </div>
 
-                    {/* Description */}
-                    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
-                            <FileText size={20} className="text-indigo-600 dark:text-indigo-400" />
-                            Mô tả sản phẩm/dịch vụ
-                        </h3>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                            {product.description || 'Chưa có mô tả.'}
-                        </p>
-                    </div>
+                    {/* ── TAB: CƠ BẢN ── */}
+                    {activeTab === 'basic' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Financial Summary */}
+                            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Giá bán (Dự kiến)</p>
+                                        <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
+                                            {formatCurrency(product.basePrice)}
+                                        </p>
+                                        <p className="text-[10px] text-slate-400">/{product.unit}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Giá vốn (Ước tính)</p>
+                                        <p className="text-2xl font-black text-slate-600 dark:text-slate-300">
+                                            {formatCurrency(product.costPrice || 0)}
+                                        </p>
+                                        <p className="text-[10px] text-slate-400">/{product.unit}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Biên lợi nhuận</p>
+                                        <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                                            {margin}%
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đơn vị phụ trách</p>
+                                        <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                                            {unit?.name || 'Chưa phân công'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
 
-                    {/* Related Contracts */}
-                    <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                        <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                <TrendingUp size={20} className="text-indigo-600 dark:text-indigo-400" />
-                                Hợp đồng liên quan ({stats.contractCount})
-                            </h3>
+                            {/* Description */}
+                            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+                                    <FileText size={20} className="text-indigo-600 dark:text-indigo-400" />
+                                    Mô tả sản phẩm/dịch vụ
+                                </h3>
+                                {product.description ? (
+                                    <div 
+                                        className="prose dark:prose-invert prose-slate prose-sm max-w-none" 
+                                        dangerouslySetInnerHTML={{ __html: product.description }} 
+                                    />
+                                ) : (
+                                    <p className="text-sm text-slate-500 italic">Chưa có mô tả.</p>
+                                )}
+                            </div>
                         </div>
-                        {relatedContracts.length > 0 ? (
-                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {relatedContracts.map(contract => {
-                                    const customer = customers.find(c => c.id === contract.customerId);
-                                    return (
-                                        <div
-                                            key={contract.id}
-                                            onClick={() => onViewContract?.(contract.id)}
-                                            className="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                                        >
-                                            <div className="flex justify-between items-start">
-                                                <div className="min-w-0 pr-4">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{contract.contractCode.slice(0, 8)}...</span>
-                                                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${contract.status === 'Processing'
-                                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                                                            }`}>
-                                                            {contract.status}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{contract.title}</p>
-                                                    <p className="text-xs text-slate-400 mt-0.5">{customer?.shortName || contract.partyA}</p>
+                    )}
+
+                    {/* ── TAB: WEB & MARKETING ── */}
+                    {activeTab === 'web' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Marketing Links Container */}
+                            {(product.videoUrl || product.brochureUrl || product.demoUrl) && (
+                                <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+                                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+                                        <TrendingUp size={20} className="text-indigo-600 dark:text-indigo-400" />
+                                        Liên kết Tài liệu & Video
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {product.videoUrl && (
+                                            <a href={product.videoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                                                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
+                                                    <TrendingUp size={20} />
                                                 </div>
-                                                <div className="text-right shrink-0">
-                                                    <p className="text-xs text-slate-400 mb-0.5">{contract.signedDate}</p>
-                                                    <p className="text-sm font-black text-slate-900 dark:text-slate-100">{formatCurrency(contract.value)}</p>
+                                                <div>
+                                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-200">Video giới thiệu</p>
+                                                    <p className="text-xs text-slate-500 truncate mt-0.5">{product.videoUrl}</p>
+                                                </div>
+                                            </a>
+                                        )}
+                                        {product.demoUrl && (
+                                            <a href={product.demoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+                                                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                                                    <Tag size={20} />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-200">Bản Demo / Dùng thử</p>
+                                                    <p className="text-xs text-slate-500 truncate mt-0.5">{product.demoUrl}</p>
+                                                </div>
+                                            </a>
+                                        )}
+                                        {product.brochureUrl && (
+                                            <a href={product.brochureUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition md:col-span-2">
+                                                <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
+                                                    <FileText size={20} />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-200">Tài liệu Brochure / Catalogue PDF</p>
+                                                    <p className="text-xs text-slate-500 truncate mt-0.5">{product.brochureUrl}</p>
+                                                </div>
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Features Details */}
+                            {product.featuresDetails && (
+                                <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
+                                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+                                        <CheckCircle size={20} className="text-emerald-600 dark:text-emerald-400" />
+                                        Tính năng chính
+                                    </h3>
+                                    <div 
+                                        className="prose dark:prose-invert prose-emerald prose-sm max-w-none" 
+                                        dangerouslySetInnerHTML={{ __html: product.featuresDetails }} 
+                                    />
+                                </div>
+                            )}
+
+                            {/* System Requirements */}
+                            {product.systemRequirements && (
+                                <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
+                                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+                                        <AlertTriangle size={20} className="text-orange-500" />
+                                        Yêu cầu hệ thống
+                                    </h3>
+                                    <div 
+                                        className="prose dark:prose-invert prose-orange prose-sm max-w-none" 
+                                        dangerouslySetInnerHTML={{ __html: product.systemRequirements }} 
+                                    />
+                                </div>
+                            )}
+                            
+                            {!product.featuresDetails && !product.systemRequirements && !product.videoUrl && !product.brochureUrl && !product.demoUrl && (
+                                <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                    Sản phẩm này chưa có thông tin xuất bản chuyên sâu cho Website (Brochure, System Requirements, Features...).
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── TAB: HỢP ĐỒNG ── */}
+                    {activeTab === 'contracts' && (
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-in fade-in duration-300">
+                            <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+                                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                    <TrendingUp size={20} className="text-indigo-600 dark:text-indigo-400" />
+                                    Hợp đồng liên quan ({stats.contractCount})
+                                </h3>
+                            </div>
+                            {relatedContracts.length > 0 ? (
+                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {relatedContracts.map(contract => {
+                                        const customer = customers.find(c => c.id === contract.customerId);
+                                        return (
+                                            <div
+                                                key={contract.id}
+                                                onClick={() => onViewContract?.(contract.id)}
+                                                className="p-4 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                                            >
+                                                <div className="flex justify-between items-start">
+                                                    <div className="min-w-0 pr-4">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{contract.contractCode.slice(0, 8)}...</span>
+                                                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${contract.status === 'Processing'
+                                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                                                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                                                }`}>
+                                                                {contract.status}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{contract.title}</p>
+                                                        <p className="text-xs text-slate-400 mt-0.5">{customer?.shortName || contract.partyA}</p>
+                                                    </div>
+                                                    <div className="text-right shrink-0">
+                                                        <p className="text-xs text-slate-400 mb-0.5">{contract.signedDate}</p>
+                                                        <p className="text-sm font-black text-slate-900 dark:text-slate-100">{formatCurrency(contract.value)}</p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                                Chưa tìm thấy hợp đồng nào liên quan đến sản phẩm này.
-                            </div>
-                        )}
-                    </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                                    Chưa tìm thấy hợp đồng nào liên quan đến sản phẩm này.
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Side Info */}

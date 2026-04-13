@@ -76,6 +76,11 @@ export interface Product {
   seoTitle?: string;
   seoDescription?: string;
   viewCount?: number;
+  featuresDetails?: string;
+  systemRequirements?: string;
+  videoUrl?: string;
+  brochureUrl?: string;
+  demoUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }
