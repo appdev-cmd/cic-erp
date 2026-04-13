@@ -389,7 +389,7 @@ export const createTaskAiTool: OpenClawTool = {
 
 export const exportDocumentTool: OpenClawTool = {
   name: 'export_document',
-  description: 'Tạo và đóng gói file báo cáo và trả về Link Tải xuống. \nLƯU Ý QUAN TRỌNG: \n1. Khách hàng thường thích BÁO CÁO CỰC KỲ CHI TIẾT. Hãy viết Thuyết minh dài, phân tích sâu.\n2. Nếu có dữ liệu số, HÃY tận dụng cú pháp markdown ` ```chart ` để nhúng biểu đồ (đặc biệt là biểu đồ doanh thu hàng tháng, so sánh, v.v..).\n3. Nếu báo cáo ĐANG CÓ BIỂU ĐỒ, bạn **PHẢI** chọn format=html (Bắt buộc) để người dùng xem được màu sắc, tương tác.\n4. Nếu chỉ xuất văn bản đơn thuần để in, mới dùng doc.',
+  description: 'Tạo và đóng gói file báo cáo và trả về Link Tải xuống. \nCHỈ SỬ DỤNG KHI USER YÊU CẦU "XUẤT RA FILE", "LƯU THÀNH FILE", HOẶC "TẢI XUỐNG". Tuyệt đối không tự ý gọi tool này nếu user chỉ yêu cầu "Lập báo cáo". \nLƯU Ý QUAN TRỌNG: \n1. Khách hàng thường thích BÁO CÁO CỰC KỲ CHI TIẾT. Hãy viết Thuyết minh dài, phân tích sâu.\n2. Nếu có dữ liệu số, HÃY tận dụng cú pháp markdown ` ```chart ` để nhúng biểu đồ (đặc biệt là biểu đồ doanh thu hàng tháng, so sánh, v.v..).\n3. Nếu báo cáo ĐANG CÓ BIỂU ĐỒ, bạn **PHẢI** chọn format=html (Bắt buộc) để người dùng xem được màu sắc, tương tác.\n4. Nếu chỉ xuất văn bản đơn thuần để in, mới dùng doc.',
   schema: {
     title: { type: 'string', description: 'Tên báo cáo' },
     content: { type: 'string', description: 'Nội dung văn bản Markdown cực kỳ chi tiết có kèm biểu đồ ` ```chart ` nếu phù hợp' },
@@ -532,9 +532,8 @@ ${htmlContent}
       if (error) throw error;
       
       const { data } = supabase.storage.from('documents').getPublicUrl(fileName);
-      const downloadLink = `[📥 TẢI XUỐNG BÁO CÁO: ${args.title}](${data.publicUrl})`;
 
-      return `Tạo file thành công! Bắt buộc cung cấp đường link này nguyên văn cho người dùng để họ bấm tải xuống:\n${downloadLink}`;
+      return `Tạo file thành công! Bạn BẮT BUỘC phải dùng CHÍNH XÁC link URL này để người dùng tải xuống (TUYỆT ĐỐI KHÔNG TỰ BỊA RA LINK KHÁC):\n\nURL: [Tải báo cáo](${data.publicUrl})`;
     } catch(err: any) {
       return `Lỗi tạo file: ${err.message}`;
     }
