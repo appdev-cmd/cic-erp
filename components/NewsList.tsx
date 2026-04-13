@@ -7,6 +7,7 @@ import { formatDate } from '../utils/formatters';
 import ConfirmDialog, { useConfirmDialog } from './ui/ConfirmDialog';
 import { toast } from 'sonner';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const NewsList: React.FC = () => {
     const [posts, setPosts] = useState<NewsPost[]>([]);
@@ -22,6 +23,7 @@ const NewsList: React.FC = () => {
     
     const confirmDialog = useConfirmDialog();
     const { openPanel, closePanel } = useSlidePanel();
+    const { hasRole } = useAuth();
 
     const fetchPosts = useCallback(async () => {
         setIsLoading(true);
@@ -137,10 +139,22 @@ const NewsList: React.FC = () => {
         }
     };
 
+    const handleApprove = async (id: string) => {
+        try {
+            const updated = await NewsService.update(id, { status: 'approved' });
+            setPosts(prev => prev.map(p => p.id === id ? updated : p));
+            toast.success('Đã duyệt bài viết. Quản lý Marketing có thể đăng lên website.');
+        } catch (error: any) {
+            toast.error('Lỗi khi duyệt bài: ' + (error.message || error));
+        }
+    };
+
     const getStatusStyle = (status: PostStatus) => {
         switch (status) {
             case 'published': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50';
-            case 'draft': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/50';
+            case 'approved': return 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border-sky-200 dark:border-sky-800/50';
+            case 'pending_approval': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800/50';
+            case 'draft': return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700';
             case 'archived': return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700';
             default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700';
         }
@@ -149,6 +163,8 @@ const NewsList: React.FC = () => {
     const getStatusText = (status: PostStatus) => {
         switch (status) {
             case 'published': return 'Đã xuất bản';
+            case 'approved': return 'Đã duyệt';
+            case 'pending_approval': return 'Chờ duyệt';
             case 'draft': return 'Bản nháp';
             case 'archived': return 'Lưu trữ';
             default: return 'Không rõ';
@@ -215,6 +231,8 @@ const NewsList: React.FC = () => {
                 >
                     <option value="all">Tất cả trạng thái</option>
                     <option value="published">Đã xuất bản</option>
+                    <option value="approved">Đã duyệt</option>
+                    <option value="pending_approval">Chờ duyệt</option>
                     <option value="draft">Bản nháp</option>
                     <option value="archived">Lưu trữ</option>
                 </select>
@@ -283,17 +301,27 @@ const NewsList: React.FC = () => {
                                         </td>
                                         <td className="py-3 px-4 text-center">
                                             <div className="flex flex-col items-center gap-1.5">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleToggleWebVisibility(post); }}
-                                                    title={post.status === 'published' ? 'Nhấn để ẩn bài viết' : 'Nhấn để xuất bản lên Web'}
-                                                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 dark:border-slate-700 transition-colors duration-200 outline-none
-                                                    ${post.status === 'published' ? 'bg-emerald-500 border-emerald-500 dark:border-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`}
-                                                >
-                                                    <span
-                                                        className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition duration-200
-                                                        ${post.status === 'published' ? 'translate-x-2' : '-translate-x-2'}`}
-                                                    />
-                                                </button>
+                                                {post.status === 'pending_approval' && hasRole(['Admin', 'Leadership']) ? (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleApprove(post.id); }}
+                                                        className="px-2 py-1 text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
+                                                        title="Nhấn để duyệt bài"
+                                                    >
+                                                        Duyệt bài
+                                                    </button>
+                                                ) : (['approved', 'published', 'draft'].includes(post.status)) && hasRole(['Admin', 'Marketing']) ? (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleToggleWebVisibility(post); }}
+                                                        title={post.status === 'published' ? 'Nhấn để ẩn bài viết' : 'Nhấn để xuất bản lên Web'}
+                                                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 dark:border-slate-700 transition-colors duration-200 outline-none
+                                                        ${post.status === 'published' ? 'bg-emerald-500 border-emerald-500 dark:border-emerald-500' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                                    >
+                                                        <span
+                                                            className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition duration-200
+                                                            ${post.status === 'published' ? 'translate-x-2' : '-translate-x-2'}`}
+                                                        />
+                                                    </button>
+                                                ) : null}
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getStatusStyle(post.status)}`}>
                                                     {getStatusText(post.status)}
                                                 </span>

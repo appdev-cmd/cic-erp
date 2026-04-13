@@ -48,6 +48,7 @@ import * as AiHistory from '../services/aiChatHistoryService';
 import type { AiConversation } from '../services/aiChatHistoryService';
 import { toast } from 'sonner';
 import AIDataIngestion from './AIDataIngestion';
+import { NewsService } from '../services/newsService';
 import { dataClient } from '../lib/dataClient';
 // Formatter functions outside component to avoid reference changes during render
 const formatValue = (value: any) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value);
@@ -1282,6 +1283,30 @@ const AIAssistant: React.FC = () => {
                       >
                         {copiedId === msg.id ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
                       </button>
+                      {msg.content.length > 50 && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const titleVi = msg.content.substring(0, 60).replace(/[#*`]/g, '').trim() + '...';
+                              const slug = 'ai-post-' + Date.now();
+                              await NewsService.create({
+                                titleVi,
+                                slug,
+                                contentVi: msg.content,
+                                status: 'pending_approval'
+                              });
+                              toast.success('Đã gửi bài viết lên mục Tin tức chờ duyệt!');
+                            } catch (e: any) {
+                              toast.error('Lỗi khi gửi bài: ' + (e.message || 'Error'));
+                            }
+                          }}
+                          className="px-2 py-1.5 text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:text-orange-600 hover:border-orange-200 rounded-lg shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Gửi bài lên mục Tin tức (Chờ duyệt)"
+                        >
+                          <Icons.Newspaper size={12} />
+                          Gửi duyệt bài viết
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

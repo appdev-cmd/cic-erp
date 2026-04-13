@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, User, Maximize2 } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Maximize2, Newspaper } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { streamChat } from '../services/ai';
 import { searchKnowledgeBase } from '../services/ragService';
 import { getBusinessContext } from '../services/contextService';
+import { NewsService } from '../services/newsService';
+import { toast } from 'sonner';
 
 interface ChatWidgetProps {
     contextData?: any; // Data to be passed to AI for context
@@ -232,7 +234,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                                     </div>
                                 )}
                                 <div
-                                    className={`max-w-[80%] p-4 text-[14px] leading-relaxed shadow-sm ${msg.sender === 'user'
+                                    className={`max-w-[80%] p-4 text-[14px] leading-relaxed shadow-sm relative group ${msg.sender === 'user'
                                         ? 'bg-gradient-to-br from-indigo-600 to-indigo-500 text-white rounded-2xl rounded-tr-sm'
                                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700 rounded-2xl rounded-tl-sm'
                                         }`}
@@ -260,6 +262,32 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                                             >
                                                 {msg.text}
                                             </ReactMarkdown>
+                                        </div>
+                                    )}
+                                    {msg.sender === 'ai' && msg.text.length > 50 && (
+                                        <div className="absolute -bottom-6 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        const titleVi = msg.text.substring(0, 60).replace(/[#*`]/g, '').trim() + '...';
+                                                        const slug = 'ai-post-' + Date.now();
+                                                        await NewsService.create({
+                                                            titleVi,
+                                                            slug,
+                                                            contentVi: msg.text,
+                                                            status: 'pending_approval'
+                                                        });
+                                                        toast.success('Đã gửi bài viết lên mục Tin tức chờ duyệt!');
+                                                    } catch (e: any) {
+                                                        toast.error('Lỗi khi gửi bài: ' + (e.message || 'Error'));
+                                                    }
+                                                }}
+                                                className="px-2 py-1.5 text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:text-orange-600 hover:border-orange-200 rounded-lg shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
+                                                title="Gửi bài lên mục Tin tức (Chờ duyệt)"
+                                            >
+                                                <Newspaper size={12} />
+                                                Gửi duyệt bài viết
+                                            </button>
                                         </div>
                                     )}
                                 </div>

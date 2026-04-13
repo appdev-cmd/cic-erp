@@ -42,6 +42,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
     Accountant: 'Kế toán',
     ChiefAccountant: 'KT Trưởng',
     Legal: 'Pháp chế',
+    Marketing: 'Marketing',
 };
 
 const ROLE_COLORS: Record<UserRole, { bg: string; active: string }> = {
@@ -54,9 +55,10 @@ const ROLE_COLORS: Record<UserRole, { bg: string; active: string }> = {
     Accountant: { bg: 'text-amber-500 dark:text-amber-400', active: 'bg-amber-500/10 border-amber-500 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' },
     ChiefAccountant: { bg: 'text-orange-500 dark:text-orange-400', active: 'bg-orange-500/10 border-orange-500 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400' },
     Legal: { bg: 'text-indigo-500 dark:text-indigo-400', active: 'bg-indigo-500/10 border-indigo-500 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' },
+    Marketing: { bg: 'text-pink-500 dark:text-pink-400', active: 'bg-pink-500/10 border-pink-500 dark:bg-pink-500/20 text-pink-600 dark:text-pink-400' },
 };
 
-const ALL_ROLES: UserRole[] = ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD', 'NVKT', 'Accountant', 'ChiefAccountant', 'Legal'];
+const ALL_ROLES: UserRole[] = ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD', 'NVKT', 'Accountant', 'ChiefAccountant', 'Legal', 'Marketing'];
 const ACTIONS: PermissionAction[] = ['view', 'create', 'update', 'delete'];
 const RESOURCES: PermissionResource[] = ['contracts', 'customers', 'products', 'payments', 'employees', 'units', 'tasks', 'settings', 'permissions', 'reports'];
 

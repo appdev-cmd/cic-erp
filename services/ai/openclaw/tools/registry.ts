@@ -319,33 +319,53 @@ import { NotificationService } from '../../../notificationService';
 
 export const searchEmployeesTool: OpenClawTool = {
   name: 'search_employees',
-  description: 'Tìm kiếm nhân sự theo tên (ví dụ: Trần Văn A). LƯU Ý: NẾU TRONG [CONTEXT] ĐÃ CÓ MÃ ID NHÂN SỰ RỒI THÌ BỎ QUA TOOL NÀY VÀ DÙNG LUÔN ID ĐÓ CHO CREATE_TASK MÀ KHÔNG CẦN TÌM KIẾM!',
+  description: 'Tìm kiếm nhân sự theo tên (ví dụ: Trần Văn A) hoặc Tên phòng ban (ví dụ: trung tâm BIM, phòng Hành chính). LƯU Ý: NẾU TRONG [CONTEXT] ĐÃ CÓ MÃ ID NHÂN SỰ RỒI THÌ BỎ QUA TOOL NÀY VÀ DÙNG LUÔN ID ĐÓ CHO CREATE_TASK MÀ KHÔNG CẦN TÌM KIẾM!',
   schema: {
-    searchName: { type: 'string', description: 'Tên nhân sự cần tìm' }
+    searchName: { type: 'string', description: 'Tên nhân sự hoặc Tên Phòng Ban (VD: BIM, Kế Toán) cần tìm' }
   },
   execute: async (args) => {
-    const term = args.searchName.replace('@', '');
-    // Hỗ trợ tìm kiếm cả profiles lẫn employees
-    let { data: employees } = await supabase
-      .from('profiles')
-      .select('id, full_name, email')
-      .ilike('full_name', `%${term}%`)
-      .limit(5);
-
-    if (!employees || employees.length === 0) {
-      // Fallback cho employees
-      const { data: emps } = await supabase.from('employees').select('id, name, position').ilike('name', `%${term}%`).limit(5);
-      if (emps && emps.length > 0) {
-        employees = emps.map((e: any) => ({ id: e.id, full_name: e.name, email: e.position }));
+    let term = args.searchName.replace('@', '').trim();
+    // Bỏ các chữ dư thừa để tìm chính xác hơn
+    const excludeWords = ['phòng ', 'trung tâm ', 'phong ', 'trung tam '];
+    for (const w of excludeWords) {
+      if (term.toLowerCase().startsWith(w)) {
+        term = term.substring(w.length).trim();
       }
     }
 
-    if (!employees || employees.length === 0) return { error: `Không tìm thấy ai tên ${term}` };
-    return employees.map((e: any) => ({
-      id: e.id,
-      ten: e.full_name,
-      thongTin: e.email || '—'
-    }));
+    // 1. Tìm trong bảng employees (Hỗ trợ cả tên và phòng ban)
+    const { data: emps } = await supabase
+      .from('employees')
+      .select('id, name, position, department')
+      .or(`name.ilike.%${term}%,department.ilike.%${term}%`)
+      .limit(30);
+
+    let results = [];
+    if (emps && emps.length > 0) {
+      results = emps.map((e: any) => ({
+        id: e.id,
+        ten: e.name,
+        thongTin: `${e.position || 'Nhân viên'} - ${e.department || 'Chưa rõ phòng'}`
+      }));
+    } else {
+      // 2. Fallback tìm profiles (Cho những user admin hoặc user mới chưa nhập HR)
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .ilike('full_name', `%${term}%`)
+        .limit(10);
+      
+      if (profiles && profiles.length > 0) {
+        results = profiles.map((e: any) => ({
+          id: e.id,
+          ten: e.full_name,
+          thongTin: e.email || '—'
+        }));
+      }
+    }
+
+    if (results.length === 0) return { error: `Không tìm thấy ai liên quan đến từ khóa: ${term}` };
+    return results;
   }
 };
 

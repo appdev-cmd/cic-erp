@@ -4,7 +4,7 @@ import type { ContractContact, PaymentPhase, Milestone, LineItem, ContractDocume
 // WORKFLOW & PERMISSIONS
 // ============================================
 
-export type UserRole = 'Admin' | 'NVKD' | 'NVKT' | 'AdminUnit' | 'UnitLeader' | 'Accountant' | 'ChiefAccountant' | 'Legal' | 'Leadership';
+export type UserRole = 'Admin' | 'NVKD' | 'NVKT' | 'AdminUnit' | 'UnitLeader' | 'Accountant' | 'ChiefAccountant' | 'Legal' | 'Leadership' | 'Marketing';
 
 export interface UserProfile {
   id: string; // Links to auth.users
@@ -163,6 +163,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     customers: ['view', 'create', 'update'],
     products: ['view', 'create', 'update'],
     payments: ['view'],
+    tasks: ['view', 'create', 'update'],
+  },
+  // Marketing — Quản lý tin tức, website, ấn phẩm
+  Marketing: {
+    contracts: ['view'],
+    customers: ['view'],
+    products: ['view'],
+    news: ['view', 'create', 'update', 'delete'],
     tasks: ['view', 'create', 'update'],
   },
 };

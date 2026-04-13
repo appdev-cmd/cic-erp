@@ -6,6 +6,7 @@ import RichTextEditor from './ui/RichTextEditor';
 import { NewsPost, PostStatus, PostCategory } from '../types/news';
 import { generateSlug } from '../utils/formatters';
 import { NewsService } from '../services/newsService';
+import { useAuth } from '../contexts/AuthContext';
 
 interface NewsFormProps {
     isOpen?: boolean;
@@ -17,6 +18,7 @@ interface NewsFormProps {
 
 const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isInsidePanel }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { hasRole } = useAuth();
     const [categories, setCategories] = useState<PostCategory[]>([]);
     const [formData, setFormData] = useState({
         titleVi: '',
@@ -24,7 +26,7 @@ const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isIn
         categoryId: '',
         excerptVi: '',
         contentVi: '',
-        status: 'draft' as PostStatus,
+        status: (hasRole(['Admin', 'Marketing', 'Leadership']) ? 'draft' : 'pending_approval') as PostStatus,
         isFeatured: false,
         seoTitleVi: '',
         seoDescriptionVi: '',
@@ -214,14 +216,28 @@ const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isIn
                             className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors font-bold ${
                                 formData.status === 'published' 
                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900 dark:text-emerald-300 dark:border-emerald-800' 
-                                    : formData.status === 'draft'
-                                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800'
-                                        : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                                    : formData.status === 'approved'
+                                        ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900 dark:text-sky-300 dark:border-sky-800'
+                                        : formData.status === 'pending_approval'
+                                            ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800'
+                                            : formData.status === 'draft'
+                                                ? 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                                                : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
                             }`}
                         >
-                            <option value="draft">Bản nháp (Chưa hiển thị)</option>
-                            <option value="published">Đã xuất bản (Hiển thị ngay)</option>
-                            <option value="archived">Lưu trữ</option>
+                            {!hasRole(['Admin', 'Marketing', 'Leadership']) && (
+                                <option value="pending_approval">Chờ duyệt (Chỉ BGD duyệt)</option>
+                            )}
+                            
+                            {hasRole(['Admin', 'Marketing', 'Leadership']) && (
+                                <>
+                                    <option value="draft">Bản nháp (Chưa hiển thị)</option>
+                                    <option value="pending_approval">Chờ duyệt (Chỉ BGD duyệt)</option>
+                                    <option value="approved" disabled={!hasRole(['Admin', 'Leadership'])}>Đã duyệt (Chờ đăng lên Web)</option>
+                                    <option value="published" disabled={!hasRole(['Admin', 'Marketing'])}>Đã xuất bản (Hiển thị ngay)</option>
+                                    <option value="archived">Lưu trữ</option>
+                                </>
+                            )}
                         </select>
                     </div>
 

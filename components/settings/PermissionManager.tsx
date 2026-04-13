@@ -47,6 +47,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
     Accountant: 'Kế toán',
     ChiefAccountant: 'KT Trưởng',
     Legal: 'Pháp chế',
+    Marketing: 'Marketing',
 };
 
 const ROLE_COLORS: Record<UserRole, string> = {
@@ -59,9 +60,10 @@ const ROLE_COLORS: Record<UserRole, string> = {
     Accountant: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     ChiefAccountant: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     Legal: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+    Marketing: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
 };
 
-const ALL_ROLES: UserRole[] = ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD', 'NVKT', 'Accountant', 'ChiefAccountant', 'Legal'];
+const ALL_ROLES: UserRole[] = ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD', 'NVKT', 'Accountant', 'ChiefAccountant', 'Legal', 'Marketing'];
 const ACTIONS: PermissionAction[] = ['view', 'create', 'update', 'delete'];
 const RESOURCES: PermissionResource[] = ['contracts', 'customers', 'products', 'tasks', 'payments', 'employees', 'units', 'settings', 'permissions', 'reports'];
 

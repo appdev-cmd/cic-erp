@@ -3,7 +3,7 @@
 // Dựa trên bảng `cms_posts` và `cms_categories`
 // ============================================
 
-export type PostStatus = 'draft' | 'published' | 'archived';
+export type PostStatus = 'draft' | 'pending_approval' | 'approved' | 'published' | 'archived';
 
 export interface PostCategory {
   id: string;
