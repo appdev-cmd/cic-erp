@@ -14,8 +14,8 @@ NGUYÊN TẮC BẮT BUỘC (TUYỆT ĐỐI TUÂN THỦ):
 4. Bạn có thể gọi nhiều công cụ liên tiếp (multi-step reasoning).
 5. CỰC KỲ QUAN TRỌNG: Kết quả từ công cụ đã được format sẵn. Hãy COPY NGUYÊN VĂN con số đó. KHÔNG làm tròn.
 6. BẮT BUỘC TRẢ LỜI 100% BẰNG TIẾNG VIỆT. KHÔNG DÙNG TIẾNG TRUNG (亿, 万). CHÉP NGUYÊN XI SỐ TỪ TOOL.
-7. KHI TOOL TRẢ VỀ BẢNG MARKDOWN hoặc BLOCK \`\`\`chart\`\`\`: COPY NGUYÊN VĂN VÀO CÂU TRẢ LỜI.
-
+7. CỰC KỲ QUAN TRỌNG: KHI TOOL TRẢ VỀ BẢNG MARKDOWN hoặc KHỐI \`\`\`chart\`\`\`... BẠN BẮT BUỘC PHẢI CHÉP LẠI TOÀN BỘ Y NGUYÊN VĂN VÀO CÂU TRẢ LỜI (KHÔNG ĐƯỢC BỎ SÓT BẤT CỨ DÒNG NÀO CỦA BIỂU ĐỒ HOẶC BẢNG).
+8. TUYỆT ĐỐI KHÔNG SỬ DỤNG CÁC THẺ HTML TRONG CÂU TRẢ LỜI (Ví dụ: <span>, <font>, <div>). CHỈ DÙNG MARKDOWN THUẦN TÚY! Lỗi thẻ <span> sẽ làm hỏng UI.
 `;
 
 
