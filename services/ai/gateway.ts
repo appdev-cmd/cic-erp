@@ -592,6 +592,9 @@ function extractGemmaToolCalls(content: string): { tool_calls: any[], cleaned_co
     let tool_calls: any[] = [];
     if (!content.includes('<|tool_call|>') && !content.includes('call:')) return null;
 
+    // Dọn dẹp sơ bộ lỗi sinh ký tự của vLLM Gemma
+    content = content.replace(/<<\|tool_call\|>/g, '<|tool_call|>');
+    
     // Use balanced brace matching for nested JSON (e.g. export_document with chart JSON)
     const callPattern = /(?:<\|tool_call\|>)?\s*call:([a-zA-Z0-9_]+)\{/g;
     let match;
@@ -621,8 +624,28 @@ function extractGemmaToolCalls(content: string): { tool_calls: any[], cleaned_co
         let rawJson = content.substring(braceStart, end + 1);
         // Clean up any tool_call tags inside
         rawJson = rawJson.replace(/<\|\/?tool_call\|?>/g, '');
+        rawJson = rawJson.replace(/<\/?tool_call\|?>/g, '');
+        
+        // Fix multiline strings and unescaped quotes wrapped in `<|"|>` tokens
+        rawJson = rawJson.replace(/<\|(?:\"|\')\|?>([\s\S]*?)<\|(?:\"|\')\|?>/g, (match, innerString) => {
+            // Escape literal newlines and actual quotes inside the string part
+            const escaped = innerString
+                .replace(/\\/g, '\\\\')
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r')
+                .replace(/"/g, '\\"')
+                .replace(/\t/g, '\\t');
+            return '"' + escaped + '"';
+        });
+
+        // Clean up weird Gemma quote tokens just in case format was unclosed
+        rawJson = rawJson.replace(/<\|"\|?>/g, '"');
+        rawJson = rawJson.replace(/<\|'\|?>/g, "'");
+        
         // Fix unquoted keys
         let jsonStr = rawJson.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/gs, '$1"$2":');
+        // Fix single quotes for values just in case
+        jsonStr = jsonStr.replace(/:\s*'([^']*)'/g, ':"$1"');
         
         try {
             const argsObj = JSON.parse(jsonStr);
@@ -646,6 +669,7 @@ function extractGemmaToolCalls(content: string): { tool_calls: any[], cleaned_co
     }
     // Dọn dẹp nốt thẻ đóng nếu có sót lại
     cleaned_content = cleaned_content.replace(/<\|\/?tool_call\|?>/g, '').trim();
+    cleaned_content = cleaned_content.replace(/<\/?tool_call\|?>/g, '').trim();
     
     return { tool_calls, cleaned_content };
 }
