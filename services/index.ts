@@ -29,6 +29,9 @@ export * from './discussionService';
 // BIM Projects
 export * from './projectService';
 
+// News & Web Posts
+export * from './newsService';
+
 // Personal Tags
 export * from './contractTagService';
 

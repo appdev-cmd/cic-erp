@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3, Bot, Crown, ScanLine } from 'lucide-react';
+import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3, Bot, Crown, ScanLine, Sparkles } from 'lucide-react';
 import PilotRunner from './admin/PilotRunner';
 import PermissionManager from './settings/PermissionManager';
 import RoleDefaultsManager from './settings/RoleDefaultsManager';
@@ -9,10 +9,11 @@ import AIPermissionManager from './settings/AIPermissionManager';
 import ManagementRankManager from './settings/ManagementRankManager';
 import HistoricalProductionManager from './settings/HistoricalProductionManager';
 import RouteAuditPanel from './settings/RouteAuditPanel';
+import EmbeddingSettings from './settings/EmbeddingSettings';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 
-type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'task-mgmt' | 'ai-api' | 'historical' | 'drive' | 'route-audit' | 'testing';
+type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'task-mgmt' | 'ai-api' | 'ai-embedding' | 'historical' | 'drive' | 'route-audit' | 'testing';
 
 const Settings: React.FC = () => {
     const { theme, setTheme, accent, setAccent } = useLayoutContext();
@@ -35,6 +36,7 @@ const Settings: React.FC = () => {
         { id: 'task-mgmt', label: 'Cấp quản lý', icon: <Crown size={18} />, adminOnly: true },
         { id: 'historical', label: 'Sản lượng lịch sử', icon: <BarChart3 size={18} />, adminOnly: true },
         { id: 'ai-api', label: 'AI API', icon: <Bot size={18} />, adminOnly: true },
+        { id: 'ai-embedding', label: 'AI Embedding', icon: <Sparkles size={18} />, adminOnly: true },
         { id: 'drive', label: 'Google Drive', icon: <HardDrive size={18} />, adminOnly: true },
         { id: 'route-audit', label: 'Route & Phân quyền', icon: <ScanLine size={18} />, adminOnly: true },
         { id: 'testing', label: 'Kiểm thử', icon: <FlaskConical size={18} /> },
@@ -200,6 +202,21 @@ const Settings: React.FC = () => {
                             </div>
                         </div>
                         <AIPermissionManager />
+                    </div>
+                )}
+
+                {activeTab === 'ai-embedding' && isAdmin && (
+                    <div>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+                                <Sparkles size={20} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-slate-200">AI Embedding Provider</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Cấu hình engine nhúng vector cho tài liệu (RAG)</p>
+                            </div>
+                        </div>
+                        <EmbeddingSettings />
                     </div>
                 )}
 

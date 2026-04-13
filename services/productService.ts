@@ -26,6 +26,14 @@ const mapProduct = (p: any): Product => ({
     // Joined display fields
     brandName: p.brands?.name || p.brand_name,
     supplierName: p.suppliers?.name || p.supplier_name,
+    // Web Integration
+    isPublishedWeb: p.is_published_web,
+    isFeaturedWeb: p.is_featured_web,
+    slug: p.slug,
+    summary: p.summary,
+    seoTitle: p.seo_title,
+    seoDescription: p.seo_description,
+    viewCount: p.view_count,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
 });
@@ -126,6 +134,12 @@ export const ProductService = {
             sku: data.sku || null,
             model: data.model || null,
             warranty_months: data.warrantyMonths || null,
+            is_published_web: data.isPublishedWeb || false,
+            is_featured_web: data.isFeaturedWeb || false,
+            slug: data.slug || null,
+            summary: data.summary || null,
+            seo_title: data.seoTitle || null,
+            seo_description: data.seoDescription || null,
         };
         const { data: res, error } = await supabase.from('products').insert(payload).select(SELECT_WITH_JOINS).single();
         if (error) throw error;
@@ -151,6 +165,14 @@ export const ProductService = {
         if (data.sku !== undefined) payload.sku = data.sku || null;
         if (data.model !== undefined) payload.model = data.model || null;
         if (data.warrantyMonths !== undefined) payload.warranty_months = data.warrantyMonths || null;
+        
+        if (data.isPublishedWeb !== undefined) payload.is_published_web = data.isPublishedWeb;
+        if (data.isFeaturedWeb !== undefined) payload.is_featured_web = data.isFeaturedWeb;
+        if (data.slug !== undefined) payload.slug = data.slug || null;
+        if (data.summary !== undefined) payload.summary = data.summary || null;
+        if (data.seoTitle !== undefined) payload.seo_title = data.seoTitle || null;
+        if (data.seoDescription !== undefined) payload.seo_description = data.seoDescription || null;
+        
         payload.updated_at = new Date().toISOString();
 
         const { data: res, error } = await supabase.from('products').update(payload).eq('id', id).select(SELECT_WITH_JOINS).single();

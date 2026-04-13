@@ -1130,6 +1130,65 @@ export const searchKnowledgeBaseTool: OpenClawTool = {
   }
 };
 
+// ═══════════════════════════════════════════════
+// Tool 19.5: Tìm kiếm Tài liệu Registry
+// ═══════════════════════════════════════════════
+
+export const searchDocumentRegistryTool: OpenClawTool = {
+  name: 'search_document_registry',
+  description: 'Tìm kiếm tài liệu trong Document Registry (metadata tập trung). Tìm theo tên/mô tả, lọc theo danh mục (contract/report/hr/invoice...) hoặc liên kết entity. Dùng khi user hỏi "tìm tài liệu X", "có file nào về Y không", "tài liệu hợp đồng ABC".',
+  schema: {
+    query: { type: 'string', description: 'Từ khóa tìm kiếm (tên/mô tả tài liệu)' },
+    category: { type: 'string', enum: ['contract', 'report', 'invoice', 'hr', 'legal', 'technical', 'general'], description: 'Lọc theo danh mục (tùy chọn)' },
+    entityType: { type: 'string', enum: ['contract', 'employee', 'customer', 'unit'], description: 'Lọc theo loại entity liên kết (tùy chọn)' },
+    useAI: { type: 'string', enum: ['true', 'false'], description: 'Dùng AI vector search thay vì text search (mặc định: false)' },
+  },
+  execute: async (args) => {
+    try {
+      // Nếu dùng AI vector search
+      if (args.useAI === 'true' && args.query) {
+        const { searchKnowledgeBase } = await import('../../../ragService');
+        const results = await searchKnowledgeBase(args.query, {
+          limit: 5,
+          category: args.category,
+          entityType: args.entityType,
+        });
+        if (results && results.trim().length > 0) {
+          return { loaiTimKiem: 'AI Vector Search', ketQua: results };
+        }
+        return { message: 'Không tìm thấy tài liệu nào qua AI search.' };
+      }
+
+      // Text search trong document_registry
+      const { DocumentRegistryService } = await import('../../../documentRegistryService');
+      const { data } = await DocumentRegistryService.getAll({
+        searchTerm: args.query || undefined,
+        docCategory: args.category as any || undefined,
+        entityType: args.entityType || undefined,
+      });
+
+      if (!data || data.length === 0) {
+        return { message: 'Không tìm thấy tài liệu nào phù hợp.' };
+      }
+
+      return {
+        tongKetQua: data.length,
+        taiLieu: data.slice(0, 10).map((d: any) => ({
+          tieuDe: d.title,
+          danhMuc: d.docCategory,
+          loaiFile: d.mimeType || d.sourceType,
+          dungLuong: d.fileSize ? `${(d.fileSize / 1024).toFixed(0)} KB` : '—',
+          aiDaDoc: d.isAiIndexed ? 'Đã đọc' : 'Chưa đọc',
+          url: d.sourceUrl || '—',
+          lienKet: d.entityType ? `${d.entityType}: ${d.entityId}` : '—',
+        })),
+      };
+    } catch (err: any) {
+      return { error: 'Lỗi tìm kiếm: ' + err.message };
+    }
+  }
+};
+
 export const getDailyBriefingTool: OpenClawTool = {
   name: 'get_daily_briefing',
   description: 'Tạo bản tin sáng (Daily Briefing) tổng hợp: HĐ quá hạn, công nợ, task trễ, HĐ sắp hết hạn. Dùng khi user hỏi "bản tin sáng", "tóm tắt hôm nay", "tình hình hôm nay", "daily briefing".',
@@ -1693,8 +1752,10 @@ export const getSmartInsightsTool: OpenClawTool = {
     return md;
   }
 };
+import { marketingToolsRegistry } from './marketingTools';
 
 export const erpToolsRegistry: OpenClawTool[] = [
+  ...marketingToolsRegistry,
   searchContractsTool,
   getContractDetailTool,
   getContractStatsTool,
@@ -1715,6 +1776,7 @@ export const erpToolsRegistry: OpenClawTool[] = [
   getEmployeeWorkloadTool,
   approveTaskTool,
   searchKnowledgeBaseTool,
+  searchDocumentRegistryTool,
   // Phase 3 — Daily Briefing
   getDailyBriefingTool,
   

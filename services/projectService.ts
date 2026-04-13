@@ -32,6 +32,18 @@ function toProject(row: any): BIMProject {
     area: Number(row.area) || 0,
     projectPhase: row.project_phase,
     contractId: row.contract_id,
+    
+    // Web Integration
+    isPublishedWeb: row.is_published_web,
+    isFeaturedWeb: row.is_featured_web,
+    slug: row.slug,
+    seoTitle: row.seo_title,
+    seoDescription: row.seo_description,
+    webCategory: row.web_category,
+    webClientName: row.web_client_name,
+    webStats: row.web_stats,
+    viewCount: row.view_count,
+
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -62,6 +74,16 @@ function toRow(project: Partial<BIMProject>): Record<string, any> {
   if (project.area !== undefined) row.area = project.area;
   if (project.projectPhase !== undefined) row.project_phase = project.projectPhase;
   if (project.contractId !== undefined) row.contract_id = project.contractId;
+  
+  if (project.isPublishedWeb !== undefined) row.is_published_web = project.isPublishedWeb;
+  if (project.isFeaturedWeb !== undefined) row.is_featured_web = project.isFeaturedWeb;
+  if (project.slug !== undefined) row.slug = project.slug;
+  if (project.seoTitle !== undefined) row.seo_title = project.seoTitle;
+  if (project.seoDescription !== undefined) row.seo_description = project.seoDescription;
+  if (project.webCategory !== undefined) row.web_category = project.webCategory;
+  if (project.webClientName !== undefined) row.web_client_name = project.webClientName;
+  if (project.webStats !== undefined) row.web_stats = project.webStats;
+
   return row;
 }
 

@@ -41,6 +41,18 @@ export interface BIMProject {
   area?: number;               // Diện tích (m²)
   projectPhase?: string;       // Giai đoạn dự án
   contractId?: string;         // ID hợp đồng gắn với dự án
+  
+  // Web Integration fields
+  isPublishedWeb?: boolean;
+  isFeaturedWeb?: boolean;
+  slug?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  webCategory?: string;
+  webClientName?: string;
+  webStats?: string;
+  viewCount?: number;
+  
   createdAt?: string;
   updatedAt?: string;
 }

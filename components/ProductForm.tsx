@@ -10,7 +10,8 @@ import { UnitService, BrandService, CustomerService, ProductLineService, Product
 import { ProductService } from '../services/productService';
 import { ProductLine } from '../services/productLineService';
 import { ProductEdition } from '../services/productEditionService';
-import { removeDiacritics } from '../utils/formatters';
+import { removeDiacritics, generateSlug } from '../utils/formatters';
+import RichTextEditor from './ui/RichTextEditor';
 
 interface ProductFormProps {
     isOpen: boolean;
@@ -237,9 +238,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
         unitId: '',
         productLine: '',
         edition: '',
-
         brandId: '',
         supplierId: '',
+        isPublishedWeb: false,
+        isFeaturedWeb: false,
+        slug: '',
+        summary: '',
+        seoTitle: '',
+        seoDescription: '',
     });
 
     // Data lists
@@ -267,6 +273,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
         () => buildProductName(formData.category, formData.productLine, formData.edition),
         [formData.category, formData.productLine, formData.edition]
     );
+
+    // Auto-generate slug when name changes (only if empty or creating new)
+    useEffect(() => {
+        if (!product && builtName) {
+            setFormData(prev => ({ ...prev, slug: generateSlug(builtName) }));
+        }
+    }, [builtName, product]);
 
     // Debounced duplicate name check
     useEffect(() => {
@@ -343,6 +356,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 edition: product.edition || '',
                 brandId: product.brandId || '',
                 supplierId: product.supplierId || '',
+                isPublishedWeb: product.isPublishedWeb || false,
+                isFeaturedWeb: product.isFeaturedWeb || false,
+                slug: product.slug || '',
+                summary: product.summary || '',
+                seoTitle: product.seoTitle || '',
+                seoDescription: product.seoDescription || '',
             });
             setSelectedSupplierName(product.supplierName || '');
             setSelectedBrandName(product.brandName || '');
@@ -361,6 +380,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 edition: '',
                 brandId: '',
                 supplierId: '',
+                isPublishedWeb: false,
+                isFeaturedWeb: false,
+                slug: '',
+                summary: '',
+                seoTitle: '',
+                seoDescription: '',
             });
             setSelectedSupplierName('');
             setSelectedBrandName('');
@@ -627,30 +652,80 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 </div>
 
                 {/* Row 4: Business Unit */}
-                <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Đơn vị phụ trách</label>
-                    <select
-                        value={formData.unitId}
-                        onChange={e => setFormData(prev => ({ ...prev, unitId: e.target.value }))}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
-                    >
-                        <option value="">-- Không chỉ định --</option>
-                        {units.map(unit => (
-                            <option key={unit.id} value={unit.id}>{unit.name} ({unit.code})</option>
-                        ))}
-                    </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Đơn vị phụ trách</label>
+                        <select
+                            value={formData.unitId}
+                            onChange={e => setFormData(prev => ({ ...prev, unitId: e.target.value }))}
+                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
+                        >
+                            <option value="">-- Không chỉ định --</option>
+                            {units.map(unit => (
+                                <option key={unit.id} value={unit.id}>{unit.name} ({unit.code})</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
-                {/* Row 5: Description */}
-                <div>
-                    <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Mô tả</label>
-                    <textarea
-                        value={formData.description}
-                        onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                        rows={3}
-                        placeholder="Mô tả chi tiết về sản phẩm/dịch vụ..."
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none transition-colors text-slate-800 dark:text-slate-200"
-                    />
+                {/* Row 5: Web Content & Description */}
+                <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+                    <div className="flex items-center gap-2 mb-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+                        <span className="font-bold text-slate-800 dark:text-slate-200">Thông tin xuất bản Website</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Đường dẫn tĩnh (Slug)</label>
+                            <input
+                                type="text"
+                                value={formData.slug}
+                                onChange={e => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+                                placeholder="VD: pmbentleydcs001"
+                                className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200"
+                            />
+                        </div>
+                        <div className="flex items-center gap-4 mt-6">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.isPublishedWeb}
+                                    onChange={e => setFormData(prev => ({ ...prev, isPublishedWeb: e.target.checked }))}
+                                    className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                                />
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Hiển thị trên Web</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.isFeaturedWeb}
+                                    onChange={e => setFormData(prev => ({ ...prev, isFeaturedWeb: e.target.checked }))}
+                                    className="w-4 h-4 text-orange-500 rounded border-slate-300"
+                                />
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Sản phẩm tiêu biểu</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Tóm tắt ngắn (Summary)</label>
+                        <textarea
+                            value={formData.summary}
+                            onChange={e => setFormData(prev => ({ ...prev, summary: e.target.value }))}
+                            rows={2}
+                            placeholder="Mô tả tóm tắt..."
+                            className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none transition-colors text-slate-800 dark:text-slate-200"
+                        />
+                    </div>
+
+                    <div>
+                        <RichTextEditor
+                            label="Mô tả chi tiết"
+                            value={formData.description}
+                            onChange={(val) => setFormData(prev => ({ ...prev, description: val }))}
+                            minHeight="200px"
+                        />
+                    </div>
                 </div>
 
                 {/* Row 6: Prices (optional) */}

@@ -1,4 +1,5 @@
 import { dataClient as supabase } from '../lib/dataClient';
+import { DocumentRegistryService } from './documentRegistryService';
 
 export interface EmployeeDocument {
     id: string;
@@ -62,6 +63,22 @@ export const EmployeeDocumentService = {
             .select()
             .single();
         if (error) throw error;
+
+        // Auto-register vào Document Registry
+        try {
+            await DocumentRegistryService.create({
+                title: payload.name,
+                docCategory: 'hr',
+                sourceType: payload.url ? 'external_link' : 'pasted_text',
+                sourceUrl: payload.url || undefined,
+                fileName: payload.name,
+                entityType: 'employee',
+                entityId: payload.employeeId,
+            });
+        } catch (regErr) {
+            console.warn('[EmployeeDocService] Auto-register failed:', regErr);
+        }
+
         return mapDoc(data);
     },
 

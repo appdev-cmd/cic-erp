@@ -17,7 +17,8 @@ import {
   Landmark,
   ClipboardList,
   Briefcase,
-  Bot
+  Bot,
+  Newspaper
 } from 'lucide-react';
 import { UserRole, PlanStatus } from './types';
 
@@ -91,6 +92,7 @@ export const NAV_ITEMS = [
   { id: 'personnel', label: 'Nhân viên', icon: <Users size={20} /> },
   { id: 'products', label: 'Sản phẩm/DV', icon: <Package size={20} /> },
   { id: 'customers', label: 'Đối tác', icon: <Handshake size={20} /> },
+  { id: 'news', label: 'Tin tức', icon: <Newspaper size={20} /> },
   { id: 'agent-manager', label: 'Agent', icon: <Bot size={20} /> },
   { id: 'user-guide', label: 'Hướng dẫn', icon: <HelpCircle size={20} /> },
 

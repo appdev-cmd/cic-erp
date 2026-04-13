@@ -8,6 +8,8 @@ import { EmployeeService } from '../../services/employeeService';
 import SearchableSelect from '../ui/SearchableSelect';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
 import { toast } from 'sonner';
+import { generateSlug } from '../../utils/formatters';
+import RichTextEditor from '../ui/RichTextEditor';
 
 interface Props {
   job?: JobOpening | null;
@@ -34,7 +36,10 @@ const JobOpeningForm: React.FC<Props> = ({ job, onClose, onSuccess, isInsidePane
       benefits: '',
       requester_id: null,
       recruiter_id: null,
-      interviewer_ids: []
+      interviewer_ids: [],
+      is_published_web: false,
+      is_featured: false,
+      slug: ''
     }
   );
 
@@ -84,10 +89,20 @@ const JobOpeningForm: React.FC<Props> = ({ job, onClose, onSuccess, isInsidePane
     benefits: '',
     requester_id: null,
     recruiter_id: null,
-    interviewer_ids: []
+    interviewer_ids: [],
+    is_published_web: false,
+    is_featured: false,
+    slug: ''
   }), [job]);
 
   const isDirty = useMemo(() => JSON.stringify(formData) !== initialData, [formData, initialData]);
+
+  // Auto-generate slug when title changes (only for new job and empty slug)
+  useEffect(() => {
+    if (!job && formData.title && !formData.slug) {
+      setFormData(prev => ({ ...prev, slug: generateSlug(prev.title || '') }));
+    }
+  }, [formData.title, job, formData.slug]);
 
   useEffect(() => {
     if (isDirty) {
@@ -242,6 +257,43 @@ const JobOpeningForm: React.FC<Props> = ({ job, onClose, onSuccess, isInsidePane
                   <option value="low">Thấp</option>
                 </select>
               </div>
+
+              {/* Web Publishing Section */}
+              <div className="md:col-span-2 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 mb-4">Thông tin xuất bản Website</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Đường dẫn tĩnh (Slug)</label>
+                    <input
+                      type="text"
+                      value={formData.slug || ''}
+                      onChange={e => setFormData({ ...formData, slug: e.target.value })}
+                      placeholder="VD: chuyen-vien-kinh-doanh"
+                      className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-lg focus:ring-2 focus:ring-indigo-500/50 outline-none text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="flex items-center gap-6 mt-8">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_published_web || false}
+                        onChange={e => setFormData({ ...formData, is_published_web: e.target.checked })}
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                      />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Hiển thị trên Web</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_featured || false}
+                        onChange={e => setFormData({ ...formData, is_featured: e.target.checked })}
+                        className="w-4 h-4 text-orange-500 rounded border-slate-300"
+                      />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tin tuyển dụng nổi bật</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -249,30 +301,27 @@ const JobOpeningForm: React.FC<Props> = ({ job, onClose, onSuccess, isInsidePane
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Mô tả công việc</label>
-              <textarea
+              <RichTextEditor
+                label="Mô tả công việc"
                 value={formData.description || ''}
-                onChange={e => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none text-slate-900 dark:text-white min-h-[150px] resize-y"
-                placeholder="Mô tả các nhiệm vụ chính..."
+                onChange={val => setFormData({ ...formData, description: val })}
+                minHeight="150px"
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Yêu cầu ứng viên</label>
-              <textarea
+              <RichTextEditor
+                label="Yêu cầu ứng viên"
                 value={formData.requirements || ''}
-                onChange={e => setFormData({ ...formData, requirements: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none text-slate-900 dark:text-white min-h-[150px] resize-y"
-                placeholder="Kỹ năng, bằng cấp, thái độ..."
+                onChange={val => setFormData({ ...formData, requirements: val })}
+                minHeight="150px"
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Quyền lợi</label>
-              <textarea
+              <RichTextEditor
+                label="Quyền lợi"
                 value={formData.benefits || ''}
-                onChange={e => setFormData({ ...formData, benefits: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/50 outline-none text-slate-900 dark:text-white min-h-[150px] resize-y"
-                placeholder="Lương, thưởng, bảo hiểm, du lịch..."
+                onChange={val => setFormData({ ...formData, benefits: val })}
+                minHeight="150px"
               />
             </div>
           </div>

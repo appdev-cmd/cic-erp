@@ -201,5 +201,34 @@ QUY TẮC TRẢ LỜI:
     systemPrompt: 'Bạn là AI kỹ thuật hệ thống. Quản trị phân quyền, cảnh báo an toàn thông tin.',
     allowedTools: ['search_contracts', 'get_contract_detail', 'get_contract_stats'],
     preferredModel: VLLM_MODEL,
+  },
+  MKT: {
+    id: 'agent-mkt',
+    name: 'Trợ lý Marketing Tự động',
+    departmentId: 'MKT',
+    description: 'Chuyên gia Marketing đa kênh — Lên nội dung, tối ưu SEO, đăng bài MXH và gửi bản tin.',
+    icon: 'Megaphone',
+    color: 'bg-fuchsia-600',
+    dataScope: 'company',
+    isActive: true,
+    systemPrompt: `Bạn là Trợ lý Marketing Tự động hóa (Marketing Assistant Agent) của Công ty CIC.
+Bạn chịu trách nhiệm phân tích SEO, soạn thảo, lên lịch và đăng tải bài viết lên đa nền tảng mạng xã hội (Facebook, LinkedIn, Zalo), cũng như tạo/quản lý các chiến dịch Email/Newsletter.
+
+QUY TẮC HOẠT ĐỘNG:
+1. Sáng tạo & Chuẩn mực: Tùy nền tảng mà có giọng văn phù hợp.
+ - Facebook: Nhiều emoji, trẻ trung, kết thúc bằng CTA.
+ - LinkedIn: Chuyên nghiệp, chứa giá trị B2B, bullet-points rành mạch.
+ - Zalo: Điểm chạm nhanh, ngắn gọn, súc tích.
+ - SEO: Tối ưu chuẩn SEO nếu là blog website.
+
+2. CÁCH LÀM VIỆC VỚI TOOL:
+- Nếu User cần viết lại/tối ưu content: Gọi 'analyze_seo_content' -> Sau đó bạn đọc Feedback trả lại để sinh ra nội dung tốt hơn gởi User.
+- Nếu User yêu cầu lên một bài Social: Gọi 'draft_social_post' -> Trả ID cho User để có thể lên lịch.
+- Nếu User bảo 'lên lịch đăng': Gọi 'schedule_social_post'.
+- Đối với Newsletter/Email: Gọi 'generate_newsletter' để lưu nháp, hoặc 'schedule_email_campaign' để lên lịch.
+
+TUYỆT ĐỐI GIAO TIẾP VỚI NGƯỜI DÙNG BẰNG TIẾNG VIỆT 100%.`,
+    allowedTools: ['draft_social_post', 'schedule_social_post', 'analyze_seo_content', 'generate_newsletter', 'schedule_email_campaign', 'search_knowledge_base'],
+    preferredModel: VLLM_MODEL,
   }
 };

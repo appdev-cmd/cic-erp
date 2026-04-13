@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import SearchableSelect from './ui/SearchableSelect';
 import { dataClient as supabase } from '../lib/dataClient';
 import CustomerForm from './CustomerForm';
+import { generateSlug } from '../utils/formatters';
+import RichTextEditor from './ui/RichTextEditor';
 
 interface ProjectFormProps {
   project?: BIMProject | null;
@@ -54,6 +56,21 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [contracts, setContracts] = useState<{ id: string; code: string; title: string; customerName?: string; value?: number; startDate?: string; endDate?: string }[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const thumbnailDropRef = useRef<HTMLDivElement>(null);
+
+  // Web CMS & SEO
+  const [isPublishedWeb, setIsPublishedWeb] = useState(project?.isPublishedWeb ?? false);
+  const [isFeaturedWeb, setIsFeaturedWeb] = useState(project?.isFeaturedWeb ?? false);
+  const [slug, setSlug] = useState(project?.slug || '');
+  const [summary, setSummary] = useState(project?.summary || '');
+  const [seoTitle, setSeoTitle] = useState(project?.seoTitle || '');
+  const [seoDescription, setSeoDescription] = useState(project?.seoDescription || '');
+
+  // Auto-generate slug when name changes
+  useEffect(() => {
+    if (!project && name) {
+      setSlug(generateSlug(name));
+    }
+  }, [name, project]);
 
   // Fetch contracts for search
   useEffect(() => {
@@ -207,6 +224,12 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         folderOngoingUrl: folderOngoingUrl.trim() || undefined,
         notes: notes.trim() || undefined,
         contractId: contractId || undefined,
+        isPublishedWeb,
+        isFeaturedWeb,
+        slug: slug.trim() || undefined,
+        summary: summary.trim() || undefined,
+        seoTitle: seoTitle.trim() || undefined,
+        seoDescription: seoDescription.trim() || undefined,
       };
 
       let result: BIMProject;
@@ -302,16 +325,6 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
               placeholder="VD: Xây dựng mới Bệnh viện Đa khoa khu vực..."
               className={inputCls}
               required
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className={labelCls}>Mô tả</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Mô tả chi tiết dự án..."
-              rows={3}
-              className={inputCls + ' resize-none'}
             />
           </div>
         </div>
@@ -607,6 +620,67 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
               className={inputCls + ' resize-none'}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Section 6: Web Content & Description */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <FileText size={16} className="text-indigo-500" />
+          Thông tin xuất bản Website
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Đường dẫn tĩnh (Slug)</label>
+            <input
+              type="text"
+              value={slug}
+              onChange={e => setSlug(e.target.value)}
+              placeholder="VD: chung-cu-cao-cap-abc"
+              className={inputCls}
+            />
+          </div>
+          <div className="flex items-center gap-4 mt-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isPublishedWeb}
+                onChange={e => setIsPublishedWeb(e.target.checked)}
+                className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+              />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Hiển thị trên Web</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFeaturedWeb}
+                onChange={e => setIsFeaturedWeb(e.target.checked)}
+                className="w-4 h-4 text-orange-500 rounded border-slate-300"
+              />
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Dự án tiêu biểu</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label className={labelCls}>Tóm tắt ngắn (Summary)</label>
+          <textarea
+            value={summary}
+            onChange={e => setSummary(e.target.value)}
+            rows={2}
+            placeholder="Mô tả tóm tắt..."
+            className={inputCls + ' resize-none'}
+          />
+        </div>
+
+        <div className="mt-4">
+          <RichTextEditor
+            label="Mô tả chi tiết"
+            value={description}
+            onChange={setDescription}
+            minHeight="200px"
+          />
         </div>
       </div>
 

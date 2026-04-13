@@ -71,7 +71,7 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
                 )}
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                <div className="flex flex-col flex-1 h-full overflow-y-auto overflow-x-hidden">
                     {panel.component}
                 </div>
             </div>

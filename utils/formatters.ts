@@ -132,3 +132,17 @@ export function toSlug(str: string): string {
         .replace(/[^a-z0-9\s]/g, '')
         .replace(/\s+/g, '_');
 }
+
+/**
+ * Tạo URL-friendly Web Slug (dùng dấu gạch ngang)
+ * Ví dụ: "Dịch vụ BIM chuyên nghiệp" → "dich-vu-bim-chuyen-nghiep"
+ */
+export function generateSlug(str: string): string {
+    return removeDiacritics(str)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\-]/g, '-') // replace non-alphanumeric (and not hyphen) with hyphen
+        .replace(/-+/g, '-') // collapse multiple hyphens
+        .replace(/^-|-$/g, ''); // trim hyphens at start and end
+}
+

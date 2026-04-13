@@ -68,6 +68,14 @@ export interface Product {
   // Joined fields for display
   brandName?: string;
   supplierName?: string;
+  // Web Integration fields
+  isPublishedWeb?: boolean;
+  isFeaturedWeb?: boolean;
+  slug?: string;
+  summary?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  viewCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }

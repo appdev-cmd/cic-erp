@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { dataClient as supabase } from '../lib/dataClient';
+import { DocumentRegistryService } from './documentRegistryService';
 
 // Helper to sanitize filename for S3 storage
 const sanitizeFileName = (fileName: string): string => {
@@ -91,6 +92,23 @@ export const DocumentService = {
 
         if (dbError) throw dbError;
 
+        // Auto-register vào Document Registry
+        try {
+            await DocumentRegistryService.create({
+                title: file.name,
+                docCategory: 'contract',
+                sourceType: 'supabase_storage',
+                storagePath: filePath,
+                fileName: file.name,
+                mimeType: file.type,
+                fileSize: file.size,
+                entityType: 'contract',
+                entityId: contractId,
+            });
+        } catch (regErr) {
+            console.warn('[DocumentService] Auto-register to registry failed:', regErr);
+        }
+
         return {
             id: dbData.id,
             contractId: dbData.contract_id,
@@ -137,6 +155,23 @@ export const DocumentService = {
         }).select().single();
 
         if (error) throw error;
+
+        // Auto-register vào Document Registry
+        try {
+            await DocumentRegistryService.create({
+                title: doc.name,
+                docCategory: 'contract',
+                sourceType: 'external_link',
+                sourceUrl: doc.url,
+                fileName: doc.name,
+                mimeType: doc.type,
+                fileSize: 0,
+                entityType: 'contract',
+                entityId: contractId,
+            });
+        } catch (regErr) {
+            console.warn('[DocumentService] Auto-register link to registry failed:', regErr);
+        }
 
         return {
             id: data.id,
@@ -209,6 +244,25 @@ export const DocumentService = {
 
         if (error) throw error;
 
+        // Auto-register vào Document Registry
+        try {
+            const driveUrl = driveFile.webViewLink || '';
+            await DocumentRegistryService.create({
+                title: file.name,
+                docCategory: 'contract',
+                sourceType: 'drive',
+                sourceUrl: driveUrl,
+                driveFileId: driveFile.id,
+                fileName: uploadName,
+                mimeType: file.type,
+                fileSize: file.size,
+                entityType: 'contract',
+                entityId: contractId,
+            });
+        } catch (regErr) {
+            console.warn('[DocumentService] Auto-register to registry failed:', regErr);
+        }
+
         return {
             id: data.id,
             contractId: data.contract_id,
@@ -261,6 +315,26 @@ export const DocumentService = {
         }).select().single();
 
         if (error) throw error;
+
+        // Auto-register vào Document Registry
+        try {
+            const docCategoryMap: Record<string, string> = { HopDong: 'contract', PAKD: 'invoice', HoaDon: 'invoice', BaoCao: 'report' };
+            const driveUrl = driveFile.webViewLink || '';
+            await DocumentRegistryService.create({
+                title: standardName,
+                docCategory: (docCategoryMap[folderType] || 'general') as any,
+                sourceType: 'drive',
+                sourceUrl: driveUrl,
+                driveFileId: driveFile.id,
+                fileName: standardName,
+                mimeType: blob.type,
+                fileSize: blob.size,
+                entityType: 'contract',
+                entityId: contractId,
+            });
+        } catch (regErr) {
+            console.warn('[DocumentService] Auto-register blob to registry failed:', regErr);
+        }
 
         return {
             id: data.id,

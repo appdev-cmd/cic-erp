@@ -52,3 +52,6 @@ export type {
 // BIM Project domain
 export type { BIMProjectStatus, BIMProject } from './project';
 export { BIM_PROJECT_STATUS_LABELS } from './project';
+
+// News & Web Content domain
+export type { PostStatus, PostCategory, NewsPost } from './news';

@@ -40,6 +40,7 @@ import {
     LazyRequestsPage as RequestsPage,
     LazyAgentManagerPage as AgentManagerPage,
     LazyPublicApplicationForm as PublicApplicationForm,
+    LazyNewsPage as NewsPage,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -129,6 +130,9 @@ export const router = createBrowserRouter([
             { path: 'hrm/recruitment', element: <RecruitmentPage /> },
             { path: 'hrm/leave', element: <LeavePage /> },
             { path: 'hrm/requests', element: <RequestsPage /> },
+
+            // Web Content / News
+            { path: 'news', element: <NewsPage /> },
 
             // Settings
             { path: 'settings', element: <SettingsPage /> },

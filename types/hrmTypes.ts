@@ -153,6 +153,9 @@ export interface JobOpening {
   requester_id: string | null;
   recruiter_id: string | null;
   interviewer_ids?: string[] | null;
+  slug: string | null;
+  is_published_web: boolean;
+  is_featured: boolean;
   created_at: string;
   updated_at: string;
 
