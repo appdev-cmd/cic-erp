@@ -470,7 +470,7 @@ const AIAssistant: React.FC = () => {
   const [customGeminiKey, setCustomGeminiKey] = useState(() => localStorage.getItem(CUSTOM_GEMINI_KEY) || '');
   const [customOpenAIKey, setCustomOpenAIKey] = useState(() => localStorage.getItem(CUSTOM_OPENAI_KEY) || '');
   const [customDeepseekKey, setCustomDeepseekKey] = useState(() => localStorage.getItem(CUSTOM_DEEPSEEK_KEY) || '');
-  const [localAIBaseURL, setLocalAIBaseURL] = useState(() => localStorage.getItem('cic_local_ai_base_url') || 'http://localhost:11434/v1');
+  const [localAIBaseURL, setLocalAIBaseURL] = useState(() => localStorage.getItem('cic_local_ai_base_url') || '/api/vllm');
   const [localAITestResult, setLocalAITestResult] = useState<{ok: boolean; models: string[]} | null>(null);
   const [localAITesting, setLocalAITesting] = useState(false);
   const [widgetHistoryBanner, setWidgetHistoryBanner] = useState(false);

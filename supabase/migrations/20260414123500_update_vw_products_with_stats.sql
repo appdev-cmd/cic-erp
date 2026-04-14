@@ -118,3 +118,21 @@ BEGIN
     GROUP BY pc.prod_id;
 END;
 $$ LANGUAGE plpgsql;
+
+-- RPC to find contracts by product ID in lineItems
+CREATE OR REPLACE FUNCTION get_contracts_by_product_id(p_product_id text, p_limit int DEFAULT 50)
+RETURNS SETOF contracts AS $$
+    SELECT DISTINCT c.*
+    FROM contracts c,
+    jsonb_array_elements(
+        CASE 
+            WHEN jsonb_typeof(c.details->'lineItems') = 'array' THEN c.details->'lineItems'
+            WHEN jsonb_typeof(c.line_items) = 'array' THEN c.line_items
+            ELSE '[]'::jsonb
+        END
+    ) as item
+    WHERE item->>'productId' = p_product_id
+      AND c.status IN ('Processing', 'Handover', 'Acceptance', 'Completed')
+    ORDER BY c.signed_date DESC
+    LIMIT p_limit;
+$$ LANGUAGE sql STABLE;

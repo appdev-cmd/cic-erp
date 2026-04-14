@@ -142,9 +142,9 @@ export default defineConfig(({ mode }) => {
       host: 'localhost',
       proxy: {
         '/api/vllm_gemma': {
-          target: 'http://localhost:8001/v1',
+          target: 'http://localhost:8002',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/vllm_gemma/, '')
+          rewrite: (path) => path.replace(/^\/api\/vllm_gemma/, '/v1')
         },
         '/api/vllm': {
           target: 'http://localhost:4000/v1',  // LiteLLM Proxy

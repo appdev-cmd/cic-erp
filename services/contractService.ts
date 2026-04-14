@@ -796,16 +796,22 @@ export const ContractService = {
         }
     },
 
-    // New method for Server-Side Filtering (Replaces getAll().filter())
+    // Find contracts that contain a specific product in lineItems (via DB RPC)
     getRelated: async (category: string, productName: string, limit = 20): Promise<Contract[]> => {
         let query = supabase.from('contracts').select('*').order('signed_date', { ascending: false }).limit(limit);
-
-        // Simple heuristic: match category OR title contains product Name
         query = query.or(`category.eq.${category},title.ilike.%${productName}%`);
-
         const { data, error } = await query;
         if (error) throw error;
         return data.map(mapContract);
+    },
+
+    getByProductId: async (productId: string, limit = 50): Promise<Contract[]> => {
+        const { data, error } = await supabase.rpc('get_contracts_by_product_id', {
+            p_product_id: productId,
+            p_limit: limit
+        });
+        if (error) throw error;
+        return (data || []).map(mapContract);
     },
 
     getStats: async (params: {

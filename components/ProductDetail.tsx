@@ -61,9 +61,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
                     requests.push(Promise.resolve(null));
                 }
 
-                // Server-side filtering for related contracts (limit 20 for performance)
-                // Using category and product name as heuristics
-                requests.push(ContractService.getRelated(productData.category, productData.name, 50));
+                // Server-side filtering: find contracts by productId in lineItems
+                requests.push(ContractService.getByProductId(productData.id, 50));
 
                 // Fetch all customers for mapping (Optimizable: fetch only related customers)
                 requests.push(CustomerService.getAll());

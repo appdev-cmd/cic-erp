@@ -206,9 +206,10 @@ app.post('/v1/chat/completions', async (req, res) => {
 // Proxy everything else directly
 app.use(async (req, res) => {
     try {
-        const fetchRes = await fetch(`${UPSTREAM_URL}${req.originalUrl}`, {
+        const UPSTREAM_HOST = UPSTREAM_URL.replace(/\/v1\/?$/, ''); // get http://localhost:8001
+        const fetchRes = await fetch(`${UPSTREAM_HOST}${req.originalUrl}`, {
             method: req.method,
-            headers: { ...req.headers, host: new URL(UPSTREAM_URL).host },
+            headers: { ...req.headers, host: new URL(UPSTREAM_HOST).host },
             body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body)
         });
         const contentType = fetchRes.headers.get('content-type');

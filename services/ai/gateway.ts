@@ -37,16 +37,17 @@ function getConfig(): GatewayConfig {
 
 // ─── LocalStorage helpers ────────────────────
 function getLocalAIBaseURL(model?: string): string {
-  const isOllama = model ? model.includes(':') : false;
   const isGemma = model ? model.toLowerCase().includes('gemma') : false;
 
-  const cloudUrl = 'https://ai-api.cic.com.vn:9443/v1';
+  const cloudUrl = isGemma ? 'https://ai-api.cic.com.vn:8002/v1' : 'https://ai-api.cic.com.vn:4000/v1';
 
   try {
     if (typeof window !== 'undefined') {
-      const url = localStorage.getItem('cic_local_ai_base_url');
-      // Cho phép IP nội bộ, domain của CIC, và localhost
-      if (url && /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|ai-api\.cic\.com\.vn)/.test(url) || url.startsWith('/api/')) {
+      let url = localStorage.getItem('cic_local_ai_base_url');
+      if (url && (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|ai-api\.cic\.com\.vn)/.test(url) || url.startsWith('/api/'))) {
+         if (url.startsWith('/api/')) {
+             return isGemma ? '/api/vllm_gemma' : '/api/vllm';
+         }
          return url;
       }
       return cloudUrl;
