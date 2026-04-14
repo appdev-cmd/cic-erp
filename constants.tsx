@@ -51,9 +51,17 @@ export const INDUSTRIES = [
   'Thương mại', 'Dịch vụ', 'Giáo dục', 'Y tế', 'Khác'
 ] as const;
 
-export const PRODUCT_CATEGORIES = [
-  'Phần mềm', 'Tư vấn', 'Thiết kế', 'Thi công', 'Bảo trì', 'Đào tạo'
-] as const;
+export const PRODUCT_CATEGORY_MAP: { label: string; code: string }[] = [
+  { label: 'Phần mềm', code: 'PM' },
+  { label: 'Thiết bị', code: 'TB' },
+  { label: 'Tư vấn', code: 'TV' },
+  { label: 'Dịch vụ', code: 'DV' },
+  { label: 'Bảo trì', code: 'BT' },
+  { label: 'Đào tạo', code: 'ĐT' },
+  { label: 'Khác', code: 'K' },
+];
+
+export const PRODUCT_CATEGORIES = PRODUCT_CATEGORY_MAP.map(c => c.label) as readonly string[];
 
 export const CONTRACT_STATUS_LABELS: Record<string, string> = {
   'Processing': 'Đang thực hiện',
