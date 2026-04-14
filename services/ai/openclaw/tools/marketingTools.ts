@@ -196,11 +196,38 @@ export const scheduleEmailCampaignTool: OpenClawTool = {
   }
 };
 
+// ═══════════════════════════════════════════════
+// Tool 6: Đọc nội dung bài viết từ URL 
+// ═══════════════════════════════════════════════
+export const readWebUrlTool: OpenClawTool = {
+  name: 'read_web_url',
+  description: 'Truy cập vào một URL để đọc nội dung bài viết. Rất hữu ích khi người dùng cung cấp đường link để yêu cầu tổng hợp hoặc lấy thông tin.',
+  schema: {
+    url: { type: 'string', description: 'Đường dẫn URL của bài viết (vd: https://....)' }
+  },
+  execute: async (args) => {
+    try {
+      const response = await fetch(`https://r.jina.ai/${args.url}`, {
+         headers: { 'Accept': 'text/plain' }
+      });
+      let text = await response.text();
+      // Cắt ngắn nếu quá dài
+      if (text.length > 15000) {
+        text = text.substring(0, 15000) + '...[Nội dung đã bị cắt bớt]';
+      }
+      return { success: true, url: args.url, content: text };
+    } catch (err: any) {
+      return { error: 'Không thể đọc nội dung link: ' + err.message };
+    }
+  }
+};
+
 // Mảng tools gom nhóm
 export const marketingToolsRegistry: OpenClawTool[] = [
   draftSocialPostTool,
   scheduleSocialPostTool,
   analyzeSeoContentTool,
   generateNewsletterTool,
-  scheduleEmailCampaignTool
+  scheduleEmailCampaignTool,
+  readWebUrlTool
 ];

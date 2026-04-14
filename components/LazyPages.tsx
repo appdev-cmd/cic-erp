@@ -80,7 +80,7 @@ const RecruitmentPage = lazyWithRetry(() => import('./hrm/RecruitmentPage'));
 const LeavePage = lazyWithRetry(() => import('./hrm/LeavePage'));
 const RequestsPage = lazyWithRetry(() => import('./hrm/RequestsPage'));
 const PublicApplicationForm = lazyWithRetry(() => import('./hrm/PublicApplicationForm'));
-const NewsList = lazyWithRetry(() => import('./NewsList'));
+const WebsiteManager = lazyWithRetry(() => import('./WebsiteManager'));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
@@ -133,6 +133,13 @@ export const LazyDashboardPage: React.FC = () => {
         />,
         <DashboardSkeleton />
     );
+};
+
+// ========================================
+// WEBSITE MODULE
+// ========================================
+export const LazyWebsiteManagerPage: React.FC = () => {
+    return withSuspense(<WebsiteManager />);
 };
 
 // ═══════════════════════════════════════════════════════════════════════

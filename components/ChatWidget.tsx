@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, User, Maximize2, Newspaper } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Maximize2, Newspaper, Globe, Facebook, Linkedin, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -282,11 +282,16 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                                                         toast.error('Lỗi khi gửi bài: ' + (e.message || 'Error'));
                                                     }
                                                 }}
-                                                className="px-2 py-1.5 text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:text-orange-600 hover:border-orange-200 rounded-lg shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
-                                                title="Gửi bài lên mục Tin tức (Chờ duyệt)"
+                                                className="px-2 py-1.5 text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:text-orange-600 hover:border-orange-200 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer group/btn"
+                                                title="Gửi bài lên CMS để đăng Đa kênh (Web, FB, LinkedIn, Email)"
                                             >
-                                                <Newspaper size={12} />
-                                                Gửi duyệt bài viết
+                                                <div className="flex items-center gap-1 opacity-70 group-hover/btn:opacity-100 transition-opacity">
+                                                    <Globe size={12} className="text-blue-500" />
+                                                    <Facebook size={12} className="text-blue-600" />
+                                                    <Linkedin size={12} className="text-sky-600" />
+                                                    <Mail size={12} className="text-emerald-500" />
+                                                </div>
+                                                Gửi duyệt đa kênh
                                             </button>
                                         </div>
                                     )}

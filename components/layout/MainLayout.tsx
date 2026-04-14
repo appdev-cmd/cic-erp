@@ -147,6 +147,9 @@ const MainLayout: React.FC = () => {
         if (path.startsWith('/analytics')) return 'analytics';
         if (path.startsWith('/ai-assistant')) return 'ai-assistant';
         if (path.startsWith('/tools')) return 'tools';
+        if (path.startsWith('/hrm')) return 'hrm';
+        if (path.startsWith('/documents')) return 'documents';
+        if (path.startsWith('/website')) return 'website';
         if (path.startsWith('/personnel')) return 'personnel';
         if (path.startsWith('/customers')) return 'customers';
         if (path.startsWith('/products')) return 'products';

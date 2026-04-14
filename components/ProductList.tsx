@@ -37,6 +37,7 @@ import ConfirmDialog, { useConfirmDialog } from './ui/ConfirmDialog';
 import { toast } from 'sonner';
 import { useColumnResize } from '../hooks/useColumnResize';
 import { useAuth } from '../contexts/AuthContext';
+import { useLayoutContext } from './layout/MainLayout';
 
 interface ProductListProps {
     onSelectProduct?: (id: string) => void;
@@ -49,6 +50,8 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
     const allowCreate = can('products', 'create');
     const allowUpdate = can('products', 'update');
     const confirmDialog = useConfirmDialog();
+    const { selectedUnit, yearFilter, periodFilter } = useLayoutContext();
+    const effectiveUnitId = selectedUnit?.id || 'all';
 
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -119,6 +122,9 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
             isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
             sortBy,
             sortOrder,
+            unitId: effectiveUnitId,
+            year: yearFilter,
+            period: periodFilter
         });
 
         return {
@@ -126,7 +132,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
             hasMore: res.data.length >= PAGE_SIZE,
             totalCount: res.total
         };
-    }, [debouncedSearch, categoryFilter, brandFilter, supplierFilter, statusFilter, sortBy, sortOrder]);
+    }, [debouncedSearch, categoryFilter, brandFilter, supplierFilter, statusFilter, sortBy, sortOrder, effectiveUnitId, yearFilter, periodFilter]);
 
     const {
         items: products,
@@ -141,7 +147,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
     } = useInfiniteScroll<Product>({
         fetchFn: fetchProductPage,
         pageSize: PAGE_SIZE,
-        resetDeps: [debouncedSearch, categoryFilter, brandFilter, supplierFilter, statusFilter, sortBy, sortOrder]
+        resetDeps: [debouncedSearch, categoryFilter, brandFilter, supplierFilter, statusFilter, sortBy, sortOrder, effectiveUnitId, yearFilter, periodFilter]
     });
 
     // Realtime: silent refresh when product/brand data changes from another tab
@@ -201,6 +207,8 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
         { key: 'category', defaultWidth: 100, minWidth: 60 },
         { key: 'unit', defaultWidth: 120, minWidth: 60 },
         { key: 'price', defaultWidth: 130, minWidth: 80 },
+        { key: 'contractValue', defaultWidth: 120, minWidth: 80 },
+        { key: 'revenue', defaultWidth: 120, minWidth: 80 },
         { key: 'margin', defaultWidth: 80, minWidth: 50 },
         { key: 'status', defaultWidth: 100, minWidth: 60 },
         { key: 'web', defaultWidth: 80, minWidth: 60 },
@@ -300,6 +308,8 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                 'Đơn vị': getUnitName(p.unitId),
                 'Đơn giá bán': p.basePrice,
                 'Giá vốn': p.costPrice || 0,
+                'Tổng GT Ký kết': p.totalContractValue || 0,
+                'Doanh thu': p.totalRevenue || 0,
                 'Biên LN (%)': p.basePrice > 0 && p.costPrice ? Math.round(((p.basePrice - p.costPrice) / p.basePrice) * 100) : 0,
                 'Trạng thái': p.isActive ? 'Đang bán' : 'Ngừng bán',
                 'Hãng': p.brandName || '',
@@ -636,6 +646,8 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                         { key: 'category', label: 'Danh mục', align: 'left', sortable: false },
                                         { key: 'unit', label: 'Đơn vị', align: 'left', sortable: false },
                                         { key: 'price', label: 'Đơn giá', align: 'right', sortable: true, sortKey: 'base_price' },
+                                        { key: 'contractValue', label: 'Giá trị ký kết', align: 'right', sortable: true, sortKey: 'total_contract_value' },
+                                        { key: 'revenue', label: 'Doanh thu', align: 'right', sortable: true, sortKey: 'total_revenue' },
                                         { key: 'margin', label: 'Biên LN', align: 'right', sortable: false },
                                         { key: 'status', label: 'Trạng thái', align: 'center', sortable: true, sortKey: 'is_active' },
                                         { key: 'web', label: 'Web/App', align: 'center', sortable: true, sortKey: 'is_published_web' },
@@ -723,8 +735,18 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                                 )}
                                             </td>
 
-                                            {/* Margin */}
+                                            {/* Contract Value */}
                                             <td className="py-2.5 px-3 text-right hidden sm:table-cell">
+                                                <p className="font-bold text-slate-900 dark:text-slate-100 text-xs">{formatPrice(product.totalContractValue || 0)}</p>
+                                            </td>
+
+                                            {/* Revenue */}
+                                            <td className="py-2.5 px-3 text-right hidden sm:table-cell">
+                                                <p className="font-bold text-indigo-600 dark:text-indigo-400 text-xs">{formatPrice(product.totalRevenue || 0)}</p>
+                                            </td>
+
+                                            {/* Margin */}
+                                            <td className="py-2.5 px-3 text-right hidden lg:table-cell">
                                                 <span className={`text-xs font-bold ${margin >= 50 ? 'text-emerald-600 dark:text-emerald-400' : margin >= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                                     {margin.toFixed(0)}%
                                                 </span>

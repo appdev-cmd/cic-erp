@@ -31,7 +31,11 @@ import {
   PanelLeft,
   AlertTriangle,
   ChevronRight,
-  Users
+  Users,
+  Globe,
+  Facebook,
+  Linkedin,
+  Mail
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -313,9 +317,6 @@ const AIAssistant: React.FC = () => {
     return agentMap;
   }, [_profile]);
 
-  const [currentAgent, setCurrentAgent] = useState<string>(() => {
-    return localStorage.getItem(AGENT_STORAGE_KEY) || 'SYSTEM';
-  });
   const [currentModel, setCurrentModel] = useState<string>(() => {
     const saved = localStorage.getItem(MODEL_STORAGE_KEY);
     // Auto-reset stale model nếu model cũ không còn trên vLLM
@@ -324,7 +325,17 @@ const AIAssistant: React.FC = () => {
       localStorage.removeItem(MODEL_STORAGE_KEY);
       return 'qwen2.5-7b';
     }
-    return saved || 'qwen2.5-7b';
+    return saved || import.meta.env.VITE_DEFAULT_LLM_MODEL || 'gemini-2.0-flash';
+  });
+
+  const [useHermesEngine, setUseHermesEngine] = useState<boolean>(() => {
+    const saved = localStorage.getItem('cic_use_hermes_engine');
+    if (saved !== null) return saved === 'true';
+    return import.meta.env.VITE_USE_HERMES === 'true';
+  });
+
+  const [currentAgent, setCurrentAgent] = useState<string>(() => {
+    return localStorage.getItem(AGENT_STORAGE_KEY) || 'SYSTEM';
   });
 
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -565,6 +576,10 @@ const AIAssistant: React.FC = () => {
   useEffect(() => { localStorage.setItem(MODEL_STORAGE_KEY, currentModel); }, [currentModel]);
   useEffect(() => { localStorage.setItem(AGENT_STORAGE_KEY, currentAgent); }, [currentAgent]);
 
+  useEffect(() => {
+    localStorage.setItem('cic_use_hermes_engine', useHermesEngine.toString());
+  }, [useHermesEngine]);
+
   const saveSettings = () => {
     localStorage.setItem(CUSTOM_GEMINI_KEY, customGeminiKey);
     localStorage.setItem(CUSTOM_OPENAI_KEY, customOpenAIKey);
@@ -796,46 +811,96 @@ const AIAssistant: React.FC = () => {
         };
       });
 
-      // Track content that accumulates
-      let toolContent = '';
-      let streamContent = '';
+      // ─── PHÂN LUỒNG XỬ LÝ (HERMES HOẶC OPENCLAW) ────────────────────────
+      let finalContent = '';
+      if (useHermesEngine) {
+        const proxyUrl = import.meta.env.VITE_HERMES_PROXY_URL || 'http://localhost:3005';
+        const res = await fetch(`${proxyUrl}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: userMsg.content,
+            agentId: currentAgent,
+            userId: _userContext.userId
+          }),
+          signal: controller.signal
+        });
 
-      const result = await runReActLoop(
-        userMsg.content,
-        _userContext,
-        agentConf,
-        erpToolsRegistry,
-        history,
-        8,
-        controller.signal,
-        (toolName, args) => {
-          // Callback: tool đang được gọi → hiện indicator siêu gọn
-          const friendlyName = toolName === 'get_contract_stats' ? 'thống kê hợp đồng' : 
-                               toolName === 'get_dashboard_kpi' ? 'chỉ số KPI' : 
-                               toolName === 'export_document' ? 'đóng gói file' : toolName;
-          toolContent += `\n\n> 🔍 *Hệ thống đang truy xuất dữ liệu từ công cụ \`${friendlyName}\`...*\n\n`;
-          setMessages(prev => prev.map(m =>
-            m.id === botMsgId
-              ? { ...m, content: toolContent }
-              : m
-          ));
-        },
-        currentModel,
-        (chunk) => {
-          // Callback: streaming final answer → hiện chữ ngay lập tức
-          streamContent += chunk;
-          setMessages(prev => prev.map(m =>
-            m.id === botMsgId
-              ? { ...m, content: toolContent + streamContent }
-              : m
-          ));
+        if (!res.ok || !res.body) throw new Error('Proxy connection failed');
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let done = false;
+
+        let streamContent = '';
+        while (!done) {
+          if (controller.signal.aborted) {
+            reader.cancel();
+            break;
+          }
+          const { value, done: readerDone } = await reader.read();
+          done = readerDone;
+          if (value) {
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+            for (const line of lines) {
+              if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+                try {
+                  const data = JSON.parse(line.substring(6));
+                  streamContent += data.text;
+                  setMessages(prev => prev.map(m =>
+                    m.id === botMsgId
+                      ? { ...m, content: streamContent }
+                      : m
+                  ));
+                } catch(e) {}
+              }
+            }
+          }
         }
-      );
+        finalContent = streamContent;
+      } else {
+        // Track content that accumulates
+        let toolContent = '';
+        let streamContent = '';
+
+        const result = await runReActLoop(
+          userMsg.content,
+          _userContext,
+          agentConf,
+          erpToolsRegistry,
+          history,
+          8,
+          controller.signal,
+          (toolName, args) => {
+            // Callback: tool đang được gọi → hiện indicator siêu gọn
+            const friendlyName = toolName === 'get_contract_stats' ? 'thống kê hợp đồng' : 
+                                 toolName === 'get_dashboard_kpi' ? 'chỉ số KPI' : 
+                                 toolName === 'export_document' ? 'đóng gói file' : toolName;
+            toolContent += `\n\n> 🔍 *Hệ thống đang truy xuất dữ liệu từ công cụ \`${friendlyName}\`...*\n\n`;
+            setMessages(prev => prev.map(m =>
+              m.id === botMsgId
+                ? { ...m, content: toolContent }
+                : m
+            ));
+          },
+          currentModel,
+          (chunk) => {
+            // Callback: streaming final answer → hiện chữ ngay lập tức
+            streamContent += chunk;
+            setMessages(prev => prev.map(m =>
+              m.id === botMsgId
+                ? { ...m, content: toolContent + streamContent }
+                : m
+            ));
+          }
+        );
+
+        finalContent = streamContent
+          ? toolContent + streamContent  // Đã stream rồi
+          : toolContent + result.reply;  // Fallback nếu không stream
+      }
 
       // Khi xong hoàn toàn
-      const finalContent = streamContent
-        ? toolContent + streamContent  // Đã stream rồi
-        : toolContent + result.reply;  // Fallback nếu không stream
       setMessages(prev => prev.map(m =>
         m.id === botMsgId
           ? { ...m, content: finalContent, isStreaming: false }
@@ -1052,14 +1117,6 @@ const AIAssistant: React.FC = () => {
             <MessageSquare size={17} />
           </button>
 
-          {/* Daily Briefing */}
-          <button
-            onClick={() => { setActiveView('chat'); handleSuggestionClick('Cho tôi xem bản tin sáng hôm nay'); }}
-            className="p-2 text-amber-500 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all cursor-pointer"
-            title="Bản tin sáng"
-          >
-            <BookOpen size={17} />
-          </button>
 
           {/* Data Ingestion */}
           <button
@@ -1300,11 +1357,16 @@ const AIAssistant: React.FC = () => {
                               toast.error('Lỗi khi gửi bài: ' + (e.message || 'Error'));
                             }
                           }}
-                          className="px-2 py-1.5 text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:text-orange-600 hover:border-orange-200 rounded-lg shadow-sm transition-colors flex items-center gap-1 cursor-pointer"
-                          title="Gửi bài lên mục Tin tức (Chờ duyệt)"
+                          className="px-2 py-1.5 text-[10px] font-bold text-slate-500 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:text-orange-600 hover:border-orange-200 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer group/btn"
+                          title="Gửi bài lên CMS để đăng Đa kênh (Web, FB, LinkedIn, Email)"
                         >
-                          <Icons.Newspaper size={12} />
-                          Gửi duyệt bài viết
+                          <div className="flex items-center gap-1 opacity-70 group-hover/btn:opacity-100 transition-opacity">
+                            <Globe size={12} className="text-blue-500" />
+                            <Facebook size={12} className="text-blue-600" />
+                            <Linkedin size={12} className="text-sky-600" />
+                            <Mail size={12} className="text-emerald-500" />
+                          </div>
+                          Gửi duyệt đa kênh
                         </button>
                       )}
                     </div>
@@ -1345,6 +1407,7 @@ const AIAssistant: React.FC = () => {
               // Default suggestions if no context match
               if (quickActions.length === 0) {
                 quickActions.push(
+                  { label: 'Bản tin sáng', icon: '🌅', action: 'Cho tôi xem bản tin sáng hôm nay' },
                   { label: 'Tổng quan KPI', icon: '📊', action: 'Cho tôi xem KPI tổng quan công ty' },
                   { label: 'HĐ quá hạn', icon: '⚠️', action: 'Có hợp đồng nào quá hạn không?' },
                   { label: 'Công nợ', icon: '💰', action: 'Báo cáo công nợ hiện tại' },
@@ -1385,6 +1448,18 @@ const AIAssistant: React.FC = () => {
             <div className="max-w-4xl mx-auto">
               {/* Model Selector — above input on mobile, inline on desktop */}
               <div className="flex items-center gap-2 mb-2">
+                {['Admin', 'Leadership', 'Dev'].includes(_profile?.role || '') && (
+                  <select
+                    value={useHermesEngine ? 'hermes' : 'openclaw'}
+                    onChange={(e) => setUseHermesEngine(e.target.value === 'hermes')}
+                    className="bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-800/50 text-[10px] font-bold text-indigo-700 dark:text-indigo-400 py-1.5 px-2 rounded-lg cursor-pointer focus:outline-none border border-transparent transition-all"
+                    title="Chọn AI Engine"
+                  >
+                    <option value="openclaw">⚙️ OpenClaw (Ổn định)</option>
+                    <option value="hermes">⚡ Hermes (Tốc độ cao)</option>
+                  </select>
+                )}
+
                 {['Admin', 'Leadership', 'Dev'].includes(_profile?.role || '') ? (
                   <select
                     value={currentModel}

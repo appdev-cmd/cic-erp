@@ -3,6 +3,7 @@ import { Search, Plus, MoreVertical, Edit2, Trash2, Eye, ExternalLink, RefreshCw
 import { NewsService } from '../services/newsService';
 import { NewsPost, PostStatus } from '../types/news';
 import NewsForm from './NewsForm';
+import NewsDetail from './NewsDetail';
 import { formatDate } from '../utils/formatters';
 import ConfirmDialog, { useConfirmDialog } from './ui/ConfirmDialog';
 import { toast } from 'sonner';
@@ -84,6 +85,39 @@ const NewsList: React.FC = () => {
                             closePanel();
                         }} 
                      />,
+            width: '800px'
+        });
+    };
+
+    const showDetailPanel = (post: NewsPost) => {
+        setActionMenuId(null);
+        openPanel({
+            title: 'Chi tiết Tin tức',
+            icon: <FileText className="text-orange-500" size={20} />,
+            component: (
+                <div className="flex flex-col h-full bg-white dark:bg-slate-900">
+                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                        <NewsDetail post={post} />
+                    </div>
+                    {/* Footer for actions in detail view */}
+                    <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+                        <button
+                            onClick={closePanel}
+                            className="px-5 py-2.5 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors rounded-lg"
+                        >
+                            Đóng
+                        </button>
+                        <button
+                            onClick={() => {
+                                handleEdit(post);
+                            }}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 shadow-lg"
+                        >
+                            <Edit2 size={16} /> Chỉnh sửa
+                        </button>
+                    </div>
+                </div>
+            ),
             width: '800px'
         });
     };
@@ -265,7 +299,7 @@ const NewsList: React.FC = () => {
                                 {filteredPosts.map((post, idx) => (
                                     <tr 
                                         key={post.id} 
-                                        onClick={() => handleEdit(post)}
+                                        onClick={() => showDetailPanel(post)}
                                         className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                                     >
                                         <td className="py-3 px-4 text-center text-xs text-slate-500 font-medium">

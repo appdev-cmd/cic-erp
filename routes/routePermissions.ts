@@ -87,7 +87,7 @@ export const ROUTE_PERMISSION_MAP: RoutePermissionEntry[] = [
     { pattern: '/reports/:id', resource: 'reports', action: 'view', label: 'Chi tiết báo cáo', module: 'Báo cáo' },
 
     // ── Tin tức (Website) ──
-    { pattern: '/news', resource: 'news', action: 'view', label: 'Quản lý Tin tức', module: 'Website' },
+    { pattern: '/website', resource: 'news', action: 'view', label: 'Quản lý Website', module: 'Website' },
 
     // ── HRM ──
     { pattern: '/hrm/*', resource: 'employees', action: 'view', label: 'Quản lý Nhân sự HRM', module: 'HRM' },

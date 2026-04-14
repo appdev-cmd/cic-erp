@@ -23,6 +23,11 @@ const RESOURCE_LABELS: Record<PermissionResource, string> = {
     settings: 'Cài đặt',
     permissions: 'Phân quyền',
     reports: 'Báo cáo',
+    news: 'Tin tức',
+    projects: 'Dự án (BIM)',
+    requests: 'Đề xuất',
+    leaves: 'Nghỉ phép',
+    recruitment: 'Tuyển dụng',
 };
 
 const ACTION_LABELS: Record<PermissionAction, string> = {
@@ -60,7 +65,7 @@ const ROLE_COLORS: Record<UserRole, { bg: string; active: string }> = {
 
 const ALL_ROLES: UserRole[] = ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD', 'NVKT', 'Accountant', 'ChiefAccountant', 'Legal', 'Marketing'];
 const ACTIONS: PermissionAction[] = ['view', 'create', 'update', 'delete'];
-const RESOURCES: PermissionResource[] = ['contracts', 'customers', 'products', 'payments', 'employees', 'units', 'tasks', 'settings', 'permissions', 'reports'];
+const RESOURCES: PermissionResource[] = ['contracts', 'customers', 'products', 'payments', 'employees', 'units', 'tasks', 'settings', 'permissions', 'reports', 'news', 'projects', 'requests', 'leaves', 'recruitment'];
 
 // ─── Component ─────────────────────────────────────────
 const RoleDefaultsManager: React.FC = () => {

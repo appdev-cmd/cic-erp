@@ -69,7 +69,11 @@ export type PermissionResource =
   | 'settings'
   | 'permissions'
   | 'reports'
-  | 'news';
+  | 'news'
+  | 'projects'
+  | 'requests'
+  | 'leaves'
+  | 'recruitment';
 
 export interface UserPermission {
   id?: string;
@@ -95,6 +99,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     permissions: ['view', 'create', 'update', 'delete'],
     reports: ['view', 'create', 'update', 'delete'],
     news: ['view', 'create', 'update', 'delete'],
+    projects: ['view', 'create', 'update', 'delete'],
+    requests: ['view', 'create', 'update', 'delete'],
+    leaves: ['view', 'create', 'update', 'delete'],
+    recruitment: ['view', 'create', 'update', 'delete'],
   },
   // Ban lãnh đạo — Toàn quyền dữ liệu, KHÔNG settings/permissions, payments chỉ xem
   Leadership: {
@@ -105,6 +113,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     products: ['view', 'create', 'update', 'delete'],
     payments: ['view'],
     tasks: ['view', 'create', 'update', 'delete'],
+    projects: ['view', 'create', 'update', 'delete'],
+    requests: ['view', 'create', 'update', 'delete'],
+    leaves: ['view', 'create', 'update', 'delete'],
+    recruitment: ['view', 'create', 'update', 'delete'],
   },
   // Lãnh đạo đơn vị — HĐ/KH/SP: VCU, payments: chỉ xem (tạo phiếu cần cấp quyền qua Settings)
   UnitLeader: {

@@ -45,8 +45,8 @@ function getLocalAIBaseURL(model?: string): string {
   try {
     if (typeof window !== 'undefined') {
       const url = localStorage.getItem('cic_local_ai_base_url');
-      // Cho phép IP nội bộ và domain của CIC
-      if (url && /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|ai-api\.cic\.com\.vn)/.test(url)) {
+      // Cho phép IP nội bộ, domain của CIC, và localhost
+      if (url && /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|ai-api\.cic\.com\.vn)/.test(url) || url.startsWith('/api/')) {
          return url;
       }
       return cloudUrl;

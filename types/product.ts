@@ -81,6 +81,8 @@ export interface Product {
   videoUrl?: string;
   brochureUrl?: string;
   demoUrl?: string;
+  totalContractValue?: number;
+  totalRevenue?: number;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -39,12 +39,15 @@ const mapProduct = (p: any): Product => ({
     videoUrl: p.video_url,
     brochureUrl: p.brochure_url,
     demoUrl: p.demo_url,
+    totalContractValue: Number(p.total_contract_value) || 0,
+    totalRevenue: Number(p.total_revenue) || 0,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
 });
 
-// Select query with joined brand and supplier names
+// Select query with joined brand and supplier names (for writes to 'products' table)
 const SELECT_WITH_JOINS = '*, brands:brand_id(name), suppliers:supplier_id(name)';
+const VIEW_NAME = 'vw_products_with_stats';
 
 export const ProductService = {
     /**
@@ -63,19 +66,19 @@ export const ProductService = {
     },
 
     getAll: async (): Promise<Product[]> => {
-        const { data, error } = await supabase.from('products').select(SELECT_WITH_JOINS);
+        const { data, error } = await supabase.from(VIEW_NAME).select('*');
         if (error) throw error;
         return data.map(mapProduct);
     },
 
     getById: async (id: string): Promise<Product | undefined> => {
-        const { data, error } = await supabase.from('products').select(SELECT_WITH_JOINS).eq('id', id).single();
+        const { data, error } = await supabase.from(VIEW_NAME).select('*').eq('id', id).single();
         if (error) return undefined;
         return mapProduct(data);
     },
 
     getByCategory: async (category: string): Promise<Product[]> => {
-        let query = supabase.from('products').select(SELECT_WITH_JOINS);
+        let query = supabase.from(VIEW_NAME).select('*');
         if (category !== 'all') {
             query = query.eq('category', category);
         }
@@ -85,7 +88,7 @@ export const ProductService = {
     },
 
     getByUnitId: async (unitId: string): Promise<Product[]> => {
-        let query = supabase.from('products').select(SELECT_WITH_JOINS);
+        let query = supabase.from(VIEW_NAME).select('*');
         if (unitId !== 'all') {
             query = query.eq('unit_id', unitId);
         }
@@ -95,7 +98,7 @@ export const ProductService = {
     },
 
     getByBrand: async (brandId: string): Promise<Product[]> => {
-        let query = supabase.from('products').select(SELECT_WITH_JOINS);
+        let query = supabase.from(VIEW_NAME).select('*');
         if (brandId !== 'all') {
             query = query.eq('brand_id', brandId);
         }
@@ -105,7 +108,7 @@ export const ProductService = {
     },
 
     getBySupplier: async (supplierId: string): Promise<Product[]> => {
-        let query = supabase.from('products').select(SELECT_WITH_JOINS);
+        let query = supabase.from(VIEW_NAME).select('*');
         if (supplierId !== 'all') {
             query = query.eq('supplier_id', supplierId);
         }
@@ -115,7 +118,7 @@ export const ProductService = {
     },
 
     getActive: async (): Promise<Product[]> => {
-        const { data, error } = await supabase.from('products').select(SELECT_WITH_JOINS).eq('is_active', true);
+        const { data, error } = await supabase.from(VIEW_NAME).select('*').eq('is_active', true);
         if (error) throw error;
         return data.map(mapProduct);
     },
@@ -195,8 +198,21 @@ export const ProductService = {
         return mapProduct(res);
     },
 
-    list: async (params: { page?: number; pageSize?: number; search?: string; category?: string; brandId?: string; supplierId?: string; isActive?: boolean; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ data: Product[]; total: number }> => {
-        let query = supabase.from('products').select(SELECT_WITH_JOINS, { count: 'exact' });
+    list: async (params: { 
+        page?: number; 
+        pageSize?: number; 
+        search?: string; 
+        category?: string; 
+        brandId?: string; 
+        supplierId?: string; 
+        isActive?: boolean; 
+        sortBy?: string; 
+        sortOrder?: 'asc' | 'desc';
+        unitId?: string;
+        year?: string;
+        period?: string;
+    }): Promise<{ data: Product[]; total: number }> => {
+        let query = supabase.from(VIEW_NAME).select('*', { count: 'exact' });
 
         if (params.category && params.category !== 'all') {
             query = query.eq('category', params.category);
@@ -231,7 +247,47 @@ export const ProductService = {
 
         const { data, error, count } = await query;
         if (error) throw error;
-        return { data: data.map(mapProduct), total: count || 0 };
+        
+        let products = data.map(mapProduct);
+
+        // Fetch dynamic stats if there are products and dynamic filters are applied
+        const hasTimeFilter = params.year && params.year !== 'All';
+        const hasUnitFilter = params.unitId && params.unitId !== 'all';
+        if (products.length > 0 && (hasTimeFilter || hasUnitFilter || params.period)) {
+            const productIds = products.map(p => p.id);
+            const { data: dynamicStats, error: statsError } = await supabase.rpc('get_dynamic_product_stats', {
+                p_unit_id: params.unitId || 'all',
+                p_year: params.year || 'All',
+                p_period: params.period || 'Toàn thời gian',
+                p_product_ids: productIds
+            });
+            
+            if (!statsError && dynamicStats) {
+                // Map the dynamic stats back to the products
+                const statsMap = new Map();
+                dynamicStats.forEach((s: any) => statsMap.set(s.product_id, s));
+                
+                products = products.map(p => {
+                    const dynamicData = statsMap.get(p.id);
+                    if (dynamicData) {
+                        return {
+                            ...p,
+                            totalContractValue: Number(dynamicData.total_contract_value) || 0,
+                            totalRevenue: Number(dynamicData.total_revenue) || 0
+                        };
+                    } else {
+                        // Product had 0 stats for the filtered timeframe
+                        return {
+                            ...p,
+                            totalContractValue: 0,
+                            totalRevenue: 0
+                        };
+                    }
+                });
+            }
+        }
+
+        return { data: products, total: count || 0 };
     },
 
     delete: async (id: string): Promise<boolean> => {
@@ -249,8 +305,8 @@ export const ProductService = {
     checkNameExists: async (name: string, excludeId?: string): Promise<Product | null> => {
         if (!name || name.trim().length < 2) return null;
         let query = supabase
-            .from('products')
-            .select(SELECT_WITH_JOINS)
+            .from(VIEW_NAME)
+            .select('*')
             .ilike('name', name.trim())
             .limit(1);
         if (excludeId) {
@@ -267,8 +323,8 @@ export const ProductService = {
     search: async (query: string, limit: number = 20): Promise<Product[]> => {
         if (!query || query.trim().length < 2) return [];
         const { data, error } = await supabase
-            .from('products')
-            .select(SELECT_WITH_JOINS)
+            .from(VIEW_NAME)
+            .select('*')
             .or(`name.ilike.%${query.trim()}%,code.ilike.%${query.trim()}%`)
             .limit(limit);
         if (error) throw error;
