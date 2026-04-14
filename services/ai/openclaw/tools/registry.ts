@@ -2,6 +2,7 @@ import { ContractService } from '../../../contractService';
 import { CustomerService } from '../../../customerService';
 import { PaymentService } from '../../../paymentService';
 import { UnitService } from '../../../unitService';
+import { ProductService } from '../../../productService';
 import type { OpenClawTool, UserContext } from '../types';
 import { dataClient as supabase } from '../../../../lib/dataClient';
 import { fmtMoney, fmtMoneyWithRaw, calcChange, canViewAll, isBusinessUnit, getUnitFilter } from './_helpers';
@@ -1775,8 +1776,38 @@ export const getSmartInsightsTool: OpenClawTool = {
 };
 import { marketingToolsRegistry } from './marketingTools';
 
+// ═══════════════════════════════════════════════
+// Tool: Báo cáo kinh doanh sản phẩm
+// ═══════════════════════════════════════════════
+
+export const searchProductsTool: OpenClawTool = {
+  name: 'search_products',
+  description: 'Tìm kiếm sản phẩm, kết quả trả về bao gồm thống kê tổng giá trị hợp đồng (totalContractValue) và tổng doanh thu thực (totalRevenue) của từng sản phẩm. Số liệu là TỔNG TOÀN HỆ THỐNG được tính toán tự động. BẮT BUỘC DÙNG khi user hỏi thông kê/báo cáo kết quả kinh doanh của các sản phẩm, hoặc của một hãng sản xuất (brand) cụ thể.',
+  schema: {
+    search: { type: 'string', description: 'Từ khóa tìm kiếm (tên sản phẩm, mã, hoặc thương hiệu hãng)' },
+    year: { type: 'string', description: 'Năm cần xem kết quả (vd: 2026, 2025, hoặc bỏ trống)' }
+  },
+  execute: async (args, context: UserContext) => {
+    const res = await ProductService.list({
+      page: 1, limit: 50,
+      search: args.search,
+      year: args.year
+    });
+    return res.data.map((p: any) => ({
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      basePrice: fmtMoney(p.basePrice || 0),
+      totalContractValue: fmtMoney(p.totalContractValue || 0),
+      totalRevenue: fmtMoney(p.totalRevenue || 0)
+    }));
+  }
+};
+
+
 export const erpToolsRegistry: OpenClawTool[] = [
   ...marketingToolsRegistry,
+  searchProductsTool,
   searchContractsTool,
   getContractDetailTool,
   getContractStatsTool,

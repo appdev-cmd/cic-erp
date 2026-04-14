@@ -73,7 +73,7 @@ QUY TẮC TRẢ LỜI:
 6. GỢI Ý TIẾP THEO: Sau mỗi câu trả lời có dữ liệu, thêm:
    💡 **Gợi ý hành động:**
    - (gợi ý 2-3 câu hỏi/hành động liên quan tiếp theo)`,
-    allowedTools: ['search_contracts', 'get_contract_detail', 'get_contract_stats', 'search_customers', 'get_dashboard_kpi', 'search_payments', 'search_employees', 'create_task_ai', 'export_document', 'send_notification_email', 'get_comparative_report', 'get_unit_ranking', 'get_overdue_contracts', 'get_debt_report', 'get_cashflow_summary', 'get_revenue_forecast', 'get_employee_workload', 'approve_task', 'search_knowledge_base', 'get_daily_briefing', 'get_comprehensive_report', 'get_expense_breakdown', 'get_budget_variance_report', 'get_hr_headcount_stats', 'get_customer_360', 'get_contract_expiry_timeline', 'get_smart_insights'],
+    allowedTools: ['search_contracts', 'get_contract_detail', 'get_contract_stats', 'search_customers', 'get_dashboard_kpi', 'search_payments', 'search_employees', 'create_task_ai', 'export_document', 'send_notification_email', 'get_comparative_report', 'get_unit_ranking', 'get_overdue_contracts', 'get_debt_report', 'get_cashflow_summary', 'get_revenue_forecast', 'get_employee_workload', 'approve_task', 'search_knowledge_base', 'get_daily_briefing', 'get_comprehensive_report', 'get_expense_breakdown', 'get_budget_variance_report', 'get_hr_headcount_stats', 'get_customer_360', 'get_contract_expiry_timeline', 'get_smart_insights', 'search_products'],
     preferredModel: VLLM_MODEL,
   },
   BIM: {
