@@ -732,6 +732,7 @@ export const getOverdueContractsTool: OpenClawTool = {
           soTien: fmtMoney(p.amount || 0),
           hanChot: p.due_date,
           soNgayTre: Math.ceil((Date.now() - new Date(p.due_date).getTime()) / 86400000),
+          id: p.contract_id,
         })));
       }
     }
@@ -754,6 +755,7 @@ export const getOverdueContractsTool: OpenClawTool = {
           giaTriHD: fmtMoney(c.value || 0),
           hanHoanThanh: c.end_date,
           soNgayTre: Math.ceil((Date.now() - new Date(c.end_date).getTime()) / 86400000),
+          id: c.id,
         })));
       }
     }
@@ -814,7 +816,7 @@ export const getDebtReportTool: OpenClawTool = {
     }
 
     const sorted = Object.entries(customerDebt)
-      .map(([id, v]) => ({ khachHang: v.name, tongNo: fmtMoney(v.total), soKhoan: v.count, noTuNgay: v.oldest }))
+      .map(([id, v]) => ({ khachHang: v.name, tongNo: fmtMoney(v.total), soKhoan: v.count, noTuNgay: v.oldest, khachHangId: id }))
       .sort((a, b) => args.sortBy === 'age' ? (a.noTuNgay < b.noTuNgay ? -1 : 1) : 0);
 
     // Sort by amount desc by default
