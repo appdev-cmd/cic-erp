@@ -227,7 +227,7 @@ export const ProductService = {
             query = query.eq('is_active', params.isActive);
         }
         if (params.search) {
-            query = query.or(`name.ilike.%${params.search}%,code.ilike.%${params.search}%,sku.ilike.%${params.search}%`);
+            query = query.or(`name.ilike.%${params.search}%,code.ilike.%${params.search}%,sku.ilike.%${params.search}%,brand_name.ilike.%${params.search}%`);
         }
 
         if (params.page !== undefined && params.pageSize !== undefined) {
@@ -325,7 +325,7 @@ export const ProductService = {
         const { data, error } = await supabase
             .from(VIEW_NAME)
             .select('*')
-            .or(`name.ilike.%${query.trim()}%,code.ilike.%${query.trim()}%`)
+            .or(`name.ilike.%${query.trim()}%,code.ilike.%${query.trim()}%,brand_name.ilike.%${query.trim()}%`)
             .limit(limit);
         if (error) throw error;
         return (data || []).map(mapProduct);
