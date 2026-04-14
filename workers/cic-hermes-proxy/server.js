@@ -9,7 +9,7 @@ app.use(express.json());
 const PORT = 3005;
 
 app.post('/api/chat', (req, res) => {
-  const { message, agentId, userId } = req.body;
+  const { message, agentId, userId, history, userContext } = req.body;
   if (!message) {
     return res.status(400).json({ error: 'Message is required' });
   }
@@ -26,7 +26,28 @@ app.post('/api/chat', (req, res) => {
 
   const sessionName = `web_${userId || 'default'}`;
 
-  const prompt = `[LƯU Ý QUẢN TRỊ VIÊN: BẠN PHẢI SỬ DỤNG NHÂN CÁCH TRỢ LÝ: ${persona.toUpperCase()}]\n\nNgười dùng ID ${userId} hỏi: ${message}`;
+  // Build Contextual Data
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let userName = userContext?.fullName || 'Người dùng';
+  let userRole = userContext?.role || 'NVKD';
+  let userUnit = userContext?.unitName || userContext?.unitCode || 'N/A';
+
+  let prompt = `[LƯU Ý QUẢN TRỊ VIÊN: BẠN PHẢI SỬ DỤNG NHÂN CÁCH TRỢ LÝ: ${persona.toUpperCase()}]\n`;
+  prompt += `[THÔNG TIN NGƯỜI DÙNG ĐANG CHAT: Tên: ${userName}, Chức vụ: ${userRole}, Đơn vị: ${userUnit}]\n`;
+  prompt += `[THỜI GIAN THỰC TẾ HÔM NAY: ${todayStr}]\n\n`;
+
+  // Build conversational transcript from history
+  if (history && Array.isArray(history) && history.length > 0) {
+    prompt += `[DƯỚI ĐÂY LÀ LỊCH SỬ CUỘC TRÒ CHUYỆN (CONTEXT). HÃY LẤY ĐÓ LÀM NGỮ CẢNH: ]\n`;
+    history.forEach(m => {
+      if (m.content) {
+        prompt += `${m.role === 'model' ? '[AI TRẢ LỜI TRƯỚC ĐÓ]' : '[NGƯỜI DÙNG HỎI TRƯỚC ĐÓ]'}: ${m.content}\n\n`;
+      }
+    });
+    prompt += `[KẾT THÚC LỊCH SỬ. DƯỚI ĐÂY LÀ CÂU HỎI MỚI NHẤT CỦA NGƯỜI DÙNG ĐỂ BẠN TRẢ LỜI:]\n`;
+  }
+
+  prompt += `Người dùng hỏi: ${message}`;
 
   const child = spawn('hermes', ['chat', '-Q', '-q', prompt]);
 

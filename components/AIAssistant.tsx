@@ -821,7 +821,9 @@ const AIAssistant: React.FC = () => {
           body: JSON.stringify({
             message: userMsg.content,
             agentId: currentAgent,
-            userId: _userContext.userId
+            userId: _userContext.userId,
+            history: history,
+            userContext: _userContext
           }),
           signal: controller.signal
         });
