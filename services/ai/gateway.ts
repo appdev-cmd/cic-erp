@@ -39,12 +39,12 @@ function getConfig(): GatewayConfig {
 function getLocalAIBaseURL(model?: string): string {
   const isGemma = model ? model.toLowerCase().includes('gemma') : false;
 
-  const cloudUrl = isGemma ? 'https://ai-api.cic.com.vn:8002/v1' : 'https://ai-api.cic.com.vn:4000/v1';
+  const cloudUrl = isGemma ? 'http://118.70.182.173:8002/v1' : 'http://118.70.182.173:4000/v1';
 
   try {
     if (typeof window !== 'undefined') {
       let url = localStorage.getItem('cic_local_ai_base_url');
-      if (url && (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|ai-api\.cic\.com\.vn)/.test(url) || url.startsWith('/api/'))) {
+      if (url && (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|ai-api\.cic\.com\.vn|118\.70\.182\.173)/.test(url) || url.startsWith('/api/'))) {
          if (url.startsWith('/api/')) {
              return isGemma ? '/api/vllm_gemma' : '/api/vllm';
          }

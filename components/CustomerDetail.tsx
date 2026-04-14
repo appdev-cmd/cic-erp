@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
     ArrowLeft, Building2, FileText, Edit3, Trash2, Loader2,
-    Target, Users, DollarSign, StickyNote
+    Target, Users, DollarSign, StickyNote, Package, TrendingUp
 } from 'lucide-react';
 import { Customer, Contract, Payment } from '../types';
 import { CustomerService, ContractService, PaymentService } from '../services';
@@ -31,6 +31,10 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [supplierStats, setSupplierStats] = useState<{
+        productCount: number; contractCount: number;
+        totalContractValue: number; totalRevenue: number; activeContracts: number;
+    } | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [activeTab, setActiveTabState] = useState<'overview' | 'contacts' | 'contracts' | 'payments' | 'notes'>(() => {
         return (localStorage.getItem('cic-erp-customer-tab') as any) || 'overview';
@@ -62,6 +66,14 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
             setContracts(contData || []);
             setPayments(payData || []);
             if (custData) setNotesValue(custData.notes || '');
+
+            // For Suppliers: also fetch brand-based product/contract stats
+            if (custData && custData.type === 'Supplier') {
+                const sStats = await CustomerService.getSupplierProductStats(customerId);
+                setSupplierStats(sStats);
+            } else {
+                setSupplierStats(null);
+            }
         } catch (error) {
             console.error("Error fetching customer details", error);
         } finally {
@@ -86,6 +98,17 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
 
     // ==================== COMPUTED VALUES ====================
     const stats = useMemo(() => {
+        // For suppliers with brand stats, use those instead
+        if (supplierStats && supplierStats.contractCount > 0) {
+            return {
+                contractCount: supplierStats.contractCount,
+                totalValue: supplierStats.totalContractValue,
+                totalRevenue: supplierStats.totalRevenue,
+                activeContracts: supplierStats.activeContracts,
+                completedContracts: 0,
+                avgContractValue: supplierStats.contractCount > 0 ? supplierStats.totalContractValue / supplierStats.contractCount : 0
+            };
+        }
         if (!contracts.length) return { contractCount: 0, totalValue: 0, totalRevenue: 0, activeContracts: 0, completedContracts: 0, avgContractValue: 0 };
         const totalValue = contracts.reduce((sum, c) => sum + (c.value || 0), 0);
         const totalRevenue = contracts.reduce((sum, c) => sum + (c.actualRevenue || 0), 0);
@@ -97,7 +120,7 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
             completedContracts: contracts.filter(c => c.status === 'Completed').length,
             avgContractValue: contracts.length > 0 ? totalValue / contracts.length : 0
         };
-    }, [contracts]);
+    }, [contracts, supplierStats]);
 
     const paymentStats = useMemo(() => {
         const totalAmount = payments.reduce((s, p) => s + (p.amount || 0), 0);

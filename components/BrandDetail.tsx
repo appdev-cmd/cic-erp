@@ -14,7 +14,10 @@ import {
     Save,
     X,
     ExternalLink,
-    Plus
+    Plus,
+    TrendingUp,
+    DollarSign,
+    FileText
 } from 'lucide-react';
 import { Brand, Product } from '../types';
 import { BrandService, ProductService } from '../services';
@@ -108,6 +111,8 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProd
     const totalProducts = products.length;
     const activeProducts = products.filter(p => p.isActive).length;
     const totalValue = products.reduce((sum, p) => sum + (p.basePrice || 0), 0);
+    const totalContractValue = products.reduce((sum, p) => sum + (p.totalContractValue || 0), 0);
+    const totalRevenue = products.reduce((sum, p) => sum + (p.totalRevenue || 0), 0);
 
     if (isLoading) {
         return (
@@ -252,7 +257,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProd
             )}
 
             {/* Info Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-lg text-violet-600 dark:text-violet-400">
@@ -277,32 +282,56 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProd
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 col-span-2">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
-                            <Globe size={18} />
+                        <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+                            <TrendingUp size={18} />
                         </div>
                         <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                {brand.country && (
-                                    <span className="flex items-center gap-1 text-sm text-slate-700 dark:text-slate-300">
-                                        <MapPin size={13} />{brand.country}
-                                    </span>
-                                )}
-                                {brand.website && (
-                                    <a
-                                        href={brand.website}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
-                                    >
-                                        <ExternalLink size={13} />
-                                        {brand.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                                    </a>
-                                )}
-                            </div>
+                            <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(totalContractValue)}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">Tổng giá trị ký kết</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 col-span-2">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
+                            <DollarSign size={18} />
+                        </div>
+                        <div>
+                            <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(totalRevenue)}</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">Doanh thu</p>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Brand Info */}
+            {(brand.country || brand.website) && (
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
+                            <Globe size={18} />
+                        </div>
+                        <div className="flex items-center gap-4 flex-wrap">
+                            {brand.country && (
+                                <span className="flex items-center gap-1 text-sm text-slate-700 dark:text-slate-300">
+                                    <MapPin size={13} />{brand.country}
+                                </span>
+                            )}
+                            {brand.website && (
+                                <a
+                                    href={brand.website}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                                >
+                                    <ExternalLink size={13} />
+                                    {brand.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Product List */}
             <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -335,6 +364,8 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProd
                                     <th className="text-left py-2.5 px-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tên sản phẩm</th>
                                     <th className="text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Danh mục</th>
                                     <th className="text-right py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Giá bán</th>
+                                    <th className="text-right py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Giá trị ký kết</th>
+                                    <th className="text-right py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Doanh thu</th>
                                     <th className="text-center py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng thái</th>
                                 </tr>
                             </thead>
@@ -360,6 +391,16 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProd
                                         <td className="py-3 px-3 text-right hidden sm:table-cell">
                                             <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
                                                 {product.basePrice ? formatCurrency(product.basePrice) : '—'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-3 text-right hidden lg:table-cell">
+                                            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                                {product.totalContractValue ? formatCurrency(product.totalContractValue) : '—'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-3 text-right hidden lg:table-cell">
+                                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                                {product.totalRevenue ? formatCurrency(product.totalRevenue) : '—'}
                                             </span>
                                         </td>
                                         <td className="py-3 px-3 text-center">

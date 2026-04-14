@@ -14,19 +14,19 @@
     "rewrites": [
         {
             "source": "/api/vllm_gemma/(.*)",
-            "destination": "https://ai-api.cic.com.vn:8002/v1/$1"
+            "destination": "http://118.70.182.173:8002/v1/$1"
         },
         {
             "source": "/api/vllm/(.*)",
-            "destination": "https://ai-api.cic.com.vn:4000/v1/$1"
+            "destination": "http://118.70.182.173:4000/v1/$1"
         },
         {
             "source": "/api/ollama/(.*)",
-            "destination": "https://ai-api.cic.com.vn:11434/v1/$1"
+            "destination": "http://118.70.182.173:11434/v1/$1"
         },
         {
             "source": "/api/ollama_native/(.*)",
-            "destination": "https://ai-api.cic.com.vn:11434/api/$1"
+            "destination": "http://118.70.182.173:11434/api/$1"
         },
         {
             "source": "/api/(.*)",

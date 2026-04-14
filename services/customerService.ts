@@ -355,6 +355,37 @@ export const CustomerService = {
         return mapCustomer(created);
     },
 
+    /**
+     * Get product-based contract stats for a supplier
+     * Finds brands matching this supplier → products → contracts via lineItems
+     */
+    getSupplierProductStats: async (customerId: string): Promise<{
+        productCount: number;
+        contractCount: number;
+        totalContractValue: number;
+        totalRevenue: number;
+        activeContracts: number;
+    } | null> => {
+        try {
+            const { data, error } = await supabase.rpc('get_supplier_product_stats', {
+                p_customer_id: customerId
+            });
+            if (error) throw error;
+            if (!data || data.length === 0) return null;
+            const row = data[0];
+            return {
+                productCount: Number(row.product_count) || 0,
+                contractCount: Number(row.contract_count) || 0,
+                totalContractValue: Number(row.total_contract_value) || 0,
+                totalRevenue: Number(row.total_revenue) || 0,
+                activeContracts: Number(row.active_contracts) || 0,
+            };
+        } catch (err) {
+            console.error('[CustomerService.getSupplierProductStats] Error:', err);
+            return null;
+        }
+    },
+
     // =============================================
     // Customer Contacts sub-CRUD
     // =============================================
