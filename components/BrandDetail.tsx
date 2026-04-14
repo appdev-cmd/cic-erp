@@ -24,6 +24,7 @@ import { BrandService, ProductService } from '../services';
 import { formatCurrency } from '../utils/formatters';
 import ConfirmDialog, { useConfirmDialog } from './ui/ConfirmDialog';
 import ProductForm from './ProductForm';
+import { useLayoutContext } from './layout/MainLayout';
 
 interface BrandDetailProps {
     brandId: string;
@@ -32,6 +33,7 @@ interface BrandDetailProps {
 }
 
 const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProduct }) => {
+    const { selectedUnit, yearFilter, periodFilter } = useLayoutContext();
     const [brand, setBrand] = useState<Brand | null>(null);
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -47,7 +49,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProd
             try {
                 const [brandData, productData] = await Promise.all([
                     BrandService.getById(brandId),
-                    ProductService.getByBrand(brandId),
+                    ProductService.getByBrand(brandId, selectedUnit.id, yearFilter, periodFilter),
                 ]);
                 setBrand(brandData || null);
                 setProducts(productData);
@@ -59,7 +61,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId, onBack, onSelectProd
             }
         };
         fetchData();
-    }, [brandId]);
+    }, [brandId, selectedUnit.id, yearFilter, periodFilter]);
 
     const handleEdit = () => {
         if (!brand) return;

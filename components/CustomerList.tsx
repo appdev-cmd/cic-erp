@@ -32,6 +32,7 @@ import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { useColumnResize } from '../hooks/useColumnResize';
 import { useAuth } from '../contexts/AuthContext';
+import { useLayoutContext } from './layout/MainLayout';
 
 interface CustomerListProps {
     onSelectCustomer?: (id: string) => void;
@@ -41,6 +42,7 @@ interface CustomerListProps {
 const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectProduct }) => {
     const { can } = usePermissionCheck();
     const { profile: realProfile } = useAuth();
+    const { selectedUnit, yearFilter, periodFilter } = useLayoutContext();
     const allowDelete = can('customers', 'delete');
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -75,7 +77,10 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
             search: debouncedSearch,
             type: typeFilter,
             industry: industryFilter,
-            rating: ratingFilter !== 'all' ? ratingFilter : undefined
+            rating: ratingFilter !== 'all' ? ratingFilter : undefined,
+            year: yearFilter,
+            period: periodFilter,
+            unitId: selectedUnit.id
         });
 
         return {
@@ -83,7 +88,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
             hasMore: custRes.data.length >= PAGE_SIZE,
             totalCount: custRes.total
         };
-    }, [debouncedSearch, typeFilter, industryFilter, ratingFilter]);
+    }, [debouncedSearch, typeFilter, industryFilter, ratingFilter, yearFilter, periodFilter, selectedUnit.id]);
 
     const {
         items: customers,
@@ -98,8 +103,13 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
     } = useInfiniteScroll<Customer>({
         fetchFn: fetchCustomerPage,
         pageSize: PAGE_SIZE,
-        resetDeps: [debouncedSearch, typeFilter, industryFilter, ratingFilter]
+        resetDeps: [debouncedSearch, typeFilter, industryFilter, ratingFilter, yearFilter, periodFilter, selectedUnit.id]
     });
+
+    // Actually trigger reset when filters change
+    useEffect(() => {
+        resetInfiniteScroll();
+    }, [debouncedSearch, typeFilter, industryFilter, ratingFilter, yearFilter, periodFilter, selectedUnit.id, resetInfiniteScroll]);
 
     // Realtime: silent refresh when customer data changes from another tab
     useEffect(() => {

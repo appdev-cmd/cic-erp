@@ -97,14 +97,45 @@ export const ProductService = {
         return data.map(mapProduct);
     },
 
-    getByBrand: async (brandId: string): Promise<Product[]> => {
+    getByBrand: async (brandId: string, unitId: string = 'all', year: string = 'All', period: string = 'Toàn thời gian'): Promise<Product[]> => {
         let query = supabase.from(VIEW_NAME).select('*');
         if (brandId !== 'all') {
             query = query.eq('brand_id', brandId);
         }
         const { data, error } = await query;
         if (error) throw error;
-        return data.map(mapProduct);
+        
+        let products = data.map(mapProduct);
+
+        // Fetch dynamic stats if time/unit filters are applied
+        if (products.length > 0 && (unitId !== 'all' || year !== 'All' || period !== 'Toàn thời gian')) {
+            const productIds = products.map(p => p.id);
+            const { data: statsData, error: statsError } = await supabase.rpc('get_dynamic_product_stats', {
+                p_unit_id: unitId,
+                p_year: year,
+                p_period: period,
+                p_product_ids: productIds
+            });
+            
+            if (!statsError && statsData) {
+                const statsMap = new Map(statsData.map((s: any) => [s.product_id, s]));
+                products = products.map(p => {
+                    const dynamicStat = statsMap.get(p.id);
+                    if (dynamicStat) {
+                        return {
+                            ...p,
+                            totalContractValue: Number(dynamicStat.total_contract_value) || 0,
+                            totalRevenue: Number(dynamicStat.total_revenue) || 0
+                        };
+                    } else {
+                        // Reset to 0 if the product has no contracts in this timeframe
+                        return { ...p, totalContractValue: 0, totalRevenue: 0 };
+                    }
+                });
+            }
+        }
+        
+        return products;
     },
 
     getBySupplier: async (supplierId: string): Promise<Product[]> => {

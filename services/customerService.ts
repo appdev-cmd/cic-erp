@@ -80,26 +80,56 @@ const mapContact = (c: any): CustomerContact => ({
     createdAt: c.created_at,
 });
 
+export interface CustomerFilterParams {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    type?: string;
+    industry?: string;
+    rating?: string;
+    year?: string;
+    period?: string;
+    unitId?: string;
+}
+
+const PAGE_SIZE = 20;
+
 export const CustomerService = {
-    getAll: async (params?: { page?: number; pageSize?: number; search?: string; type?: string; industry?: string; rating?: string }): Promise<{ data: Customer[]; total: number }> => {
-        const p_search = params?.search || null;
-        const p_type = params?.type === 'all' ? null : params?.type;
-        const p_industry = params?.industry === 'all' ? null : params?.industry;
-        const p_limit = params?.pageSize || 10;
-        const p_offset = ((params?.page || 1) - 1) * p_limit;
+    getAll: async (params?: CustomerFilterParams): Promise<{ data: Customer[], total: number }> => {
+        let p_search = params?.search ? params.search : null;
+        let p_type = params?.type && params.type !== 'all' ? params.type : null;
+        let p_industry = params?.industry && params.industry !== 'all' ? params.industry : null;
+        
+        let p_limit = params?.pageSize || PAGE_SIZE;
+        let p_offset = params?.page ? (params.page - 1) * p_limit : 0;
+        
+        let p_unit_id = params?.unitId || 'all';
+        let p_year = params?.year || 'All';
+        let p_period = params?.period || 'Toàn thời gian';
+
+        // Fix null values for RPC
+        if (p_search === '') p_search = null;
 
         const [listRes, countRes] = await Promise.all([
+            // 1. Get paginated list with stats
             supabase.rpc('get_customers_with_stats', {
                 p_search,
                 p_type,
                 p_industry,
                 p_limit,
-                p_offset
+                p_offset,
+                p_unit_id,
+                p_year,
+                p_period
             }),
-            supabase.rpc('get_customers_count', {
+            // 2. Get total count
+            supabase.rpc('get_customers_with_stats', {
                 p_search,
                 p_type,
-                p_industry
+                p_industry,
+                p_unit_id,
+                p_year,
+                p_period
             })
         ]);
 
@@ -359,7 +389,7 @@ export const CustomerService = {
      * Get product-based contract stats for a supplier
      * Finds brands matching this supplier → products → contracts via lineItems
      */
-    getSupplierProductStats: async (customerId: string): Promise<{
+    getSupplierProductStats: async (customerId: string, unitId: string = 'all', year: string = 'All', period: string = 'Toàn thời gian'): Promise<{
         productCount: number;
         contractCount: number;
         totalContractValue: number;
@@ -368,7 +398,10 @@ export const CustomerService = {
     } | null> => {
         try {
             const { data, error } = await supabase.rpc('get_supplier_product_stats', {
-                p_customer_id: customerId
+                p_customer_id: customerId,
+                p_unit_id: unitId,
+                p_year: year,
+                p_period: period
             });
             if (error) throw error;
             if (!data || data.length === 0) return null;
