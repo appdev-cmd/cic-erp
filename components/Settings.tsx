@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3, Bot, Crown, ScanLine, Sparkles } from 'lucide-react';
+import { Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette, HardDrive, BarChart3, Bot, Crown, ScanLine, Sparkles, History } from 'lucide-react';
 import PilotRunner from './admin/PilotRunner';
 import PermissionManager from './settings/PermissionManager';
 import RoleDefaultsManager from './settings/RoleDefaultsManager';
@@ -10,10 +10,11 @@ import ManagementRankManager from './settings/ManagementRankManager';
 import HistoricalProductionManager from './settings/HistoricalProductionManager';
 import RouteAuditPanel from './settings/RouteAuditPanel';
 import EmbeddingSettings from './settings/EmbeddingSettings';
+import PermissionAuditLog from './settings/PermissionAuditLog';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 
-type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'task-mgmt' | 'ai-api' | 'ai-embedding' | 'historical' | 'drive' | 'route-audit' | 'testing';
+type SettingsTab = 'system' | 'permissions' | 'role-defaults' | 'task-mgmt' | 'ai-api' | 'ai-embedding' | 'historical' | 'drive' | 'route-audit' | 'perm-audit' | 'testing';
 
 const Settings: React.FC = () => {
     const { theme, setTheme, accent, setAccent } = useLayoutContext();
@@ -39,6 +40,7 @@ const Settings: React.FC = () => {
         { id: 'ai-embedding', label: 'AI Embedding', icon: <Sparkles size={18} />, adminOnly: true },
         { id: 'drive', label: 'Google Drive', icon: <HardDrive size={18} />, adminOnly: true },
         { id: 'route-audit', label: 'Route & Phân quyền', icon: <ScanLine size={18} />, adminOnly: true },
+        { id: 'perm-audit', label: 'Nhật ký phân quyền', icon: <History size={18} />, adminOnly: true },
         { id: 'testing', label: 'Kiểm thử', icon: <FlaskConical size={18} /> },
     ];
 
@@ -232,6 +234,21 @@ const Settings: React.FC = () => {
                             </div>
                         </div>
                         <RouteAuditPanel />
+                    </div>
+                )}
+
+                {activeTab === 'perm-audit' && isAdmin && (
+                    <div>
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center">
+                                <History size={20} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-slate-200">Nhật ký phân quyền</h3>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Lịch sử thay đổi quyền truy cập, vai trò và quyền xem đơn vị</p>
+                            </div>
+                        </div>
+                        <PermissionAuditLog />
                     </div>
                 )}
 

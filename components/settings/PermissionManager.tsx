@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Shield, Users, Check, X, Loader2, Search, Eye, EyeOff, Building2,
-    ChevronDown, RefreshCw, AlertTriangle, Filter
+    ChevronDown, RefreshCw, AlertTriangle, Filter, GitCompare, Copy,
+    RotateCcw, TrendingUp, Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -96,6 +97,7 @@ const PermissionManager: React.FC = () => {
     const [unitFilter, setUnitFilter] = useState<string>('all');
     const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [pendingRole, setPendingRole] = useState<UserRole | null>(null);
+    const [showDiff, setShowDiff] = useState(true); // Compare with role defaults
 
     const { data: allPermissions, isLoading: permLoading } = useAllPermissions();
     const updatePermission = useUpdatePermission();
@@ -185,6 +187,37 @@ const PermissionManager: React.FC = () => {
     // ─── Self-protection ────────────────────────────────
     const isSelf = selectedUserId === adminProfile?.employeeId || selectedUserId === adminProfile?.id;
 
+    // ─── Diff vs role defaults ───────────────────────
+    const roleDefaults = useMemo((): Record<PermissionResource, PermissionAction[]> => {
+        if (!selectedUser) return {} as any;
+        const defaults = DEFAULT_ROLE_PERMISSIONS[selectedUser.role] || {};
+        const result: any = {};
+        RESOURCES.forEach(r => { result[r] = defaults[r] || []; });
+        return result;
+    }, [selectedUser]);
+
+    const diffCells = useMemo(() => {
+        const diffs = new Set<string>();
+        if (!selectedUser || !showDiff) return diffs;
+        RESOURCES.forEach(resource => {
+            ACTIONS.forEach(action => {
+                const userHas = userPermissions[resource]?.includes(action) || false;
+                const defaultHas = roleDefaults[resource]?.includes(action) || false;
+                if (userHas !== defaultHas) diffs.add(`${resource}:${action}`);
+            });
+        });
+        return diffs;
+    }, [userPermissions, roleDefaults, selectedUser, showDiff]);
+
+    const customOverrideCount = diffCells.size;
+
+    // ─── Quick role stats ────────────────────────────
+    const roleStats = useMemo(() => {
+        const stats: Partial<Record<UserRole, number>> = {};
+        users.forEach(u => { stats[u.role] = (stats[u.role] || 0) + 1; });
+        return stats;
+    }, [users]);
+
     // ─── Toggle permission ──────────────────────────────
     const handleToggle = useCallback(async (resource: PermissionResource, action: PermissionAction) => {
         if (!selectedUserId || !selectedUser) return;
@@ -249,11 +282,11 @@ const PermissionManager: React.FC = () => {
 
             if (error) throw error;
 
-            // Also update profiles table if exists
+            // Also update profiles table (link via employee_id, not auth UUID)
             await dataClient
                 .from('profiles')
                 .update({ role: newRole })
-                .eq('id', selectedUserId);
+                .eq('employee_id', selectedUserId);
 
             // Reset permissions to new role defaults
             await initializePermissions.mutateAsync({ userId: selectedUserId, role: newRole });
@@ -295,6 +328,41 @@ const PermissionManager: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {/* ─── Role Stats Bar ─── */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {(Object.entries(roleStats) as [UserRole, number][])
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([role, count]) => (
+                        <button
+                            key={role}
+                            onClick={() => setRoleFilter(roleFilter === role ? 'all' : role)}
+                            className={`flex items-center justify-between px-3 py-2 rounded-lg border text-left transition-all cursor-pointer ${roleFilter === role
+                                ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20'
+                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600'
+                            }`}
+                        >
+                            <span className={`text-[10px] font-bold truncate ${ROLE_COLORS[role]?.split(' ')[0] ? '' : ''} ${roleFilter === role ? 'text-orange-700 dark:text-orange-300' : 'text-slate-600 dark:text-slate-300'}`}>
+                                {ROLE_LABELS[role] || role}
+                            </span>
+                            <span className={`text-xs font-black ml-1 ${roleFilter === role ? 'text-orange-600' : 'text-slate-400'}`}>
+                                {count}
+                            </span>
+                        </button>
+                    ))
+                }
+                <button
+                    onClick={() => setRoleFilter('all')}
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg border text-left transition-all cursor-pointer ${roleFilter === 'all'
+                        ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/20'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 hover:border-slate-300'
+                    }`}
+                >
+                    <span className={`text-[10px] font-bold ${roleFilter === 'all' ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-500'}`}>Tất cả</span>
+                    <span className={`text-xs font-black ml-1 ${roleFilter === 'all' ? 'text-indigo-600' : 'text-slate-400'}`}>{users.length}</span>
+                </button>
+            </div>
+
             {/* ─── Filters ─── */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {/* Search */}
@@ -428,6 +496,56 @@ const PermissionManager: React.FC = () => {
                     </div>
 
                     {/* ─── Permission Matrix ─── */}
+                    <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                            {customOverrideCount > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                                    <Info size={10} />
+                                    {customOverrideCount} ô tùy chỉnh khác mặc định
+                                </span>
+                            )}
+                            {customOverrideCount === 0 && showDiff && (
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500">Đúng mặc định role</span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setShowDiff(v => !v)}
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all cursor-pointer ${showDiff
+                                    ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-300'
+                                    : 'bg-slate-100 border-slate-200 text-slate-500 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400'
+                                }`}
+                            >
+                                <GitCompare size={12} />
+                                So sánh mặc định
+                            </button>
+                            <button
+                                onClick={() => { setPendingRole(selectedUser!.role); setShowResetConfirm(true); }}
+                                disabled={customOverrideCount === 0}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all cursor-pointer bg-slate-100 border-slate-200 text-slate-500 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400 hover:bg-red-50 hover:border-red-300 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                                title="Reset tất cả về mặc định của role này"
+                            >
+                                <RotateCcw size={12} />
+                                Reset mặc định
+                            </button>
+                        </div>
+                    </div>
+                    {showDiff && (
+                        <div className="flex items-center gap-4 mb-2 px-1 flex-wrap">
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                <span className="w-4 h-4 rounded bg-emerald-500/20 flex items-center justify-center"><Check size={10} className="text-emerald-600" /></span>
+                                Có quyền
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                <span className="w-4 h-4 rounded bg-amber-400/20 border border-amber-400/50 flex items-center justify-center"><Check size={10} className="text-amber-600" /></span>
+                                Thêm (không có mặc định)
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                <span className="w-4 h-4 rounded bg-red-400/20 border border-red-400/50 flex items-center justify-center"><X size={10} className="text-red-500" /></span>
+                                Thu hồi (có trong mặc định)
+                            </div>
+                        </div>
+                    )}
                     <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
                         <table className="w-full text-sm">
                             <thead>
@@ -443,32 +561,57 @@ const PermissionManager: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {RESOURCES.map((resource, idx) => (
-                                    <tr key={resource} className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 transition-colors duration-150 ${idx % 2 === 0 ? 'bg-transparent dark:bg-transparent' : 'bg-slate-50/50 dark:bg-slate-800'} hover:bg-orange-50/30 dark:hover:bg-slate-700`}>
-                                        <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200">
-                                            {RESOURCE_LABELS[resource]}
-                                        </td>
-                                        {ACTIONS.map(action => {
-                                            const hasAction = userPermissions[resource]?.includes(action);
-                                            const isProtected = isSelf && (resource === 'permissions' || resource === 'settings') && action === 'view';
-                                            return (
-                                                <td key={action} className="text-center py-3 px-3">
-                                                    <button
-                                                        onClick={() => handleToggle(resource, action)}
-                                                        disabled={updatePermission.isPending || isProtected}
-                                                        title={isProtected ? 'Không thể tắt quyền này cho chính mình' : `${hasAction ? 'Tắt' : 'Bật'} ${ACTION_LABELS[action]} ${RESOURCE_LABELS[resource]}`}
-                                                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${hasAction
-                                                            ? 'bg-emerald-500/20 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/30 dark:hover:bg-emerald-500/30'
-                                                            : 'bg-slate-200/60 text-slate-400 dark:bg-slate-700/60 dark:text-slate-500 hover:bg-slate-300/60 dark:hover:bg-slate-600/60'
-                                                            } ${isProtected ? 'opacity-40 cursor-not-allowed' : 'hover:scale-110 cursor-pointer'}`}
-                                                    >
-                                                        {hasAction ? <Check size={15} strokeWidth={2.5} /> : <X size={15} />}
-                                                    </button>
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
-                                ))}
+                                {RESOURCES.map((resource, idx) => {
+                                    const rowHasCustom = ACTIONS.some(a => diffCells.has(`${resource}:${a}`));
+                                    return (
+                                        <tr key={resource} className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 transition-colors duration-150 ${rowHasCustom && showDiff ? 'bg-amber-50/30 dark:bg-amber-950/10' : idx % 2 === 0 ? 'bg-transparent' : 'bg-slate-50/50 dark:bg-slate-800'} hover:bg-orange-50/30 dark:hover:bg-slate-700`}>
+                                            <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                                {RESOURCE_LABELS[resource]}
+                                                {rowHasCustom && showDiff && (
+                                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">tùy chỉnh</span>
+                                                )}
+                                            </td>
+                                            {ACTIONS.map(action => {
+                                                const hasAction = userPermissions[resource]?.includes(action) || false;
+                                                const defaultHas = roleDefaults[resource]?.includes(action) || false;
+                                                const isDiff = showDiff && diffCells.has(`${resource}:${action}`);
+                                                const isProtected = isSelf && (resource === 'permissions' || resource === 'settings') && action === 'view';
+                                                // Diff styles: added (user has, default doesn't) = amber; removed (default has, user doesn't) = red outline
+                                                const diffStyle = isDiff
+                                                    ? hasAction
+                                                        ? 'bg-amber-400/20 text-amber-700 dark:text-amber-300 border border-amber-400/60 hover:bg-amber-400/30'
+                                                        : 'bg-red-400/15 text-red-500 dark:text-red-400 border border-red-400/50 hover:bg-red-400/25'
+                                                    : hasAction
+                                                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/30'
+                                                        : 'bg-slate-200/60 text-slate-400 dark:bg-slate-700/60 dark:text-slate-500 hover:bg-slate-300/60';
+                                                return (
+                                                    <td key={action} className="text-center py-3 px-3">
+                                                        <div className="flex flex-col items-center gap-0.5">
+                                                            <button
+                                                                onClick={() => handleToggle(resource, action)}
+                                                                disabled={updatePermission.isPending || isProtected}
+                                                                title={isProtected
+                                                                    ? 'Không thể tắt quyền này cho chính mình'
+                                                                    : isDiff
+                                                                        ? `⚠ Khác mặc định — ${hasAction ? 'Tắt' : 'Bật'} ${ACTION_LABELS[action]} ${RESOURCE_LABELS[resource]}`
+                                                                        : `${hasAction ? 'Tắt' : 'Bật'} ${ACTION_LABELS[action]} ${RESOURCE_LABELS[resource]}`
+                                                                }
+                                                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${diffStyle} ${isProtected ? 'opacity-40 cursor-not-allowed' : 'hover:scale-110 cursor-pointer'}`}
+                                                            >
+                                                                {hasAction ? <Check size={15} strokeWidth={2.5} /> : <X size={15} />}
+                                                            </button>
+                                                            {isDiff && showDiff && (
+                                                                <span className="text-[8px] leading-none text-amber-500 dark:text-amber-400 font-bold">
+                                                                    {hasAction ? '+thêm' : '-bỏ'}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
