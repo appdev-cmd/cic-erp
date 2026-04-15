@@ -18,8 +18,11 @@ import {
     Crown,
     ChevronDown,
     Tag,
-    RotateCcw
+    RotateCcw,
+    Download,
+    GitMerge
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Customer } from '../types';
 import { CustomerService } from '../services';
 import { INDUSTRIES } from '../constants';
@@ -27,6 +30,7 @@ import CustomerForm from './CustomerForm';
 import ImportCustomerModal from './ImportCustomerModal';
 import BrandManager from './settings/BrandManager';
 import BrandDetail from './BrandDetail';
+import CustomerMergeModal from './CustomerMergeModal';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
@@ -61,6 +65,8 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
     const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
     const [actionMenuId, setActionMenuId] = useState<string | null>(null);
     const [isImportOpen, setIsImportOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+    const [mergingCustomer, setMergingCustomer] = useState<Customer | null>(null);
 
     // Debounced search
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -229,6 +235,63 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
         setActionMenuId(null);
     };
 
+    const handleExport = async () => {
+        setIsExporting(true);
+        try {
+            // Fetch filtered results up to 1000 items
+            const exportRes = await CustomerService.getAll({
+                page: 1,
+                pageSize: 1000,
+                search: debouncedSearch,
+                type: typeFilter,
+                industry: industryFilter,
+                rating: ratingFilter !== 'all' ? ratingFilter : undefined,
+                year: yearFilter,
+                period: periodFilter,
+                unitId: selectedUnit.id
+            });
+
+            if (!exportRes.data || exportRes.data.length === 0) {
+                toast.error("Không có dữ liệu để xuất");
+                setIsExporting(false);
+                return;
+            }
+
+            const exportData = exportRes.data.map((c, index) => ({
+                'STT': index + 1,
+                'Mã số thuế': c.taxCode || '',
+                'Tên doanh nghiệp': c.name,
+                'Tên viết tắt': c.shortName || '',
+                'Loại': c.type === 'Customer' ? 'Khách hàng' : c.type === 'Supplier' ? 'Nhà cung cấp' : 'Cả hai',
+                'Phân hạng': c.rating,
+                'Liên hệ': c.contactPerson || '',
+                'SĐT': c.phone || '',
+                'Email': c.email || '',
+                'Địa chỉ': c.address || '',
+                'Ngành nghề': c.industry.join(', '),
+                'Website': c.website || '',
+                'Ghi chú': c.notes || ''
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const colWidths = [
+                { wch: 5 }, { wch: 15 }, { wch: 40 }, { wch: 15 }, { wch: 15 },
+                { wch: 10 }, { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 40 },
+                { wch: 20 }, { wch: 25 }, { wch: 30 }
+            ];
+            ws['!cols'] = colWidths;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Danh_Sach_Doi_Tac");
+            XLSX.writeFile(wb, `Danh_sach_doi_tac_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            toast.success("Xuất file Excel thành công");
+        } catch (error: any) {
+            toast.error("Lỗi khi xuất export: " + error.message);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             <div>
@@ -252,13 +315,23 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                     />
                 </div>
                 {activeView === 'partners' && (
-                    <button
-                        onClick={() => setIsImportOpen(true)}
-                        className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 dark:shadow-none"
-                    >
-                        <Upload size={18} />
-                        <span className="hidden md:inline">Import</span>
-                    </button>
+                    <>
+                        <button
+                            onClick={handleExport}
+                            disabled={isExporting}
+                            className="flex items-center gap-2 px-5 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                        >
+                            {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                            <span className="hidden md:inline">Export</span>
+                        </button>
+                        <button
+                            onClick={() => setIsImportOpen(true)}
+                            className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 dark:shadow-none cursor-pointer"
+                        >
+                            <Upload size={18} />
+                            <span className="hidden md:inline">Import</span>
+                        </button>
+                    </>
                 )}
                 {activeView === 'partners' ? (
                     <button
@@ -357,19 +430,19 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                     {/* Filter Bar */}
                     <div className="flex flex-wrap items-center gap-3">
                         {/* Industry Filter */}
-                        <div className="flex gap-2 overflow-x-auto flex-1 no-scrollbar">
-                            {industries.map(industry => (
-                                <button
-                                    key={industry}
-                                    onClick={() => setIndustryFilter(industry)}
-                                    className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${industryFilter === industry
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-indigo-300'
-                                        }`}
-                                >
-                                    {industry === 'all' ? 'Tất cả ngành' : industry}
-                                </button>
-                            ))}
+                        <div className="flex-1 min-w-[200px] relative">
+                            <select
+                                value={industryFilter}
+                                onChange={(e) => setIndustryFilter(e.target.value)}
+                                className="appearance-none w-full pl-3 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                            >
+                                {industries.map(industry => (
+                                    <option key={industry} value={industry}>
+                                        {industry === 'all' ? '💼 Tất cả ngành nghề' : industry}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         </div>
                         {/* Rating Filter */}
                         <div className="relative">
@@ -568,6 +641,17 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                                                                         <Pencil size={14} />
                                                                         Chỉnh sửa
                                                                     </button>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setActionMenuId(null);
+                                                                            setMergingCustomer(customer);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                                    >
+                                                                        <GitMerge size={14} />
+                                                                        Gộp đối tác...
+                                                                    </button>
                                                                     {allowDelete && (
                                                                         <button
                                                                             onClick={(e) => {
@@ -624,7 +708,19 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                             </div>
                         </div>
 
-                        <ScrollToTop />
+                        <ScrollToTop containerId="main-content-area" />
+
+                        {mergingCustomer && (
+                            <CustomerMergeModal
+                                isOpen={!!mergingCustomer}
+                                onClose={() => setMergingCustomer(null)}
+                                sourceCustomer={mergingCustomer}
+                                onMerged={() => {
+                                    window.dispatchEvent(new Event('customerUpdated'));
+                                    fetchCustomerPage(1, true);
+                                }}
+                            />
+                        )}
                     </div>
                 </>
             )}

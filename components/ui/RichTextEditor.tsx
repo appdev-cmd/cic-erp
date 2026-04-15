@@ -32,7 +32,7 @@ const MenuBar = ({ editor }: { editor: any }) => {
     }
 
     const addImage = useCallback(() => {
-        const url = window.prompt('URL ẢNh:');
+        const url = window.prompt('Nhập URL hoặc đường dẫn nội bộ (VD: /images/news/abc.jpg):');
         if (url) {
             editor.chain().focus().setImage({ src: url }).run();
         }

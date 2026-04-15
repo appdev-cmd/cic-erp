@@ -5,7 +5,13 @@ import Modal from './ui/Modal';
 import NumberInput from './ui/NumberInput';
 import QuickAddBrandDialog from './ui/QuickAddBrandDialog';
 import QuickAddSupplierDialog from './ui/QuickAddSupplierDialog';
+import { PRODUCT_CATEGORY_MAP } from '../constants';
+import { buildProductName, getCategoryCode } from '../utils/productHelpers';
+import { ComboboxInput } from './product/ComboboxInput';
+import { BrandCombobox } from './product/BrandCombobox';
+import { SupplierCombobox } from './product/SupplierCombobox';
 import { Product, ProductCategory, Unit, Brand, Customer } from '../types';
+import { formatCurrency } from '../utils/formatters';
 import { UnitService, BrandService, CustomerService, ProductLineService, ProductEditionService } from '../services';
 import { ProductService } from '../services/productService';
 import { ProductLine } from '../services/productLineService';
@@ -20,209 +26,7 @@ interface ProductFormProps {
     product?: Product; // If provided, we're editing
 }
 
-/** Category with abbreviation code for auto-code generation */
-const CATEGORY_MAP: { label: string; code: string }[] = [
-    { label: 'Phần mềm', code: 'PM' },
-    { label: 'Thiết bị', code: 'TB' },
-    { label: 'Tư vấn', code: 'TV' },
-    { label: 'Dịch vụ', code: 'DV' },
-    { label: 'Bảo trì', code: 'BT' },
-    { label: 'Đào tạo', code: 'ĐT' },
-    { label: 'Khác', code: 'K' },
-];
-const CATEGORIES = CATEGORY_MAP.map(c => c.label);
-const getCategoryCode = (label: string) => CATEGORY_MAP.find(c => c.label === label)?.code || 'K';
 
-
-
-/**
- * Combobox: dropdown with search + type-to-add
- */
-const ComboboxInput: React.FC<{
-    value: string;
-    onChange: (v: string) => void;
-    options: string[];
-    placeholder: string;
-    label: string;
-}> = ({ value, onChange, options, placeholder, label }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [search, setSearch] = useState('');
-
-    const filtered = useMemo(() => {
-        if (!search) return options;
-        const q = removeDiacritics(search.toLowerCase());
-        return options.filter(o => removeDiacritics(o.toLowerCase()).includes(q));
-    }, [options, search]);
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const v = e.target.value;
-        setSearch(v);
-        onChange(v);
-        if (!isOpen) setIsOpen(true);
-    };
-
-    const handleSelect = (opt: string) => {
-        onChange(opt);
-        setSearch('');
-        setIsOpen(false);
-    };
-
-    return (
-        <div className="relative">
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">{label}</label>
-            <div className="relative">
-                <input
-                    type="text"
-                    value={value}
-                    onChange={handleInputChange}
-                    onFocus={() => setIsOpen(true)}
-                    onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-                    placeholder={placeholder}
-                    className="w-full px-4 py-3 pr-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200 placeholder-slate-400"
-                />
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-            {isOpen && filtered.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-48 overflow-auto animate-in fade-in slide-in-from-top-2 duration-150">
-                    {filtered.map((opt) => (
-                        <button
-                            key={opt}
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => handleSelect(opt)}
-                            className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors ${
-                                opt === value
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-bold'
-                                    : 'text-slate-700 dark:text-slate-300'
-                            }`}
-                        >
-                            {opt}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
-
-/**
- * Brand Combobox: select existing brand + type to add new
- */
-const BrandCombobox: React.FC<{
-    value: string;
-    brandName: string;
-    brands: Brand[];
-    onChange: (brandId: string, brandName: string) => void;
-    onAddNew: (searchText: string) => void;
-}> = ({ value, brandName, brands, onChange, onAddNew }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [search, setSearch] = useState('');
-
-    const filtered = useMemo(() => {
-        if (!search) return brands;
-        const q = removeDiacritics(search.toLowerCase());
-        return brands.filter(b => removeDiacritics(b.name.toLowerCase()).includes(q));
-    }, [brands, search]);
-
-    const displayValue = value ? (brandName || brands.find(b => b.id === value)?.name || '') : search;
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearch(e.target.value);
-        if (value) onChange('', '');
-        if (!isOpen) setIsOpen(true);
-    };
-
-    const handleSelect = (brand: Brand) => {
-        onChange(brand.id, brand.name);
-        setSearch('');
-        setIsOpen(false);
-    };
-
-    const handleAddNew = () => {
-        if (!search.trim()) return;
-        setIsOpen(false);
-        onAddNew(search.trim());
-    };
-
-    const handleClear = () => {
-        onChange('', '');
-        setSearch('');
-    };
-
-    return (
-        <div className="relative">
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
-                Hãng / Thương hiệu *
-            </label>
-            <div className="relative">
-                {value ? (
-                    <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                        <span className="flex-1 font-medium text-slate-900 dark:text-slate-100 truncate">{displayValue}</span>
-                        <button type="button" onClick={handleClear} className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer">
-                            <X size={14} className="text-slate-400" />
-                        </button>
-                    </div>
-                ) : (
-                    <>
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={handleInputChange}
-                            onFocus={() => setIsOpen(true)}
-                            onBlur={() => setTimeout(() => setIsOpen(false), 250)}
-                            placeholder="Gõ tên hãng hoặc chọn..."
-                            className="w-full px-4 py-3 pr-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200 placeholder-slate-400"
-                        />
-                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </>
-                )}
-            </div>
-            {isOpen && !value && (
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-56 overflow-auto animate-in fade-in slide-in-from-top-2 duration-150">
-                    {filtered.map((brand) => (
-                        <button
-                            key={brand.id}
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => handleSelect(brand)}
-                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors text-slate-700 dark:text-slate-300"
-                        >
-                            {brand.name}
-                            {brand.country && <span className="ml-2 text-slate-400 text-xs">({brand.country})</span>}
-                        </button>
-                    ))}
-                    {search.trim() && !filtered.some(b => b.name.toLowerCase() === search.trim().toLowerCase()) && (
-                        <button
-                            type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={handleAddNew}
-                            className="w-full text-left px-4 py-2.5 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors border-t border-slate-100 dark:border-slate-700 flex items-center gap-2"
-                        >
-                            <Plus size={14} />
-                            Thêm hãng "{search.trim()}"
-                        </button>
-                    )}
-                    {filtered.length === 0 && !search.trim() && (
-                        <div className="px-4 py-3 text-sm text-slate-400 text-center">Chưa có hãng nào</div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-};
-
-/** All categories get auto-prepended to the product name */
-const PREFIXED_CATEGORIES = CATEGORIES;
-
-const buildProductName = (category: string, line?: string, edition?: string): string => {
-    const parts = [line, edition].filter(Boolean);
-    if (parts.length === 0) return '';
-    const base = parts.join(' ');
-    if (PREFIXED_CATEGORIES.includes(category)) {
-        return `${category} ${base}`;
-    }
-    return base;
-};
 
 const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, product }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -556,7 +360,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                                 onChange={e => setFormData(prev => ({ ...prev, category: e.target.value }))}
                                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200"
                             >
-                                {CATEGORY_MAP.map(cat => (
+                                {PRODUCT_CATEGORY_MAP.map(cat => (
                                     <option key={cat.label} value={cat.label}>{cat.label} ({cat.code})</option>
                                 ))}
                             </select>
@@ -628,67 +432,15 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                         }}
                     />
                     <div className="relative">
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Nhà cung cấp chính</label>
-                        <div className="relative">
-                            {formData.supplierId ? (
-                                <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm">
-                                    <span className="flex-1 font-medium text-slate-900 dark:text-slate-100 truncate">{selectedSupplierName}</span>
-                                    <button type="button" onClick={clearSupplier} className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors cursor-pointer">
-                                        <X size={14} className="text-slate-400" />
-                                    </button>
-                                </div>
-                            ) : (
-                                <>
-                                    <input
-                                        type="text"
-                                        value={supplierSearch}
-                                        onChange={e => {
-                                            setSupplierSearch(e.target.value);
-                                            if (!showSupplierDropdown) setShowSupplierDropdown(true);
-                                        }}
-                                        onFocus={() => setShowSupplierDropdown(true)}
-                                        onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 250)}
-                                        placeholder="Gõ tên NCC hoặc chọn..."
-                                        className="w-full px-4 py-3 pr-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-colors text-slate-800 dark:text-slate-200 placeholder-slate-400"
-                                    />
-                                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                </>
-                            )}
-                        </div>
-                        {showSupplierDropdown && !formData.supplierId && (
-                            <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                                {supplierResults.map(s => (
-                                    <button
-                                        key={s.id}
-                                        type="button"
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => selectSupplier(s)}
-                                        className="w-full px-4 py-2.5 text-left hover:bg-indigo-50 dark:hover:bg-slate-800 text-sm transition-colors cursor-pointer"
-                                    >
-                                        {s.name}
-                                        {s.shortName && <span className="ml-2 text-slate-400 text-xs">({s.shortName})</span>}
-                                    </button>
-                                ))}
-                                {supplierSearch.trim() && !supplierResults.some(s => s.name.toLowerCase() === supplierSearch.trim().toLowerCase()) && (
-                                    <button
-                                        type="button"
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                            setSupplierDialogInitial(supplierSearch.trim());
-                                            setSupplierDialogOpen(true);
-                                            setShowSupplierDropdown(false);
-                                        }}
-                                        className="w-full text-left px-4 py-2.5 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors border-t border-slate-100 dark:border-slate-700 flex items-center gap-2"
-                                    >
-                                        <Plus size={14} />
-                                        Thêm NCC "{supplierSearch.trim()}"
-                                    </button>
-                                )}
-                                {supplierResults.length === 0 && !supplierSearch.trim() && (
-                                    <div className="px-4 py-3 text-sm text-slate-400 text-center">Gõ tên để tìm NCC</div>
-                                )}
-                            </div>
-                        )}
+                        <SupplierCombobox 
+                            value={formData.supplierId || ''}
+                            supplierName={selectedSupplierName}
+                            onChange={(id, name) => { setFormData(prev => ({ ...prev, supplierId: id })); setSelectedSupplierName(name); }}
+                            onAddNew={(text) => {
+                                setSupplierDialogInitial(text);
+                                setSupplierDialogOpen(true);
+                            }}
+                        />
                     </div>
                 </div>
 
@@ -727,6 +479,16 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                                 value={formData.slug}
                                 onChange={e => setFormData(prev => ({ ...prev, slug: e.target.value }))}
                                 placeholder="VD: pmbentleydcs001"
+                                className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Ảnh đại diện (Thumbnail URL)</label>
+                            <input
+                                type="text"
+                                value={formData.thumbnailUrl || ''}
+                                onChange={e => setFormData(prev => ({ ...prev, thumbnailUrl: e.target.value }))}
+                                placeholder="https://..."
                                 className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-sm text-slate-800 dark:text-slate-200"
                             />
                         </div>

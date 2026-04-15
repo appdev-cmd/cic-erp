@@ -479,4 +479,21 @@ export const CustomerService = {
         if (error) throw error;
         return true;
     },
+
+    mergePartners: async (sourceId: string, targetId: string): Promise<void> => {
+        if (sourceId === targetId) throw new Error('Cannot merge a partner with itself');
+        
+        // 1. Reassign Contracts (customer_id)
+        await supabase.from('contracts').update({ customer_id: targetId }).eq('customer_id', sourceId);
+        
+        // 2. Reassign Contracts (supplier_id if applicable)
+        await supabase.from('contracts').update({ supplier_id: targetId }).eq('supplier_id', sourceId);
+        
+        // 3. Reassign Contacts
+        await supabase.from('customer_contacts').update({ customer_id: targetId }).eq('customer_id', sourceId);
+
+        // 4. Delete Source Partner
+        const { error } = await supabase.from('customers').delete().eq('id', sourceId);
+        if (error) throw error;
+    }
 };

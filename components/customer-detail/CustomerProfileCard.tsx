@@ -110,10 +110,17 @@ const CustomerProfileCard: React.FC<CustomerProfileCardProps> = React.memo(({
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-3">
                         {customer.address && (
                             <div className="flex items-start gap-2 text-sm">
-                                <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg mt-0.5"><MapPin size={14} className="text-amber-500" /></div>
+                                <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg mt-0.5"><MapPin size={14} className="text-amber-500 flex-shrink-0" /></div>
                                 <div>
                                     <p className="text-[10px] text-slate-400 uppercase tracking-wide">Địa chỉ</p>
-                                    <p className="font-medium text-slate-700 dark:text-slate-300">{customer.address}</p>
+                                    <a 
+                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="font-medium text-amber-700 dark:text-amber-400 hover:underline inline-block"
+                                    >
+                                        {customer.address}
+                                    </a>
                                 </div>
                             </div>
                         )}

@@ -1,5 +1,6 @@
 import { dataClient as supabase } from '../../lib/dataClient';
 import type { DepartmentAgent } from './openclaw/types';
+import { agentDefinitions } from './openclaw/agents/definitions';
 
 export interface AgentConfigRow {
   id: string;
@@ -8,6 +9,8 @@ export interface AgentConfigRow {
   description: string;
   system_prompt: string;
   allowed_tools: string[];
+  allowed_roles: string[];
+  allowed_users: string[];
   preferred_model: string;
   fallback_model: string | null;
   icon: string;
@@ -30,6 +33,8 @@ const mapToAgent = (row: AgentConfigRow): DepartmentAgent => ({
   description: row.description,
   systemPrompt: row.system_prompt,
   allowedTools: row.allowed_tools || [],
+  allowedRoles: row.allowed_roles || [],
+  allowedUsers: row.allowed_users || [],
   preferredModel: row.preferred_model,
   fallbackModel: row.fallback_model || undefined,
   icon: row.icon,
@@ -80,6 +85,8 @@ export const AgentConfigService = {
     if ('departmentId' in payload) { payload.department_id = payload.departmentId; delete payload.departmentId; }
     if ('systemPrompt' in payload) { payload.system_prompt = payload.systemPrompt; delete payload.systemPrompt; }
     if ('allowedTools' in payload) { payload.allowed_tools = payload.allowedTools; delete payload.allowedTools; }
+    if ('allowedRoles' in payload) { payload.allowed_roles = payload.allowedRoles; delete payload.allowedRoles; }
+    if ('allowedUsers' in payload) { payload.allowed_users = payload.allowedUsers; delete payload.allowedUsers; }
     if ('preferredModel' in payload) { payload.preferred_model = payload.preferredModel; delete payload.preferredModel; }
     if ('dataScope' in payload) { payload.data_scope = payload.dataScope; delete payload.dataScope; }
     if ('isActive' in payload) { payload.is_active = payload.isActive; delete payload.isActive; }
@@ -108,6 +115,54 @@ export const AgentConfigService = {
         }).eq('id', id);
       }
     }
+  },
+
+  /** Đồng bộ từ agentDefinitions trong code lên DB */
+  syncFromDefinitions: async (): Promise<{ success: number, errors: any[] }> => {
+    let successCount = 0;
+    const errors: any[] = [];
+    
+    for (const [key, agent] of Object.entries(agentDefinitions)) {
+      try {
+        // Preserve existing DB fields that shouldn't be overwritten blindly by code configs
+        const { data: existing } = await supabase.from('agent_configs').select('id, system_prompt, is_active, allowed_roles, allowed_users').eq('id', agent.id).single();
+        
+        const payload: any = {
+          name: agent.name,
+          department_id: agent.departmentId,
+          description: agent.description,
+          allowed_tools: agent.allowedTools,
+          preferred_model: agent.preferredModel || 'gemma-4-26b',
+          fallback_model: agent.fallbackModel || null,
+          icon: agent.icon || 'Bot',
+          color: agent.color || 'bg-slate-600',
+          data_scope: agent.dataScope,
+          updated_at: new Date().toISOString()
+        };
+
+        if (!existing) {
+          payload.system_prompt = agent.systemPrompt;
+          payload.is_active = agent.isActive;
+          payload.allowed_roles = [];
+          payload.allowed_users = [];
+        } else {
+          payload.system_prompt = existing.system_prompt; // preserve
+          payload.is_active = existing.is_active; // preserve
+          payload.allowed_roles = existing.allowed_roles || []; // preserve
+          payload.allowed_users = existing.allowed_users || []; // preserve
+        }
+
+        const { error } = await supabase
+          .from('agent_configs')
+          .upsert({ id: agent.id, ...payload }, { onConflict: 'id' });
+
+        if (error) throw error;
+        successCount++;
+      } catch (err) {
+        errors.push({ id: agent.id, error: err });
+      }
+    }
+    return { success: successCount, errors };
   },
 
   /** Convert DB rows to runtime agent definitions map */

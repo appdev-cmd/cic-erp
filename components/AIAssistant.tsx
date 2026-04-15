@@ -45,8 +45,11 @@ import { searchKnowledgeBase } from '../services/ragService';
 import { parseDocumentClientSide } from '../lib/documentReaderClient';
 import { searchMentions, encodeMention, type MentionResult } from '../services/mentionService';
 import { useAuth } from '../contexts/AuthContext';
-import { routeUserToAgent } from '../services/ai/openclaw/router';
-import type { UserContext } from '../services/ai/openclaw/types';
+import { runReActLoop } from '../services/ai/openclaw/react-loop';
+import { getVisibleAgentsFilter, routeUserToAgentFilter } from '../services/ai/openclaw/router';
+import { AgentConfigService } from '../services/ai/agentConfigService';
+import { agentDefinitions } from '../services/ai/openclaw/agents/definitions';
+import type { DepartmentAgent, UserContext } from '../services/ai/openclaw/types';
 import { cn } from '../lib/utils';
 import * as AiHistory from '../services/aiChatHistoryService';
 import type { AiConversation } from '../services/aiChatHistoryService';
@@ -281,15 +284,21 @@ const MARKDOWN_COMPONENTS: any = {
 
 const AIAssistant: React.FC = () => {
   const { profile: _profile } = useAuth();
+  const [dbAgents, setDbAgents] = useState<DepartmentAgent[]>([]);
+
+  useEffect(() => {
+    AgentConfigService.getActive().then(setDbAgents).catch(() => {});
+  }, []);
   
   const dynamicAgents = React.useMemo(() => {
     const _context: UserContext = {
-      userId: _profile?.employeeId || _profile?.id || 'web',
+      userId: _profile?.id || 'web',
+      employeeId: _profile?.employeeId,
       fullName: _profile?.fullName || 'Người dùng',
       role: _profile?.role || 'Guest',
       unitCode: _profile?.unitCode
     };
-    const visible = getVisibleAgents(_context);
+    const visible = getVisibleAgentsFilter(_context, dbAgents);
     const agentMap: Record<string, any> = {};
     visible.forEach(a => {
       agentMap[a.id] = {
@@ -572,9 +581,16 @@ const AIAssistant: React.FC = () => {
     if (!isTyping && _profile?.id) saveMessages(messages, _profile.id);
   }, [messages, isTyping, _profile?.id]);
 
-  // ─── Persist model/agent selection ──────────────────────
+  // ─── Persist & Validate model/agent selection ──────────────────────
   useEffect(() => { localStorage.setItem(MODEL_STORAGE_KEY, currentModel); }, [currentModel]);
   useEffect(() => { localStorage.setItem(AGENT_STORAGE_KEY, currentAgent); }, [currentAgent]);
+
+  // Kiểm tra quyền: nếu agent lấy từ cache không còn nằm trong danh sách được phép, tự động reset
+  useEffect(() => {
+    if (Object.keys(dynamicAgents).length > 0 && !dynamicAgents[currentAgent]) {
+      setCurrentAgent(Object.keys(dynamicAgents)[0]);
+    }
+  }, [dynamicAgents, currentAgent]);
 
   useEffect(() => {
     localStorage.setItem('cic_use_hermes_engine', useHermesEngine.toString());
@@ -794,12 +810,12 @@ const AIAssistant: React.FC = () => {
       // Auto-route agent dựa trên profile user (role + unitCode)
       // Nếu user chọn agent cụ thể qua UI tab, vẫn ưu tiên lấy theo tab
       // Ngược lại, route tự động theo phòng ban
-      const autoAgent = routeUserToAgent(_userContext);
+      const autoAgent = routeUserToAgentFilter(_userContext, dbAgents);
       let agentConf = autoAgent;
       // Map 4 agent UI cũ sang agent definitions mới  
-      if (currentAgent === 'legal') agentConf = agentDefinitions['BGD'] || autoAgent;
-      if (currentAgent === 'drafter') agentConf = agentDefinitions['HCNS'] || autoAgent;
-      if (currentAgent === 'analyst') agentConf = agentDefinitions['BGD'] || autoAgent;
+      if (currentAgent === 'legal') agentConf = dbAgents.find(a => a.id === 'agent-bgd' || a.departmentId === 'BGD') || autoAgent;
+      if (currentAgent === 'drafter') agentConf = dbAgents.find(a => a.id === 'agent-hcns' || a.departmentId === 'HCNS') || autoAgent;
+      if (currentAgent === 'analyst') agentConf = dbAgents.find(a => a.id === 'agent-bgd' || a.departmentId === 'BGD') || autoAgent;
 
       // Extract existing history for LLM
       const history = messages.filter(m => m.id !== 'welcome' && m.id !== botMsgId).map(m => {

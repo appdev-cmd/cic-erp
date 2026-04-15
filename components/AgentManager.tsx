@@ -9,6 +9,31 @@ import {
 import { AgentConfigService, type AgentConfigRow } from '../services/ai/agentConfigService';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { cn } from '../lib/utils';
+import { erpToolsRegistry } from '../services/ai/openclaw/tools/registry';
+import { marketingToolsRegistry } from '../services/ai/openclaw/tools/marketingTools';
+import { EmployeeService } from '../services/employeeService';
+
+const ALL_ROLES = [
+  { id: 'Admin', label: 'Quản trị hệ thống' },
+  { id: 'Leadership', label: 'Ban Lãnh đạo' },
+  { id: 'ChiefAccountant', label: 'Kế toán trưởng' },
+  { id: 'Accountant', label: 'Kế toán' },
+  { id: 'Legal', label: 'Pháp chế' },
+  { id: 'UnitLeader', label: 'Lãnh đạo đơn vị' },
+  { id: 'AdminUnit', label: 'Admin đơn vị' },
+  { id: 'NVKD', label: 'Kinh doanh' },
+  { id: 'NVKT', label: 'Kỹ thuật' },
+  { id: 'Marketing', label: 'Marketing' },
+];
+
+const ALL_TOOLS = Array.from(new Set([
+  ...erpToolsRegistry.map(t => t.name),
+  ...marketingToolsRegistry.map(t => t.name)
+])).sort();
+
+const TOOL_MAP = new Map(
+  [...erpToolsRegistry, ...marketingToolsRegistry].map(t => [t.name, t.description])
+);
 
 // Icon map để render dynamic
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -21,9 +46,12 @@ const AgentManager: React.FC = () => {
   const canManage = can('settings', 'update'); // Only Admin can edit
 
   const [agents, setAgents] = useState<AgentConfigRow[]>([]);
+  const [employees, setEmployees] = useState<{id: string, name: string}[]>([]);
+  const [userSearchText, setUserSearchText] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<AgentConfigRow | null>(null);
-  const [editingPrompt, setEditingPrompt] = useState('');
+  const [editingForm, setEditingForm] = useState<Partial<AgentConfigRow>>({});
+  const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchAgents = useCallback(async () => {
@@ -40,6 +68,7 @@ const AgentManager: React.FC = () => {
 
   useEffect(() => {
     fetchAgents();
+    EmployeeService.getAll().then(emps => setEmployees(emps.map(e => ({ id: e.id, name: e.name })))).catch(() => {});
   }, [fetchAgents]);
 
   const handleToggleActive = async (agent: AgentConfigRow) => {
@@ -53,15 +82,29 @@ const AgentManager: React.FC = () => {
     }
   };
 
-  const handleSavePrompt = async () => {
+  const handleSaveConfig = async () => {
     if (!selectedAgent || !canManage) return;
     try {
-      await AgentConfigService.update(selectedAgent.id, { system_prompt: editingPrompt });
-      setAgents(prev => prev.map(a => a.id === selectedAgent.id ? { ...a, system_prompt: editingPrompt } : a));
-      setSelectedAgent(prev => prev ? { ...prev, system_prompt: editingPrompt } : null);
-      toast.success('Đã lưu System Prompt');
+      await AgentConfigService.update(selectedAgent.id, editingForm);
+      setAgents(prev => prev.map(a => a.id === selectedAgent.id ? { ...a, ...editingForm } : a));
+      setSelectedAgent(prev => prev ? { ...prev, ...editingForm } : null);
+      toast.success('Đã lưu cấu hình Agent');
     } catch {
-      toast.error('Lỗi lưu prompt');
+      toast.error('Lỗi lưu cấu hình');
+    }
+  };
+
+  const handleSync = async () => {
+    if (!canManage) return;
+    setSyncing(true);
+    try {
+      const res = await AgentConfigService.syncFromDefinitions();
+      toast.success(`Đã đồng bộ ${res.success} agents từ source code`);
+      fetchAgents();
+    } catch (err) {
+      toast.error('Lỗi đồng bộ cấu hình');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -92,12 +135,23 @@ const AgentManager: React.FC = () => {
             Cấu hình trợ lý AI cho từng phòng ban • {activeCount}/{agents.length} đang hoạt động • {totalUsage.toLocaleString()} lượt sử dụng
           </p>
         </div>
-        <button
-          onClick={fetchAgents}
-          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Làm mới
-        </button>
+        <div className="flex gap-2">
+          {canManage && (
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} /> Đồng bộ từ Code
+            </button>
+          )}
+          <button
+            onClick={fetchAgents}
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          >
+            <RefreshCw size={16} className={loading && !syncing ? 'animate-spin' : ''} /> Làm mới
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -130,7 +184,19 @@ const AgentManager: React.FC = () => {
                   ? "border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700"
                   : "border-slate-200 dark:border-slate-800 opacity-60 hover:opacity-100"
               )}
-              onClick={() => { setSelectedAgent(agent); setEditingPrompt(agent.system_prompt); }}
+              onClick={() => { 
+                setSelectedAgent(agent); 
+                setEditingForm({ 
+                  description: agent.description,
+                  system_prompt: agent.system_prompt,
+                  allowed_tools: agent.allowed_tools || [],
+                  allowed_roles: agent.allowed_roles || [],
+                  allowed_users: agent.allowed_users || [],
+                  preferred_model: agent.preferred_model,
+                  data_scope: agent.data_scope
+                }); 
+                setUserSearchText('');
+              }}
             >
               {/* Color header bar */}
               <div className={cn("h-1.5", agent.color || 'bg-slate-500')} />
@@ -207,7 +273,7 @@ const AgentManager: React.FC = () => {
       {selectedAgent && (
         <>
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSelectedAgent(null)} />
-          <div className="fixed inset-y-0 right-0 w-full max-w-xl bg-white dark:bg-slate-950 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="fixed inset-y-0 right-0 w-[95vw] xl:w-[90vw] max-w-none bg-white dark:bg-slate-950 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
             {/* Panel Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
               <div className="flex items-center gap-3">
@@ -228,16 +294,74 @@ const AgentManager: React.FC = () => {
             </div>
 
             {/* Panel Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Info Cards */}
-              <div className="grid grid-cols-2 gap-3">
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+
+                {/* ─── LEFT COLUMN: Prompt & Description ─── */}
+                <div className="flex flex-col space-y-6">
+                  {/* Description Editor */}
+                  <div className="flex-none">
+                    <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Mô tả khả năng của Agent</h4>
+                    <textarea
+                      value={editingForm.description || ''}
+                      onChange={e => setEditingForm(prev => ({ ...prev, description: e.target.value }))}
+                      rows={3}
+                      disabled={!canManage}
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 resize-y disabled:opacity-60 leading-relaxed"
+                      placeholder="Nhập mô tả cho agent..."
+                    />
+                  </div>
+
+                  {/* System Prompt Editor */}
+                  <div className="flex-1 flex flex-col min-h-[300px]">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">System Prompt</h4>
+                    </div>
+                    <textarea
+                      value={editingForm.system_prompt || ''}
+                      onChange={e => setEditingForm(prev => ({ ...prev, system_prompt: e.target.value }))}
+                      disabled={!canManage}
+                      className="w-full flex-1 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 resize-none disabled:opacity-60 font-mono leading-relaxed"
+                      placeholder="Nhập system prompt cho agent..."
+                    />
+                  </div>
+                </div>
+
+                {/* ─── RIGHT COLUMN: Settings ─── */}
+                <div className="flex flex-col space-y-6">
+                  {/* Info Cards */}
+                  <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Model</p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5 truncate">{selectedAgent.preferred_model}</p>
+                  {canManage ? (
+                    <select
+                      className="mt-1 w-full p-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded outline-none text-slate-800 dark:text-slate-200"
+                      value={editingForm.preferred_model || ''}
+                      onChange={e => setEditingForm(prev => ({ ...prev, preferred_model: e.target.value }))}
+                    >
+                      <option value="gemma-4-26b">gemma-4-26b</option>
+                      <option value="gpt-4o">gpt-4o</option>
+                      <option value="gpt-4o-mini">gpt-4o-mini</option>
+                      <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
+                    </select>
+                  ) : (
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5 truncate">{selectedAgent.preferred_model}</p>
+                  )}
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Data Scope</p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">{selectedAgent.data_scope === 'company' ? '🏢 Toàn công ty' : '🏠 Đơn vị'}</p>
+                  {canManage ? (
+                     <select
+                      className="mt-1 w-full p-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded outline-none text-slate-800 dark:text-slate-200"
+                      value={editingForm.data_scope || 'unit'}
+                      onChange={e => setEditingForm(prev => ({ ...prev, data_scope: e.target.value as 'company'|'unit' }))}
+                    >
+                      <option value="company">🏢 Toàn công ty</option>
+                      <option value="unit">🏠 Đơn vị</option>
+                    </select>
+                  ) : (
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">{selectedAgent.data_scope === 'company' ? '🏢 Toàn công ty' : '🏠 Đơn vị'}</p>
+                  )}
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Lượt dùng</p>
@@ -260,53 +384,161 @@ const AgentManager: React.FC = () => {
 
               {/* Tools */}
               <div>
-                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Danh sách Tools ({(selectedAgent.allowed_tools || []).length})</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {(selectedAgent.allowed_tools || []).map(tool => (
-                    <span key={tool} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold">
-                      {tool}
-                    </span>
-                  ))}
-                </div>
+                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Danh sách Tools ({(editingForm.allowed_tools || []).length})</h4>
+                {canManage ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-56 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                    {ALL_TOOLS.map(tool => {
+                      const isSelected = (editingForm.allowed_tools || []).includes(tool);
+                      return (
+                        <label key={tool} title={`${tool}\n\n${TOOL_MAP.get(tool) || ''}`} className={cn("flex flex-col gap-1 p-2 border rounded-lg cursor-pointer transition-colors", isSelected ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500/50" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-300")}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600 bg-white dark:bg-slate-800"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setEditingForm(prev => ({
+                                  ...prev,
+                                  allowed_tools: checked 
+                                    ? [...(prev.allowed_tools || []), tool] 
+                                    : (prev.allowed_tools || []).filter((t: string) => t !== tool)
+                                }));
+                              }}
+                            />
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{tool}</span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(selectedAgent.allowed_tools || []).map(tool => (
+                      <span key={tool} title={`${tool}\n\n${TOOL_MAP.get(tool) || ''}`} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold cursor-help">
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* System Prompt Editor */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">System Prompt</h4>
-                  {canManage && (
-                    <button
-                      onClick={handleSavePrompt}
-                      className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
-                    >
-                      💾 Lưu
-                    </button>
+              {/* Access Control: Roles & Users */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Roles */}
+                <div>
+                  <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Vai trò được phép ({(editingForm.allowed_roles || []).length})</h4>
+                  {canManage ? (
+                    <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                      {ALL_ROLES.map(role => {
+                        const isSelected = (editingForm.allowed_roles || []).includes(role.id);
+                        return (
+                          <label key={role.id} className={cn("flex flex-col gap-1 p-2 border rounded-lg cursor-pointer transition-colors", isSelected ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500/50" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-300")}>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <input
+                                type="checkbox"
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600 bg-white dark:bg-slate-800"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setEditingForm(prev => ({
+                                    ...prev,
+                                    allowed_roles: checked 
+                                      ? [...(prev.allowed_roles || []), role.id] 
+                                      : (prev.allowed_roles || []).filter((r: string) => r !== role.id)
+                                  }));
+                                }}
+                              />
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate" title={role.label}>{role.label}</span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(selectedAgent.allowed_roles || []).map(r => {
+                          const rLabel = ALL_ROLES.find(x => x.id === r)?.label || r;
+                          return <span key={r} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold">{rLabel}</span>;
+                      })}
+                    </div>
                   )}
                 </div>
-                <textarea
-                  value={editingPrompt}
-                  onChange={e => setEditingPrompt(e.target.value)}
-                  rows={12}
-                  disabled={!canManage}
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 resize-y disabled:opacity-60 font-mono leading-relaxed"
-                  placeholder="Nhập system prompt cho agent..."
-                />
+
+                {/* Users */}
+                <div>
+                  <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Người dùng cụ thể ({(editingForm.allowed_users || []).length})</h4>
+                  {canManage ? (
+                    <div className="flex flex-col max-h-56 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <input 
+                        type="text" 
+                        placeholder="Tìm kiếm nhân viên..." 
+                        value={userSearchText}
+                        onChange={e => setUserSearchText(e.target.value)}
+                        className="mb-2 w-full p-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none text-slate-800 dark:text-slate-200"
+                      />
+                      <div className="overflow-y-auto pr-1 flex-1">
+                        <div className="space-y-1.5">
+                          {employees
+                            .filter(e => !userSearchText || e.name.toLowerCase().includes(userSearchText.toLowerCase()))
+                            .slice(0, 10)
+                            .map(emp => {
+                              const isSelected = (editingForm.allowed_users || []).includes(emp.id);
+                              return (
+                                <label key={emp.id} className={cn("flex items-center gap-2 p-2 border rounded-lg cursor-pointer transition-colors", isSelected ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500/50" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-300")}>
+                                  <input
+                                    type="checkbox"
+                                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600 bg-white dark:bg-slate-800 flex-shrink-0"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setEditingForm(prev => ({
+                                        ...prev,
+                                        allowed_users: checked 
+                                          ? [...(prev.allowed_users || []), emp.id] 
+                                          : (prev.allowed_users || []).filter((id: string) => id !== emp.id)
+                                      }));
+                                    }}
+                                  />
+                                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{emp.name}</span>
+                                </label>
+                              );
+                          })}
+                        </div>
+                        {employees.filter(e => !userSearchText || e.name.toLowerCase().includes(userSearchText.toLowerCase())).length > 10 && (
+                          <p className="text-[10px] text-slate-400 text-center italic mt-2">Đang hiển thị 10 nhân viên. Gõ chữ để tìm thêm.</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5 overflow-y-auto max-h-56">
+                      {(selectedAgent.allowed_users || []).map(uId => {
+                          const uName = employees.find(e => e.id === uId)?.name || 'Unknown';
+                          return <span key={uId} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold">{uName}</span>;
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Description */}
-              <div>
-                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Mô tả</h4>
-                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{selectedAgent.description || 'Chưa có mô tả'}</p>
-              </div>
-            </div>
+            </div>{/* End Right Column */}
+
+          </div>{/* End Grid */}
+        </div>{/* End Panel Content */}
 
             {/* Panel Footer */}
             {canManage && (
-              <div className="border-t border-slate-200 dark:border-slate-800 px-6 py-3 bg-white dark:bg-slate-900 shrink-0">
+              <div className="flex gap-2 border-t border-slate-200 dark:border-slate-800 px-6 py-3 bg-white dark:bg-slate-900 shrink-0">
+                <button
+                   onClick={handleSaveConfig}
+                   className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                >
+                   💾 Lưu thay đổi
+                </button>
                 <button
                   onClick={() => handleToggleActive(selectedAgent)}
                   className={cn(
-                    "w-full py-2.5 rounded-xl font-bold text-sm transition-colors",
+                    "flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors",
                     selectedAgent.is_active
                       ? "bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/30"
                       : "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"

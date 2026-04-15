@@ -42,17 +42,32 @@ const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode
 
   // Load agent cho đơn vị này
   useEffect(() => {
-    const code = unitCode.toUpperCase();
-    const def = agentDefinitions[code] || agentDefinitions['BGD'];
-    setAgent(def);
+    AgentConfigService.getActive().then(dbAgents => {
+      const code = unitCode.toUpperCase();
+      const unitAgents = dbAgents.filter(a => a.departmentId === code);
+      const bgdAgents = dbAgents.filter(a => a.id === 'agent-bgd' || a.departmentId === 'BGD');
+      const def = (unitAgents.length > 0 ? unitAgents[0] : bgdAgents[0]) || agentDefinitions['BGD'];
+      setAgent(def);
 
-    // Welcome message
-    setMessages([{
-      id: 'welcome',
-      role: 'model',
-      content: `🤖 Xin chào! Tôi là **${def.name}**.\n\n${def.description}\n\nBạn muốn tôi giúp gì về **${unitName}**?`,
-      timestamp: new Date(),
-    }]);
+      // Welcome message
+      setMessages([{
+        id: 'welcome',
+        role: 'model',
+        content: `🤖 Xin chào! Tôi là **${def.name}**.\n\n${def.description}\n\nBạn muốn tôi giúp gì về **${unitName}**?`,
+        timestamp: new Date(),
+      }]);
+    }).catch(() => {
+      const code = unitCode.toUpperCase();
+      const def = agentDefinitions[code] || agentDefinitions['BGD'];
+      setAgent(def);
+
+      setMessages([{
+        id: 'welcome',
+        role: 'model',
+        content: `🤖 Xin chào! Tôi là **${def.name}**.\n\n${def.description}\n\nBạn muốn tôi giúp gì về **${unitName}**?`,
+        timestamp: new Date(),
+      }]);
+    });
   }, [unitCode, unitName]);
 
   // Auto-scroll

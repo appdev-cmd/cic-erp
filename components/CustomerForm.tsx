@@ -19,6 +19,7 @@ interface CustomerFormProps {
 const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, customer, defaultType = 'Customer' }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
+    const [industrySearchQuery, setIndustrySearchQuery] = useState('');
     const [isLookingUp, setIsLookingUp] = useState(false);
     const [duplicateMatches, setDuplicateMatches] = useState<DuplicateMatch[]>([]);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -336,21 +337,39 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ isOpen, onClose, onSave, cu
                     )}
                     {/* Dropdown */}
                     {showIndustryDropdown && (
-                        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                            {INDUSTRIES.map(ind => (
-                                <label
-                                    key={ind}
-                                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.industry.includes(ind)}
-                                        onChange={() => toggleIndustry(ind)}
-                                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl max-h-[300px] flex flex-col overflow-hidden">
+                            <div className="p-2 border-b border-slate-100 dark:border-slate-800 shrink-0 sticky top-0 bg-white dark:bg-slate-900 z-10">
+                                <div className="relative">
+                                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input 
+                                        type="text" 
+                                        autoFocus
+                                        placeholder="Tìm ngành nghề..."
+                                        value={industrySearchQuery}
+                                        onChange={(e) => setIndustrySearchQuery(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     />
-                                    <span className="text-sm text-slate-700 dark:text-slate-300">{ind}</span>
-                                </label>
-                            ))}
+                                </div>
+                            </div>
+                            <div className="overflow-y-auto max-h-60">
+                                {INDUSTRIES.filter(ind => ind.toLowerCase().includes(industrySearchQuery.toLowerCase())).map(ind => (
+                                    <label
+                                        key={ind}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.industry.includes(ind)}
+                                            onChange={() => toggleIndustry(ind)}
+                                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className="text-sm text-slate-700 dark:text-slate-300">{ind}</span>
+                                    </label>
+                                ))}
+                                {INDUSTRIES.filter(ind => ind.toLowerCase().includes(industrySearchQuery.toLowerCase())).length === 0 && (
+                                    <div className="px-4 py-3 text-sm text-slate-500 text-center">Không tìm thấy "{industrySearchQuery}"</div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>

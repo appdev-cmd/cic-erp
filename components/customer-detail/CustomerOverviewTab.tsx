@@ -4,7 +4,8 @@ import {
     Phone, Mail, Users, Plus, Target, CreditCard,
     TrendingUp, BarChart3, StickyNote
 } from 'lucide-react';
-import { Customer } from '../../types';
+import { Customer, Contract } from '../../types';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface CustomerOverviewTabProps {
     customer: Customer;
@@ -18,12 +19,31 @@ interface CustomerOverviewTabProps {
     revenueRate: number;
     formatCurrency: (val: number) => string;
     setActiveTab: (tab: 'overview' | 'contacts' | 'contracts' | 'payments' | 'notes') => void;
+    contracts: Contract[];
 }
 
 const CustomerOverviewTab: React.FC<CustomerOverviewTabProps> = React.memo(({
-    customer, stats, paymentStats, revenueRate, formatCurrency, setActiveTab
-}) => (
-    <div className="space-y-5">
+    customer, stats, paymentStats, revenueRate, formatCurrency, setActiveTab, contracts
+}) => {
+    // Process chart data grouping by Year-Month of signedDate
+    const chartData = React.useMemo(() => {
+        if (!contracts || contracts.length === 0) return [];
+        
+        const grouped = contracts.reduce((acc, c) => {
+            if (!c.signedDate) return acc;
+            const d = new Date(c.signedDate);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            if (!acc[key]) acc[key] = { name: key, revenue: 0, value: 0 };
+            acc[key].value += (c.value || 0);
+            acc[key].revenue += (c.actualRevenue || 0);
+            return acc;
+        }, {} as Record<string, any>);
+
+        return Object.values(grouped).sort((a, b) => a.name.localeCompare(b.name)).slice(-12); // last 12 months
+    }, [contracts]);
+
+    return (
+        <div className="space-y-5">
         {/* Quick Actions */}
         <div className="flex flex-wrap gap-2">
             {customer.phone && (
@@ -137,8 +157,38 @@ const CustomerOverviewTab: React.FC<CustomerOverviewTabProps> = React.memo(({
                 <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-3">{customer.notes}</p>
             </div>
         )}
+
+        {/* Analytics Chart */}
+        {chartData.length > 0 && (
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-4 flex items-center gap-2">
+                    <BarChart3 size={13} />Phân tích Giá trị HD & Doanh Thu (12 Tháng Gần Nhất)
+                </h3>
+                <div className="h-64 w-full mt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} dy={10} />
+                            <YAxis 
+                                axisLine={false} 
+                                tickLine={false} 
+                                tick={{ fontSize: 10, fill: '#94a3b8' }} 
+                                tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`}
+                            />
+                            <Tooltip 
+                                cursor={{ fill: 'transparent' }}
+                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                                formatter={(value: number) => formatCurrency(value)}
+                            />
+                            <Bar dataKey="value" name="Giá trị HD" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} />
+                            <Bar dataKey="revenue" name="Doanh thu" fill="#c084fc" radius={[4, 4, 0, 0]} barSize={20} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        )}
     </div>
-));
+    );
+});
 
 CustomerOverviewTab.displayName = 'CustomerOverviewTab';
 export default CustomerOverviewTab;

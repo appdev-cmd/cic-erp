@@ -25,6 +25,8 @@ export interface DepartmentAgent {
   description: string;
   systemPrompt: string;
   allowedTools: string[]; // List of tool names
+  allowedRoles?: string[]; // RBAC roles
+  allowedUsers?: string[]; // Specific employee UUIDs
   canWrite?: boolean;
   canApprove?: boolean;
   preferredModel?: string;

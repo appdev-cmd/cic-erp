@@ -19,6 +19,7 @@ import { ProductService, UnitService, ContractService, CustomerService, BrandSer
 import { usePermissionCheck } from '../hooks/usePermissions';
 import ConfirmDialog, { useConfirmDialog } from './ui/ConfirmDialog';
 import ProductForm from './ProductForm';
+import { formatCurrency } from '../utils/formatters';
 
 interface ProductDetailProps {
     productId: string;
@@ -37,8 +38,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
     const [product, setProduct] = useState<Product | null>(null);
     const [unit, setUnit] = useState<Unit | null>(null);
     const [relatedContracts, setRelatedContracts] = useState<Contract[]>([]);
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+        const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -64,15 +64,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
                 // Server-side filtering: find contracts by productId in lineItems
                 requests.push(ContractService.getByProductId(productData.id, 50));
 
-                // Fetch all customers for mapping (Optimizable: fetch only related customers)
-                requests.push(CustomerService.getAll());
 
-                const [unitData, related, customerRes] = await Promise.all(requests);
+                const [unitData, related] = await Promise.all(requests);
 
                 setUnit(unitData || null);
                 setRelatedContracts(related || []);
-                setCustomers(customerRes?.data || []);
-
+                
             } catch (error) {
                 console.error("Error fetching product details:", error);
             } finally {
@@ -96,10 +93,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
         };
     }, [productId]);
 
-    const formatCurrency = (val: number) => {
-        return (val || 0).toLocaleString('vi-VN') + ' ₫';
-    };
-
+    
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-full min-h-[400px]">
@@ -364,8 +358,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
                             {relatedContracts.length > 0 ? (
                                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                                     {relatedContracts.map(contract => {
-                                        const customer = customers.find(c => c.id === contract.customerId);
-                                        return (
+                                                                                return (
                                             <div
                                                 key={contract.id}
                                                 onClick={() => onViewContract?.(contract.id)}
@@ -383,7 +376,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
                                                             </span>
                                                         </div>
                                                         <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{contract.title}</p>
-                                                        <p className="text-xs text-slate-400 mt-0.5">{customer?.shortName || contract.partyA}</p>
+                                                        <p className="text-xs text-slate-400 mt-0.5">{contract.partyA}</p>
                                                     </div>
                                                     <div className="text-right shrink-0">
                                                         <p className="text-xs text-slate-400 mb-0.5">{contract.signedDate}</p>

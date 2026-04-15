@@ -321,7 +321,8 @@ const CustomerDetail: React.FC<CustomerDetailProps> = ({ customerId, onBack, onV
                     {activeTab === 'overview' && (
                         <CustomerOverviewTab customer={customer} stats={stats}
                             paymentStats={paymentStats} revenueRate={revenueRate}
-                            formatCurrency={formatCurrency} setActiveTab={setActiveTab} />
+                            formatCurrency={formatCurrency} setActiveTab={setActiveTab}
+                            contracts={contracts} />
                     )}
                     {activeTab === 'contacts' && <CustomerContactsTab customerId={customerId} />}
                     {activeTab === 'contracts' && (

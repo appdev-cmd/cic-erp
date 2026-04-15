@@ -28,8 +28,9 @@ interface ParsedRow extends ImportRow {
     errors: string[];
     isValid: boolean;
 }
+import { PRODUCT_CATEGORIES } from '../constants';
 
-const VALID_CATEGORIES: ProductCategory[] = ['Phần mềm', 'Tư vấn', 'Thiết kế', 'Thi công', 'Bảo trì', 'Đào tạo'];
+const VALID_CATEGORIES = PRODUCT_CATEGORIES;
 
 const ImportProductModal: React.FC<ImportProductModalProps> = ({ isOpen, onClose, units, onSuccess }) => {
     const [parsedData, setParsedData] = useState<ParsedRow[]>([]);

@@ -169,10 +169,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
         return units.find(u => u.id === unitId)?.name || 'N/A';
     };
 
-    const formatPrice = (val: number) => {
-        return (val || 0).toLocaleString('vi-VN') + ' ₫';
-    };
-
+    
     const getCategoryColor = (category: ProductCategory) => {
         switch (category) {
             case 'Phần mềm': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
@@ -695,8 +692,8 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                                 </span>
                                             </td>
                                             {/* Code */}
-                                            <td className="py-2.5 px-3">
-                                                <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-xs">{product.code}</span>
+                                            <td className="py-2.5 px-3 max-w-[120px]">
+                                                <div className="font-mono font-bold text-slate-900 dark:text-slate-100 text-xs truncate" title={product.code}>{product.code}</div>
                                             </td>
 
                                             {/* Name */}
@@ -708,7 +705,9 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                                             {product.brandName}
                                                         </span>
                                                     )}
-                                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{product.description}</p>
+                                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1" title={product.summary || product.description?.replace(/<[^>]+>/g, '')}>
+                                                        {product.summary || product.description?.replace(/<[^>]+>/g, '')?.replace(/&[a-zA-Z0-9#]+;/g, ' ')}
+                                                    </p>
                                                 </div>
                                             </td>
 
@@ -729,20 +728,20 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
 
                                             {/* Price */}
                                             <td className="py-2.5 px-3 text-right">
-                                                <p className="font-bold text-slate-900 dark:text-slate-100 text-xs">{formatPrice(product.basePrice)}</p>
+                                                <p className="font-bold text-slate-900 dark:text-slate-100 text-xs">{formatCurrency(product.basePrice)}</p>
                                                 {product.costPrice && (
-                                                    <p className="text-[10px] text-slate-400">Gốc: {formatPrice(product.costPrice)}</p>
+                                                    <p className="text-[10px] text-slate-400">Gốc: {formatCurrency(product.costPrice)}</p>
                                                 )}
                                             </td>
 
                                             {/* Contract Value */}
                                             <td className="py-2.5 px-3 text-right hidden sm:table-cell">
-                                                <p className="font-bold text-slate-900 dark:text-slate-100 text-xs">{formatPrice(product.totalContractValue || 0)}</p>
+                                                <p className="font-bold text-slate-900 dark:text-slate-100 text-xs">{formatCurrency(product.totalContractValue || 0)}</p>
                                             </td>
 
                                             {/* Revenue */}
                                             <td className="py-2.5 px-3 text-right hidden sm:table-cell">
-                                                <p className="font-bold text-indigo-600 dark:text-indigo-400 text-xs">{formatPrice(product.totalRevenue || 0)}</p>
+                                                <p className="font-bold text-indigo-600 dark:text-indigo-400 text-xs">{formatCurrency(product.totalRevenue || 0)}</p>
                                             </td>
 
                                             {/* Margin */}

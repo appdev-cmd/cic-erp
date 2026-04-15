@@ -8,6 +8,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// WARNING: MCP uses stdout for JSONRPC. Redirect console.log to console.error to prevent logs from corrupting the stream.
+console.log = console.error;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

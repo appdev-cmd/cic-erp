@@ -66,7 +66,7 @@ const NewsList: React.FC = () => {
                             closePanel();
                         }} 
                      />,
-            width: '800px'
+            width: '1000px'
         });
     };
 
@@ -85,7 +85,7 @@ const NewsList: React.FC = () => {
                             closePanel();
                         }} 
                      />,
-            width: '800px'
+            width: '1000px'
         });
     };
 
@@ -118,7 +118,7 @@ const NewsList: React.FC = () => {
                     </div>
                 </div>
             ),
-            width: '800px'
+            width: '1000px'
         });
     };
 

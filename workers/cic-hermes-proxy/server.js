@@ -49,7 +49,7 @@ app.post('/api/chat', (req, res) => {
 
   prompt += `Người dùng hỏi: ${message}`;
 
-  const child = spawn('hermes', ['chat', '-Q', '-q', prompt]);
+  const child = spawn('hermes', ['chat', '-Q', '-q', prompt], { timeout: 180000 });
 
   let finalOutput = '';
 

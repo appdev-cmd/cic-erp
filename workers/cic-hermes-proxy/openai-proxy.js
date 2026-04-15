@@ -91,7 +91,8 @@ app.post('/v1/chat/completions', async (req, res) => {
         const fetchRes = await fetch(`${UPSTREAM_URL}/chat/completions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(req.body)
+            body: JSON.stringify(req.body),
+            signal: AbortSignal.timeout(180000) // 3 mins timeout
         });
 
         if (!fetchRes.ok) {
@@ -210,7 +211,8 @@ app.use(async (req, res) => {
         const fetchRes = await fetch(`${UPSTREAM_HOST}${req.originalUrl}`, {
             method: req.method,
             headers: { ...req.headers, host: new URL(UPSTREAM_HOST).host },
-            body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body)
+            body: ['GET', 'HEAD'].includes(req.method) ? undefined : JSON.stringify(req.body),
+            signal: AbortSignal.timeout(180000) // 3 mins timeout
         });
         const contentType = fetchRes.headers.get('content-type');
         if (contentType) res.setHeader('content-type', contentType);
