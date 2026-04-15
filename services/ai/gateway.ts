@@ -39,7 +39,7 @@ function getConfig(): GatewayConfig {
 function getLocalAIBaseURL(model?: string): string {
   const isGemma = model ? model.toLowerCase().includes('gemma') : false;
 
-  const cloudUrl = isGemma ? 'http://118.70.182.173:8002/v1' : 'http://118.70.182.173:4000/v1';
+  const cloudUrl = 'https://ai-api.cic.com.vn:9443/v1';
 
   try {
     if (typeof window !== 'undefined') {
