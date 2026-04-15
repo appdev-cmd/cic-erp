@@ -1,10 +1,12 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePresence } from '../../contexts/PresenceContext';
 import Tooltip from '../ui/Tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui';
 
 const OnlineUsers: React.FC = () => {
-    const { onlineUsers, profile } = useAuth();
+    const { profile } = useAuth();
+    const { onlineUsers } = usePresence();
 
     const displayUsers = onlineUsers.length > 0
         ? onlineUsers

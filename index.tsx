@@ -6,7 +6,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { router } from './routes/AppRoutes';
 import { AuthProvider } from './contexts/AuthContext';
 import { ImpersonationProvider } from './contexts/ImpersonationContext';
+import { PresenceProvider } from './contexts/PresenceContext';
 import { queryClient } from './lib/queryClient';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -16,12 +18,16 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ImpersonationProvider>
-          <RouterProvider router={router} />
-        </ImpersonationProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <PresenceProvider>
+            <ImpersonationProvider>
+              <RouterProvider router={router} />
+            </ImpersonationProvider>
+          </PresenceProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );

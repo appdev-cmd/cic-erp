@@ -75,22 +75,19 @@ describe('Permission Helpers', () => {
     });
 
     describe('canViewProjects', () => {
-        it('should allow dev emails', () => {
-            expect(canViewProjects('NVKD', undefined, 'anhnq@cic.com.vn')).toBe(true);
-            expect(canViewProjects('NVKD', undefined, 'hoangha@cic.com.vn')).toBe(true);
+        it('should allow Admin and Leadership', () => {
+            expect(canViewProjects('Admin')).toBe(true);
+            expect(canViewProjects('Leadership')).toBe(true);
         });
 
-        it('should return true on localhost', () => {
-            // JSDOM has window.location.hostname set to 127.0.0.1 or localhost
-            const originalWindow = global.window;
-            global.window = Object.create(window);
-            Object.defineProperty(window, 'location', {
-                value: {
-                    hostname: 'localhost'
-                }
-            });
-            expect(canViewProjects('NVKD')).toBe(true);
-            global.window = originalWindow; // restore
+        it('should allow BIM unit members regardless of role', () => {
+            expect(canViewProjects('NVKD', 'BIM')).toBe(true);
+            expect(canViewProjects('NVKT', 'BIM')).toBe(true);
+        });
+
+        it('should deny non-BIM, non-leadership roles', () => {
+            expect(canViewProjects('NVKD')).toBe(false);
+            expect(canViewProjects('Accountant', 'HCNS')).toBe(false);
         });
     });
 
@@ -112,20 +109,20 @@ describe('Permission Helpers', () => {
             ]);
             
             // Even if NVKD normally can't view units, DB says yes
-            const hidden = getHiddenNavItems('NVKD', undefined, undefined, dbPerms);
+            const hidden = getHiddenNavItems('NVKD', undefined, dbPerms);
             expect(hidden.has('units')).toBe(false);
-            
+
             // Employees view is false in DB
             expect(hidden.has('personnel')).toBe(true);
         });
-        
+
         it('should fallback to role-based if DB permission is undefined', () => {
             const dbPerms = new Map([
                 ['something_else', new Set(['view'])]
             ]);
-            
+
             // NVKD cannot view units by default role rules
-            const hidden = getHiddenNavItems('NVKD', undefined, undefined, dbPerms);
+            const hidden = getHiddenNavItems('NVKD', undefined, dbPerms);
             expect(hidden.has('units')).toBe(true);
         });
     });

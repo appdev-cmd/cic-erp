@@ -67,6 +67,16 @@ export const AgentConfigService = {
     return (data || []).map(mapToAgent);
   },
 
+  /** Lấy TẤT CẢ agents (kể cả inactive) dưới dạng DepartmentAgent — dùng cho Admin */
+  getAllAgents: async (): Promise<DepartmentAgent[]> => {
+    const { data, error } = await supabase
+      .from('agent_configs')
+      .select('*')
+      .order('name');
+    if (error) throw error;
+    return (data || []).map(mapToAgent);
+  },
+
   /** Lấy 1 agent config theo ID */
   getById: async (id: string): Promise<AgentConfigRow | null> => {
     const { data, error } = await supabase

@@ -57,7 +57,9 @@ const MainLayout: React.FC = () => {
     // Year filter (shared with Dashboard) — persisted across F5
     const [yearFilter, setYearFilterState] = useState<string>(() => {
         const saved = localStorage.getItem('cic-erp-year-filter');
-        return saved || new Date().getFullYear().toString();
+        if (saved) return saved;
+        // Default to current year always
+        return new Date().getFullYear().toString();
     });
     const setYearFilter = (year: string) => {
         setYearFilterState(year);
@@ -149,6 +151,7 @@ const MainLayout: React.FC = () => {
         if (path.startsWith('/tools')) return 'tools';
         if (path.startsWith('/hrm')) return 'hrm';
         if (path.startsWith('/documents')) return 'documents';
+        if (path.startsWith('/projects')) return 'projects';
         if (path.startsWith('/website')) return 'website';
         if (path.startsWith('/personnel')) return 'personnel';
         if (path.startsWith('/customers')) return 'customers';
@@ -163,8 +166,8 @@ const MainLayout: React.FC = () => {
         && typeof window !== 'undefined'
         && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-    // Loading state (skip if dev bypass)
-    if (!isDevBypass && isLoadingSession) {
+    // Loading state — wait for auth to settle (includes dev bypass auto-login)
+    if (isLoadingSession) {
         return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-400">Loading...</div>;
     }
 

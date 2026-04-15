@@ -287,8 +287,23 @@ const AIAssistant: React.FC = () => {
   const [dbAgents, setDbAgents] = useState<DepartmentAgent[]>([]);
 
   useEffect(() => {
-    AgentConfigService.getActive().then(setDbAgents).catch(() => {});
-  }, []);
+    const isAdmin = _profile?.role === 'Admin' || _profile?.role === 'Leadership';
+    if (isAdmin) {
+      // Admin: merge DB agents with code definitions as fallback (so agents show even if not synced to DB)
+      AgentConfigService.getAllAgents()
+        .then(dbRows => {
+          const dbIds = new Set(dbRows.map(a => a.id));
+          const codeOnly = Object.values(agentDefinitions).filter(a => !dbIds.has(a.id));
+          setDbAgents([...dbRows, ...codeOnly]);
+        })
+        .catch(() => {
+          // DB unreachable — use code definitions directly
+          setDbAgents(Object.values(agentDefinitions));
+        });
+    } else {
+      AgentConfigService.getActive().then(setDbAgents).catch(() => {});
+    }
+  }, [_profile?.role]);
   
   const dynamicAgents = React.useMemo(() => {
     const _context: UserContext = {
@@ -324,7 +339,7 @@ const AIAssistant: React.FC = () => {
       };
     }
     return agentMap;
-  }, [_profile]);
+  }, [_profile, dbAgents]);
 
   const [currentModel, setCurrentModel] = useState<string>(() => {
     const saved = localStorage.getItem(MODEL_STORAGE_KEY);

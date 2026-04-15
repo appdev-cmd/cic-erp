@@ -16,7 +16,6 @@ interface AuthContextType {
     canEdit: (resource: 'contract' | 'pakd', resourceUnitId?: string, status?: string) => boolean;
     canApprove: (resource: 'pakd', curStatus: string) => boolean;
     refreshProfile: () => Promise<void>;
-    onlineUsers: { id: string, fullName: string, avatarUrl?: string }[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,7 +24,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [onlineUsers, setOnlineUsers] = useState<{ id: string, fullName: string, avatarUrl?: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // Dev bypass: ONLY on localhost + env flag. Never on production domains.
@@ -65,6 +63,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         syncAuthSession(data.session);
                         setSession(data.session);
                         setUser(data.user);
+                        // Patch profile.id to real user UUID so DB queries (RLS) work,
+                        // but keep role:'Admin' + unitId:'all' for full local access.
+                        setProfile(prev => prev ? {
+                            ...prev,
+                            id: data.user.id,
+                            email: data.user.email,
+                        } : prev);
                     }
                 } else {
                     console.warn('[AuthContext] VITE_DEV_PASSWORD not set in .env.local. RLS may block database connections.');
@@ -189,70 +194,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
     }, [isDevBypass]);
 
-    // Presence Management
-    useEffect(() => {
-        // In dev bypass, we might not have a Supabase user, but we have a profile
-        const userId = user?.id || (isDevBypass ? profile?.id : null);
-        if (!userId || !profile) return;
-
-        // SECURITY: Don't broadcast presence in dev bypass mode
-        // This prevents "Dev Admin" ghost user from appearing in online users for production users
-        if (isDevBypass) {
-            console.log('[AuthContext] Dev bypass active – skipping presence broadcast');
-            return;
-        }
-
-        console.log('[AuthContext] Initializing presence for user:', userId);
-
-        const channel = supabase.channel('online_users', {
-            config: {
-                presence: {
-                    key: userId,
-                },
-            },
-        });
-
-        channel
-            .on('presence', { event: 'sync' }, () => {
-                const state = channel.presenceState();
-                console.log('[AuthContext] Presence Sync State:', state);
-
-                const users: any[] = [];
-                Object.keys(state).forEach((key) => {
-                    const presence = state[key][0] as any;
-                    if (presence.user_info) {
-                        users.push({
-                            id: key,
-                            ...presence.user_info
-                        });
-                    }
-                });
-                setOnlineUsers(users);
-            })
-            .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-                console.log('[AuthContext] User joined:', key, newPresences);
-            })
-            .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-                console.log('[AuthContext] User left:', key, leftPresences);
-            })
-            .subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log('[AuthContext] Subscribed to presence channel');
-                    await channel.track({
-                        user_info: {
-                            fullName: profile.fullName,
-                            avatarUrl: profile.avatarUrl,
-                        },
-                        online_at: new Date().toISOString(),
-                    });
-                }
-            });
-
-        return () => {
-            console.log('[AuthContext] Unsubscribing from presence');
-            channel.unsubscribe();
-        };
-    }, [user, profile]);
+    // NOTE: Presence management (online users tracking) has been extracted to PresenceContext.tsx
+    // to prevent AuthContext re-renders when the online users list changes.
 
     const fetchProfile = async (userId: string, email?: string) => {
         console.log('[AuthContext.fetchProfile] Starting for userId:', userId);
@@ -575,7 +518,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         canEdit,
         canApprove,
         refreshProfile,
-        onlineUsers
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

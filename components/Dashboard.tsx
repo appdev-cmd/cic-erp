@@ -183,19 +183,23 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         typeYear: typeof year
       });
 
-      try {
-        // STEP 0: Auto-check status transitions — only on first load, NOT on realtime refetches
-        // (to avoid infinite loop: checkAuto → updates contracts → realtime fires contract-changed → refetch → checkAuto …)
-        if (!hasRunAutoTransitions.current) {
+      // STEP 0: Auto-check status transitions
+      if (!hasRunAutoTransitions.current) {
+        try {
           console.log('[Dashboard] Step 0: Auto-checking status transitions...');
           const autoResult = await ContractService.checkAutoStatusTransitions();
           if (autoResult.updated > 0) {
             console.log(`[Dashboard] Auto-transitions: ${autoResult.updated} contracts updated`, autoResult.details);
           }
+        } catch (error) {
+          console.warn('[Dashboard] Step 0 failed (non-critical):', error);
+        } finally {
           hasRunAutoTransitions.current = true;
         }
+      }
 
-        // STEP 1: Fetch Stats via ContractService (now uses dataClient)
+      // STEP 1: Fetch Stats
+      try {
         console.log('[Dashboard] Step 1: Fetching stats via ContractService...');
         const statsData = await ContractService.getStatsRPC(unitId, year, periodFilter);
         console.log('[Dashboard] Stats received:', statsData);
@@ -218,14 +222,28 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
             }
           });
         }
+      } catch (error) {
+        console.error("[Dashboard] Step 1 Data Fetch Error:", error);
+        if (!isCancelled) {
+          setStats({
+            actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
+            statusCounts: { processing: 0, suspended: 0, handover: 0, acceptance: 0, completed: 0 }
+          });
+        }
+      }
 
-        // STEP 2: Fetch Chart Data (Current Year)
+      // STEP 2: Fetch Chart Data
+      try {
         console.log('[Dashboard] Step 2: Fetching chart data...');
         const chartCurrent = await ContractService.getChartDataRPC(unitId, year);
-        console.log('[Dashboard] Chart current received:', chartCurrent?.length);
         if (!isCancelled) setChartDataCurrent(chartCurrent || []);
+      } catch (error) {
+        console.warn("[Dashboard] Step 2 Chart Fetch Error:", error);
+        if (!isCancelled) setChartDataCurrent([]);
+      }
 
-        // STEP 3: Fetch Historical Data (yearly + monthly)
+      // STEP 3: Fetch Historical Data
+      try {
         console.log('[Dashboard] Step 3: Fetching historical data...');
         let hist: HistoricalProduction[] = [];
         if (unitId === 'all') {
@@ -245,8 +263,13 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           hist = await HistoricalProductionService.getByUnit(unitId);
         }
         if (!isCancelled) setHistoricalData(hist);
+      } catch (error) {
+        console.warn("[Dashboard] Step 3 Historical Fetch Error:", error);
+        if (!isCancelled) setHistoricalData([]);
+      }
 
-        // STEP 3.5: Fetch Monthly Historical Data for chart zig-zag lines
+      // STEP 3.5: Fetch Monthly Historical Data for chart zig-zag lines
+      try {
         const currentYearNum = year === 'All' ? new Date().getFullYear() : parseInt(year);
         const lastYearNum = currentYearNum - 1;
         const prevPrevYearNum = currentYearNum - 2;
@@ -278,8 +301,12 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           setMonthlyHistLast(mLast);
           setMonthlyHistPrev(mPrev);
         }
+      } catch (error) {
+        console.warn("[Dashboard] Step 3.5 Monthly Historical Fetch Error:", error);
+      }
 
-        // STEP 4: Fetch Distribution Data
+      // STEP 4: Fetch Distribution Data
+      try {
         console.log('[Dashboard] Step 4: Fetching distribution...');
         let distData: any[] = [];
         const yearParam = yearFilter === 'All' ? null : parseInt(yearFilter);
@@ -289,9 +316,13 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           distData = await EmployeeService.getWithStats(unitId, undefined, yearParam, periodFilter);
         }
         if (!isCancelled) setRawDistData(distData || []);
+      } catch (error) {
+        console.warn("[Dashboard] Step 4 Distribution Fetch Error:", error);
+        if (!isCancelled) setRawDistData([]);
+      }
 
-
-        // STEP 6: Fetch Recent Contracts
+      // STEP 6: Fetch Recent Contracts
+      try {
         console.log('[Dashboard] Step 6: Fetching recent contracts...');
         const recent = await ContractService.search('', 5);
         if (!isCancelled) {
@@ -300,29 +331,19 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
             fetchAI(recent);
           }
         }
-
-        console.log('[Dashboard] All data loaded successfully!');
-
       } catch (error) {
-        console.error("[Dashboard] Data Fetch Error:", error);
-        // Set empty defaults on error
-        if (!isCancelled) {
-          setStats({
-            actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
-            statusCounts: { processing: 0, suspended: 0, handover: 0, acceptance: 0, completed: 0 }
-          });
-        }
-      } finally {
-        console.log('[Dashboard] Setting loadingConfig to false');
-        if (!isCancelled) setLoadingConfig(false);
+        console.warn("[Dashboard] Step 6 Recent Contracts Fetch Error:", error);
+        if (!isCancelled) setRecentContracts([]);
       }
+
+      console.log('[Dashboard] All data loaded successfully!');
+      if (!isCancelled) setLoadingConfig(false);
     };
 
     fetchDashboardData();
 
     return () => { isCancelled = true; };
   }, [selectedUnit, yearFilter, periodFilter, realtimeRefreshCounter]); // Always fetch when these change or on realtime events
-
 
   // Local effect to recalculate Performance/Pie data when activeMetric changes or data updates
   useEffect(() => {

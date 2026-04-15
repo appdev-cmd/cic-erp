@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
-import { ArrowLeft, MapPin, Building2, Calendar, FileText, TrendingUp, Clock, Edit, Trash2, CheckSquare, Loader2, FileSignature, ExternalLink, Folder } from 'lucide-react';
+import { ArrowLeft, MapPin, Building2, Calendar, FileText, TrendingUp, Clock, Edit, Trash2, CheckSquare, Loader2, FileSignature, ExternalLink, Folder, LayoutDashboard, Users, Globe } from 'lucide-react';
 import { ProjectService, ContractService } from '../services';
 import { BIMProject, BIM_PROJECT_STATUS_LABELS, BIMProjectStatus } from '../types';
 import { toast } from 'sonner';
@@ -7,6 +7,9 @@ import { formatDate } from '../utils/formatters';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
 
 const ProjectTasksTab = lazy(() => import('./ProjectTasksTab'));
+const ProjectDashboardTab = lazy(() => import('./projects/ProjectDashboardTab'));
+const ProjectTeamTab = lazy(() => import('./projects/ProjectTeamTab'));
+const ProjectWebTab = lazy(() => import('./projects/ProjectWebTab'));
 
 interface ProjectDetailProps {
   projectId: string;
@@ -37,11 +40,12 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
   const [loading, setLoading] = useState(true);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [activeTab, setActiveTabState] = useState<'info' | 'tasks'>(() => {
+  const [activeTab, setActiveTabState] = useState<'dashboard' | 'info' | 'tasks' | 'team' | 'web'>(() => {
     return (localStorage.getItem('cic-erp-project-tab') as any) || 'info';
   });
 
-  const setActiveTab = (tab: 'info' | 'tasks') => {
+
+  const setActiveTab = (tab: 'dashboard' | 'info' | 'tasks' | 'team' | 'web') => {
     setActiveTabState(tab);
     localStorage.setItem('cic-erp-project-tab', tab);
   };
@@ -204,10 +208,21 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
       </div>
 
       {/* Tab Bar */}
-      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 overflow-x-auto overflow-y-hidden touch-pan-x hide-scrollbar">
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className={`px-5 py-3 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${
+            activeTab === 'dashboard'
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          <LayoutDashboard size={15} className="inline mr-1.5 -mt-0.5" />
+          Dashboard
+        </button>
         <button
           onClick={() => setActiveTab('info')}
-          className={`px-5 py-3 text-sm font-bold transition-all border-b-2 ${
+          className={`px-5 py-3 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${
             activeTab === 'info'
               ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
@@ -218,7 +233,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
         </button>
         <button
           onClick={() => setActiveTab('tasks')}
-          className={`px-5 py-3 text-sm font-bold transition-all border-b-2 ${
+          className={`px-5 py-3 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${
             activeTab === 'tasks'
               ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
@@ -227,10 +242,33 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
           <CheckSquare size={15} className="inline mr-1.5 -mt-0.5" />
           Quản lý công việc
         </button>
+        <button
+          onClick={() => setActiveTab('team')}
+          className={`px-5 py-3 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${
+            activeTab === 'team'
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          <Users size={15} className="inline mr-1.5 -mt-0.5" />
+          Thành viên
+        </button>
+        <button
+          onClick={() => setActiveTab('web')}
+          className={`px-5 py-3 text-sm font-bold transition-all border-b-2 whitespace-nowrap ${
+            activeTab === 'web'
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          <Globe size={15} className="inline mr-1.5 -mt-0.5" />
+          Hồ sơ & Web
+        </button>
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'info' ? (
+      <div className="mt-4">
+        {activeTab === 'info' && (
       <>
       {/* Workflow Progress */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
@@ -466,11 +504,32 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
         </div>
       )}
       </>
-      ) : (
-        <Suspense fallback={<div className="py-12 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500" size={24} /></div>}>
-          <ProjectTasksTab projectId={project.id} projectName={project.name} />
-        </Suspense>
-      )}
+        )}
+        
+        {activeTab === 'tasks' && (
+          <Suspense fallback={<div className="py-12 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500" size={24} /></div>}>
+            <ProjectTasksTab projectId={project.id} projectName={project.name} />
+          </Suspense>
+        )}
+
+        {activeTab === 'team' && (
+          <Suspense fallback={<div className="py-12 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500" size={24} /></div>}>
+            <ProjectTeamTab projectId={project.id} />
+          </Suspense>
+        )}
+
+        {activeTab === 'dashboard' && (
+          <Suspense fallback={<div className="py-12 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500" size={24} /></div>}>
+            <ProjectDashboardTab project={project} />
+          </Suspense>
+        )}
+
+        {activeTab === 'web' && (
+          <Suspense fallback={<div className="py-12 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500" size={24} /></div>}>
+            <ProjectWebTab project={project} onUpdate={setProject} />
+          </Suspense>
+        )}
+      </div>
 
       {/* Delete Confirm Dialog */}
       {showDeleteConfirm && (

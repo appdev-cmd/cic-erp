@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     return map.size > 0 ? map : undefined; // undefined = DB not loaded yet
   }, [permissions]);
 
-  const hiddenItems = effectiveProfile ? getHiddenNavItems(effectiveProfile.role, effectiveProfile.unitCode, effectiveProfile.email, dbPermissions) : new Set<string>();
+  const hiddenItems = effectiveProfile ? getHiddenNavItems(effectiveProfile.role, effectiveProfile.unitCode, dbPermissions) : new Set<string>();
 
   // Hide devOnly items on production (only show on localhost)
   const isDevLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');

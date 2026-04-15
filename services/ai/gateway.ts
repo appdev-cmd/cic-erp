@@ -39,22 +39,24 @@ function getConfig(): GatewayConfig {
 function getLocalAIBaseURL(model?: string): string {
   const isGemma = model ? model.toLowerCase().includes('gemma') : false;
 
-  const cloudUrl = 'https://ai-api.cic.com.vn:9443/v1';
-
   try {
     if (typeof window !== 'undefined') {
-      let url = localStorage.getItem('cic_local_ai_base_url');
-      if (url && (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|ai-api\.cic\.com\.vn|118\.70\.182\.173)/.test(url) || url.startsWith('/api/'))) {
-         if (url.startsWith('/api/')) {
-             return isGemma ? '/api/vllm_gemma' : '/api/vllm';
-         }
-         return url;
+      // Ưu tiên localStorage override (user có thể set từ Personal Settings)
+      const stored = localStorage.getItem('cic_local_ai_base_url');
+      if (stored && (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|ai-api\.cic\.com\.vn|118\.70\.182\.173)/.test(stored) || stored.startsWith('/api/'))) {
+        if (stored.startsWith('/api/')) {
+          return isGemma ? '/api/vllm_gemma' : '/api/vllm';
+        }
+        // URL tường minh → vẫn dùng proxy path tương ứng để tránh CORS
+        return isGemma ? '/api/vllm_gemma' : '/api/vllm';
       }
-      return cloudUrl;
+      // Mặc định: luôn dùng Vite proxy path (tránh CORS/SSL khi gọi trực tiếp từ browser)
+      return isGemma ? '/api/vllm_gemma' : '/api/vllm';
     }
-    return process.env.LOCAL_AI_BASE_URL || cloudUrl;
-  } catch { 
-    return cloudUrl; 
+    // Server-side / Node: gọi trực tiếp
+    return process.env.LOCAL_AI_BASE_URL || 'http://localhost:4000/v1';
+  } catch {
+    return '/api/vllm';
   }
 }
 
@@ -383,7 +385,8 @@ async function* streamOpenAICompatible(
 
   if (provider === 'local') {
     client = new OpenAI({
-      baseURL: config.localBaseURL,
+      // Truyền model để Gemma được route đúng sang /api/vllm_gemma
+      baseURL: getLocalAIBaseURL(request.model),
       apiKey: config.localApiKey,
       dangerouslyAllowBrowser: true,
     });

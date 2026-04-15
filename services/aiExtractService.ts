@@ -1,5 +1,23 @@
 import { Customer } from '../types';
 
+// ─── Gemini API Part Types ────────────────────────────────
+interface GeminiTextPart { text: string; }
+interface GeminiInlineDataPart { inline_data: { mime_type: string; data: string }; }
+interface GeminiInlineDataPartAlt { inlineData: { mimeType: string; data: string }; }
+export type GeminiPart = GeminiTextPart | GeminiInlineDataPart | GeminiInlineDataPartAlt;
+
+// ─── OpenAI Message Types ─────────────────────────────────
+interface OpenAITextContent { type: 'text'; text: string; }
+interface OpenAIImageContent { type: 'image_url'; image_url: { url: string }; }
+export interface OpenAIMessage {
+    role: 'system' | 'user' | 'assistant';
+    content: string | (OpenAITextContent | OpenAIImageContent)[];
+}
+
+// ─── Raw AI JSON response ─────────────────────────────────
+// AI responses are untyped JSON — use unknown and narrow when accessing fields
+type AIRawJson = Record<string, unknown>;
+
 // ─── Contract Extraction Type ────────────────────────────
 export interface ContractExtraction {
     contractCode: string;      // Số hợp đồng
@@ -20,6 +38,35 @@ export interface ContractExtraction {
     remaining?: number;        // Còn lại
 }
 
+// ─── AI Retry Utility ────────────────────────────────────
+
+/** Transient HTTP status codes worth retrying */
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+
+/**
+ * Retry a transient AI API call up to `maxAttempts` times.
+ * Retries on: network failures, rate limits (429), and server errors (5xx).
+ * Non-retryable errors (4xx auth, bad request) are thrown immediately.
+ */
+async function withAIRetry<T>(fn: () => Promise<T>, maxAttempts = 2): Promise<T> {
+    let lastError: Error | undefined;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            return await fn();
+        } catch (err) {
+            lastError = err instanceof Error ? err : new Error(String(err));
+            const isRetryable =
+                lastError.message.includes('Failed to fetch') ||
+                lastError.message.includes('fetch') ||
+                RETRYABLE_STATUS.has(parseInt(lastError.message.match(/\b(\d{3})\b/)?.[1] ?? '0'));
+            if (!isRetryable || attempt === maxAttempts) break;
+            // Exponential backoff: 1 s, then 2 s
+            await new Promise(r => setTimeout(r, attempt * 1000));
+        }
+    }
+    throw lastError;
+}
+
 // ─── Gemini API Source Types ─────────────────────────────
 export type GeminiApiSource = 'system' | 'personal';
 
@@ -38,7 +85,7 @@ export function hasPersonalGeminiKey(): boolean {
 // apiSource = 'system' → gọi qua Vercel Serverless Proxy (key server)
 // apiSource = 'personal' → gọi trực tiếp với key cá nhân từ localStorage
 async function callGeminiProxy(
-    parts: any[],
+    parts: GeminiPart[],
     maxTokens = 8192,
     temperature = 0.1,
     model = 'gemini-2.0-flash',
@@ -50,23 +97,25 @@ async function callGeminiProxy(
         if (!personalKey) {
             throw new Error('Chưa có API Key cá nhân. Vui lòng nhập key trong Cài đặt AI hoặc chọn "API hệ thống".');
         }
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${personalKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts }],
-                    generationConfig: { temperature, maxOutputTokens: maxTokens },
-                }),
+        return withAIRetry(async () => {
+            const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${personalKey}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts }],
+                        generationConfig: { temperature, maxOutputTokens: maxTokens },
+                    }),
+                }
+            );
+            if (!res.ok) {
+                const err = await res.text();
+                throw new Error(`Gemini (key cá nhân): ${res.status} - ${err.substring(0, 150)}`);
             }
-        );
-        if (!res.ok) {
-            const err = await res.text();
-            throw new Error(`Gemini (key cá nhân): ${res.status} - ${err.substring(0, 150)}`);
-        }
-        const json = await res.json();
-        return json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const json = await res.json();
+            return json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        });
     }
 
     // --- System proxy: gọi qua Vercel ---
@@ -79,17 +128,19 @@ async function callGeminiProxy(
         }
     } catch { /* ignore — dev mode */ }
 
-    const res = await fetch('/api/gemini-extract', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ parts, maxTokens, temperature, model }),
+    return withAIRetry(async () => {
+        const res = await fetch('/api/gemini-extract', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ parts, maxTokens, temperature, model }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+            throw new Error(err.error || `Gemini Proxy: ${res.status}`);
+        }
+        const json = await res.json();
+        return json.text || '';
     });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(err.error || `Gemini Proxy: ${res.status}`);
-    }
-    const json = await res.json();
-    return json.text || '';
 }
 
 import { supabase } from '../lib/supabase';
@@ -168,7 +219,7 @@ Quy tắc:
 
 // ─── API Callers ─────────────────────────────────────────
 
-async function callEdgeFunction(functionName: string, payload: Record<string, any>): Promise<any> {
+async function callEdgeFunction(functionName: string, payload: Record<string, unknown>): Promise<unknown> {
     const { data, error } = await supabase.functions.invoke(functionName, {
         body: payload,
     });
@@ -176,107 +227,92 @@ async function callEdgeFunction(functionName: string, payload: Record<string, an
     return data;
 }
 
-async function callGemini(parts: any[]): Promise<any> {
+async function callGemini(parts: GeminiPart[]): Promise<AIRawJson> {
     const rawText = await callGeminiProxy(parts, 2048);
     return parseJsonFromText(rawText);
 }
 
-async function callDeepSeek(prompt: string): Promise<any> {
-    try {
-        const customKey = localStorage.getItem('cic_custom_deepseek_key');
-        if (!customKey) {
-            const data = await callEdgeFunction('ai-proxy', {
-                action: 'chat',
-                provider: 'deepseek',
-                newMessage: prompt,
-                systemInstruction: 'Bạn là AI trích xuất thông tin doanh nghiệp. Chỉ trả về JSON thuần.'
-            });
-            // Result from non-streaming chat ai-proxy: the current ai-proxy implementation only streams for chat.
-            // Oh wait, my ai-proxy `action: chat` is ONLY streaming!
-            // I need to use another action or update it. Let's send `stream: false` to the edge function.
-        }
-
-    } catch (e) {
-        // Fallback or error
-    }
-
-    // Fallback direct for now if custom key exists (will handle Edge Function non-stream later)
+async function callDeepSeek(prompt: string): Promise<AIRawJson> {
     const apiKey = localStorage.getItem('cic_custom_deepseek_key') || import.meta.env.VITE_DEEPSEEK_API_KEY;
     if (!apiKey) throw new Error('Chưa cấu hình DEEPSEEK_API_KEY');
 
-    const res = await fetch('https://api.deepseek.com/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: 'deepseek-chat',
-            messages: [
-                { role: 'system', content: 'Bạn là AI trích xuất thông tin doanh nghiệp. Chỉ trả về JSON thuần.' },
-                { role: 'user', content: prompt },
-            ],
-            temperature: 0.1,
-            max_tokens: 2048,
-        }),
+    return withAIRetry(async () => {
+        const res = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: 'deepseek-chat',
+                messages: [
+                    { role: 'system', content: 'Bạn là AI trích xuất thông tin doanh nghiệp. Chỉ trả về JSON thuần.' },
+                    { role: 'user', content: prompt },
+                ],
+                temperature: 0.1,
+                max_tokens: 2048,
+            }),
+        });
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`DeepSeek: ${res.status} - ${err.substring(0, 150)}`);
+        }
+        const json = await res.json();
+        return parseJsonFromText(json?.choices?.[0]?.message?.content || '');
     });
-    if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`DeepSeek: ${res.status} - ${err.substring(0, 150)}`);
-    }
-    const json = await res.json();
-    return parseJsonFromText(json?.choices?.[0]?.message?.content || '');
 }
 
-async function callGPT4o(messages: any[]): Promise<any> {
+async function callGPT4o(messages: OpenAIMessage[]): Promise<AIRawJson> {
     const apiKey = localStorage.getItem('cic_custom_openai_key') || import.meta.env.VITE_OPENAI_API_KEY;
     if (!apiKey) throw new Error('Chưa cấu hình OPENAI_API_KEY');
 
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o',
-            messages,
-            temperature: 0.1,
-            max_tokens: 2048,
-        }),
+    return withAIRetry(async () => {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o',
+                messages,
+                temperature: 0.1,
+                max_tokens: 2048,
+            }),
+        });
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(`GPT-4o: ${res.status} - ${err.substring(0, 150)}`);
+        }
+        const json = await res.json();
+        return parseJsonFromText(json?.choices?.[0]?.message?.content || '');
     });
-    if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`GPT-4o: ${res.status} - ${err.substring(0, 150)}`);
-    }
-    const json = await res.json();
-    return parseJsonFromText(json?.choices?.[0]?.message?.content || '');
 }
 
 // ─── Helpers ─────────────────────────────────────────────
 
-function parseJsonFromText(text: string): any {
+function parseJsonFromText(text: string): AIRawJson {
     if (!text) throw new Error('AI không trả về kết quả');
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('AI không trả về JSON hợp lệ');
     try {
-        return JSON.parse(match[0]);
+        return JSON.parse(match[0]) as AIRawJson;
     } catch {
         throw new Error('Lỗi parse JSON từ AI');
     }
 }
 
-function parseJsonArrayFromText(text: string): any[] {
+function parseJsonArrayFromText(text: string): AIRawJson[] {
     if (!text) throw new Error('AI không trả về kết quả');
     // Try array first
     const arrMatch = text.match(/\[[\s\S]*\]/);
     if (arrMatch) {
-        try { return JSON.parse(arrMatch[0]); } catch { /* fallthrough */ }
+        try { return JSON.parse(arrMatch[0]) as AIRawJson[]; } catch { /* fallthrough */ }
     }
     // Fallback: single object → wrap in array
     const objMatch = text.match(/\{[\s\S]*\}/);
     if (objMatch) {
-        try { return [JSON.parse(objMatch[0])]; } catch { /* fallthrough */ }
+        try { return [JSON.parse(objMatch[0]) as AIRawJson]; } catch { /* fallthrough */ }
     }
     throw new Error('AI không trả về JSON hợp lệ (array expected)');
 }
@@ -290,31 +326,38 @@ function fileToBase64(file: File): Promise<string> {
     });
 }
 
-function normalizeCustomerData(data: any): Partial<Customer> {
-    let industry = data.industry;
-    if (typeof industry === 'string') {
-        try { industry = JSON.parse(industry); } catch { industry = [industry]; }
+function normalizeCustomerData(data: AIRawJson): Partial<Customer> {
+    let industry: string[] = [];
+    const rawIndustry = data.industry;
+    if (typeof rawIndustry === 'string') {
+        try { industry = JSON.parse(rawIndustry) as string[]; } catch { industry = [rawIndustry]; }
+    } else if (Array.isArray(rawIndustry)) {
+        industry = rawIndustry as string[];
+    } else if (rawIndustry) {
+        industry = [String(rawIndustry)];
     }
-    if (!Array.isArray(industry)) industry = industry ? [industry] : [];
+
+    const str = (v: unknown): string => (typeof v === 'string' ? v : String(v ?? ''));
+    const strOrNull = (v: unknown): string | null => (v != null ? str(v) : null);
 
     return {
-        name: data.name || '',
-        shortName: data.shortName || '',
-        internationalName: data.internationalName || null,
-        taxCode: data.taxCode || '',
-        address: data.address || '',
-        phone: data.phone || '',
-        email: data.email || '',
-        website: data.website || null,
-        contactPerson: data.contactPerson || '',
-        representative: data.representative || null,
+        name: str(data.name),
+        shortName: str(data.shortName),
+        internationalName: strOrNull(data.internationalName),
+        taxCode: str(data.taxCode),
+        address: str(data.address),
+        phone: str(data.phone),
+        email: str(data.email),
+        website: strOrNull(data.website),
+        contactPerson: str(data.contactPerson),
+        representative: strOrNull(data.representative),
         industry,
-        foundedDate: data.foundedDate || null,
-        businessType: data.businessType || null,
-        businessStatus: data.businessStatus || null,
-        bankName: data.bankName || null,
-        bankBranch: data.bankBranch || null,
-        bankAccount: data.bankAccount || null,
+        foundedDate: strOrNull(data.foundedDate),
+        businessType: strOrNull(data.businessType),
+        businessStatus: strOrNull(data.businessStatus),
+        bankName: strOrNull(data.bankName),
+        bankBranch: strOrNull(data.bankBranch),
+        bankAccount: strOrNull(data.bankAccount),
     };
 }
 
@@ -336,7 +379,7 @@ export const AIExtractService = {
 
         const actualModel = model;
 
-        let data: any;
+        let data: AIRawJson;
 
         if (actualModel === 'gemini') {
             data = await callGemini([
@@ -402,7 +445,7 @@ export const AIExtractService = {
             dataSection;
 
         // STEP 2: Send fetched text to selected AI model
-        let data: any;
+        let data: AIRawJson;
 
         if (model === 'deepseek') {
             data = await callDeepSeek(prompt);
@@ -424,7 +467,7 @@ export const AIExtractService = {
     extractFromText: async (textContent: string, model: ExtractModel = 'deepseek'): Promise<Partial<Customer>> => {
         const prompt = EXTRACT_PROMPT + `\n\nDữ liệu cần trích xuất:\n${textContent}`;
 
-        let data: any;
+        let data: AIRawJson;
 
         if (model === 'deepseek') {
             data = await callDeepSeek(prompt);
@@ -470,30 +513,32 @@ export const AIExtractService = {
                 throw new Error('Bạn cần nhập OpenAI API Key trong Cài đặt để dùng GPT-4o với ảnh, hoặc sử dụng Gemini.');
             }
 
-            const res = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                body: JSON.stringify({
-                    model: 'gpt-4o',
-                    messages: [
-                        { role: 'system', content: 'Bạn là AI trích xuất bảng dữ liệu hợp đồng. Trả về JSON mảng thuần.' },
-                        {
-                            role: 'user', content: [
-                                { type: 'text', text: CONTRACT_EXTRACT_PROMPT },
-                                { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
-                            ]
-                        },
-                    ],
-                    temperature: 0.1,
-                    max_tokens: 8192,
-                }),
+            rawText = await withAIRetry(async () => {
+                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                    body: JSON.stringify({
+                        model: 'gpt-4o',
+                        messages: [
+                            { role: 'system', content: 'Bạn là AI trích xuất bảng dữ liệu hợp đồng. Trả về JSON mảng thuần.' },
+                            {
+                                role: 'user', content: [
+                                    { type: 'text', text: CONTRACT_EXTRACT_PROMPT },
+                                    { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+                                ]
+                            },
+                        ],
+                        temperature: 0.1,
+                        max_tokens: 8192,
+                    }),
+                });
+                if (!res.ok) {
+                    const err = await res.text();
+                    throw new Error(`GPT-4o: ${res.status} - ${err.substring(0, 150)}`);
+                }
+                const json = await res.json();
+                return json?.choices?.[0]?.message?.content || '';
             });
-            if (!res.ok) {
-                const err = await res.text();
-                throw new Error(`GPT-4o: ${res.status} - ${err.substring(0, 150)}`);
-            }
-            const json = await res.json();
-            rawText = json?.choices?.[0]?.message?.content || '';
         }
 
         const rows = parseJsonArrayFromText(rawText);
@@ -506,29 +551,30 @@ export const AIExtractService = {
 };
 
 // ─── Contract Row Normalizer ─────────────────────────────
-function normalizeContractRow(row: any): ContractExtraction {
-    const parseNum = (v: any): number | undefined => {
+function normalizeContractRow(row: AIRawJson): ContractExtraction {
+    const parseNum = (v: unknown): number | undefined => {
         if (v === null || v === undefined) return undefined;
         const n = typeof v === 'string' ? parseFloat(v.replace(/[,.\s]/g, '')) : Number(v);
         return isNaN(n) ? undefined : n;
     };
+    const strOrUndef = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
 
     return {
-        contractCode: row.contractCode || '',
-        customerName: row.customerName || '',
-        customerTaxCode: row.customerTaxCode || undefined,
-        contactPerson: row.contactPerson || undefined,
-        unitName: row.unitName || undefined,
-        salespersonName: row.salespersonName || undefined,
-        content: row.content || undefined,
+        contractCode: typeof row.contractCode === 'string' ? row.contractCode : '',
+        customerName: typeof row.customerName === 'string' ? row.customerName : '',
+        customerTaxCode: strOrUndef(row.customerTaxCode),
+        contactPerson: strOrUndef(row.contactPerson),
+        unitName: strOrUndef(row.unitName),
+        salespersonName: strOrUndef(row.salespersonName),
+        content: strOrUndef(row.content),
         signedValue: parseNum(row.signedValue),
-        signedDate: row.signedDate || undefined,
+        signedDate: strOrUndef(row.signedDate),
         acceptanceValue: parseNum(row.acceptanceValue),
-        acceptanceDate: row.acceptanceDate || undefined,
+        acceptanceDate: strOrUndef(row.acceptanceDate),
         invoicedAmount: parseNum(row.invoicedAmount),
-        invoicedDate: row.invoicedDate || undefined,
+        invoicedDate: strOrUndef(row.invoicedDate),
         paidAmount: parseNum(row.paidAmount),
-        paidDate: row.paidDate || undefined,
+        paidDate: strOrUndef(row.paidDate),
         remaining: parseNum(row.remaining),
     };
 }

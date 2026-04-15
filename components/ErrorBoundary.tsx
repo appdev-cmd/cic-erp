@@ -5,6 +5,8 @@ import ErrorState from './ui/ErrorState';
 interface Props {
     children: ReactNode;
     fallback?: ReactNode;
+    /** Called with every caught error — use for Sentry/error reporting */
+    onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
@@ -35,6 +37,7 @@ class ErrorBoundary extends Component<Props, State> {
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error("Uncaught error:", error, errorInfo);
+        this.props.onError?.(error, errorInfo);
 
         // Auto-reload once for chunk load errors (stale deployment)
         if (isChunkLoadError(error)) {

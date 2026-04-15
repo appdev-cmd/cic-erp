@@ -35,3 +35,12 @@ export {
     rejectLink,
     unlinkContracts,
 } from './contractRelations';
+
+// CRUD utilities (retry, validation, payload builder, audit log)
+export {
+    ERROR_MESSAGES,
+    withRetry,
+    validateContract,
+    buildPayload,
+    logOperation,
+} from './contractUtils';

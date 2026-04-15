@@ -141,14 +141,18 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: 'localhost',
       proxy: {
+        // Gemma vLLM — target từ env (máy chủ công ty) hoặc fallback localhost dev
         '/api/vllm_gemma': {
-          target: 'http://localhost:8002',
+          target: env.VITE_VLLM_GEMMA_URL || 'http://localhost:8002',
           changeOrigin: true,
+          secure: false,  // Cho phép self-signed cert trên máy chủ nội bộ
           rewrite: (path) => path.replace(/^\/api\/vllm_gemma/, '/v1')
         },
+        // LiteLLM / vLLM chung — target từ env hoặc fallback localhost dev
         '/api/vllm': {
-          target: 'http://localhost:4000/v1',  // LiteLLM Proxy
+          target: (env.VITE_VLLM_URL || 'http://localhost:4000') + '/v1',
           changeOrigin: true,
+          secure: false,
           rewrite: (path) => path.replace(/^\/api\/vllm/, '')
         },
         '/api/ollama': {
