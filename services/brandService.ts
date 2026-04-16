@@ -24,6 +24,24 @@ export const BrandService = {
         return (data || []).map(mapBrand);
     },
 
+    getAllWithStats: async (unitId: string = 'all', year: string = 'All', period: string = 'Toàn thời gian'): Promise<Brand[]> => {
+        const { data, error } = await supabase.rpc('get_brands_with_stats', {
+            p_search: null,
+            p_unit_id: unitId,
+            p_year: year,
+            p_period: period,
+            p_limit: null,
+            p_offset: null
+        });
+        if (error) throw error;
+        return (data || []).map((b: any) => ({
+            ...mapBrand(b),
+            totalContractValue: Number(b.total_contract_value) || 0,
+            totalRevenue: Number(b.total_revenue) || 0,
+            productCount: Number(b.product_count) || 0
+        }));
+    },
+
     getActive: async (): Promise<Brand[]> => {
         const { data, error } = await supabase
             .from('brands')

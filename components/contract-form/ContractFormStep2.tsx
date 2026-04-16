@@ -11,8 +11,7 @@ import { ExecutionCostType } from '../../services/ExecutionCostService';
 import SearchableSelect from '../ui/SearchableSelect';
 import CurrencyCalculator from '../ui/CurrencyCalculator';
 import { FinancialTotals } from '../../hooks/useFinancialCalculations';
-
-
+import { safeEval } from '../../utils/formulaEval';
 
 /**
  * Inline autocomplete input with ghost-text suggestion.
@@ -194,9 +193,20 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                             </thead>
                             <tbody>
                                 {lineItems.map((item, index) => {
-                                    const inputTotal = item.quantity * item.inputPrice;
-                                    const outputTotal = item.quantity * item.outputPrice * (1 + (item.vatRate ?? 0) / 100);
-                                    const lineMargin = outputTotal - inputTotal - item.directCosts;
+                                    let exactOutputPrice = item.outputPrice;
+                                    if (item.outputPriceFormula) {
+                                        const evalPrice = safeEval(item.outputPriceFormula);
+                                        if (!isNaN(evalPrice) && evalPrice > 0) exactOutputPrice = evalPrice;
+                                    }
+                                    let exactInputPrice = item.inputPrice;
+                                    if (item.inputPriceFormula) {
+                                        const evalPrice = safeEval(item.inputPriceFormula);
+                                        if (!isNaN(evalPrice) && evalPrice > 0) exactInputPrice = evalPrice;
+                                    }
+
+                                    const inputTotal = item.quantity * exactInputPrice;
+                                    const outputTotal = item.quantity * exactOutputPrice * (1 + (item.vatRate ?? 0) / 100);
+                                    const lineMargin = outputTotal - inputTotal - (item.directCosts || 0);
                                     const lineMarginRate = outputTotal > 0 ? (lineMargin / outputTotal) * 100 : 0;
                                     const rowBg = index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/80 dark:bg-slate-800/80';
 
@@ -559,14 +569,14 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                         {formatVND(totals.totalInput)}
                                     </td>
                                     <td className="px-3 py-4 text-right text-cyan-600 font-black">
-                                        {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.inputPrice), 0))}
+                                        {formatVND(totals.totalInput)}
                                     </td>
                                     <td className="px-4 py-4 text-right text-indigo-600">
                                         {formatVND(totals.signingValue)}
                                     </td>
                                     <td className="px-2 py-4"></td>
                                     <td className="px-3 py-4 text-right text-indigo-600 font-black">
-                                        {formatVND(lineItems.reduce((acc, item) => acc + (item.quantity * item.outputPrice * (1 + (item.vatRate ?? 0) / 100)), 0))}
+                                        {formatVND(totals.signingValue)}
                                     </td>
                                     <td className="px-4 py-4 text-right text-rose-500">
                                         {formatVND(totals.totalDirectCosts)}

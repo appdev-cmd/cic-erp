@@ -402,10 +402,10 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                 ) : (
                     <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
                         <BrandManager
-                        onSelectBrand={(id) => setSelectedBrandId(id)}
-                        isFormOpenExternal={brandFormOpen}
-                        onFormClose={() => setBrandFormOpen(false)}
-                    />
+                            onSelectBrand={(id) => setSelectedBrandId(id)}
+                            isFormOpenExternal={brandFormOpen}
+                            onFormClose={() => setBrandFormOpen(false)}
+                        />
                     </div>
                 )
             ) : (

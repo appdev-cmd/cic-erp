@@ -16,6 +16,7 @@ import {
 import { Brand } from '../../types';
 import { BrandService } from '../../services';
 import ConfirmDialog, { useConfirmDialog } from '../ui/ConfirmDialog';
+import { useLayoutContext } from '../layout/MainLayout';
 
 interface BrandManagerProps {
     onSelectBrand?: (id: string) => void;
@@ -33,6 +34,7 @@ const EMPTY_FORM: Omit<Brand, 'id'> = {
 };
 
 const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand, isFormOpenExternal, onFormClose }) => {
+    const { selectedUnit, yearFilter, periodFilter } = useLayoutContext();
     const [brands, setBrands] = useState<Brand[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -45,11 +47,15 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand, isFormOpenEx
 
     const confirmDialog = useConfirmDialog();
 
+    const formatCurrency = (val: number) => {
+        return (val || 0).toLocaleString('vi-VN') + ' ₫';
+    };
+
     // Fetch brands
     const fetchBrands = async () => {
         setIsLoading(true);
         try {
-            const data = await BrandService.getAll();
+            const data = await BrandService.getAllWithStats(selectedUnit.id, yearFilter, periodFilter);
             setBrands(data);
         } catch (error) {
             console.error('Error fetching brands:', error);
@@ -61,7 +67,7 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand, isFormOpenEx
 
     useEffect(() => {
         fetchBrands();
-    }, []);
+    }, [selectedUnit.id, yearFilter, periodFilter]);
 
     // Filtered brands
     const filtered = brands.filter(b => {
@@ -320,10 +326,11 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand, isFormOpenEx
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800">
                                 <th className="text-left py-2.5 px-4 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Tên hãng</th>
-                                <th className="text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">Mã</th>
-                                <th className="text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Quốc gia</th>
+                                <th className="text-right py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">SP</th>
+                                <th className="text-right py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hợp đồng</th>
+                                <th className="text-right py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">Doanh thu</th>
                                 <th className="text-left py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">Website</th>
-                                <th className="text-center py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">T.Thái</th>
+                                <th className="text-center py-2.5 px-3 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden lg:table-cell">T.Thái</th>
                                 <th className="py-2.5 px-2 w-20"></th>
                             </tr>
                         </thead>
@@ -342,13 +349,16 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand, isFormOpenEx
                                             )}
                                         </div>
                                     </td>
-                                    <td className="py-3 px-3 hidden sm:table-cell">
-                                        <span className="font-mono text-xs text-slate-600 dark:text-slate-400">{brand.code || '—'}</span>
+                                    <td className="py-3 px-3 hidden sm:table-cell text-right">
+                                        <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{brand.productCount || 0}</span>
                                     </td>
-                                    <td className="py-3 px-3 hidden md:table-cell">
-                                        <span className="text-xs text-slate-600 dark:text-slate-400">{brand.country || '—'}</span>
+                                    <td className="py-3 px-3 text-right">
+                                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{formatCurrency(brand.totalContractValue || 0)}</p>
                                     </td>
-                                    <td className="py-3 px-3 hidden lg:table-cell">
+                                    <td className="py-3 px-3 hidden md:table-cell text-right">
+                                        <p className="font-bold text-sm text-emerald-600 dark:text-emerald-400">{formatCurrency(brand.totalRevenue || 0)}</p>
+                                    </td>
+                                    <td className="py-3 px-3 hidden lg:table-cell text-left">
                                         {brand.website ? (
                                             <a
                                                 href={brand.website}
@@ -364,7 +374,7 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand, isFormOpenEx
                                             <span className="text-xs text-slate-400">—</span>
                                         )}
                                     </td>
-                                    <td className="py-3 px-3 text-center">
+                                    <td className="py-3 px-3 text-center hidden lg:table-cell">
                                         {brand.isActive ? (
                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-[10px] font-bold">
                                                 <CheckCircle size={11} />

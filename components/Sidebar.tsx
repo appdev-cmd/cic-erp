@@ -35,13 +35,13 @@ const NavItem: React.FC<NavItemProps> = ({ item, activeTab, setActiveTab, isColl
       ? 'bg-orange-50 dark:bg-slate-800 text-orange-700 dark:text-orange-300 shadow-sm dark:shadow-orange-500/5 border-l-[3px] border-l-orange-500 dark:border-l-orange-400'
       : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'
       } ${isCollapsed ? 'md:px-0 md:justify-center' : ''}`}
-    title={isCollapsed ? item.label : ''}
+    title={isCollapsed ? (item.id === 'analytics' ? 'Báo cáo Quản trị (BI)' : item.label) : ''}
   >
     <span className={`transition-all ${activeTab === item.id ? 'text-orange-600 dark:text-orange-400' : 'text-slate-400'} ${isCollapsed ? 'md:scale-110' : ''}`}>
       {item.icon}
     </span>
     <span className={`transition-all duration-300 whitespace-nowrap overflow-hidden ${isCollapsed ? 'md:w-0 md:opacity-0' : 'w-auto opacity-100'}`}>
-      {item.label}
+      {item.id === 'analytics' ? 'Báo cáo Quản trị (BI)' : item.label}
     </span>
   </button>
 );
@@ -57,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
   const { permissions } = usePermissionCheck();
-  
+
   const [isCategoryExpanded, setIsCategoryExpanded] = useState(() => {
     const saved = localStorage.getItem('sidebar_category_expanded');
     return saved !== null ? saved === 'true' : true;
@@ -176,7 +176,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${isCategoryExpanded ? '' : '-rotate-90'}`} />
               </button>
             )}
-            
+
             <div className={`grid transition-all duration-300 ease-in-out ${isCategoryExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
               <div className="overflow-hidden">
                 <nav>

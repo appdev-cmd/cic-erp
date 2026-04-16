@@ -99,10 +99,10 @@ export const CustomerService = {
         let p_search = params?.search ? params.search : null;
         let p_type = params?.type && params.type !== 'all' ? params.type : null;
         let p_industry = params?.industry && params.industry !== 'all' ? params.industry : null;
-        
+
         let p_limit = params?.pageSize || PAGE_SIZE;
         let p_offset = params?.page ? (params.page - 1) * p_limit : 0;
-        
+
         let p_unit_id = params?.unitId || 'all';
         let p_year = params?.year || 'All';
         let p_period = params?.period || 'Toàn thời gian';
@@ -130,7 +130,7 @@ export const CustomerService = {
                 p_unit_id,
                 p_year,
                 p_period
-            })
+            }, { count: 'exact', head: true })
         ]);
 
         if (listRes.error) throw listRes.error;
@@ -143,9 +143,18 @@ export const CustomerService = {
             results = results.filter(c => c.rating === params.rating);
         }
 
+        let totalCount = countRes.count || 0;
+
+        // Fallback: if 'head: true' returns data as array instead of count (some Supabase versions)
+        if (!totalCount && Array.isArray(countRes.data)) {
+            totalCount = countRes.data.length;
+        } else if (!totalCount && results.length > 0 && !p_search && p_limit === PAGE_SIZE) {
+            totalCount = results.length;
+        }
+
         return {
             data: results,
-            total: Number(countRes.data) || 0
+            total: totalCount
         };
     },
 
@@ -482,13 +491,13 @@ export const CustomerService = {
 
     mergePartners: async (sourceId: string, targetId: string): Promise<void> => {
         if (sourceId === targetId) throw new Error('Cannot merge a partner with itself');
-        
+
         // 1. Reassign Contracts (customer_id)
         await supabase.from('contracts').update({ customer_id: targetId }).eq('customer_id', sourceId);
-        
+
         // 2. Reassign Contracts (supplier_id if applicable)
         await supabase.from('contracts').update({ supplier_id: targetId }).eq('supplier_id', sourceId);
-        
+
         // 3. Reassign Contacts
         await supabase.from('customer_contacts').update({ customer_id: targetId }).eq('customer_id', sourceId);
 

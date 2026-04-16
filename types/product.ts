@@ -20,6 +20,9 @@ export interface Brand {
   country?: string;
   description?: string;
   isActive: boolean;
+  totalContractValue?: number;
+  totalRevenue?: number;
+  productCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }

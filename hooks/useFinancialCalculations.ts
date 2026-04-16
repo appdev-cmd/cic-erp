@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { LineItem, ExecutionCostItem } from '../types';
+import { safeEval } from '../utils/formulaEval';
 
 export interface FinancialTotals {
     signingValue: number;
@@ -28,8 +29,19 @@ export function useFinancialCalculations(
         let estimatedRevenue = 0;
 
         lineItems.forEach(item => {
-            const itemOutputTotal = item.quantity * item.outputPrice;
-            const itemInputTotal = item.quantity * item.inputPrice;
+            let exactOutputPrice = item.outputPrice;
+            if (item.outputPriceFormula) {
+                const evalPrice = safeEval(item.outputPriceFormula);
+                if (!isNaN(evalPrice) && evalPrice > 0) exactOutputPrice = evalPrice;
+            }
+            let exactInputPrice = item.inputPrice;
+            if (item.inputPriceFormula) {
+                const evalPrice = safeEval(item.inputPriceFormula);
+                if (!isNaN(evalPrice) && evalPrice > 0) exactInputPrice = evalPrice;
+            }
+
+            const itemOutputTotal = item.quantity * exactOutputPrice;
+            const itemInputTotal = item.quantity * exactInputPrice;
             const itemVatRate = item.vatRate ?? 0;
 
             // Giá trị ký HĐ = Đầu ra × (1 + VAT%) cho từng SP
@@ -53,8 +65,14 @@ export function useFinancialCalculations(
         const profitMargin = estimatedRevenue > 0 ? (grossProfit / estimatedRevenue) * 100 : 0;
 
         return {
-            signingValue, estimatedRevenue, totalCosts, grossProfit, profitMargin,
-            totalInput, totalDirectCosts, executionCostsSum,
+            signingValue: Math.round(signingValue),
+            estimatedRevenue: Math.round(estimatedRevenue),
+            totalCosts: Math.round(totalCosts),
+            grossProfit: Math.round(grossProfit),
+            profitMargin,
+            totalInput: Math.round(totalInput),
+            totalDirectCosts: Math.round(totalDirectCosts),
+            executionCostsSum: Math.round(executionCostsSum),
         };
     }, [lineItems, executionCosts]);
 }
