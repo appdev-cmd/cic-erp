@@ -46,6 +46,10 @@ interface ContractFormStep1Props {
     setEndUserId: (v: string | null) => void;
     endUserName: string;
     setEndUserName: (v: string) => void;
+    endUser2Id: string | null;
+    setEndUser2Id: (v: string | null) => void;
+    endUser2Name: string;
+    setEndUser2Name: (v: string) => void;
     signedDate: string;
     setSignedDate: (v: string) => void;
     endDate: string;
@@ -73,6 +77,7 @@ interface ContractFormStep1Props {
     // Quick-add dialog triggers
     setShowAddCustomerDialog: (v: boolean) => void;
     setShowAddEndUserDialog: (v: boolean) => void;
+    setShowAddEndUser2Dialog: (v: boolean) => void;
 
     // AI summary
     lineItems: LineItem[];
@@ -129,6 +134,8 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
     classification, setClassification,
     endUserId, setEndUserId,
     endUserName, setEndUserName,
+    endUser2Id, setEndUser2Id,
+    endUser2Name, setEndUser2Name,
     signedDate, setSignedDate,
     endDate, setEndDate,
     hasVat, setHasVat,
@@ -141,7 +148,7 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
     customerContractNumber, setCustomerContractNumber,
     contacts, setContacts,
     addContact, removeContact,
-    setShowAddCustomerDialog, setShowAddEndUserDialog,
+    setShowAddCustomerDialog, setShowAddEndUserDialog, setShowAddEndUser2Dialog,
     lineItems, onGenerateTitle, isGeneratingTitle,
 }) => {
     const GLOBAL_ROLES = ['Leadership', 'Admin', 'Legal', 'Accountant', 'ChiefAccountant'];
@@ -475,9 +482,9 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
 
                         {/* End User (conditional) */}
                         {classification === 'Bán qua đại lý' && (
-                            <div className="animate-in slide-in-from-top-2 duration-300">
+                            <div className="animate-in slide-in-from-top-2 duration-300 space-y-3">
                                 <SearchableSelect
-                                    label="Người dùng cuối (End User)"
+                                    label="Người dùng cuối (End User 1)"
                                     value={endUserId}
                                     placeholder="Gõ để tìm End User..."
                                     getDisplayValue={(id) => id === endUserId ? endUserName : undefined}
@@ -499,6 +506,30 @@ const ContractFormStep1: React.FC<ContractFormStep1Props> = ({
                                     }}
                                     onAddNew={() => setShowAddEndUserDialog(true)}
                                     addNewLabel="+ Thêm End User mới"
+                                />
+                                <SearchableSelect
+                                    label="Người dùng cuối (End User 2)"
+                                    value={endUser2Id}
+                                    placeholder="Gõ để tìm End User 2..."
+                                    getDisplayValue={(id) => id === endUser2Id ? endUser2Name : undefined}
+                                    onChange={(euId) => {
+                                        setEndUser2Id(euId);
+                                        if (euId) {
+                                            CustomerService.getById(euId).then(cust => {
+                                                if (cust) setEndUser2Name(cust.name);
+                                            });
+                                        } else {
+                                            setEndUser2Name('');
+                                        }
+                                    }}
+                                    onSearch={async (query) => {
+                                        const results = await CustomerService.search(query, 20);
+                                        return results
+                                            .filter(c => !c.type || c.type === 'Customer' || c.type === 'Both')
+                                            .map(c => ({ id: c.id, name: c.name, subText: c.industry?.join(', ') || undefined }));
+                                    }}
+                                    onAddNew={() => setShowAddEndUser2Dialog(true)}
+                                    addNewLabel="+ Thêm End User 2 mới"
                                 />
                             </div>
                         )}

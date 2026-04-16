@@ -430,6 +430,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     }, [filteredContracts, customers]);
 
     // 7. Top Brands by Revenue
+    // Dùng outputPrice × quantity trực tiếp (nhất quán với vw_products_with_stats trong module Đối tác)
     const topBrandsData = useMemo(() => {
         const brandMap = new Map<string, number>(); // brandId -> revenue
         filteredContracts.forEach(c => {
@@ -437,10 +438,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 c.lineItems.forEach((li: any) => {
                     const product = products.find(p => p.id === li.productId);
                     if (product && product.brandId) {
-                        // Phân bổ doanh thu theo line item actual/output ratio
-                        const proportion = c.value > 0 ? ((li.outputPrice || 0) * (li.quantity || 1)) / c.value : 0;
-                        const allocatedRevenue = (c.actualRevenue || 0) * proportion;
-                        brandMap.set(product.brandId, (brandMap.get(product.brandId) || 0) + allocatedRevenue);
+                        // Dùng outputPrice × quantity = giá trị thực tế của sản phẩm trong hợp đồng
+                        // Nhất quán với cách tính total_revenue trong vw_products_with_stats (module Đối tác)
+                        const lineRevenue = (li.outputPrice || 0) * (li.quantity || 1);
+                        brandMap.set(product.brandId, (brandMap.get(product.brandId) || 0) + lineRevenue);
                     }
                 });
             }
@@ -633,48 +634,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
         );
     };
 
+
     const CustomTooltip = ({ active, payload, label }: any) => {
-        const [isHoveringTooltip, setIsHoveringTooltip] = useState(false);
-        const [deferredData, setDeferredData] = useState<any>({ active: false, payload: null, label: '' });
-        const isHoveringRef = useRef(false);
-
-        useEffect(() => {
-            const timer = setTimeout(() => {
-                if (!isHoveringRef.current) {
-                    setDeferredData({ active, payload, label });
-                }
-            }, 250); // Khoá dữ liệu trong 250ms, giúp rê chuột qua các Cột Bar khác thoải mái mà không bị đá văng
-
-            return () => clearTimeout(timer);
-        }, [active, payload, label]);
-
-        const handleMouseEnter = () => {
-            isHoveringRef.current = true;
-            setIsHoveringTooltip(true);
-        };
-
-        const handleMouseLeave = () => {
-            isHoveringRef.current = false;
-            setIsHoveringTooltip(false);
-            // Cập nhật lại ngay khi user bỏ chuột ra
-            setDeferredData({ active, payload, label });
-        };
-
-        const currentActive = deferredData.active;
-        const currentPayload = deferredData.payload;
-        const currentLabel = deferredData.label;
-
-        if (currentActive && currentPayload && currentPayload.length) {
-            const data = currentPayload[0].payload;
+        if (active && payload && payload.length) {
+            const data = payload[0].payload;
             return (
                 <div
                     style={getTooltipStyle()}
                     className="rounded-xl shadow-xl p-5 border max-w-xl w-[500px] z-50 pointer-events-auto"
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
                 >
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">{currentLabel || data.name}</p>
-                    {currentPayload.map((entry: any, index: number) => (
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">{label || data.name}</p>
+                    {payload.map((entry: any, index: number) => (
                         <p key={index} className="text-sm font-black flex justify-between gap-4" style={{ color: entry.color }}>
                             <span>{entry.name}:</span>
                             <span>{formatCurrency(entry.value)}</span>
@@ -686,6 +656,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
         }
         return null;
     };
+
 
     const pieTotal = useMemo(() => structureData.reduce((s, d) => s + d.value, 0), [structureData]);
 

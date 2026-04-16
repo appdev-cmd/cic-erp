@@ -122,7 +122,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const isDealerSale = classification === 'Bán qua đại lý';
   const [endUserId, setEndUserId] = useState<string | null>(contract?.endUserId || null);
   const [endUserName, setEndUserName] = useState(contract?.endUserName || '');
+  const [endUser2Id, setEndUser2Id] = useState<string | null>(contract?.endUser2Id || null);
+  const [endUser2Name, setEndUser2Name] = useState(contract?.endUser2Name || '');
   const [showAddEndUserDialog, setShowAddEndUserDialog] = useState(false);
+  const [showAddEndUser2Dialog, setShowAddEndUser2Dialog] = useState(false);
   const [signedDate, setSignedDate] = useState(contract?.signedDate || new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(contract?.endDate || '');
   const [hasVat, setHasVat] = useState(contract?.hasVat !== false);
@@ -146,6 +149,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       setClassification(contract.classification || (contract.isDealerSale ? 'Bán qua đại lý' : 'Thông thường'));
       setEndUserId(contract.endUserId || null);
       setEndUserName(contract.endUserName || '');
+      setEndUser2Id(contract.endUser2Id || null);
+      setEndUser2Name(contract.endUser2Name || '');
       setSignedDate(contract.signedDate || new Date().toISOString().split('T')[0]);
       setEndDate(contract.endDate || '');
       setHasVat(contract.hasVat !== false);
@@ -189,7 +194,12 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
         if (cust) setEndUserName(cust.name);
       }).catch(err => console.error('Failed to fetch end user:', err));
     }
-  }, [isEditing, contract?.customerId, contract?.endUserId]);
+    if (isEditing && contract?.endUser2Id && !endUser2Name) {
+      CustomerService.getById(contract.endUser2Id).then(cust => {
+        if (cust) setEndUser2Name(cust.name);
+      }).catch(err => console.error('Failed to fetch end user 2:', err));
+    }
+  }, [isEditing, contract?.customerId, contract?.endUserId, contract?.endUser2Id]);
 
   // ==================== QUICK ADD DIALOGS ====================
   const [showAddCustomerDialog, setShowAddCustomerDialog] = useState(false);
@@ -383,7 +393,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const currentSnapshot = useMemo(() => JSON.stringify({
     contractType, unitId, coordinatingUnitId, salespersonId, customerId,
     title, clientName, signedDate, endDate, hasVat, vatRate, classification,
-    endUserId, endUserName, contacts, lineItems, executionCosts,
+    endUserId, endUserName, endUser2Id, endUser2Name, contacts, lineItems, executionCosts,
     revenueSchedules, paymentSchedules, supplierSchedules,
     employeeAllocations, unitAllocations, formContractId,
     customerContractNumber, hasCustomerContractNumber, notes,
@@ -391,7 +401,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   }), [
     contractType, unitId, coordinatingUnitId, salespersonId, customerId,
     title, clientName, signedDate, endDate, hasVat, vatRate, classification,
-    endUserId, endUserName, contacts, lineItems, executionCosts,
+    endUserId, endUserName, endUser2Id, endUser2Name, contacts, lineItems, executionCosts,
     revenueSchedules, paymentSchedules, supplierSchedules,
     employeeAllocations, unitAllocations, formContractId,
     customerContractNumber, hasCustomerContractNumber, notes,
@@ -553,6 +563,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       vatRate: hasVat ? vatRate : 0,
       endUserId: isDealerSale ? (endUserId || null) : null,
       endUserName: isDealerSale ? endUserName : null,
+      endUser2Id: isDealerSale ? (endUser2Id || null) : null,
+      endUser2Name: isDealerSale ? endUser2Name : null,
       unitId,
       coordinatingUnitId: coordinatingUnitId || null,
       unitAllocations: unitAllocations.length > 0 ? unitAllocations : null,
@@ -698,6 +710,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 classification={classification} setClassification={setClassification}
                 endUserId={endUserId} setEndUserId={setEndUserId}
                 endUserName={endUserName} setEndUserName={setEndUserName}
+                endUser2Id={endUser2Id} setEndUser2Id={setEndUser2Id}
+                endUser2Name={endUser2Name} setEndUser2Name={setEndUser2Name}
                 signedDate={signedDate} setSignedDate={setSignedDate}
                 endDate={endDate} setEndDate={setEndDate}
                 hasVat={hasVat} setHasVat={setHasVat}
@@ -713,6 +727,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 removeContact={removeContact}
                 setShowAddCustomerDialog={setShowAddCustomerDialog}
                 setShowAddEndUserDialog={setShowAddEndUserDialog}
+                setShowAddEndUser2Dialog={setShowAddEndUser2Dialog}
               />
             ) : null}
 
@@ -849,6 +864,15 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           setEndUserId(customer.id);
           setEndUserName(customer.name);
           toast.success(`Đã thêm End User: ${customer.name}`);
+        }}
+      />
+      <QuickAddCustomerDialog
+        isOpen={showAddEndUser2Dialog}
+        onClose={() => setShowAddEndUser2Dialog(false)}
+        onCreated={(customer) => {
+          setEndUser2Id(customer.id);
+          setEndUser2Name(customer.name);
+          toast.success(`Đã thêm End User 2: ${customer.name}`);
         }}
       />
       <QuickAddProductDialog
