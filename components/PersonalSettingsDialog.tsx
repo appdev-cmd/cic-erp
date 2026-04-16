@@ -399,8 +399,8 @@ const ThemeSection: React.FC<{
 
 // ═══ Local AI Settings sub-component ═══
 const LocalAISection: React.FC = () => {
-    const [baseUrl, setBaseUrl] = useState(() => localStorage.getItem('cic_local_ai_base_url') || 'http://localhost:11434/v1');
-    const [model, setModel] = useState(() => localStorage.getItem('cic_local_ai_model') || 'qwen2.5');
+    const [baseUrl, setBaseUrl] = useState(() => localStorage.getItem('cic_local_ai_base_url') || '/api/vllm');
+    const [model, setModel] = useState(() => localStorage.getItem('cic_local_ai_model') || 'gemma-4-26b');
     const [priority, setPriority] = useState(() => localStorage.getItem('cic_local_ai_priority') === 'true');
 
     const handleSave = () => {
@@ -418,7 +418,7 @@ const LocalAISection: React.FC = () => {
                         <Bot size={18} className="text-indigo-500" />
                         Máy chủ AI Nội bộ (Local AI)
                     </h4>
-                    <p className="text-[11px] text-indigo-600/70 dark:text-indigo-400/70 mt-0.5 ml-6">Cấu hình kết nối Ollama/vLLM tự host (Bảo mật 100%)</p>
+                    <p className="text-[11px] text-indigo-600/70 dark:text-indigo-400/70 mt-0.5 ml-6">Cấu hình kết nối vLLM tự host (Bảo mật 100%)</p>
                 </div>
                 <button type="button" onClick={handleSave} className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white dark:bg-indigo-500 rounded-md hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-colors shadow-sm">
                     Lưu AI
@@ -434,16 +434,8 @@ const LocalAISection: React.FC = () => {
                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Mô hình AI (Model)</label>
                     <select value={model} onChange={e => setModel(e.target.value)} className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 border-indigo-100 dark:border-indigo-900/50 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
                         <optgroup label="Local API (vLLM)">
-                            <option value="Qwen/Qwen3.5-27B-Instruct-AWQ">Qwen 3.5 27B (vLLM Enterprise)</option>
-                            <option value="casperhansen/llama-3.1-70b-instruct-awq">Meta Llama 4 70B (Flagship)</option>
-                            <option value="solidrust/Meta-Llama-3.1-8B-Instruct-AWQ">Meta Llama 4 28B</option>
-                            <option value="solidrust/gemma-2-27b-it-AWQ">Gemma 4 31B (Google Enterprise)</option>
-                            <option value="solidrust/gemma-2-9b-it-AWQ">Gemma 4 9B (Google Fast)</option>
-                            <option value="Qwen/Qwen2.5-7B-Instruct">Qwen 2.5 7B (vLLM Fallback)</option>
-                        </optgroup>
-                        <optgroup label="Khác">
-                            <option value="llama3.1:8b">Llama 3.1 (8B)</option>
-                            <option value="phi3:mini">Phi 3 Mini</option>
+                            <option value="gemma-4-26b">Gemma 4 26B (vLLM)</option>
+                            <option value="qwen2.5-7b">Qwen 2.5 7B (vLLM)</option>
                         </optgroup>
                     </select>
                 </div>

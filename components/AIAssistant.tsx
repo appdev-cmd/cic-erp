@@ -45,7 +45,7 @@ import { searchKnowledgeBase } from '../services/ragService';
 import { parseDocumentClientSide } from '../lib/documentReaderClient';
 import { searchMentions, encodeMention, type MentionResult } from '../services/mentionService';
 import { useAuth } from '../contexts/AuthContext';
-import { runReActLoop } from '../services/ai/openclaw/react-loop';
+
 import { getVisibleAgentsFilter, routeUserToAgentFilter } from '../services/ai/openclaw/router';
 import { AgentConfigService } from '../services/ai/agentConfigService';
 import { agentDefinitions } from '../services/ai/openclaw/agents/definitions';
@@ -352,11 +352,7 @@ const AIAssistant: React.FC = () => {
     return saved || import.meta.env.VITE_DEFAULT_LLM_MODEL || 'gemini-2.0-flash';
   });
 
-  const [useHermesEngine, setUseHermesEngine] = useState<boolean>(() => {
-    const saved = localStorage.getItem('cic_use_hermes_engine');
-    if (saved !== null) return saved === 'true';
-    return import.meta.env.VITE_USE_HERMES === 'true';
-  });
+
 
   const [currentAgent, setCurrentAgent] = useState<string>(() => {
     return localStorage.getItem(AGENT_STORAGE_KEY) || 'SYSTEM';
@@ -607,9 +603,7 @@ const AIAssistant: React.FC = () => {
     }
   }, [dynamicAgents, currentAgent]);
 
-  useEffect(() => {
-    localStorage.setItem('cic_use_hermes_engine', useHermesEngine.toString());
-  }, [useHermesEngine]);
+
 
   const saveSettings = () => {
     localStorage.setItem(CUSTOM_GEMINI_KEY, customGeminiKey);
@@ -806,10 +800,7 @@ const AIAssistant: React.FC = () => {
     const activeAgent = dynamicAgents[currentAgent] || Object.values(dynamicAgents)[0];
 
     try {
-      // Lazy load to prevent circular logic if any
-      const { runReActLoop } = await import('../services/ai/openclaw/react-loop');
       const { agentDefinitions } = await import('../services/ai/openclaw/agents/definitions');
-      const { erpToolsRegistry } = await import('../services/ai/openclaw/tools/registry');
 
       // Lấy user context thật từ AuthContext
       const _userContext: UserContext = {
@@ -842,96 +833,54 @@ const AIAssistant: React.FC = () => {
         };
       });
 
-      // ─── PHÂN LUỒNG XỬ LÝ (HERMES HOẶC OPENCLAW) ────────────────────────
+      // ─── PHÂN LUỒNG XỬ LÝ HERMES ────────────────────────
       let finalContent = '';
-      if (useHermesEngine) {
-        const proxyUrl = import.meta.env.VITE_HERMES_PROXY_URL || 'http://localhost:3005';
-        const res = await fetch(`${proxyUrl}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: userMsg.content,
-            agentId: currentAgent,
-            userId: _userContext.userId,
-            history: history,
-            userContext: _userContext
-          }),
-          signal: controller.signal
-        });
+      const proxyUrl = import.meta.env.VITE_HERMES_PROXY_URL || 'http://localhost:3005';
+      const res = await fetch(`${proxyUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMsg.content,
+          agentId: currentAgent,
+          userId: _userContext.userId,
+          history: history,
+          userContext: _userContext
+        }),
+        signal: controller.signal
+      });
 
-        if (!res.ok || !res.body) throw new Error('Proxy connection failed');
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let done = false;
+      if (!res.ok || !res.body) throw new Error('Proxy connection failed');
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let done = false;
 
-        let streamContent = '';
-        while (!done) {
-          if (controller.signal.aborted) {
-            reader.cancel();
-            break;
-          }
-          const { value, done: readerDone } = await reader.read();
-          done = readerDone;
-          if (value) {
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-            for (const line of lines) {
-              if (line.startsWith('data: ') && !line.includes('[DONE]')) {
-                try {
-                  const data = JSON.parse(line.substring(6));
-                  streamContent += data.text;
-                  setMessages(prev => prev.map(m =>
-                    m.id === botMsgId
-                      ? { ...m, content: streamContent }
-                      : m
-                  ));
-                } catch(e) {}
-              }
+      let streamContent = '';
+      while (!done) {
+        if (controller.signal.aborted) {
+          reader.cancel();
+          break;
+        }
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+              try {
+                const data = JSON.parse(line.substring(6));
+                streamContent += data.text;
+                setMessages(prev => prev.map(m =>
+                  m.id === botMsgId
+                    ? { ...m, content: streamContent }
+                    : m
+                ));
+              } catch(e) {}
             }
           }
         }
-        finalContent = streamContent;
-      } else {
-        // Track content that accumulates
-        let toolContent = '';
-        let streamContent = '';
-
-        const result = await runReActLoop(
-          userMsg.content,
-          _userContext,
-          agentConf,
-          erpToolsRegistry,
-          history,
-          8,
-          controller.signal,
-          (toolName, args) => {
-            // Callback: tool đang được gọi → hiện indicator siêu gọn
-            const friendlyName = toolName === 'get_contract_stats' ? 'thống kê hợp đồng' : 
-                                 toolName === 'get_dashboard_kpi' ? 'chỉ số KPI' : 
-                                 toolName === 'export_document' ? 'đóng gói file' : toolName;
-            toolContent += `\n\n> 🔍 *Hệ thống đang truy xuất dữ liệu từ công cụ \`${friendlyName}\`...*\n\n`;
-            setMessages(prev => prev.map(m =>
-              m.id === botMsgId
-                ? { ...m, content: toolContent }
-                : m
-            ));
-          },
-          currentModel,
-          (chunk) => {
-            // Callback: streaming final answer → hiện chữ ngay lập tức
-            streamContent += chunk;
-            setMessages(prev => prev.map(m =>
-              m.id === botMsgId
-                ? { ...m, content: toolContent + streamContent }
-                : m
-            ));
-          }
-        );
-
-        finalContent = streamContent
-          ? toolContent + streamContent  // Đã stream rồi
-          : toolContent + result.reply;  // Fallback nếu không stream
       }
+      finalContent = streamContent;
 
       // Khi xong hoàn toàn
       setMessages(prev => prev.map(m =>
@@ -1481,17 +1430,7 @@ const AIAssistant: React.FC = () => {
             <div className="max-w-4xl mx-auto">
               {/* Model Selector — above input on mobile, inline on desktop */}
               <div className="flex items-center gap-2 mb-2">
-                {['Admin', 'Leadership', 'Dev'].includes(_profile?.role || '') && (
-                  <select
-                    value={useHermesEngine ? 'hermes' : 'openclaw'}
-                    onChange={(e) => setUseHermesEngine(e.target.value === 'hermes')}
-                    className="bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-800/50 text-[10px] font-bold text-indigo-700 dark:text-indigo-400 py-1.5 px-2 rounded-lg cursor-pointer focus:outline-none border border-transparent transition-all"
-                    title="Chọn AI Engine"
-                  >
-                    <option value="openclaw">⚙️ OpenClaw (Ổn định)</option>
-                    <option value="hermes">⚡ Hermes (Tốc độ cao)</option>
-                  </select>
-                )}
+
 
                 {['Admin', 'Leadership', 'Dev'].includes(_profile?.role || '') ? (
                   <select

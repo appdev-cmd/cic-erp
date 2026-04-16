@@ -32,7 +32,7 @@ const EmbeddingSettings: React.FC = () => {
   useEffect(() => {
     setProvider((localStorage.getItem('cic-embedding-provider') as EmbeddingProvider) || 'local');
     setGeminiKey(localStorage.getItem('cic-gemini-api-key') || '');
-    setLocalUrl(localStorage.getItem('cic-local-ai-base-url') || 'http://localhost:11434');
+    setLocalUrl(localStorage.getItem('cic-local-ai-base-url') || '/api/vllm');
   }, []);
 
   const handleSave = useCallback(() => {
@@ -84,8 +84,8 @@ const EmbeddingSettings: React.FC = () => {
           latency: Date.now() - start,
         });
       } else {
-        // Test Local Ollama
-        let baseURL = localUrl || 'http://localhost:11434';
+        // Test Local API
+        let baseURL = localUrl || '/api/vllm';
         if (!baseURL.endsWith('/v1')) {
           baseURL = baseURL.replace(/\/$/, '') + '/v1';
         }
@@ -103,7 +103,7 @@ const EmbeddingSettings: React.FC = () => {
         });
 
         if (!response.ok) {
-          setTestResult({ status: 'error', message: `Ollama lỗi: ${response.statusText}. Đã bật Ollama chưa?` });
+          setTestResult({ status: 'error', message: `Local API lỗi: ${response.statusText}. Đã bật Local API chưa?` });
           return;
         }
 
@@ -111,7 +111,7 @@ const EmbeddingSettings: React.FC = () => {
         const dims = data?.data?.[0]?.embedding?.length || 0;
         setTestResult({
           status: 'success',
-          message: `Ollama nomic-embed-text hoạt động tốt!`,
+          message: `Local API nomic-embed-text hoạt động tốt!`,
           dims,
           latency: Date.now() - start,
         });
@@ -120,7 +120,7 @@ const EmbeddingSettings: React.FC = () => {
       setTestResult({
         status: 'error',
         message: provider === 'local'
-          ? `Không kết nối được Ollama. Hãy chạy: ollama serve`
+          ? `Không kết nối được Local API.`
           : `Lỗi kết nối: ${err.message}`,
       });
     } finally {
@@ -131,7 +131,7 @@ const EmbeddingSettings: React.FC = () => {
   const providerOptions = [
     {
       id: 'local' as EmbeddingProvider,
-      name: 'Ollama (Local)',
+      name: 'Local API',
       desc: 'Chạy trên máy tính, miễn phí, bảo mật dữ liệu',
       icon: <Server size={20} className="text-emerald-500" />,
       model: 'nomic-embed-text',
@@ -206,18 +206,17 @@ const EmbeddingSettings: React.FC = () => {
         ) : (
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-              <Server size={12} className="inline mr-1" />
-              Ollama Base URL
+              Local API Base URL
             </label>
             <input
               type="text"
               value={localUrl}
               onChange={e => setLocalUrl(e.target.value)}
-              placeholder="http://localhost:11434"
+              placeholder="/api/vllm"
               className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none text-slate-700 dark:text-slate-300"
             />
             <p className="text-[10px] text-slate-400 mt-1.5">
-              Cài Ollama: <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">ollama pull nomic-embed-text</code> — rồi chạy <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">ollama serve</code>
+              Cài đặt Embedding: Sử dụng nomic-embed-text qua LiteLLM/vLLM.
             </p>
           </div>
         )}

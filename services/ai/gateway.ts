@@ -28,7 +28,7 @@ function getConfig(): GatewayConfig {
   return {
     localBaseURL: getLocalAIBaseURL(),
     localApiKey: 'sk-cic-2026',  // LiteLLM master key
-    defaultModel: 'qwen2.5-14b',   // LiteLLM model alias — Cụm 1
+    defaultModel: 'gemma-4-26b',   // LiteLLM model alias — Gemma 4 26B
     maxRetries: 2,
     timeoutMs: 120000,
     enableLogging: true,
@@ -833,7 +833,7 @@ Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doan
 export async function analyzeContract(text: string): Promise<string> {
   return chat({
     messages: [{ role: 'user', content: `Hãy phân tích nội dung hợp đồng sau đây và tóm tắt các điểm quan trọng (Bên A, Bên B, Giá trị, Thời hạn, Rủi ro tiềm ẩn). Định dạng bằng tiếng Việt, súc tích, chuyên nghiệp:\n\n${text}` }],
-    model: 'Qwen/Qwen3.5-27B-Instruct-AWQ',
+    model: getConfig().defaultModel,
     temperature: 0.2,
     meta: { source: 'web-chat' },
   });
@@ -895,7 +895,7 @@ export async function summarizeContractContent(
   try {
     const result = await chat({
       messages: [{ role: 'user', content: `Tóm tắt nội dung hợp đồng trong MỘT câu ngắn gọn. Chỉ nêu tên sản phẩm chính và hãng.\nSản phẩm:\n${descriptions}` }],
-      model: 'Qwen/Qwen3.5-27B-Instruct-AWQ',
+      model: getConfig().defaultModel,
       systemInstruction: 'Bạn là trợ lý hợp đồng của CIC. Trả lời 1 câu tiếng Việt ngắn gọn.',
       temperature: 0.1,
       maxTokens: 200,

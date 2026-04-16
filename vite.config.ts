@@ -155,16 +155,7 @@ export default defineConfig(({ mode }) => {
           secure: false,
           rewrite: (path) => path.replace(/^\/api\/vllm/, '')
         },
-        '/api/ollama': {
-          target: 'http://localhost:11434/v1',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/ollama/, '')
-        },
-        '/api/ollama_native': {
-          target: 'http://localhost:11434/api',
-          changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/ollama_native/, '')
-        }
+
       },
       watch: {
         ignored: ['**/scripts/auto-train/venv/**'],
