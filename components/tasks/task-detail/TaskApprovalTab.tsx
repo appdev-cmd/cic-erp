@@ -10,7 +10,7 @@ interface TaskApprovalRecord {
   id: string;
   task_id: string;
   actor_id: string;
-  action: 'approve' | 'reject' | 'request_change';
+  action: 'submitted' | 'approved' | 'rejected' | 'recalled';
   comment?: string;
   created_at: string;
   actor_name?: string;
@@ -88,14 +88,14 @@ const TaskApprovalTab: React.FC<TaskApprovalTabProps> = ({ task, currentUserId, 
   }, [loadHistory]);
 
   // ─── Submit approval action ──────────────────────────────────────────────────
-  const handleAction = async (action: 'approve' | 'reject') => {
-    if (!comment && action === 'reject') {
+  const handleAction = async (action: 'approved' | 'rejected') => {
+    if (!comment && action === 'rejected') {
       toast.error('Vui lòng nhập lý do từ chối');
       return;
     }
     setSubmitting(true);
     try {
-      const newStatus: ApprovalStatus = action === 'approve' ? 'approved' : 'rejected';
+      const newStatus: ApprovalStatus = action === 'approved' ? 'approved' : 'rejected';
 
       // Update task approval_status
       await dataClient
@@ -103,7 +103,7 @@ const TaskApprovalTab: React.FC<TaskApprovalTabProps> = ({ task, currentUserId, 
         .update({ approval_status: newStatus, approval_comment: comment || null })
         .eq('id', task.id);
 
-      // Log to audit table (will silently fail if table doesn't exist)
+      // Log to audit table
       try {
         await dataClient.from('task_approval_logs').insert({
           task_id: task.id,
@@ -113,7 +113,7 @@ const TaskApprovalTab: React.FC<TaskApprovalTabProps> = ({ task, currentUserId, 
         });
       } catch { /* ignore */ }
 
-      toast.success(action === 'approve' ? 'Đã phê duyệt' : 'Đã từ chối');
+      toast.success(action === 'approved' ? 'Đã phê duyệt' : 'Đã từ chối');
       setComment('');
       onUpdate();
       loadHistory();
@@ -145,8 +145,18 @@ const TaskApprovalTab: React.FC<TaskApprovalTabProps> = ({ task, currentUserId, 
     setSubmitting(true);
     try {
       await dataClient.from('tasks').update({ approval_status: 'pending', approvers: approverIds }).eq('id', task.id);
+      // Log submission to audit trail
+      try {
+        await dataClient.from('task_approval_logs').insert({
+          task_id: task.id,
+          actor_id: currentUserId,
+          action: 'submitted',
+          comment: null,
+        });
+      } catch { /* ignore */ }
       toast.success('Đã gửi yêu cầu phê duyệt');
       onUpdate();
+      loadHistory();
     } catch (err: any) {
       toast.error(`Lỗi: ${err.message}`);
     } finally {
@@ -261,14 +271,14 @@ const TaskApprovalTab: React.FC<TaskApprovalTabProps> = ({ task, currentUserId, 
           />
           <div className="flex gap-2 mt-3">
             <button
-              onClick={() => handleAction('approve')}
+              onClick={() => handleAction('approved')}
               disabled={submitting}
               className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition-colors disabled:opacity-50"
             >
               <CheckCircle2 size={15} /> Phê duyệt
             </button>
             <button
-              onClick={() => handleAction('reject')}
+              onClick={() => handleAction('rejected')}
               disabled={submitting}
               className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-sm font-semibold transition-colors disabled:opacity-50"
             >
@@ -292,7 +302,7 @@ const TaskApprovalTab: React.FC<TaskApprovalTabProps> = ({ task, currentUserId, 
         ) : (
           <div className="space-y-2">
             {history.map(log => {
-              const isApprove = log.action === 'approve';
+              const isApprove = log.action === 'approved';
               return (
                 <div key={log.id} className={`flex gap-3 p-3 rounded-lg border ${isApprove ? 'border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-900/10' : 'border-rose-100 dark:border-rose-900/30 bg-rose-50/50 dark:bg-rose-900/10'}`}>
                   <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${isApprove ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-rose-100 dark:bg-rose-900/40'}`}>

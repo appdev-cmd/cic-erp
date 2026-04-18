@@ -4,6 +4,7 @@
 
 import { TaskService } from './taskService';
 import { TaskCommentService } from './taskCommentService';
+import { dataClient as supabase } from '../lib/dataClient';
 import type { CreateTaskInput, CreateTaskLinkInput } from '../types/taskTypes';
 
 // ═══════════════════════════════════════
@@ -40,51 +41,66 @@ export const AutoTaskEngine = {
     const assignees = contract.assigneeIds || [];
     const creator = contract.createdBy || '';
 
-    // Task 1: Review hợp đồng
-    const reviewTask = await createAutoTask({
-      title: `Review hợp đồng ${contract.contractNumber}`,
-      description: `Kiểm tra nội dung hợp đồng "${contract.name}" với ${contract.partyA || 'đối tác'}.\n\nHạng mục cần review:\n- Điều khoản thanh toán\n- Thời gian thực hiện\n- Phạm vi công việc\n- Rủi ro pháp lý`,
-      priority: 'high',
-      assignees,
-      due_date: addDays(new Date(), 3),
-      source_module: 'contract',
-      source_event: 'contract_created',
-      source_entity_id: contract.id,
-      created_by: creator,
-      tags: ['hợp-đồng', 'review'],
-      action_type: 'navigate',
-      action_label: 'Mở hợp đồng',
-      action_config: { url: `/contracts/${contract.id}` },
-    }, {
-      entity_type: 'contract',
-      entity_id: contract.id,
-      entity_label: `${contract.contractNumber} - ${contract.name}`,
-      url: `/contracts/${contract.id}`,
-    });
-    results.push(reviewTask);
+    // ── Kiểm tra xem đã có task nào từ contract này chưa (tránh tạo trùng)
+    // ContractForm Step 4 (WorkflowSteps) có thể đã tạo task definitions trước
+    const { data: existingTasks } = await supabase
+      .from('tasks')
+      .select('id, source_event')
+      .eq('source_entity_id', contract.id)
+      .eq('source_module', 'contract');
 
-    // Task 2: Lập PAKD (Phương án kinh doanh)
-    const pakdTask = await createAutoTask({
-      title: `Lập PAKD cho ${contract.contractNumber}`,
-      description: `Lập phương án kinh doanh cho hợp đồng "${contract.name}".\n\nBao gồm: doanh thu, chi phí, lợi nhuận dự kiến.`,
-      priority: 'medium',
-      assignees,
-      due_date: addDays(new Date(), 7),
-      source_module: 'contract',
-      source_event: 'contract_created',
-      source_entity_id: contract.id,
-      created_by: creator,
-      tags: ['hợp-đồng', 'pakd'],
-      action_type: 'navigate',
-      action_label: 'Mở PAKD',
-      action_config: { url: `/contracts/${contract.id}#pakd` },
-    }, {
-      entity_type: 'contract',
-      entity_id: contract.id,
-      entity_label: `${contract.contractNumber} - ${contract.name}`,
-      url: `/contracts/${contract.id}`,
-    });
-    results.push(pakdTask);
+    const existingEvents = new Set((existingTasks || []).map((t: any) => t.source_event));
+    const hasWorkflowTasks = (existingTasks || []).length > 0;
+
+    // Task 1: Review hợp đồng — luôn tạo nếu chưa có
+    if (!existingEvents.has('contract_created_review')) {
+      const reviewTask = await createAutoTask({
+        title: `Review hợp đồng ${contract.contractNumber}`,
+        description: `Kiểm tra nội dung hợp đồng "${contract.name}" với ${contract.partyA || 'đối tác'}.\n\nHạng mục cần review:\n- Điều khoản thanh toán\n- Thời gian thực hiện\n- Phạm vi công việc\n- Rủi ro pháp lý`,
+        priority: 'high',
+        assignees,
+        due_date: addDays(new Date(), 3),
+        source_module: 'contract',
+        source_event: 'contract_created_review',
+        source_entity_id: contract.id,
+        created_by: creator,
+        tags: ['hợp-đồng', 'review'],
+        action_type: 'navigate',
+        action_label: 'Mở hợp đồng',
+        action_config: { url: `/contracts/${contract.id}` },
+      }, {
+        entity_type: 'contract',
+        entity_id: contract.id,
+        entity_label: `${contract.contractNumber} - ${contract.name}`,
+        url: `/contracts/${contract.id}`,
+      });
+      results.push(reviewTask);
+    }
+
+    // Task 2: Lập PAKD — chỉ tạo nếu chưa có và workflow chưa bao gồm PAKD step
+    if (!existingEvents.has('contract_created_pakd') && !hasWorkflowTasks) {
+      const pakdTask = await createAutoTask({
+        title: `Lập PAKD cho ${contract.contractNumber}`,
+        description: `Lập phương án kinh doanh cho hợp đồng "${contract.name}".\n\nBao gồm: doanh thu, chi phí, lợi nhuận dự kiến.`,
+        priority: 'medium',
+        assignees,
+        due_date: addDays(new Date(), 7),
+        source_module: 'contract',
+        source_event: 'contract_created_pakd',
+        source_entity_id: contract.id,
+        created_by: creator,
+        tags: ['hợp-đồng', 'pakd'],
+        action_type: 'navigate',
+        action_label: 'Mở PAKD',
+        action_config: { url: `/contracts/${contract.id}#pakd` },
+      }, {
+        entity_type: 'contract',
+        entity_id: contract.id,
+        entity_label: `${contract.contractNumber} - ${contract.name}`,
+        url: `/contracts/${contract.id}`,
+      });
+      results.push(pakdTask);
+    }
 
     return results;
   },

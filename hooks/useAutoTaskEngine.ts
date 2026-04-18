@@ -7,6 +7,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { TaskEngine } from '../services/taskEngine';
+import { AutoTaskEngine } from '../services/autoTaskEngine';
 import { dataClient as supabase } from '../lib/dataClient';
 
 // Track recent status to detect changes
@@ -122,9 +123,34 @@ export function useAutoTaskEngine() {
       }
     };
 
+    // Listen to contract created → tạo task thiết yếu (Review + PAKD)
+    const handleContractCreated = async (e: any) => {
+      const detail = e.detail;
+      if (!detail?.id) return;
+
+      try {
+        const contract = {
+          id: detail.id,
+          contractNumber: detail.contractNumber || detail.contract_number || '',
+          name: detail.name || detail.title || '',
+          partyA: detail.partyA || detail.party_a || '',
+          assigneeIds: detail.assigneeIds || (detail.employee_id ? [detail.employee_id] : []),
+          createdBy: user.id,
+        };
+        const results = await AutoTaskEngine.onContractCreated(contract);
+        const created = results.filter(r => !!r.taskId).length;
+        if (created > 0) {
+          console.log(`[AutoTaskEngine] Created ${created} auto-task(s) for new contract ${detail.id}`);
+        }
+      } catch (err) {
+        console.error('[AutoTaskEngine] contract-created handler error:', err);
+      }
+    };
+
     // Global listeners
     window.addEventListener('contract-changed', handleContractChanged);
     window.addEventListener('contract-updated', handleContractChanged);
+    window.addEventListener('contract-created', handleContractCreated);
     window.addEventListener('payment-changed', handlePaymentChanged);
 
     // Pre-warm: load all contract statuses into cache on init to avoid false triggers
@@ -148,6 +174,7 @@ export function useAutoTaskEngine() {
     return () => {
       window.removeEventListener('contract-changed', handleContractChanged);
       window.removeEventListener('contract-updated', handleContractChanged);
+      window.removeEventListener('contract-created', handleContractCreated);
       window.removeEventListener('payment-changed', handlePaymentChanged);
     };
   }, [user?.id]);

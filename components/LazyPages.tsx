@@ -349,8 +349,23 @@ const ContractFormInSlidePanel: React.FC<{ contractId?: string; cloneFrom?: any 
                     if (contractId && !cloneFrom) {
                         await ContractService.update(contractId, data);
                         toast.success('Cập nhật hợp đồng thành công!');
+                        // Notify listeners (e.g. ContractDetail) to refetch
+                        window.dispatchEvent(new CustomEvent('contract-updated', { detail: { contractId } }));
                     } else {
-                        await ContractService.create(data);
+                        const newContract = await ContractService.create(data);
+                        // Trigger AutoTaskEngine để tạo tasks thiết yếu (Review, PAKD)
+                        window.dispatchEvent(new CustomEvent('contract-created', {
+                            detail: {
+                                id: newContract?.id,
+                                contractNumber: data.contractCode || '',
+                                name: data.title || '',
+                                title: data.title || '',
+                                partyA: data.partyA || '',
+                                employee_id: data.salespersonId || '',
+                                unit_id: data.unitId || '',
+                                assigneeIds: data.employeeAllocations?.map((a: any) => a.employeeId).filter(Boolean) || [],
+                            }
+                        }));
                         toast.success(cloneFrom ? 'Nhân bản hợp đồng thành công!' : 'Tạo hợp đồng thành công!');
                     }
                     handleClose();
@@ -426,6 +441,19 @@ export const LazyContractFormPage: React.FC = () => {
                                 navigate(ROUTES.CONTRACT_DETAIL(encodeURIComponent(id)));
                             } else {
                                 const newContract = await ContractService.create(data);
+                                // Trigger AutoTaskEngine để tạo tasks thiết yếu (Review, PAKD)
+                                window.dispatchEvent(new CustomEvent('contract-created', {
+                                    detail: {
+                                        id: newContract?.id,
+                                        contractNumber: data.contractCode || '',
+                                        name: data.title || '',
+                                        title: data.title || '',
+                                        partyA: data.partyA || '',
+                                        employee_id: data.salespersonId || '',
+                                        unit_id: data.unitId || '',
+                                        assigneeIds: data.employeeAllocations?.map((a: any) => a.employeeId).filter(Boolean) || [],
+                                    }
+                                }));
                                 toast.success(cloneFrom ? "Nhân bản hợp đồng thành công!" : "Tạo hợp đồng thành công!");
                                 if (newContract?.id) {
                                     navigate(ROUTES.CONTRACT_DETAIL(encodeURIComponent(newContract.id)));

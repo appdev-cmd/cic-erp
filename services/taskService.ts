@@ -453,7 +453,7 @@ export const TaskService = {
     const { data: employees, error: empError } = await supabase
       .from('employees')
       .select('id')
-      .in('unitId', unitIds)
+      .in('unit_id', unitIds)  // Fix: was 'unitId' (typo)
       .lt('management_rank', belowRank);
 
     if (empError) throw empError;
