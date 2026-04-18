@@ -5,13 +5,20 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Send, Pin, CornerDownRight, Smile, Paperclip,
-  Trash2, Edit3, X, Check, MessageCircle, PinOff
+  Trash2, Edit3, X, Check, MessageCircle, PinOff, AtSign
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DiscussionService } from '../../services/discussionService';
 import type { Discussion } from '../../services/discussionService';
 import { formatDateTime } from '../../utils/formatters';
 import { useAuth } from '../../contexts/AuthContext';
+import { dataClient } from '../../lib/dataClient';
+
+interface MentionUser {
+  id: string;
+  name: string;
+  avatar?: string;
+}
 
 // ═══════════════════════════════════════
 // EMOJI PICKER
@@ -21,7 +28,7 @@ const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '😮', '👀', '🔥
 // ═══════════════════════════════════════
 // AUTO-LINKIFY HELPER
 // ═══════════════════════════════════════
-const LINKIFY_REGEX = /(?:https?:\/\/[^\s]+)|(?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})|(?:(?:\+84|0)\d{9,10})/g;
+const LINKIFY_REGEX = /(?:https?:\/\/[^\s]+)|(?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})|(?:(?:\+84|0)\d{9,10})|(?:@[\w\u00C0-\u024F]+(?:\s[\w\u00C0-\u024F]+)?)/g;
 
 const linkifyContent = (text: string): React.ReactNode[] => {
   const result: React.ReactNode[] = [];
@@ -31,12 +38,13 @@ const linkifyContent = (text: string): React.ReactNode[] => {
 
   LINKIFY_REGEX.lastIndex = 0;
   while ((match = LINKIFY_REGEX.exec(text)) !== null) {
-    // Add text before match
     if (match.index > lastIndex) {
       result.push(<span key={key++}>{text.slice(lastIndex, match.index)}</span>);
     }
     const m = match[0];
-    if (m.startsWith('http')) {
+    if (m.startsWith('@')) {
+      result.push(<span key={key++} className="font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 rounded px-0.5">{m}</span>);
+    } else if (m.startsWith('http')) {
       result.push(<a key={key++} href={m} target="_blank" rel="noopener noreferrer" className="text-indigo-500 dark:text-indigo-400 hover:underline break-all">{m}</a>);
     } else if (m.includes('@')) {
       result.push(<a key={key++} href={`mailto:${m}`} className="text-indigo-500 dark:text-indigo-400 hover:underline">{m}</a>);
@@ -45,7 +53,6 @@ const linkifyContent = (text: string): React.ReactNode[] => {
     }
     lastIndex = match.index + m.length;
   }
-  // Add remaining text
   if (lastIndex < text.length) {
     result.push(<span key={key++}>{text.slice(lastIndex)}</span>);
   }
@@ -278,6 +285,62 @@ const DiscussionBox: React.FC<DiscussionBoxProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const commentRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // @mention state
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([]);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [allUsers, setAllUsers] = useState<MentionUser[]>([]);
+
+  // Load employees for @mention autocomplete
+  useEffect(() => {
+    dataClient.from('employees').select('id, name, avatar').order('name').then(({ data }) => {
+      if (data) setAllUsers(data.map((e: any) => ({ id: e.id, name: e.name || e.id, avatar: e.avatar })));
+    });
+  }, []);
+
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setText(val);
+    // Detect @mention trigger
+    const cursor = e.target.selectionStart || 0;
+    const before = val.slice(0, cursor);
+    const mentionMatch = before.match(/@([\w\u00C0-\u024F]*)$/);
+    if (mentionMatch) {
+      const q = mentionMatch[1].toLowerCase();
+      setMentionQuery(q);
+      const filtered = allUsers.filter(u => u.name.toLowerCase().includes(q)).slice(0, 6);
+      setMentionUsers(filtered);
+      setMentionIndex(0);
+    } else {
+      setMentionQuery(null);
+      setMentionUsers([]);
+    }
+  };
+
+  const insertMention = (user: MentionUser) => {
+    const input = inputRef.current;
+    if (!input) return;
+    const cursor = input.selectionStart || 0;
+    const before = text.slice(0, cursor);
+    const after = text.slice(cursor);
+    const newBefore = before.replace(/@[\w\u00C0-\u024F]*$/, `@${user.name} `);
+    setText(newBefore + after);
+    setMentionQuery(null);
+    setMentionUsers([]);
+    setTimeout(() => { input.focus(); input.setSelectionRange(newBefore.length, newBefore.length); }, 0);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (mentionUsers.length > 0 && mentionQuery !== null) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => Math.min(i + 1, mentionUsers.length - 1)); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIndex(i => Math.max(i - 1, 0)); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(mentionUsers[mentionIndex]); return; }
+      if (e.key === 'Escape') { setMentionQuery(null); setMentionUsers([]); return; }
+    }
+    if (e.key === 'Enter' && !e.shiftKey && mentionUsers.length === 0) { e.preventDefault(); handleSend(); }
+  };
+
   const loadComments = useCallback(async () => {
     try {
       const data = await DiscussionService.getByEntity(entityType, entityId);
@@ -441,14 +504,37 @@ const DiscussionBox: React.FC<DiscussionBoxProps> = ({
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
           {currentUserName.charAt(0).toUpperCase()}
         </div>
-        <input
-          ref={inputRef}
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-          placeholder={replyingTo ? `Trả lời ${replyingTo.user_name}...` : 'Viết bình luận...'}
-          className="flex-1 text-sm px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-        />
+        {/* Input wrapper with mention dropdown */}
+        <div className="flex-1 relative">
+          {mentionUsers.length > 0 && mentionQuery !== null && (
+            <div className="absolute bottom-full left-0 mb-1 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden z-50">
+              <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 flex items-center gap-1">
+                <AtSign size={10} /> Nhắc đến
+              </div>
+              {mentionUsers.map((u, i) => (
+                <button
+                  key={u.id}
+                  onMouseDown={e => { e.preventDefault(); insertMention(u); }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors cursor-pointer
+                    ${i === mentionIndex ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
+                >
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                    {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full rounded-full object-cover" /> : u.name.charAt(0).toUpperCase()}
+                  </div>
+                  {u.name}
+                </button>
+              ))}
+            </div>
+          )}
+          <input
+            ref={inputRef}
+            value={text}
+            onChange={handleTextChange}
+            onKeyDown={handleInputKeyDown}
+            placeholder={replyingTo ? `Trả lời ${replyingTo.user_name}... (dùng @ để nhắc đến)` : 'Viết bình luận... (dùng @ để nhắc đến)'}
+            className="w-full text-sm px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+          />
+        </div>
         <button
           onClick={handleSend}
           disabled={!text.trim() || sending}

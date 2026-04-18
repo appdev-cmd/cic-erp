@@ -4,7 +4,7 @@ import {
   AlertTriangle, Pin, User, Edit3, Save, ExternalLink,
   Play, CheckCircle2, Plus, Trash2, History, Lock,
   Eye, Crown, Users, ShieldCheck, Send, XCircle, RotateCcw,
-  FileText, Briefcase, Building, Bookmark
+  FileText, Briefcase, Building, Bookmark, Network, Paperclip
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskService } from '../../services/taskService';
@@ -22,6 +22,12 @@ import { SlidePanelHeader } from '../ui/SlidePanelHeader';
 import { EntitySearchService } from '../../services/entitySearchService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOpenEntityPanel } from '../LazyPages';
+import { TaskTimeTab } from './task-detail/TaskTimeTab';
+import { TaskSubtasksTab } from './task-detail/TaskSubtasksTab';
+import TaskApprovalTab from './task-detail/TaskApprovalTab';
+import TaskAttachmentTab from './task-detail/TaskAttachmentTab';
+import TaskRecurringSection from './task-detail/TaskRecurringSection';
+
 
 // ═══════════════════════════════════════
 // PRIORITY CONFIG
@@ -484,7 +490,7 @@ interface TaskDetailPanelProps {
   onClose?: () => void;
   onUpdate?: () => void;
   currentUserId?: string;
-  initialTab?: 'detail' | 'comments' | 'history' | 'links' | 'time';
+  initialTab?: 'detail' | 'comments' | 'history' | 'links' | 'time' | 'subtasks';
 }
 
 const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
@@ -495,6 +501,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   initialTab,
 }) => {
   const { profile } = useAuth();
+  const openEntityPanel = useOpenEntityPanel();
   const [task, setTask] = useState<Task | null>(null);
   const [statuses, setStatuses] = useState<TaskStatus[]>([]);
   const [links, setLinks] = useState<TaskLink[]>([]);
@@ -504,11 +511,11 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   const [editDescription, setEditDescription] = useState('');
   const [editProgressNote, setEditProgressNote] = useState('');
   const [isEditingDesc, setIsEditingDesc] = useState(false);
-  const [bottomTab, setBottomTabState] = useState<'detail' | 'comments' | 'history' | 'links' | 'time'>(() => {
+  const [bottomTab, setBottomTabState] = useState<'detail' | 'comments' | 'history' | 'links' | 'time' | 'subtasks' | 'approval' | 'attachments'>(() => {
     return (localStorage.getItem('cic-erp-task-bottom-tab') as any) || initialTab || 'detail';
   });
 
-  const setBottomTab = (tab: 'detail' | 'comments' | 'history' | 'links' | 'time') => {
+  const setBottomTab = (tab: 'detail' | 'comments' | 'history' | 'links' | 'time' | 'subtasks' | 'approval' | 'attachments') => {
     setBottomTabState(tab);
     localStorage.setItem('cic-erp-task-bottom-tab', tab);
   };
@@ -1270,10 +1277,9 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
           <div className="flex border-b border-slate-200 dark:border-slate-800 px-5 flex-shrink-0">
             {[
               { id: 'detail' as const, label: 'Chi tiết', icon: <Edit3 size={14} /> },
-              { id: 'comments' as const, label: 'Trao đổi', icon: <MessageSquare size={14} /> },
-              { id: 'history' as const, label: 'Lịch sử', icon: <History size={14} /> },
-              { id: 'links' as const, label: 'Liên kết', icon: <Link2 size={14} /> },
-              { id: 'time' as const, label: 'Thời gian', icon: <Clock size={14} /> },
+              { id: 'subtasks' as const, label: 'Việc con', icon: <Network size={14} /> },
+              { id: 'attachments' as const, label: 'Tệp đính kèm', icon: <Paperclip size={14} /> },
+              { id: 'approval' as const, label: 'Phê duyệt', icon: <ShieldCheck size={14} /> },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1303,8 +1309,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                       setEditDescription(e.target.value);
                       bufferChange('description', e.target.value);
                     }}
-                    rows={8}
-                    className="w-full text-sm p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y transition-colors min-h-[160px]"
+                    rows={4}
+                    className="w-full text-sm p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y transition-colors min-h-[80px]"
                     placeholder="Nhấn để thêm mô tả..."
                   />
                 </div>
@@ -1436,7 +1442,70 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* ─── LIÊN KẾT ─── */}
+                <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <Link2 size={12} /> Liên kết
+                  </label>
+                  {(task.source_module || task.project_id) && (
+                    <div className="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all overflow-hidden shadow-sm mb-2">
+                      <LinkItem
+                        link={{
+                          id: 'primary', task_id: task.id,
+                          entity_type: task.source_module || (task.project_id ? 'project' : 'none'),
+                          entity_id: task.source_entity_id || task.project_id || '',
+                          entity_label: '',
+                        } as TaskLink}
+                        registryOptions={registryOptions}
+                      />
+                    </div>
+                  )}
+                  {links.map(link => (
+                    <div key={link.id} className="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all overflow-hidden mb-2">
+                      <LinkItem link={link} registryOptions={registryOptions} />
+                      <button
+                        onClick={() => TaskService.removeLink(link.id).then(() => setLinks(prev => prev.filter(l => l.id !== link.id)))}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-500 transition-all rounded cursor-pointer"
+                        title="Xóa liên kết"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  {!task.source_module && !task.project_id && links.length === 0 && (
+                    <p className="text-xs text-slate-400 dark:text-slate-500 italic">Chưa có liên kết</p>
+                  )}
+                </div>
+
+                {/* ─── TRAO ĐỔI ─── */}
+                <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <MessageSquare size={12} /> Trao đổi
+                  </label>
+                  <DiscussionBox
+                    entityType="task"
+                    entityId={taskId}
+                    className="border-0 rounded-none"
+                    maxHeight="320px"
+                    showHeader={false}
+                  />
+                </div>
+
+                {/* ─── LỊCH SỬ ─── */}
+                <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <History size={12} /> Lịch sử
+                  </label>
+                  <HistoryTab taskId={taskId} logs={historyLogs} setLogs={setHistoryLogs} />
+                </div>
+
               </div>
+            )}
+
+            {/* CÔNG VIỆC CON */}
+            {bottomTab === 'subtasks' && (
+              <TaskSubtasksTab parentTask={task} onSelectTask={(subId) => openEntityPanel('tasks', subId)} />
             )}
 
             {/* TRAO ĐỔI */}
@@ -1673,30 +1742,24 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
 
             {/* THỜI GIAN */}
             {bottomTab === 'time' && (
-              <div className="p-5">
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-center">
-                    <span className="text-xs text-slate-400 dark:text-slate-500 block">Dự kiến</span>
-                    <span className="text-lg font-bold text-slate-700 dark:text-slate-300">
-                      {task.time_estimate ? `${Math.floor(task.time_estimate / 60)}h${task.time_estimate % 60 > 0 ? ` ${task.time_estimate % 60}m` : ''}` : '—'}
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-center">
-                    <span className="text-xs text-slate-400 dark:text-slate-500 block">Đã dùng</span>
-                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                      {task.time_spent > 0 ? `${Math.floor(task.time_spent / 60)}h${task.time_spent % 60 > 0 ? ` ${task.time_spent % 60}m` : ''}` : '0h'}
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-center">
-                    <span className="text-xs text-slate-400 dark:text-slate-500 block">Số ngày</span>
-                    <span className="text-lg font-bold text-slate-700 dark:text-slate-300">
-                      {task.start_date && task.due_date
-                        ? Math.max(0, Math.round((new Date(task.due_date).getTime() - new Date(task.start_date).getTime()) / 86400000))
-                        : '—'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <TaskTimeTab task={task} currentUserId={currentUserId || profile?.id || ''} />
+            )}
+
+            {/* TỆP ĐÍNH KÈM */}
+            {bottomTab === 'attachments' && (
+              <TaskAttachmentTab
+                taskId={task.id}
+                currentUserId={currentUserId || profile?.id || ''}
+              />
+            )}
+
+            {/* PHÊ DUYỆT */}
+            {bottomTab === 'approval' && (
+              <TaskApprovalTab
+                task={task}
+                currentUserId={currentUserId || profile?.id || ''}
+                onUpdate={loadTask}
+              />
             )}
           </div>
         </div>
@@ -2092,6 +2155,11 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                   />
                 )}
               </div>
+            </div>
+
+            {/* LỊCH LẶP (T7.5) */}
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
+              <TaskRecurringSection task={task} onUpdate={loadTask} />
             </div>
 
             {/* Metadata */}

@@ -43,14 +43,17 @@ interface CalendarViewProps {
   tasks: Task[];
   statuses: TaskStatus[];
   onSelect: (id: string) => void;
+  onUpdateDates?: (taskId: string, newDueDate: string) => Promise<void>;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ tasks, statuses, onSelect }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ tasks, statuses, onSelect, onUpdateDates }) => {
   const today = new Date();
   const todayKey = toDateKey(today);
 
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
 
   // Group tasks by due_date
   const tasksByDate = useMemo(() => {
@@ -187,7 +190,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, statuses, onSelect }
                   }
                   ${cell.isToday ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}
                   ${hasOverdue ? 'bg-red-50/30 dark:bg-red-900/10' : ''}
+                  ${dragOverDate === cell.dateKey ? 'ring-2 ring-inset ring-indigo-400 dark:ring-indigo-500 bg-indigo-50/60 dark:bg-indigo-900/20' : ''}
                 `}
+                onDragOver={onUpdateDates ? (e) => { e.preventDefault(); setDragOverDate(cell.dateKey); } : undefined}
+                onDragLeave={onUpdateDates ? () => setDragOverDate(null) : undefined}
+                onDrop={onUpdateDates ? async (e) => {
+                  e.preventDefault();
+                  setDragOverDate(null);
+                  const taskId = e.dataTransfer.getData('taskId');
+                  if (!taskId || !cell.isCurrentMonth) return;
+                  try { await onUpdateDates(taskId, cell.dateKey); } catch {}
+                  setDraggingTaskId(null);
+                } : undefined}
               >
                 {/* Day number */}
                 <div className="flex items-center justify-between mb-1">
@@ -220,12 +234,20 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, statuses, onSelect }
                     return (
                       <button
                         key={task.id}
+                        draggable={!!onUpdateDates}
+                        onDragStart={onUpdateDates ? (e) => {
+                          e.dataTransfer.setData('taskId', task.id);
+                          setDraggingTaskId(task.id);
+                        } : undefined}
+                        onDragEnd={() => setDraggingTaskId(null)}
                         onClick={() => onSelect(task.id)}
                         className={`w-full text-left px-1.5 py-0.5 rounded text-[11px] leading-tight truncate transition-all cursor-pointer group
                           ${isDone
                             ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 line-through opacity-60 hover:opacity-100'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-700 dark:hover:text-indigo-400'
-                          }`}
+                          }
+                          ${draggingTaskId === task.id ? 'opacity-50 scale-95' : ''}
+                        `}
                         title={task.title}
                       >
                         <span className="flex items-center gap-1">

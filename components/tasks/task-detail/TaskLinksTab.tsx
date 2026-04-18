@@ -1,12 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Crown, Edit3, Trash2, X, Plus, Link2 } from 'lucide-react';
+import { Crown, Edit3, Trash2, X, Plus, Link2, ShieldAlert, ArrowRight, ChevronsRight, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskService } from '../../../services/taskService';
 import { EntityRegistryService } from '../../../services/entityRegistryService';
 import { EntitySearchService } from '../../../services/entitySearchService';
 import SearchableSelect from '../../ui/SearchableSelect';
 import { LinkItem } from '../TaskDetailSubComponents';
-import type { Task, TaskLink } from '../../../types/taskTypes';
+import type { Task, TaskLink, TaskDependencyType } from '../../../types/taskTypes';
+
+const DEPENDENCY_OPTIONS: { value: TaskDependencyType; label: string; color: string }[] = [
+  { value: 'related',          label: 'Liên quan',        color: 'text-slate-500 dark:text-slate-400' },
+  { value: 'blocks',           label: 'Chặn',             color: 'text-rose-600 dark:text-rose-400' },
+  { value: 'blocked_by',       label: 'Bị chặn bởi',      color: 'text-orange-600 dark:text-orange-400' },
+  { value: 'duplicates',       label: 'Trùng lặp',        color: 'text-violet-600 dark:text-violet-400' },
+  { value: 'is_duplicated_by', label: 'Bị trùng lặp bởi', color: 'text-violet-500 dark:text-violet-300' },
+];
 
 interface TaskLinksTabProps {
   task: Task;
@@ -20,6 +28,7 @@ export const TaskLinksTab: React.FC<TaskLinksTabProps> = ({ task, links, setLink
   // Add Link state
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [selectedLinkType, setSelectedLinkType] = useState<string>('');
+  const [selectedDepType, setSelectedDepType] = useState<TaskDependencyType>('related');
   const [registryOptions, setRegistryOptions] = useState<{id: string; name: string}[]>([]);
   const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
 
@@ -50,11 +59,13 @@ export const TaskLinksTab: React.FC<TaskLinksTabProps> = ({ task, links, setLink
         task_id: task.id,
         entity_type: selectedLinkType,
         entity_id: entityId,
-        entity_label: option?.name
-      });
-      setLinks(prev => [...prev, Object.assign({}, newLink, { entity_type: selectedLinkType })]);
+        entity_label: option?.name,
+        dependency_type: selectedDepType,
+      } as any);
+      setLinks(prev => [...prev, Object.assign({}, newLink, { entity_type: selectedLinkType, dependency_type: selectedDepType })]);
       setIsAddingLink(false);
       setSelectedLinkType('');
+      setSelectedDepType('related');
       toast.success('Đã thêm liên kết');
     } catch (e: any) {
       toast.error('Lỗi thêm liên kết: ' + e.message);
@@ -199,6 +210,14 @@ export const TaskLinksTab: React.FC<TaskLinksTabProps> = ({ task, links, setLink
                 </div>
               ) : (
                 <div key={link.id} className="group relative bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 transition-all overflow-hidden">
+                  {link.dependency_type && link.dependency_type !== 'related' && (
+                    <div className={`px-2 py-0.5 text-[10px] font-bold border-b border-slate-100 dark:border-slate-700 flex items-center gap-1 ${
+                      DEPENDENCY_OPTIONS.find(d => d.value === link.dependency_type)?.color || ''
+                    }`}>
+                      <ShieldAlert size={9} />
+                      {DEPENDENCY_OPTIONS.find(d => d.value === link.dependency_type)?.label}
+                    </div>
+                  )}
                   <LinkItem link={link} registryOptions={registryOptions} />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 pl-2 rounded-l-xl">
                     <button
@@ -251,6 +270,18 @@ export const TaskLinksTab: React.FC<TaskLinksTabProps> = ({ task, links, setLink
                 <option value="">-- Chọn loại --</option>
                 {registryOptions.map(opt => (
                   <option key={opt.id} value={opt.id}>{opt.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Quan hệ phụ thuộc</label>
+              <select
+                value={selectedDepType}
+                onChange={e => setSelectedDepType(e.target.value as TaskDependencyType)}
+                className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:border-indigo-500"
+              >
+                {DEPENDENCY_OPTIONS.map(d => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
                 ))}
               </select>
             </div>

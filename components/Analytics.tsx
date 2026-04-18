@@ -278,6 +278,15 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     // Contracts are already filtered by unit+year from the API call
     const filteredContracts = contracts;
 
+    // Active contracts only — nhất quán với SQL RPC get_brands_with_stats:
+    // chỉ lấy hợp đồng đang hoạt động (không tính Draft, Cancelled, Suspended...)
+    const activeContracts = useMemo(
+        () => filteredContracts.filter(c =>
+            ['Processing', 'Handover', 'Acceptance', 'Completed'].includes(c.status)
+        ),
+        [filteredContracts]
+    );
+
     /* ─── KPI Calculations (from getStats RPC — same as Dashboard) ─── */
     const kpiData = useMemo(() => {
         if (!statsData) return { totalRevenue: 0, totalProfit: 0, contractCount: 0, completionRate: 0 };
@@ -433,7 +442,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     // Dùng outputPrice × quantity trực tiếp (nhất quán với vw_products_with_stats trong module Đối tác)
     const topBrandsData = useMemo(() => {
         const brandMap = new Map<string, number>(); // brandId -> revenue
-        filteredContracts.forEach(c => {
+        activeContracts.forEach(c => {
             if (c.lineItems && Array.isArray(c.lineItems)) {
                 c.lineItems.forEach((li: any) => {
                     const product = products.find(p => p.id === li.productId);
@@ -456,19 +465,19 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             .filter(d => d.value > 0)
             .sort((a, b) => b.value - a.value)
             .slice(0, 5);
-    }, [filteredContracts, products, brands]);
+    }, [activeContracts, products, brands]);
 
     // 8. Product Category Distribution
+    // Dùng outputPrice × quantity nhất quán với module Đối tác (get_brands_with_stats)
     const productCategoryData = useMemo(() => {
         const catMap = new Map<string, number>();
-        filteredContracts.forEach(c => {
+        activeContracts.forEach(c => {
             if (c.lineItems && Array.isArray(c.lineItems)) {
                 c.lineItems.forEach((li: any) => {
                     const product = products.find(p => p.id === li.productId);
                     const cat = product?.category || 'Chưa phân loại';
-                    const proportion = c.value > 0 ? ((li.outputPrice || 0) * (li.quantity || 1)) / c.value : 0;
-                    const allocatedRevenue = (c.actualRevenue || 0) * proportion;
-                    catMap.set(cat, (catMap.get(cat) || 0) + allocatedRevenue);
+                    const lineRevenue = (li.outputPrice || 0) * (li.quantity || 1);
+                    catMap.set(cat, (catMap.get(cat) || 0) + lineRevenue);
                 });
             }
         });
@@ -481,7 +490,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             }))
             .filter(d => d.value > 0)
             .sort((a, b) => b.value - a.value);
-    }, [filteredContracts, products]);
+    }, [activeContracts, products]);
 
     // 9. Payment Status / Debt (Rủi ro dòng tiền)
     const paymentStatusData = useMemo(() => {
@@ -537,20 +546,22 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     }, [filteredContracts, employees]);
 
     // 11. Brand Profitability Margin
+    // Doanh thu dùng outputPrice × quantity nhất quán với module Đối tác.
+    // Lợi nhuận phân bổ theo tỷ lệ line item / contract_value vì profit chỉ có ở cấp hợp đồng.
     const brandProfitabilityData = useMemo(() => {
         const brandMap = new Map<string, { rev: number, profit: number }>();
-        filteredContracts.forEach(c => {
+        activeContracts.forEach(c => {
             if (c.lineItems && Array.isArray(c.lineItems)) {
                 c.lineItems.forEach((li: any) => {
                     const product = products.find(p => p.id === li.productId);
                     if (product && product.brandId) {
-                        const proportion = c.value > 0 ? ((li.outputPrice || 0) * (li.quantity || 1)) / c.value : 0;
-                        const allocatedRevenue = (c.actualRevenue || 0) * proportion;
+                        const lineRevenue = (li.outputPrice || 0) * (li.quantity || 1);
+                        const proportion = c.value > 0 ? lineRevenue / c.value : 0;
                         const allocatedProfit = ((c.adminProfit || 0) + (c.revProfit || 0)) * proportion; // tổng LN gộp
 
                         const current = brandMap.get(product.brandId) || { rev: 0, profit: 0 };
                         brandMap.set(product.brandId, {
-                            rev: current.rev + allocatedRevenue,
+                            rev: current.rev + lineRevenue,
                             profit: current.profit + allocatedProfit
                         });
                     }
@@ -571,7 +582,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             .filter(d => d.revenue > 0)
             .sort((a, b) => b.value - a.value)
             .slice(0, 5);
-    }, [filteredContracts, products, brands]);
+    }, [activeContracts, products, brands]);
 
     const formatCurrency = (val: number) => {
         const abs = Math.abs(val);
@@ -588,25 +599,42 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     };
 
     const renderHoverTable = (data: any) => {
-        let matches: Contract[] = [];
+        // Chỉ dùng activeContracts (loại Suspended) để nhất quán với bar chart
+        let matches: { contract: Contract; displayValue: number }[] = [];
+
         if (data.type === 'CUSTOMER') {
-            matches = filteredContracts.filter(c => c.customerId === data.id);
+            matches = activeContracts
+                .filter(c => c.customerId === data.id)
+                .map(c => ({ contract: c, displayValue: c.actualRevenue || 0 }));
         } else if (data.type === 'BRAND') {
-            matches = filteredContracts.filter(c =>
-                c.lineItems?.some((li: any) => {
+            // Dùng outputPrice × quantity của các line item thuộc hãng này (nhất quán với bar chart)
+            activeContracts.forEach(c => {
+                const brandRevenue = (c.lineItems || []).reduce((sum: number, li: any) => {
                     const product = products.find(p => p.id === li.productId);
-                    return product?.brandId === data.id;
-                })
-            );
+                    if (product?.brandId === data.id) {
+                        return sum + (li.outputPrice || 0) * (li.quantity || 1);
+                    }
+                    return sum;
+                }, 0);
+                if (brandRevenue > 0) matches.push({ contract: c, displayValue: brandRevenue });
+            });
+            matches.sort((a, b) => b.displayValue - a.displayValue);
         } else if (data.type === 'EMPLOYEE') {
-            matches = filteredContracts.filter(c => c.salespersonId === data.id);
+            matches = activeContracts
+                .filter(c => c.salespersonId === data.id)
+                .map(c => ({ contract: c, displayValue: c.actualRevenue || 0 }));
         } else if (data.type === 'CATEGORY') {
-            matches = filteredContracts.filter(c =>
-                c.lineItems?.some((li: any) => {
+            activeContracts.forEach(c => {
+                const catRevenue = (c.lineItems || []).reduce((sum: number, li: any) => {
                     const product = products.find(p => p.id === li.productId);
-                    return (product?.category || 'Chưa phân loại') === data.name;
-                })
-            );
+                    if ((product?.category || 'Chưa phân loại') === data.name) {
+                        return sum + (li.outputPrice || 0) * (li.quantity || 1);
+                    }
+                    return sum;
+                }, 0);
+                if (catRevenue > 0) matches.push({ contract: c, displayValue: catRevenue });
+            });
+            matches.sort((a, b) => b.displayValue - a.displayValue);
         }
 
         if (matches.length === 0) return null;
@@ -615,7 +643,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
                 <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">Chi tiết Hợp đồng ({matches.length}):</p>
                 <div className="space-y-1.5 min-w-[440px] max-h-[200px] overflow-y-auto pr-2 select-text pointer-events-auto styled-scrollbar">
-                    {matches.map(c => (
+                    {matches.map(({ contract: c, displayValue }) => (
                         <Link
                             key={c.id}
                             to={`/?contractId=${c.id}`}
@@ -625,7 +653,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                 {c.contractCode} - {c.title}
                             </span>
                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 dark:text-slate-100 dark:group-hover:text-indigo-400 shrink-0">
-                                {formatCurrencyCompact(c.actualRevenue || 0)}
+                                {formatCurrencyCompact(displayValue)}
                             </span>
                         </Link>
                     ))}

@@ -127,18 +127,43 @@ interface GanttViewProps {
   tasks: Task[];
   onSelect: (id: string) => void;
   statuses: TaskStatus[];
+  onUpdateDates?: (taskId: string, startDate: string | null, dueDate: string | null) => Promise<void>;
 }
 
-export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses }) => {
-  const [zoom, setZoom] = useState<ZoomLevel>('week');
-  const [groupBy, setGroupBy] = useState<GroupBy>('none');
+export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses, onUpdateDates }) => {
+  const [zoom, setZoomState] = useState<ZoomLevel>(
+    () => (localStorage.getItem('cic_gantt_zoom') as ZoomLevel) || 'week'
+  );
+  const setZoom = (z: ZoomLevel) => {
+    setZoomState(z);
+    localStorage.setItem('cic_gantt_zoom', z);
+  };
+  const [groupBy, setGroupByState] = useState<GroupBy>(
+    () => (localStorage.getItem('cic_gantt_group') as GroupBy) || 'none'
+  );
+  const setGroupBy = (g: GroupBy) => {
+    setGroupByState(g);
+    localStorage.setItem('cic_gantt_group', g);
+  };
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; task: GanttTask } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [isResizing, setIsResizing] = useState(false);
   const [containerWidth, setContainerWidth] = useState(0);
   const [profiles, setProfiles] = useState<Record<string, { name: string; avatar: string | null }>>({});
+  const [isDragging, setIsDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // ─── Drag-drop state (ref to avoid stale closure) ───
+  const dragRef = useRef<{
+    taskId: string;
+    origStart: Date;
+    origEnd: Date;
+    startX: number;
+    pxPerDay: number;
+    hasStart: boolean;
+    hasDue: boolean;
+  } | null>(null);
 
   // ─── Prepare Gantt tasks (only those with dates) ───
   const { ganttTasks, noDateCount } = useMemo(() => {
@@ -167,11 +192,11 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses 
     const ids = new Set<string>();
     ganttTasks.forEach(gt => gt.task.assignees?.forEach(id => ids.add(id)));
     if (ids.size === 0) return;
-    dataClient.from('profiles').select('id, full_name, avatar_url').in('id', Array.from(ids))
+    dataClient.from('employees').select('id, name, avatar').in('id', Array.from(ids))
       .then(({ data }) => {
         if (!data) return;
         const map: Record<string, { name: string; avatar: string | null }> = {};
-        data.forEach((p: any) => { map[p.id] = { name: p.full_name || '', avatar: p.avatar_url }; });
+        data.forEach((p: any) => { map[p.id] = { name: p.name || '', avatar: p.avatar }; });
         setProfiles(map);
       });
   }, [ganttTasks]);
@@ -323,6 +348,54 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses 
     setCollapsedGroups(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
   }, []);
 
+  // ─── Drag-drop handlers ───
+  const handleBarDragStart = useCallback((e: React.MouseEvent, gt: GanttTask, currentPxPerDay: number) => {
+    if (!onUpdateDates) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = {
+      taskId: gt.task.id,
+      origStart: gt.startDay,
+      origEnd: gt.endDay,
+      startX: e.clientX,
+      pxPerDay: currentPxPerDay,
+      hasStart: !!gt.task.start_date,
+      hasDue: !!gt.task.due_date,
+    };
+    setIsDragging(true);
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      const deltaX = ev.clientX - dragRef.current.startX;
+      const deltaDays = Math.round(deltaX / dragRef.current.pxPerDay);
+      if (deltaDays === 0) return;
+      // Show visual cursor
+    };
+
+    const onUp = async (ev: MouseEvent) => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      setIsDragging(false);
+      if (!dragRef.current || !onUpdateDates) { dragRef.current = null; return; }
+      const deltaX = ev.clientX - dragRef.current.startX;
+      const deltaDays = Math.round(deltaX / dragRef.current.pxPerDay);
+      if (deltaDays === 0) { dragRef.current = null; return; }
+      const newStart = addDays(dragRef.current.origStart, deltaDays);
+      const newEnd = addDays(dragRef.current.origEnd, deltaDays);
+      try {
+        await onUpdateDates(
+          dragRef.current.taskId,
+          dragRef.current.hasStart ? format(newStart, 'yyyy-MM-dd') : null,
+          dragRef.current.hasDue ? format(newEnd, 'yyyy-MM-dd') : null,
+        );
+      } catch { /* error handled by caller */ }
+      dragRef.current = null;
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [onUpdateDates]);
+
   const showTooltip = useCallback((e: React.MouseEvent, gt: GanttTask) => {
     const r = e.currentTarget.getBoundingClientRect();
     setTooltip({ x: r.left + r.width / 2, y: r.top - 8, task: gt });
@@ -432,9 +505,12 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses 
                   <div className="relative border-b border-slate-100 dark:border-slate-800" style={{ width: timelineWidth }}>
                     {/* Gantt bar */}
                     <div
-                      className="absolute top-1.5 cursor-pointer rounded-md overflow-hidden group/bar"
+                      className={`absolute top-1.5 rounded-md overflow-hidden group/bar ${
+                        onUpdateDates ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                      }`}
                       style={{ left: bar.left, width: bar.width, height: ROW_HEIGHT - 12 }}
-                      onClick={() => onSelect(gt.task.id)}
+                      onClick={(e) => { if (!isDragging) onSelect(gt.task.id); }}
+                      onMouseDown={(e) => handleBarDragStart(e, gt, pxPerDay)}
                       onMouseEnter={(e) => showTooltip(e, gt)}
                       onMouseLeave={hideTooltip}
                     >

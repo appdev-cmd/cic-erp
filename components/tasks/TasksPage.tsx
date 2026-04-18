@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Plus, CheckSquare, Search, Clock, AlertTriangle, Calendar,
   X, MessageSquare, Tag, Copy, Pin, Play, CheckCircle2,
-  Briefcase, ArrowUpDown, Trash2
+  Briefcase, ArrowUpDown, Trash2, ChevronRight, Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
@@ -23,6 +23,8 @@ import { formatDate, formatDateShort, formatDateTime } from '../../utils/formatt
 import type {
   Task, TaskStatus, TaskPriority, TaskFilterOptions, CreateTaskInput, TaskRoleFilter
 } from '../../types/taskTypes';
+import { TaskFilterBar, type DateRange } from './TaskFilterBar';
+import { exportTasksToExcel } from '../../services/taskExportService';
 
 // Extracted sub-components & configs (previously inline — ~515 lines)
 import {
@@ -74,6 +76,8 @@ const BitrixListView: React.FC<{
   const [editingCell, setEditingCell] = useState<{ taskId: string; col: 'status' | 'deadline' | 'assignee' | 'comment' } | null>(null);
   // Comment counts loaded via batch
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  // Expand/collapse state for tree view
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const taskIds = tasks.map(t => t.id);
@@ -82,6 +86,47 @@ const BitrixListView: React.FC<{
       .then(counts => setCommentCounts(counts))
       .catch((err) => { console.error(err); });
   }, [tasks]);
+
+  const toggleExpand = (e: React.MouseEvent, taskId: string) => {
+    e.stopPropagation();
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
+
+  const flattenedTasks = useMemo(() => {
+    const childrenMap = new Map<string, Task[]>();
+    const roots: Task[] = [];
+    
+    // Group by parent_id
+    tasks.forEach(t => {
+      if (t.parent_id && tasks.some(x => x.id === t.parent_id)) {
+        if (!childrenMap.has(t.parent_id)) childrenMap.set(t.parent_id, []);
+        childrenMap.get(t.parent_id)!.push(t);
+      } else {
+        roots.push(t);
+      }
+    });
+
+    const result: (Task & { _level: number; _hasChildren: boolean })[] = [];
+    
+    const traverse = (t: Task, level: number) => {
+      const children = childrenMap.get(t.id) || [];
+      result.push({ ...t, _level: level, _hasChildren: children.length > 0 });
+      if (expandedIds.has(t.id)) {
+        // Có thể sort children theo sort_order nếu muốn
+        children.sort((a, b) => a.sort_order - b.sort_order).forEach(c => traverse(c, level + 1));
+      }
+    };
+
+    // Có thể sort roots theo priority/hạn ở ngoài, components wrap xử lý, ở đây chỉ sort the input roots
+    roots.forEach(r => traverse(r, 0));
+    return result;
+  }, [tasks, expandedIds]);
+
 
   const handleWidthChange = useCallback((col: ColumnKey, width: number) => {
     setColWidths(prev => ({ ...prev, [col]: width }));
@@ -141,7 +186,7 @@ const BitrixListView: React.FC<{
             </td>
           </tr>
           
-          {tasks.map((task) => {
+          {flattenedTasks.map((task) => {
             const priorityConf = PRIORITY_CONFIG[task.priority];
             const status = statuses.find(s => s.id === task.status_id);
             const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !task.completed_at;
@@ -177,7 +222,21 @@ const BitrixListView: React.FC<{
 
                 {/* Name + priority on second line */}
                 <td className="px-3 py-2" onClick={() => onSelect(task.id)}>
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-2" style={{ paddingLeft: `${Math.min(task._level, 5) * 20}px` }}>
+                    {/* Expand/Collapse Toggle or Indent Line */}
+                    {task._hasChildren ? (
+                      <button 
+                        onClick={(e) => toggleExpand(e, task.id)}
+                        className="mt-0.5 w-4 h-4 flex-shrink-0 flex items-center justify-center rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                      >
+                        <ChevronRight size={14} className={`transform transition-transform ${expandedIds.has(task.id) ? 'rotate-90' : ''}`} />
+                      </button>
+                    ) : task._level > 0 ? (
+                      <div className="w-4 h-4 flex-shrink-0 relative mt-0.5">
+                         <div className="absolute top-0 left-1.5 w-2 h-2.5 border-l-2 border-b-2 border-slate-300 dark:border-slate-600 rounded-bl" />
+                      </div>
+                    ) : null}
+
                     <div className="min-w-0 flex-1">
                       <span className={`font-semibold text-sm leading-tight ${isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>
                         {task.title}
@@ -852,111 +911,8 @@ const BulkActionsBar: React.FC<{
 };
 
 // ═══════════════════════════════════════
-// MAIN TASKS PAGE (Bitrix24-style)
+// TASKS PAGE (main)
 // ═══════════════════════════════════════
-// SEARCH WITH TAG AUTOCOMPLETE
-// ═══════════════════════════════════════
-const SearchWithTagAutocomplete: React.FC<{
-  value: string;
-  onChange: (val: string) => void;
-  onClear: () => void;
-  availableTags: string[];
-}> = ({ value, onChange, onClear, availableTags }) => {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-
-  // Detect if user is typing a #tag pattern at cursor position
-  const getTagFragment = (): string | null => {
-    const input = inputRef.current;
-    if (!input) return null;
-    const pos = input.selectionStart ?? value.length;
-    const textBefore = value.substring(0, pos);
-    const match = textBefore.match(/#(\S*)$/);
-    return match ? match[1] : null;
-  };
-
-  const tagFragment = getTagFragment();
-  const suggestions = tagFragment !== null
-    ? availableTags.filter(t =>
-        t.toLowerCase().includes(tagFragment.toLowerCase()) &&
-        !value.includes(`#${t}`)
-      ).slice(0, 20)
-    : [];
-
-  const handleSelectTag = (tag: string) => {
-    const input = inputRef.current;
-    if (!input) return;
-    const pos = input.selectionStart ?? value.length;
-    const textBefore = value.substring(0, pos);
-    const textAfter = value.substring(pos);
-    // Replace the #fragment with #tag
-    const newBefore = textBefore.replace(/#\S*$/, `#${tag}`);
-    const newValue = newBefore + (textAfter.startsWith(' ') ? textAfter : ' ' + textAfter);
-    onChange(newValue.trimEnd());
-    setShowSuggestions(false);
-    setTimeout(() => {
-      if (inputRef.current) {
-        const newPos = newBefore.length + 1;
-        inputRef.current.setSelectionRange(newPos, newPos);
-        inputRef.current.focus();
-      }
-    }, 0);
-  };
-
-  // Close on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  return (
-    <div ref={wrapperRef} className="relative">
-      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input
-        ref={inputRef}
-        autoFocus
-        value={value}
-        onChange={e => {
-          onChange(e.target.value);
-          setShowSuggestions(true);
-        }}
-        onFocus={() => { setShowSuggestions(true); }}
-        placeholder="Tìm kiếm... (gõ #tag để lọc)"
-        className="pl-9 pr-8 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-72 sm:w-96 transition-all"
-      />
-      {value && (
-        <button onClick={onClear} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
-          <X size={14} />
-        </button>
-      )}
-
-      {/* Tag suggestions dropdown */}
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
-          <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700">
-            Tags gợi ý
-          </div>
-          {suggestions.map(tag => (
-            <button
-              key={tag}
-              onClick={() => handleSelectTag(tag)}
-              className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <Tag size={12} className="text-indigo-400 dark:text-indigo-500 flex-shrink-0" />
-              <span className="font-medium">#{tag}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ═══════════════════════════════════════
 // TASKS PAGE (main)
@@ -993,6 +949,23 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
   const [personalUserTags, setPersonalUserTags] = useState<string[]>([]);
   const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
+  // Advanced filter states
+  const [filterStatusIds, setFilterStatusIds] = useState<string[]>([]);
+  const [filterAssigneeIds, setFilterAssigneeIds] = useState<string[]>([]);
+  const [filterDateRange, setFilterDateRange] = useState<DateRange>({});
+
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const currentPage = useRef(0);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   useEffect(() => {
     try {
@@ -1040,9 +1013,9 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
     setLoading(true);
     try {
       // Parse #tags from search query
-      const tagMatches = (searchQuery || '').match(/#(\S+)/g);
+      const tagMatches = (debouncedSearchQuery || '').match(/#(\S+)/g);
       const searchTags = tagMatches ? tagMatches.map(t => t.substring(1)) : [];
-      const textSearch = (searchQuery || '').replace(/#\S+/g, '').trim();
+      const textSearch = (debouncedSearchQuery || '').replace(/#\S+/g, '').trim();
 
       const [statusList, taskList, counts] = await Promise.all([
         TaskService.getStatuses(),
@@ -1050,6 +1023,10 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
           search: textSearch || undefined,
           project_id: filterProjectId !== 'all' ? filterProjectId : undefined,
           tags: searchTags.length > 0 ? searchTags : undefined,
+          status_ids: filterStatusIds.length > 0 ? filterStatusIds : undefined,
+          assignee_ids: filterAssigneeIds.length > 0 ? filterAssigneeIds : undefined,
+          due_before: filterDateRange.end ? filterDateRange.end : undefined,
+          due_after: filterDateRange.start ? filterDateRange.start : undefined,
           source_modules: isEmbedded && sourceModule ? [sourceModule] : undefined,
           source_entity_id: isEmbedded && sourceEntityId ? sourceEntityId : undefined,
         }, visibilityContext),
@@ -1057,6 +1034,10 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
       ]);
       setStatuses(statusList);
       setRoleCounts(counts);
+
+      const PAGE_SIZE = 50;
+      setHasMore(taskList.length === PAGE_SIZE);
+      currentPage.current = 0;
 
       // Enrich tasks with project names
       const projectIds = [...new Set(taskList.filter(t => t.project_id).map(t => t.project_id!))];
@@ -1117,17 +1098,66 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
     } finally {
       setLoading(false);
     }
-  }, [roleFilter, searchQuery, filterProjectId, visibilityContext.userId, isEmbedded, sourceModule, sourceEntityId]);
+  }, [roleFilter, debouncedSearchQuery, filterProjectId, filterStatusIds, filterAssigneeIds, filterDateRange, visibilityContext.userId, isEmbedded, sourceModule, sourceEntityId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // ─── Realtime Subscription: Auto-refresh khi task được tạo/sửa/xóa ───
+  // ─── Load More (T6.2) ───────────────────────────────────────────────────────
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextPage = currentPage.current + 1;
+    try {
+      const tagMatches = (debouncedSearchQuery || '').match(/#(\S+)/g);
+      const searchTags = tagMatches ? tagMatches.map(t => t.substring(1)) : [];
+      const textSearch = (debouncedSearchQuery || '').replace(/#\S+/g, '').trim();
+      const moreTasks = await TaskService.getTasksByRole(
+        visibilityContext.userId,
+        roleFilter,
+        {
+          search: textSearch || undefined,
+          project_id: filterProjectId !== 'all' ? filterProjectId : undefined,
+          tags: searchTags.length > 0 ? searchTags : undefined,
+          status_ids: filterStatusIds.length > 0 ? filterStatusIds : undefined,
+          assignee_ids: filterAssigneeIds.length > 0 ? filterAssigneeIds : undefined,
+          due_before: filterDateRange.end ? filterDateRange.end : undefined,
+          due_after: filterDateRange.start ? filterDateRange.start : undefined,
+          source_modules: isEmbedded && sourceModule ? [sourceModule] : undefined,
+          source_entity_id: isEmbedded && sourceEntityId ? sourceEntityId : undefined,
+        },
+        visibilityContext,
+        nextPage,
+      );
+      currentPage.current = nextPage;
+      setHasMore(moreTasks.length === 50);
+      setTasks(prev => {
+        const existingIds = new Set(prev.map(t => t.id));
+        const unique = moreTasks.filter(t => !existingIds.has(t.id));
+        return [...prev, ...unique];
+      });
+    } catch { /* ignore */ } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, debouncedSearchQuery, visibilityContext, roleFilter, filterProjectId, filterStatusIds, filterAssigneeIds, filterDateRange, isEmbedded, sourceModule, sourceEntityId]);
+
+
   useEffect(() => {
     const channel = dataClient
       .channel('tasks-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-        // Auto-reload khi có thay đổi (INSERT từ AI Agent, UPDATE status, DELETE)
-        loadData();
+        // T6.4: Smart realtime — chỉ update row đơn, không reload toàn bộ
+        if (payload.eventType === 'DELETE') {
+          setTasks(prev => prev.filter(t => t.id !== payload.old.id));
+        } else if (payload.eventType === 'INSERT') {
+          // New task from AI agent or other users → reload one time to get enriched data
+          loadData();
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+          const updated = payload.new as any;
+          setTasks(prev => prev.map(t => {
+            if (t.id !== updated.id) return t;
+            return { ...t, ...updated };
+          }));
+        }
       })
       .subscribe();
 
@@ -1163,18 +1193,33 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
 
   // Handlers
   const handleToggleComplete = useCallback(async (task: Task) => {
+    const prevTasks = tasks; // snapshot for rollback
     try {
       if (task.status?.is_done) {
         const defaultId = await TaskService.getDefaultStatusId();
-        if (defaultId) await TaskService.update(task.id, { status_id: defaultId, completed_at: undefined, completed_by: undefined });
+        const defaultStatus = statuses.find(s => s.id === defaultId);
+        if (defaultId) {
+          // Optimistic update
+          setTasks(prev => prev.map(t => t.id === task.id
+            ? { ...t, status_id: defaultId, status: defaultStatus, completed_at: undefined, completed_by: undefined }
+            : t
+          ));
+          await TaskService.update(task.id, { status_id: defaultId, completed_at: undefined, completed_by: undefined });
+        }
       } else {
+        const doneStatus = statuses.find(s => s.is_done);
+        // Optimistic update
+        setTasks(prev => prev.map(t => t.id === task.id
+          ? { ...t, status_id: doneStatus?.id, status: doneStatus, completed_at: new Date().toISOString(), completed_by: visibilityContext.userId }
+          : t
+        ));
         await TaskService.complete(task.id, visibilityContext.userId);
       }
-      loadData();
     } catch (err: any) {
+      setTasks(prevTasks); // rollback on error
       toast.error('Lỗi: ' + (err.message || err));
     }
-  }, [visibilityContext.userId, loadData]);
+  }, [visibilityContext.userId, tasks, statuses]);
 
   const handleSelectTask = useCallback((taskId: string, initialTab?: 'detail' | 'comments' | 'history' | 'links' | 'time') => {
     if (onSelectTask) {
@@ -1453,16 +1498,30 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
 
 
 
-          {/* Search Bar - Always Visible */}
-          <SearchWithTagAutocomplete
-            value={searchQuery}
-            onChange={setSearchQuery}
-            onClear={() => { setSearchQuery(''); }}
+          {/* Advanced Filter Bar */}
+          <TaskFilterBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
             availableTags={actualTags}
+            statuses={statuses}
+            selectedStatusIds={filterStatusIds}
+            onStatusChange={setFilterStatusIds}
+            selectedAssigneeIds={filterAssigneeIds}
+            onAssigneeChange={setFilterAssigneeIds}
+            dateRange={filterDateRange}
+            onDateRangeChange={setFilterDateRange}
           />
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Export Excel */}
+          <button
+            onClick={() => exportTasksToExcel(filteredTasks, employees)}
+            title="Xuất danh sách công việc ra Excel"
+            className="hidden sm:flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <Download size={13} /> Excel
+          </button>
           {/* Template manager */}
           <button
             onClick={() => {
@@ -1576,11 +1635,52 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
             />
           )}
           {viewMode === 'calendar' && (
-            <CalendarView tasks={filteredTasks} statuses={statuses} onSelect={handleSelectTask} />
+            <CalendarView
+              tasks={filteredTasks}
+              statuses={statuses}
+              onSelect={handleSelectTask}
+              onUpdateDates={async (taskId, newDueDate) => {
+                try {
+                  await TaskService.update(taskId, { due_date: newDueDate });
+                  await loadData();
+                  toast.success('Đã cập nhật deadline');
+                } catch (err: any) {
+                  toast.error('Không thể cập nhật: ' + err.message);
+                }
+              }}
+            />
           )}
           {viewMode === 'gantt' && (
-            <GanttView tasks={filteredTasks} statuses={statuses} onSelect={handleSelectTask} />
+            <GanttView
+              tasks={filteredTasks}
+              statuses={statuses}
+              onSelect={handleSelectTask}
+              onUpdateDates={async (taskId, startDate, dueDate) => {
+                try {
+                  await TaskService.update(taskId, { start_date: startDate ?? undefined, due_date: dueDate ?? undefined });
+                  await loadData();
+                } catch (err: any) {
+                  toast.error('Không thể cập nhật ngày: ' + err.message);
+                }
+              }}
+            />
           )}
+        </div>
+      )}
+
+      {/* ─── Load More button (T6.2) ─── */}
+      {!loading && hasMore && (viewMode === 'list' || viewMode === 'deadline') && (
+        <div className="flex justify-center py-4">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-semibold transition-all disabled:opacity-60 shadow-sm"
+          >
+            {loadingMore ? (
+              <span className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            ) : null}
+            {loadingMore ? 'Đang tải thêm…' : 'Tải thêm công việc'}
+          </button>
         </div>
       )}
 

@@ -115,11 +115,24 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
         ? ((product.basePrice - product.costPrice) / product.basePrice * 100).toFixed(0)
         : 0;
 
+    // Helper: tính giá trị riêng của sản phẩm này trong một hợp đồng (từ line items)
+    const getProductLineValue = (contract: Contract, pId: string): number => {
+        const items: any[] = (contract as any).lineItems || [];
+        return items
+            .filter((li: any) => li.productId === pId)
+            .reduce((sum: number, li: any) =>
+                sum + (Number(li.outputPrice) || 0) * (Number(li.quantity) || 1), 0);
+    };
+
     const stats = {
         contractCount: relatedContracts.length,
         totalValue: relatedContracts.reduce((sum, c) => sum + c.value, 0),
-        totalRevenue: relatedContracts.reduce((sum, c) => sum + c.actualRevenue, 0),
-        activeContracts: relatedContracts.filter(c => c.status === 'Processing').length
+        // Doanh thu SP = tổng outputPrice×qty của SP này trong tất cả HĐ liên quan
+        totalProductRevenue: relatedContracts.reduce(
+            (sum, c) => sum + getProductLineValue(c, productId), 0
+        ),
+        activeContracts: relatedContracts.filter(c =>
+            ['Processing', 'Handover', 'Acceptance'].includes(c.status)).length
     };
 
     return (
@@ -379,8 +392,17 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
                                                         <p className="text-xs text-slate-400 mt-0.5">{contract.partyA}</p>
                                                     </div>
                                                     <div className="text-right shrink-0">
-                                                        <p className="text-xs text-slate-400 mb-0.5">{contract.signedDate}</p>
-                                                        <p className="text-sm font-black text-slate-900 dark:text-slate-100">{formatCurrency(contract.value)}</p>
+                                                        <p className="text-xs text-slate-400 mb-1">{contract.signedDate}</p>
+                                                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">
+                                                            HĐ: {formatCurrency(contract.value)}
+                                                        </p>
+                                                        {getProductLineValue(contract, productId) > 0 ? (
+                                                            <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                                                SP: {formatCurrency(getProductLineValue(contract, productId))}
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-xs text-slate-400">SP: —</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -468,9 +490,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ productId, onBack, onView
                                 </span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-xs text-slate-500">Doanh thu thực tế</span>
+                                <span className="text-xs text-slate-500">Doanh thu SP này</span>
                                 <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                    {formatCurrency(stats.totalRevenue)}
+                                    {formatCurrency(stats.totalProductRevenue)}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center">

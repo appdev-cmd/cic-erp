@@ -487,14 +487,16 @@ export const TaskService = {
   /**
    * Core query builder: fetch tasks with optional ID filter and TaskFilterOptions.
    */
-  async _queryTasks(filters?: TaskFilterOptions, ids?: string[], ctx?: TaskVisibilityContext): Promise<Task[]> {
+  async _queryTasks(filters?: TaskFilterOptions, ids?: string[], ctx?: TaskVisibilityContext, page = 0, pageSize = 50): Promise<Task[]> {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
     let query = supabase
       .from('tasks')
       .select(TASK_SELECT)
-      .is('parent_id', null) // Top-level tasks only
       .order('is_pinned', { ascending: false }) // Pinned tasks first
       .order('sort_order')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
     // ID filter (for visibility-scoped queries)
     if (ids) {
@@ -577,7 +579,8 @@ export const TaskService = {
     userId: string,
     role: string,
     filters?: TaskFilterOptions,
-    visibilityCtx?: TaskVisibilityContext
+    visibilityCtx?: TaskVisibilityContext,
+    page = 0
   ): Promise<Task[]> {
     // ── Supervising: delegate to visibility-based subordinate query ──
     if (role === 'supervising' && visibilityCtx) {
@@ -587,7 +590,6 @@ export const TaskService = {
     let query = supabase
       .from('tasks')
       .select(TASK_SELECT)
-      .is('parent_id', null)
       .order('is_pinned', { ascending: false })
       .order('sort_order')
       .order('created_at', { ascending: false });
@@ -641,6 +643,9 @@ export const TaskService = {
       query = query.not('tags', 'cs', '{"_test_data"}');
     }
 
+    // Pagination
+    query = query.range(page * 50, page * 50 + 49);
+
     const { data, error } = await query;
     if (error) throw error;
     return (data || []).map(mapTask);
@@ -657,7 +662,6 @@ export const TaskService = {
     let { data, error } = await supabase
       .from('tasks')
       .select('id, assignees, watchers, supporters, approvers, created_by, status_id, tags')
-      .is('parent_id', null)
       .or(
         `assignees.cs.{${userId}},watchers.cs.{${userId}},supporters.cs.{${userId}},approvers.cs.{${userId}},created_by.eq.${userId}`
       );
@@ -763,7 +767,6 @@ export const TaskService = {
     let query = supabase
       .from('tasks')
       .select(TASK_SELECT)
-      .is('parent_id', null)
       .or(`created_by.in.(${subIds.join(',')}),assignees.ov.{${subIds.join(',')}}`)
       .order('is_pinned', { ascending: false })
       .order('sort_order')

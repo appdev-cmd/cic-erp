@@ -27,6 +27,17 @@ export interface TaskStatus {
   created_at?: string;
 }
 
+// ─── Recurring Tasks (T7.5) ───
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export interface RecurrenceRule {
+  frequency: RecurrenceFrequency;
+  interval: number;        // e.g. every 2 weeks
+  day_of_week?: number;    // 0=Sun..6=Sat (for weekly)
+  day_of_month?: number;   // 1..31 (for monthly)
+  end_date?: string;       // stop recurring after this date
+  max_occurrences?: number;
+}
+
 export interface Task {
   id: string;
 
@@ -91,7 +102,13 @@ export interface Task {
   subtasks?: Task[];
   links?: TaskLink[];
   comments_count?: number;
+
+  // Recurring (T7.5)
+  recurrence_rule?: RecurrenceRule | null;
+  recurrence_parent_id?: string;
 }
+
+export type TaskDependencyType = 'blocks' | 'blocked_by' | 'related' | 'duplicates' | 'is_duplicated_by';
 
 export interface TaskLink {
   id: string;
@@ -99,7 +116,8 @@ export interface TaskLink {
   entity_type: string;
   entity_id: string;
   entity_label?: string;
-  link_type: string; // 'related' | 'caused_by' | 'blocks'
+  link_type: string;
+  dependency_type?: TaskDependencyType;
   url?: string;
   created_at: string;
 }
