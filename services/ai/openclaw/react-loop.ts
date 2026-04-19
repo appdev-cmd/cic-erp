@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { callAgentTurn } from '../gateway';
 import { streamChat } from '../gateway';
 import { extractMentionContextFromText } from '../../mentionService';

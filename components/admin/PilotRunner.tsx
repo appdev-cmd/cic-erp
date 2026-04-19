@@ -68,9 +68,9 @@ const PilotRunner = () => {
                     employeeCode: "SALE01",
                     target: { signing: 1000000000, revenue: 800000000, adminProfit: 200000000, revProfit: 150000000, cash: 700000000 }
                 });
-                personnel = await SalesPersonService.getAll();
+                employees = await EmployeeService.getAll();
             }
-            const sale = personnel[0];
+            const sale = employees[0];
             log(`- Phụ trách kinh doanh: ${sale.name}`);
 
             setProgress(20);

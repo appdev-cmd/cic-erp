@@ -102,7 +102,7 @@ const NewsList: React.FC = () => {
                     {/* Footer for actions in detail view */}
                     <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
                         <button
-                            onClick={closePanel}
+                            onClick={() => closePanel()}
                             className="px-5 py-2.5 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors rounded-lg"
                         >
                             Đóng

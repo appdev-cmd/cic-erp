@@ -17,7 +17,7 @@ export interface ContractListTableRowProps {
   invoiceMap: Map<string, string[]>;
   statusDropdownId: string | null;
   setStatusDropdownId: (id: string | null) => void;
-  statusDropdownRef: React.RefObject<HTMLDivElement>;
+  statusDropdownRef: React.RefObject<HTMLDivElement | null>;
   changingStatusId: string | null;
   handleQuickStatusChange: (id: string, newStatus: string, oldStatus: string) => void;
   onClone?: (c: any) => void;
@@ -25,9 +25,10 @@ export interface ContractListTableRowProps {
   profile?: any;
 }
 
-const getWarningBadges = (w?: any) => {
+type WarningBadge = { icon: string; label: string; color: string };
+const getWarningBadges = (w?: any): WarningBadge[] => {
   if (!w) return [];
-  const badges = [];
+  const badges: WarningBadge[] = [];
   if (w.isOverdueAdvance) badges.push({ icon: '⚠️', label: 'Quá hạn tạm ứng', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800' });
   if (w.isOverduePayment) badges.push({ icon: '🔴', label: 'Quá hạn thanh toán', color: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800' });
   if (w.isAcceptedNoInvoice) badges.push({ icon: '📄', label: 'Nghiệm thu chưa xuất HĐ', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800' });

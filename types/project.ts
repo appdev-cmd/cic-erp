@@ -51,6 +51,7 @@ export interface BIMProject {
   webCategory?: string;
   webClientName?: string;
   webStats?: string;
+  summary?: string;            // Tóm tắt ngắn (Web)
   viewCount?: number;
   
   createdAt?: string;

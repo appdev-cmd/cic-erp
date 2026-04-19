@@ -95,7 +95,8 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, visibilityContext]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -226,8 +227,18 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
         {/* Checkbox */}
         <button
           onClick={e => { e.stopPropagation(); handleToggle(task); }}
-          className="w-5 h-5 rounded border-2 border-slate-300 dark:border-slate-600 hover:border-indigo-500 dark:hover:border-indigo-400 flex-shrink-0 transition-colors cursor-pointer"
-        />
+          className={`w-5 h-5 rounded border-2 flex-shrink-0 transition-all cursor-pointer flex items-center justify-center ${
+            task.status?.is_done
+              ? 'bg-emerald-500 border-emerald-500 dark:bg-emerald-600 dark:border-emerald-600'
+              : 'border-slate-300 dark:border-slate-600 hover:border-indigo-500 dark:hover:border-indigo-400'
+          }`}
+        >
+          {task.status?.is_done && (
+            <svg viewBox="0 0 12 12" className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
 
         {/* Priority dot */}
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.none}`} />

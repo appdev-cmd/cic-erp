@@ -8,6 +8,7 @@ export interface PanelEntry {
     title?: string;
     icon?: React.ReactNode;
     url?: string;
+    width?: string;
 }
 
 interface SlidePanelContextType {

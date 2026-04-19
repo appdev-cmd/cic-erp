@@ -177,7 +177,7 @@ const CustomerOverviewTab: React.FC<CustomerOverviewTabProps> = React.memo(({
                             <Tooltip 
                                 cursor={{ fill: 'transparent' }}
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
-                                formatter={(value: number) => formatCurrency(value)}
+                                formatter={(value: number | undefined) => value !== undefined ? formatCurrency(value) : ''}
                             />
                             <Bar dataKey="value" name="Giá trị HD" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} />
                             <Bar dataKey="revenue" name="Doanh thu" fill="#c084fc" radius={[4, 4, 0, 0]} barSize={20} />

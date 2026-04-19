@@ -187,22 +187,18 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
     const handleContractUpdated = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (contractId && (!detail?.contractId || detail.contractId === contractId)) {
-        console.log('[ContractDetail] contract-updated event received, refetching from DB...', detail);
-        // Always refetch from DB to get full contract with joined data (payments, etc.)
-        // The event's contract is shallow (from .update().select() — no joins)
+        // Refetch từ DB để có full contract với joined data (payments, etc.)
         ContractService.getById(contractId)
           .then(data => { if (data) setContract(data); })
-          .catch(err => console.error('Refetch error:', err));
+          .catch(err => console.error('ContractDetail: Refetch error', err));
       }
     };
     const handlePaymentOrDocChanged = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      // For payment/document changes: refetch contract to update financial summary
       if (contractId && (!detail?.record?.contract_id || detail.record?.contract_id === contractId || detail.source === 'realtime')) {
-        console.log('[ContractDetail] payment/document changed, refetching...', detail);
         ContractService.getById(contractId)
           .then(data => { if (data) setContract(data); })
-          .catch(err => console.error('Refetch error:', err));
+          .catch(err => console.error('ContractDetail: Refetch error', err));
       }
     };
     window.addEventListener('contract-updated', handleContractUpdated);
@@ -234,85 +230,88 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
     }
   }, [contractId, initialContract]);
 
-  // Fetch References
+  // Fetch References — batch thành Promise.all để tránh N+1 queries
   useEffect(() => {
     const fetchRefs = async () => {
       if (!contract) return;
 
       try {
-        // Unit
-        if (contract.unitId) {
-          if (contract.unitId === 'all') setUnitName('Tất cả');
-          else {
-            const u = await UnitService.getById(contract.unitId);
-            setUnitName(u?.name || 'Unknown');
-          }
-        }
-
-        // Employee/Salesperson — prioritize lead from employee_allocations
-        const leadAlloc = contract.employeeAllocations?.find((a: any) => a.role === 'lead') || contract.employeeAllocations?.[0];
+        const leadAlloc = contract.employeeAllocations?.find((a: any) => a.role === 'lead')
+          || contract.employeeAllocations?.[0];
         const picId = leadAlloc?.employeeId || contract.salespersonId;
-        if (picId) {
-          console.log('[DEBUG ContractDetail] PIC id:', picId, '(from', leadAlloc ? 'allocations' : 'salespersonId', ')');
-          const emp = await EmployeeService.getById(picId);
-          setSalesName(emp?.name || 'Unknown');
-        }
 
-        // Customer
-        if (contract.customerId) {
-          const c = await CustomerService.getById(contract.customerId);
-          setCustomerName(c?.name || 'Unknown');
-          setCustomerShortName(c?.shortName || '');
+        // Batch tất cả lookups cấp đầu chạy song song
+        const [unitRes, empRes, customerRes] = await Promise.all([
+          contract.unitId && contract.unitId !== 'all'
+            ? UnitService.getById(contract.unitId)
+            : Promise.resolve(null),
+          picId ? EmployeeService.getById(picId) : Promise.resolve(null),
+          contract.customerId ? CustomerService.getById(contract.customerId) : Promise.resolve(null),
+        ]);
+
+        if (contract.unitId === 'all') setUnitName('Tất cả');
+        else setUnitName(unitRes?.name || 'Unknown');
+
+        if (empRes) setSalesName(empRes.name || 'Unknown');
+
+        if (customerRes) {
+          setCustomerName(customerRes.name || 'Unknown');
+          setCustomerShortName(customerRes.shortName || '');
         } else if (contract.partyA) {
           setCustomerName(contract.partyA);
           setCustomerShortName('');
         }
 
-        // Unit Allocations — resolve names for display
+        // Unit Allocations — batch tất cả unit + employee lookups song song
         if (contract.unitAllocations && contract.unitAllocations.length > 0) {
-          const allocResults = await Promise.all(
-            contract.unitAllocations.map(async (alloc) => {
-              let uName = alloc.unitId;
-              let eName = alloc.employeeId || '';
-              try {
-                const unit = await UnitService.getById(alloc.unitId);
-                if (unit) uName = unit.name;
-              } catch { /* fallback to ID */ }
-              if (alloc.employeeId) {
-                try {
-                  const emp = await EmployeeService.getById(alloc.employeeId);
-                  if (emp) eName = emp.name;
-                } catch { /* fallback to ID */ }
-              }
-              return { unitName: uName, employeeName: eName, percent: alloc.percent, role: alloc.role };
-            })
+          const unitIds = [...new Set(contract.unitAllocations.map(a => a.unitId))];
+          const empIds = [...new Set(contract.unitAllocations.map(a => a.employeeId).filter(Boolean))];
+
+          const [unitLookups, empLookups] = await Promise.all([
+            Promise.all(unitIds.map(id => UnitService.getById(id).catch(() => null))),
+            Promise.all(empIds.map(id => EmployeeService.getById(id!).catch(() => null))),
+          ]);
+
+          const unitMap = Object.fromEntries(unitIds.map((id, i) => [id, unitLookups[i]?.name || id]));
+          const empMap = Object.fromEntries(empIds.map((id, i) => [id!, empLookups[i]?.name || id!]));
+
+          setAllocationNames(
+            contract.unitAllocations.map(alloc => ({
+              unitName: unitMap[alloc.unitId] || alloc.unitId,
+              employeeName: alloc.employeeId ? (empMap[alloc.employeeId] || alloc.employeeId) : '',
+              percent: alloc.percent,
+              role: alloc.role,
+            }))
           );
-          setAllocationNames(allocResults);
         } else {
           setAllocationNames([]);
         }
 
-        // Employee Allocations — resolve names for lead unit employees
+        // Employee Allocations — batch song song
         if (contract.employeeAllocations && contract.employeeAllocations.length > 0) {
-          const empResults = await Promise.all(
-            contract.employeeAllocations.map(async (alloc: any) => {
-              let eName = alloc.employeeId || '';
-              if (alloc.employeeId) {
-                try {
-                  const emp = await EmployeeService.getById(alloc.employeeId);
-                  if (emp) eName = emp.name;
-                } catch { /* fallback to ID */ }
-              }
-              return { employeeName: eName, percent: alloc.percent, role: alloc.role };
-            })
+          const allocEmpIds = [...new Set(
+            contract.employeeAllocations.map((a: any) => a.employeeId).filter(Boolean)
+          )];
+          const allocEmps = await Promise.all(
+            allocEmpIds.map(id => EmployeeService.getById(id).catch(() => null))
           );
-          setEmployeeAllocationNames(empResults);
+          const allocEmpMap = Object.fromEntries(
+            allocEmpIds.map((id, i) => [id, allocEmps[i]?.name || id])
+          );
+
+          setEmployeeAllocationNames(
+            contract.employeeAllocations.map((alloc: any) => ({
+              employeeName: alloc.employeeId ? (allocEmpMap[alloc.employeeId] || alloc.employeeId) : '',
+              percent: alloc.percent,
+              role: alloc.role,
+            }))
+          );
         } else {
           setEmployeeAllocationNames([]);
         }
 
       } catch (e) {
-        console.error("Error fetching refs", e);
+        console.error('ContractDetail: Error fetching reference names', e);
       }
     };
     fetchRefs();
@@ -330,13 +329,9 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   // Fetch Audit Logs
   useEffect(() => {
     if (contract?.id) {
-      console.log('[ContractDetail] Fetching audit logs for contract:', contract.id);
       AuditLogService.getByRecordId('contracts', contract.id)
-        .then(logs => {
-          console.log('[ContractDetail] Audit logs received:', logs);
-          setAuditLogs(logs);
-        })
-        .catch(e => console.error("Load audit logs error", e));
+        .then(setAuditLogs)
+        .catch(e => console.error('ContractDetail: Load audit logs error', e));
     }
   }, [contract?.id]);
 

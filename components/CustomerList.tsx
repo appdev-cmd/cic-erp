@@ -708,7 +708,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                             </div>
                         </div>
 
-                        <ScrollToTop containerId="main-content-area" />
+                        <ScrollToTop />
 
                         {mergingCustomer && (
                             <CustomerMergeModal
@@ -717,7 +717,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                                 sourceCustomer={mergingCustomer}
                                 onMerged={() => {
                                     window.dispatchEvent(new Event('customerUpdated'));
-                                    fetchCustomerPage(1, true);
+                                    resetInfiniteScroll();
                                 }}
                             />
                         )}

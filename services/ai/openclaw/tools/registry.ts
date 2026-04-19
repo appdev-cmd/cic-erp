@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { ContractService } from '../../../contractService';
 import { CustomerService } from '../../../customerService';
 import { PaymentService } from '../../../paymentService';

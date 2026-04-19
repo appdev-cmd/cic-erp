@@ -118,7 +118,7 @@ export const ProductService = {
             });
             
             if (!statsError && statsData) {
-                const statsMap = new Map(statsData.map((s: any) => [s.product_id, s]));
+                const statsMap = new Map<string, any>((statsData as any[]).map((s: any) => [s.product_id, s]));
                 products = products.map(p => {
                     const dynamicStat = statsMap.get(p.id);
                     if (dynamicStat) {
@@ -295,7 +295,7 @@ export const ProductService = {
             
             if (!statsError && dynamicStats) {
                 // Map the dynamic stats back to the products
-                const statsMap = new Map();
+                const statsMap = new Map<string, any>();
                 dynamicStats.forEach((s: any) => statsMap.set(s.product_id, s));
                 
                 products = products.map(p => {

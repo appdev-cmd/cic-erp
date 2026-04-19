@@ -14,6 +14,7 @@ import {
     getUnitSharePct,
     calculateCashReceived,
     calculateInvoicedFromPayments,
+    calculateRevenueFromPayments,
 } from './contract/contractFinancials';
 
 // Re-exports — keep backward compatibility for consumers importing from contractService

@@ -1,8 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import OpenAI from "npm:openai@4.28.0";
 
+// Allowed origin: set via ALLOWED_ORIGIN secret in Supabase dashboard
+// Fallback to '*' for local dev (not recommended for production)
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "*";
+
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 

@@ -69,7 +69,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   
   // Parse JSON/Array for webStats
   const [webStats, setWebStats] = useState<{label: string, value: string}[]>(() => {
-    let stats = project?.webStats;
+    let stats: any = project?.webStats;
     if (typeof stats === 'string') {
       try { stats = JSON.parse(stats); } catch(e){ stats = []; }
     }

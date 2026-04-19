@@ -207,7 +207,7 @@ const LeavePage: React.FC = () => {
                           <td className="px-4 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
                             {req.total_days}
                           </td>
-                          <td className="px-4 py-3 max-w-[200px] truncate" title={req.reason}>
+                          <td className="px-4 py-3 max-w-[200px] truncate" title={req.reason ?? undefined}>
                             {req.reason || '—'}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">

@@ -411,6 +411,7 @@ const ImportContractModal: React.FC<ImportContractModalProps> = ({ isOpen, onClo
 
                 await ContractService.create({
                     id: contractId,
+                    contractCode: contractId,
                     title: row.title,
                     contractType: 'HĐ',
                     customerId,

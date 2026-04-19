@@ -101,17 +101,17 @@ const ProjectDashboardTab: React.FC<ProjectDashboardTabProps> = ({ project }) =>
   }, [tasks]);
 
   const activityData = useMemo(() => {
-    // Generate last 7 days activity (placeholder for now, matching completion date if available)
-    const result = [];
+    // Số task tạo mới theo ngày trong 7 ngày gần nhất
+    const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const result: { name: string; count: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
-      const count = tasks.filter(t => t.completed_at?.startsWith(dateStr)).length;
-      result.push({ 
-        name: d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit' }), 
-        count: count 
-      });
+      // Dùng created_at (task được tạo) thay vì completed_at (thường rỗng)
+      const count = tasks.filter(t => t.created_at?.startsWith(dateStr)).length;
+      const dayLabel = `${WEEKDAYS[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}`;
+      result.push({ name: dayLabel, count });
     }
     return result;
   }, [tasks]);
@@ -248,7 +248,7 @@ const ProjectDashboardTab: React.FC<ProjectDashboardTabProps> = ({ project }) =>
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-4 text-[10px] text-center font-bold text-slate-400 dark:text-slate-500 italic">Thống kê khối lượng công việc hoàn thành trong 7 ngày gần nhất</p>
+          <p className="mt-4 text-[10px] text-center font-bold text-slate-400 dark:text-slate-500 italic">Thống kê công việc được tạo trong 7 ngày gần nhất</p>
         </div>
       </div>
     </div>

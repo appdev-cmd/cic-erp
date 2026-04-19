@@ -338,7 +338,7 @@ function normalizeCustomerData(data: AIRawJson): Partial<Customer> {
     }
 
     const str = (v: unknown): string => (typeof v === 'string' ? v : String(v ?? ''));
-    const strOrNull = (v: unknown): string | null => (v != null ? str(v) : null);
+    const strOrNull = (v: unknown): string | undefined => (v != null ? str(v) : undefined);
 
     return {
         name: str(data.name),

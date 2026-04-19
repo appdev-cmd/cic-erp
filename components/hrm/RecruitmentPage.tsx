@@ -62,7 +62,7 @@ const RecruitmentPage: React.FC = () => {
   const hasAccess = profile && (
     profile.role === 'Admin' || 
     profile.role === 'Leadership' || 
-    profile.role === 'HR' || 
+    (profile.role as string) === 'HR' || 
     profile.role === 'UnitLeader' ||
     profile.role === 'AdminUnit' ||
     profile.email?.includes('dev') ||
@@ -402,7 +402,7 @@ const RecruitmentPage: React.FC = () => {
                              </span>
                            </div>
                          </div>
-                         <button onClick={(e) => { e.stopPropagation(); setKanbanInitialJobId(job.id); setActiveTab('pipeline'); }} className="text-xs text-indigo-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end hover:underline">
+                         <button onClick={(e) => { e.stopPropagation(); setKanbanInitialJobId(job.id); setActiveTab('candidates'); }} className="text-xs text-indigo-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end hover:underline">
                            Xem Pipeline &rarr;
                          </button>
                        </div>

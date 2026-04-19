@@ -1,6 +1,5 @@
 import React from 'react';
 import { CmsService } from '../types/cms';
-import { FormLabel } from './ui/FormLabel';
 import { Wrench, CheckCircle, XCircle } from 'lucide-react';
 import { formatDate } from '../utils/formatters';
 
@@ -78,7 +77,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ service }) => {
                     </div>
                 </div>
 
-                {service.seoTitle && (
+                {service.seoTitleVi && (
                     <div>
                         <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
                             <div className="w-1.5 h-4 bg-blue-500 rounded-full"></div>
@@ -87,12 +86,12 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ service }) => {
                         <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-100 dark:border-slate-700 text-sm">
                             <div className="mb-2">
                                 <span className="font-semibold text-slate-500 w-24 inline-block">SEO Title:</span>
-                                <span className="text-slate-800 dark:text-slate-200">{service.seoTitle}</span>
+                                <span className="text-slate-800 dark:text-slate-200">{service.seoTitleVi}</span>
                             </div>
                             <div>
                                 <span className="font-semibold text-slate-500 w-24 inline-block align-top">SEO Desc:</span>
                                 <span className="text-slate-800 dark:text-slate-200 inline-block w-[calc(100%-6rem)]">
-                                    {service.seoDesc || <span className="text-slate-400 italic">Đang trống</span>}
+                                    {service.seoDescriptionVi || <span className="text-slate-400 italic">Đang trống</span>}
                                 </span>
                             </div>
                         </div>

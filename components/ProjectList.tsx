@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, MapPin, TrendingUp, Calendar, Building2, Filter, X, Globe, EyeOff, Star } from 'lucide-react';
+import { Search, Plus, MapPin, TrendingUp, Calendar, Building2, Filter, X, Globe, EyeOff, Star, ArrowUpDown } from 'lucide-react';
 import { ProjectService } from '../services';
 import { BIMProject, BIMProjectStatus, BIM_PROJECT_STATUS_LABELS } from '../types';
 import { toast } from 'sonner';
@@ -64,6 +64,24 @@ const PLACEHOLDER_IMAGES = [
 
 function getPlaceholder(index: number) {
   return PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length];
+}
+
+// ── Sort Config ─────────────────────────────────────────────────────────
+type SortKey = 'newest' | 'name_az' | 'progress_desc' | 'value_desc';
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'newest', label: 'Mới nhất' },
+  { value: 'name_az', label: 'Tên A→Z' },
+  { value: 'progress_desc', label: 'Tiến độ cao' },
+  { value: 'value_desc', label: 'Giá trị cao' },
+];
+
+function calcTimeProgress(startDate?: string, endDate?: string): number | null {
+  if (!startDate || !endDate) return null;
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  const now = Date.now();
+  if (end <= start) return null;
+  return Math.max(0, Math.min(100, Math.round(((now - start) / (end - start)) * 100)));
 }
 
 // ── Progress Bar Component ──────────────────────────────────────────────
@@ -165,6 +183,18 @@ const ProjectCard: React.FC<{ project: BIMProject; index: number; onClick: () =>
         {/* Progress */}
         <div className="pt-1 space-y-1.5">
           <ProgressBar label="Tiến độ" value={project.progress} color="bg-indigo-500 dark:bg-indigo-400" />
+          {(() => {
+            const tp = calcTimeProgress(project.startDate, project.endDate);
+            if (tp === null) return null;
+            const isDelayed = tp > project.progress;
+            return (
+              <ProgressBar
+                label="Thời gian"
+                value={tp}
+                color={isDelayed ? 'bg-rose-400 dark:bg-rose-500' : 'bg-slate-400 dark:bg-slate-500'}
+              />
+            );
+          })()}
         </div>
 
         {/* Footer: Contract value + dates */}
@@ -201,6 +231,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BIMProjectStatus | 'All'>('All');
   const [showFilters, setShowFilters] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>('newest');
 
   // Fetch projects
   useEffect(() => {
@@ -255,8 +286,23 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
         (p.clientName || '').toLowerCase().includes(term)
       );
     }
-    return result;
-  }, [projects, statusFilter, searchTerm]);
+    // Apply sort
+    const sorted = [...result];
+    switch (sortKey) {
+      case 'name_az':
+        sorted.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+        break;
+      case 'progress_desc':
+        sorted.sort((a, b) => b.progress - a.progress);
+        break;
+      case 'value_desc':
+        sorted.sort((a, b) => b.contractValue - a.contractValue);
+        break;
+      default: // newest — giữ thứ tự từ DB (created_at DESC)
+        break;
+    }
+    return sorted;
+  }, [projects, statusFilter, searchTerm, sortKey]);
 
   // Status counts
   const statusCounts = useMemo(() => {
@@ -328,6 +374,16 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
             </button>
           )}
         </div>
+        {/* Sort selector */}
+        <select
+          value={sortKey}
+          onChange={e => setSortKey(e.target.value as SortKey)}
+          className="px-3 py-2.5 rounded-lg text-sm font-semibold border bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+        >
+          {SORT_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
         {/* Filter toggle */}
         <button
           onClick={() => setShowFilters(!showFilters)}

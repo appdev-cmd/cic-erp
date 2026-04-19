@@ -32,7 +32,8 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   'ChiefAccountant': 'Kế toán trưởng',
   'Legal': 'Ban Pháp chế',
   'Leadership': 'Ban Lãnh đạo',
-  'Admin': 'Quản trị viên'
+  'Admin': 'Quản trị viên',
+  'Marketing': 'Marketing'
 };
 
 export const PLAN_STATUS_LABELS: Record<PlanStatus, string> = {
@@ -64,22 +65,27 @@ export const PRODUCT_CATEGORY_MAP: { label: string; code: string }[] = [
 export const PRODUCT_CATEGORIES = PRODUCT_CATEGORY_MAP.map(c => c.label) as readonly string[];
 
 export const CONTRACT_STATUS_LABELS: Record<string, string> = {
+  // Active statuses
   'Processing': 'Đang thực hiện',
   'Suspended': 'Tạm dừng/Huỷ',
   'Handover': 'Bàn giao',
   'Acceptance': 'Nghiệm thu/TL',
   'Completed': 'Hoàn thành',
-  // Legacy statuses (for backward compatibility with old data)
+  // Workflow statuses
+  'Draft': 'Nháp',
+  'Pending_Review': 'Chờ duyệt',
+  'Both_Approved': 'Đã duyệt 2 bên',
+  'Pending_Sign': 'Chờ ký',
+  // Legacy statuses (backward compatibility với data cũ)
   'Active': 'Đang thực hiện',
-  'Pending': 'Đang thực hiện',
-  'Reviewing': 'Đang thực hiện',
-  'Expired': 'Hoàn thành',
-  'Draft': 'Đang thực hiện',
-  'Terminated': 'Hoàn thành',
-  'Cancelled': 'Hoàn thành',
-  'Liquidated': 'Nghiệm thu/TL',
-  'Overdue_Advance': 'Đang thực hiện',
-  'Overdue_Payment': 'Đang thực hiện',
+  'Pending': 'Chờ xử lý',
+  'Reviewing': 'Đang xem xét',
+  'Expired': 'Hết hạn',
+  'Terminated': 'Chấm dứt',
+  'Cancelled': 'Đã hủy',
+  'Liquidated': 'Thanh lý',
+  'Overdue_Advance': 'Quá hạn tạm ứng',
+  'Overdue_Payment': 'Quá hạn thanh toán',
 };
 
 export const NAV_ITEMS = [
@@ -88,10 +94,10 @@ export const NAV_ITEMS = [
   { id: 'contracts', label: 'Hợp đồng', icon: <FileText size={20} /> },
   { id: 'payments', label: 'Tài chính', icon: <Package size={20} /> },
   { id: 'projects', label: 'Dự án', icon: <Landmark size={20} /> },
+  { id: 'reports', label: 'Báo cáo', icon: <ClipboardList size={20} /> },
   { id: 'analytics', label: 'Thống kê', icon: <PieChart size={20} />, devOnly: true },
   { id: 'hrm', label: 'Nhân sự HR', icon: <Briefcase size={20} /> },
   { id: 'ai-assistant', label: 'AI Agent', icon: <BrainCircuit size={20} /> },
-  // { id: 'tools', label: 'Công cụ', icon: <Wrench size={20} /> },
   { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
 
   { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} />, devOnly: true },

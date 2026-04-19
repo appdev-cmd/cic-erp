@@ -5,6 +5,7 @@ import { BIMProject, BIM_PROJECT_STATUS_LABELS, BIMProjectStatus } from '../type
 import { toast } from 'sonner';
 import { formatDate } from '../utils/formatters';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
+import ConfirmDialog from './ui/ConfirmDialog';
 
 const ProjectTasksTab = lazy(() => import('./ProjectTasksTab'));
 const ProjectDashboardTab = lazy(() => import('./projects/ProjectDashboardTab'));
@@ -53,6 +54,23 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
   const { openPanel, closePanel } = useSlidePanel();
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<BIMProjectStatus | null>(null);
+
+  // ── Handle delete ────────────────────────────────────────────────────
+  const handleDelete = useCallback(async () => {
+    if (!project) return;
+    setDeleting(true);
+    try {
+      await ProjectService.delete(project.id);
+      toast.success('Đã xóa dự án thành công!');
+      if (onDelete) onDelete(project.id);
+      onBack();
+    } catch (err: any) {
+      toast.error('Lỗi xóa dự án: ' + (err.message || err));
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  }, [project, onDelete, onBack]);
 
   // ── Handle status change ─────────────────────────────────────────────
   const handleStatusChange = useCallback((newStatus: BIMProjectStatus) => {
@@ -532,44 +550,16 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
       </div>
 
       {/* Delete Confirm Dialog */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 max-w-md w-full mx-4 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 mb-2">Xác nhận xóa dự án</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Bạn có chắc muốn xóa dự án này?</p>
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">{project.name}</p>
-            <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-sm font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all"
-              >
-                Hủy
-              </button>
-              <button
-                disabled={deleting}
-                onClick={async () => {
-                  setDeleting(true);
-                  try {
-                    await ProjectService.delete(project.id);
-                    toast.success('Đã xóa dự án thành công!');
-                    if (onDelete) onDelete(project.id);
-                    onBack();
-                  } catch (err: any) {
-                    toast.error('Lỗi xóa dự án: ' + (err.message || err));
-                  } finally {
-                    setDeleting(false);
-                    setShowDeleteConfirm(false);
-                  }
-                }}
-                className="px-4 py-2 text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
-              >
-                <Trash2 size={14} />
-                {deleting ? 'Đang xóa...' : 'Xóa dự án'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Xác nhận xóa dự án"
+        message={`Bạn có chắc muốn xóa dự án "${project.name}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa dự án"
+        variant="danger"
+        isLoading={deleting}
+      />
     </div>
   );
 };

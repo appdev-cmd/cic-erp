@@ -107,7 +107,7 @@ const JobOpeningForm: React.FC<Props> = ({ job, onClose, onSuccess, isInsidePane
   useEffect(() => {
     if (isDirty) {
       lockPanel();
-      setOnCloseBlocked(() => {
+      setOnCloseBlocked(undefined, () => {
         if (confirm('Bạn có thay đổi chưa lưu. Bạn có chắc chắn muốn đóng?')) {
           unlockPanel();
           onClose();
@@ -115,11 +115,11 @@ const JobOpeningForm: React.FC<Props> = ({ job, onClose, onSuccess, isInsidePane
       });
     } else {
       unlockPanel();
-      setOnCloseBlocked(null);
+      setOnCloseBlocked(undefined, null);
     }
     return () => {
       unlockPanel();
-      setOnCloseBlocked(null);
+      setOnCloseBlocked(undefined, null);
     };
   }, [isDirty, lockPanel, unlockPanel, setOnCloseBlocked, onClose]);
 
@@ -187,8 +187,8 @@ const JobOpeningForm: React.FC<Props> = ({ job, onClose, onSuccess, isInsidePane
               <div>
                 <SearchableSelect
                   label="Đơn vị / Phòng ban"
-                  value={formData.unit_id}
-                  onChange={(id, opt) => setFormData({ ...formData, unit_id: id, department: opt?.name || '' })}
+                  value={formData.unit_id ?? null}
+                  onChange={(id, opt) => setFormData({ ...formData, unit_id: id ?? null, department: opt?.name || '' })}
                   placeholder="Chọn đơn vị..."
                   onSearch={async (q) => units.filter(u => u.name.toLowerCase().includes(q.toLowerCase()))}
                   initialOptions={units}
@@ -332,15 +332,15 @@ const JobOpeningForm: React.FC<Props> = ({ job, onClose, onSuccess, isInsidePane
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <SearchableSelect
                 label="Trưởng phòng yêu cầu"
-                value={formData.requester_id}
-                onChange={(id) => setFormData({ ...formData, requester_id: id })}
+                value={formData.requester_id ?? null}
+                onChange={(id) => setFormData({ ...formData, requester_id: id ?? null })}
                 onSearch={async (q) => employees.filter(e => e.name.toLowerCase().includes(q.toLowerCase()))}
                 initialOptions={employees.slice(0, 50)}
               />
               <SearchableSelect
                 label="HR phụ trách"
-                value={formData.recruiter_id}
-                onChange={(id) => setFormData({ ...formData, recruiter_id: id })}
+                value={formData.recruiter_id ?? null}
+                onChange={(id) => setFormData({ ...formData, recruiter_id: id ?? null })}
                 onSearch={async (q) => employees.filter(e => e.name.toLowerCase().includes(q.toLowerCase()))}
                 initialOptions={employees.slice(0, 50)}
               />

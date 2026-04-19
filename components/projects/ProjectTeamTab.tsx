@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Filter, Loader2, Mail, Phone, Building2, Briefcase } from 'lucide-react';
+import { Users, Filter, Loader2, Mail, Phone, Building2, Briefcase, CheckSquare } from 'lucide-react';
 import { dataClient as supabase } from '../../lib/dataClient';
 import { EmployeeService } from '../../services';
+import { UnitService } from '../../services/unitService';
 import { Employee } from '../../types';
 
 interface ProjectTeamTabProps {
@@ -12,7 +13,18 @@ interface ProjectTeamTabProps {
 const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ projectId, projectName }) => {
   const [members, setMembers] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterUnit, setFilterUnit] = useState<string>('all'); // 'all', 'bim', 'bgd'
+  const [filterUnit, setFilterUnit] = useState<string>('all');
+  const [unitMap, setUnitMap] = useState<Record<string, string>>({});
+  const [taskCountByMember, setTaskCountByMember] = useState<Record<string, number>>({});
+
+  // Load units for filter options
+  useEffect(() => {
+    UnitService.getAll().then(units => {
+      const map: Record<string, string> = {};
+      units.forEach(u => { map[u.id] = u.name; });
+      setUnitMap(map);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const fetchTeam = async () => {
@@ -26,13 +38,18 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ projectId, projectName 
 
         if (taskError) throw taskError;
 
-        // 2. Extract unique employee IDs
+        // 2. Extract unique employee IDs + count tasks per member
         const memberIds = new Set<string>();
+        const countMap: Record<string, number> = {};
         tasks?.forEach((task) => {
           if (Array.isArray(task.assignees)) {
-            task.assignees.forEach((id: string) => memberIds.add(id));
+            task.assignees.forEach((id: string) => {
+              memberIds.add(id);
+              countMap[id] = (countMap[id] || 0) + 1;
+            });
           }
         });
+        setTaskCountByMember(countMap);
 
         if (memberIds.size === 0) {
           setMembers([]);
@@ -76,6 +93,8 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ projectId, projectName 
     return m.unitId === filterUnit;
   });
 
+  const unitOptions = Object.entries(unitMap);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-slate-400">
@@ -98,7 +117,7 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ projectId, projectName 
           </p>
         </div>
 
-        {/* Filters */}
+        {/* Filters — dynamic from DB */}
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
           <Filter size={14} className="text-slate-400 ml-2" />
           <select
@@ -107,8 +126,9 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ projectId, projectName 
             className="bg-transparent border-none text-sm font-semibold text-slate-700 dark:text-slate-300 focus:ring-0 py-1.5 pl-1 pr-6 cursor-pointer"
           >
             <option value="all">Tất cả đơn vị</option>
-            <option value="bim">Trung tâm BIM</option>
-            <option value="bgd">Ban Giám đốc</option>
+            {unitOptions.map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -138,20 +158,29 @@ const ProjectTeamTab: React.FC<ProjectTeamTabProps> = ({ projectId, projectName 
                   alt={member.name}
                   className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-slate-700 group-hover:ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900 transition-all"
                 />
-                <div>
+                <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-slate-800 dark:text-slate-200">{member.name}</h4>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     <Briefcase size={12} />
                     <span>{member.position || 'Nhân viên'}</span>
                   </div>
                 </div>
+                {/* Task count badge */}
+                {taskCountByMember[member.id] > 0 && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded-lg shrink-0">
+                    <CheckSquare size={11} className="text-indigo-500 dark:text-indigo-400" />
+                    <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                      {taskCountByMember[member.id]}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800/60 mt-auto">
                 {member.unitId && (
                   <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                     <Building2 size={14} className="text-slate-400 shrink-0" />
-                    <span className="truncate">{member.unitId === 'bim' ? 'Trung tâm BIM' : member.unitId === 'bgd' ? 'Ban Giám đốc' : member.unitId}</span>
+                    <span className="truncate">{unitMap[member.unitId] || member.unitId}</span>
                   </div>
                 )}
                 {member.email && (

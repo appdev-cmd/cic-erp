@@ -133,7 +133,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
               <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Crown size={10} /> Người giao việc
               </label>
-              <PersonBadge person={getPersonInfo(task.created_by)} />
+              <PersonBadge person={getPersonInfo(task.created_by)!} />
             </div>
           )}
 
@@ -146,7 +146,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
               </button>
             </label>
             {task.assignees?.length > 0 ? (
-              task.assignees.map(id => <PersonBadge key={id} person={getPersonInfo(id)} />)
+              task.assignees.map(id => <PersonBadge key={id} person={getPersonInfo(id)!} />)
             ) : (
               <span className="text-xs text-slate-400 dark:text-slate-500 italic">Chưa phân công</span>
             )}
@@ -181,7 +181,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
               <button onClick={() => setOpenPicker(openPicker === 'supporters' ? null : 'supporters')} className="text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer"><Plus size={12} /></button>
             </label>
             {task.supporters?.length > 0 ? (
-              task.supporters.map(id => <PersonBadge key={id} person={getPersonInfo(id)} onRemove={() => bufferChange('supporters', task.supporters.filter(x => x !== id))} />)
+              task.supporters.map(id => <PersonBadge key={id} person={getPersonInfo(id)!} onRemove={() => bufferChange('supporters', task.supporters.filter(x => x !== id))} />)
             ) : (
               <span className="text-xs text-slate-400 dark:text-slate-500 italic">Không có</span>
             )}
@@ -202,7 +202,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
               <button onClick={() => setOpenPicker(openPicker === 'watchers' ? null : 'watchers')} className="text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer"><Plus size={12} /></button>
             </label>
             {task.watchers?.length > 0 ? (
-              task.watchers.map(id => <PersonBadge key={id} person={getPersonInfo(id)} onRemove={() => bufferChange('watchers', task.watchers.filter(x => x !== id))} />)
+              task.watchers.map(id => <PersonBadge key={id} person={getPersonInfo(id)!} onRemove={() => bufferChange('watchers', task.watchers.filter(x => x !== id))} />)
             ) : (
               <span className="text-xs text-slate-400 dark:text-slate-500 italic">Không có</span>
             )}
@@ -369,7 +369,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
                   </div>
                   {task.approvers?.length > 0 ? (
                     <>
-                      {task.approvers.map(id => <PersonBadge key={id} person={getPersonInfo(id)} onRemove={() => bufferChange('approvers', task.approvers.filter(x => x !== id))} />)}
+                      {task.approvers.map(id => <PersonBadge key={id} person={getPersonInfo(id)!} onRemove={() => bufferChange('approvers', task.approvers.filter(x => x !== id))} />)}
                       <div className="mt-2 flex items-center gap-2">
                         <span className="text-[10px] text-slate-500 dark:text-slate-400">Chế độ:</span>
                         <select

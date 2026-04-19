@@ -11,11 +11,12 @@ import { useSlidePanel } from '../contexts/SlidePanelContext';
 import DashboardComponent from './Dashboard';
 export const DashboardPage: React.FC = () => {
     const navigate = useNavigate();
-    const { selectedUnit, setSelectedUnit } = useLayoutContext();
+    const { selectedUnit, setSelectedUnit, yearFilter } = useLayoutContext();
     return (
         <DashboardComponent
             selectedUnit={selectedUnit}
             onSelectUnit={setSelectedUnit}
+            yearFilter={yearFilter}
             onSelectContract={(id) => navigate(ROUTES.CONTRACT_DETAIL(id))}
         />
     );
@@ -335,7 +336,6 @@ export const ProductDetailPage: React.FC = () => {
         <ProductDetailComponent
             productId={id}
             onBack={() => navigate(ROUTES.PRODUCTS)}
-            onEdit={() => {/* TODO: implement edit modal */ }}
             onViewContract={(contractId) => navigate(ROUTES.CONTRACT_DETAIL(contractId))}
         />
     );

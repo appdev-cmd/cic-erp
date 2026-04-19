@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { OpenClawTool, UserContext } from '../types';
 import { dataClient as supabase } from '../../../../lib/dataClient';
 

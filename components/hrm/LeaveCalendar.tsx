@@ -37,7 +37,7 @@ const LeaveCalendar: React.FC = () => {
         setTeamLeaves(reqs.filter(r => r.status === 'approved'));
       } else {
         // Can see unit calendar
-        const reqs = await LeaveService.getTeamCalendar(currentEmployee.unitId, year, month);
+        const reqs = await LeaveService.getTeamCalendar(currentEmployee.unitId ?? null, year, month);
         setTeamLeaves(reqs);
       }
       

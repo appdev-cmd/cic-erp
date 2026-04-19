@@ -421,7 +421,7 @@ const DocumentManager: React.FC = () => {
     let failed = 0;
     for (const doc of unindexed) {
       setIndexingDoc(doc.id);
-      setIndexProgress({ progress: Math.round((success + failed) / unindexed.length * 100), message: `[${success + failed + 1}/${unindexed.length}] ${doc.title}` });
+      setIndexProgress({ status: 'extracting', documentId: doc.id, progress: Math.round((success + failed) / unindexed.length * 100), message: `[${success + failed + 1}/${unindexed.length}] ${doc.title}` });
       try {
         const result = await indexDocument(doc, undefined, (p) => {
           setIndexProgress({ ...p, message: `[${success + failed + 1}/${unindexed.length}] ${p.message}` });

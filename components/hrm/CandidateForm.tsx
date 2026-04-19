@@ -61,7 +61,7 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
         education: formData.education,
         experience_years: formData.experience_years,
         resume_url: finalResumeUrl,
-        source: formData.source || 'other',
+        source: (formData.source || 'other') as import('../../types/hrmTypes').CandidateSource,
       };
       
       let savedCand;

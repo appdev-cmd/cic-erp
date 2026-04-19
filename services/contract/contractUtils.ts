@@ -171,8 +171,8 @@ export const buildPayload = (data: Partial<Contract>): Record<string, unknown> =
             const execSum = (data.executionCosts as ExecutionCostItem[]).reduce(
                 (sum, c) => sum + (c.amount || 0), 0
             );
-            const inputSum = (data.lineItems || []).reduce(
-                (sum: number, li: Record<string, unknown>) =>
+            const inputSum = ((data.lineItems as any[]) || []).reduce(
+                (sum: number, li: any) =>
                     sum + ((li.inputPrice as number) || 0) * ((li.quantity as number) || 1) + ((li.directCosts as number) || 0),
                 0
             );

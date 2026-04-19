@@ -55,6 +55,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
         videoUrl: '',
         brochureUrl: '',
         demoUrl: '',
+        thumbnailUrl: '',
     });
 
     const [activeTab, setActiveTab] = useState<'basic' | 'web' | 'contracts'>('basic');
@@ -178,6 +179,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 videoUrl: product.videoUrl || '',
                 brochureUrl: product.brochureUrl || '',
                 demoUrl: product.demoUrl || '',
+                thumbnailUrl: (product as any).thumbnailUrl || '',
             });
             setSelectedSupplierName(product.supplierName || '');
             setSelectedBrandName(product.brandName || '');
@@ -207,6 +209,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 videoUrl: '',
                 brochureUrl: '',
                 demoUrl: '',
+                thumbnailUrl: '',
             });
             setActiveTab('basic');
             setSelectedSupplierName('');

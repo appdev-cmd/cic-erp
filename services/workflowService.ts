@@ -1,8 +1,5 @@
-// @ts-nocheck
 import { dataClient as supabase } from '../lib/dataClient';
-import { supabase as authClient } from '../lib/supabase';
-import { PlanStatus, UserRole } from '../types';
-import { AuditLogService } from './auditLogService';
+import type { PlanStatus, UserRole } from '../types';
 
 export const WorkflowService = {
     /**
@@ -189,7 +186,7 @@ export const WorkflowService = {
         if (planStatus === 'Draft' && (currentRole === 'NVKD' || currentRole === 'UnitLeader')) return true;
         if (planStatus === 'Pending_Unit' && (currentRole === 'UnitLeader' || currentRole === 'AdminUnit')) return true;
         if (planStatus === 'Pending_Finance' && (currentRole === 'Accountant' || currentRole === 'ChiefAccountant')) return true;
-        if (planStatus === 'Pending_Board' && currentRole === 'Leadership') return true;
+        // 'Leadership' role is already handled by isAdmin check above (line 183)
 
         return false;
     },
@@ -204,17 +201,6 @@ export const WorkflowService = {
      * Both Legal and Finance will review in parallel
      */
     async submitContractForReview(contractId: string, draftUrl?: string): Promise<{ success: boolean; error?: any }> {
-        console.log('[WorkflowService] submitContractForReview:', { contractId, draftUrl });
-
-        // Get current contract status for audit log
-        const { data: currentContract } = await supabase
-            .from('contracts')
-            .select('status')
-            .eq('id', contractId)
-            .single();
-
-        const oldStatus = currentContract?.status || 'Draft';
-
         const updateData: Record<string, any> = {
             status: 'Pending_Review',
             legal_approved: false,
@@ -224,31 +210,28 @@ export const WorkflowService = {
             updateData.draft_url = draftUrl;
         }
 
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('contracts')
             .update(updateData)
             .eq('id', contractId)
             .select();
 
-        console.log('[WorkflowService] Update result:', { data, error });
-
         if (error) {
-            console.error('[WorkflowService] Update failed:', error);
+            console.error('[WorkflowService] submitContractForReview failed:', error);
             return { success: false, error };
         }
 
-        // Log review action to contract_reviews
-        const { error: reviewError } = await supabase.from('contract_reviews').insert({
+        // Log review action — role 'Unit' = hành động từ NVKD/UnitLeader gửi lên
+        await supabase.from('contract_reviews').insert({
             contract_id: contractId,
-            role: 'NVKD',
+            role: 'Unit',
             action: 'Submit',
-            comment: draftUrl ? `Gửi duyệt (Pháp lý + Tài chính song song) - Draft: ${draftUrl}` : 'Gửi duyệt (Pháp lý + Tài chính song song)'
+            comment: draftUrl
+                ? `Gửi duyệt (Pháp lý + Tài chính song song) - Draft: ${draftUrl}`
+                : 'Gửi duyệt (Pháp lý + Tài chính song song)'
         });
-        console.log('[WorkflowService] contract_reviews insert:', { reviewError });
 
-        // NOTE: Audit log is automatically created by database trigger (audit_contracts_trigger)
-        // No need to manually create AuditLogService.create() here
-
+        // NOTE: Audit log tự động tạo bởi DB trigger (audit_contracts_trigger)
         return { success: true };
     },
 
@@ -272,7 +255,6 @@ export const WorkflowService = {
                 .eq('id', contractId);
 
             if (!error) {
-                console.log('[WorkflowService] Advanced to Both_Approved');
                 return { advanced: true, newStatus: 'Both_Approved' };
             }
         }
@@ -284,16 +266,11 @@ export const WorkflowService = {
      * Legal approves contract (Pending_Review → sets legal_approved = true)
      */
     async approveContractLegal(contractId: string, reviewerId: string, comment?: string): Promise<{ success: boolean; error?: any; bothApproved?: boolean }> {
-        console.log('[WorkflowService] approveContractLegal:', { contractId, reviewerId, comment });
-
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('contracts')
             .update({ legal_approved: true })
             .eq('id', contractId)
-            .eq('status', 'Pending_Review')
-            .select();
-
-        console.log('[WorkflowService] Update result:', { data, error });
+            .eq('status', 'Pending_Review');
 
         if (error) return { success: false, error };
 
@@ -341,14 +318,11 @@ export const WorkflowService = {
      * Finance approves contract (Pending_Review → sets finance_approved = true)
      */
     async approveContractFinance(contractId: string, reviewerId: string, comment?: string): Promise<{ success: boolean; error?: any; bothApproved?: boolean }> {
-        console.log('[WorkflowService] approveContractFinance:', { contractId, reviewerId, comment });
-
         const { error } = await supabase
             .from('contracts')
             .update({ finance_approved: true })
             .eq('id', contractId)
-            .eq('status', 'Pending_Review')
-            .select();
+            .eq('status', 'Pending_Review');
 
         if (error) return { success: false, error };
 

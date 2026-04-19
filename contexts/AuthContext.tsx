@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         setProfile(prev => prev ? {
                             ...prev,
                             id: data.user.id,
-                            email: data.user.email,
+                            email: data.user.email ?? prev.email,
                         } : prev);
                     }
                 } else {
