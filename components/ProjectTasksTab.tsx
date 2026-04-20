@@ -48,7 +48,6 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
   const [profiles, setProfiles] = useState<Record<string, { name: string; avatar: string }>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [currentUser, setCurrentUser] = useState('');
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [viewMode, setViewModeState] = useState<ViewMode>(() => {
     return (localStorage.getItem('cic-erp-project-task-mode') as ViewMode) || 'list';
@@ -74,10 +73,6 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
       setTasks(taskList);
       setStatuses(statusList);
 
-      // Fetch user
-      const { data: userData } = await dataClient.auth.getUser();
-      if (userData?.user) setCurrentUser(userData.user.id);
-
       // Profiles
       const empIds = new Set<string>();
       taskList.forEach(t => {
@@ -95,7 +90,7 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, visibilityContext]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -132,7 +127,7 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
         const defaultId = await TaskService.getDefaultStatusId();
         if (defaultId) await TaskService.update(task.id, { status_id: defaultId, completed_at: undefined, completed_by: undefined });
       } else {
-        await TaskService.complete(task.id, currentUser);
+        await TaskService.complete(task.id, visibilityContext.userId);
       }
       loadData();
     } catch (err: any) {
@@ -141,13 +136,17 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
   };
 
   const handleAddTask = () => {
-    if (!currentUser) return;
+    if (!visibilityContext.userId) {
+      toast.error('Không tìm thấy thông tin user. Đang tải lại...');
+      loadData();
+      return;
+    }
     openPanel({
       title: 'Thêm công việc cho dự án',
       component: (
         <Suspense fallback={<div className="p-8 text-center"><Loader2 className="animate-spin mx-auto" /></div>}>
           <CreateTaskPanel
-            currentUserId={currentUser}
+            currentUserId={visibilityContext.userId}
             initialData={{
               project_id: projectId,
               source_module: 'project',
@@ -182,7 +181,7 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
       const updates: any = { status_id: statusId };
       if (status?.is_done) {
         updates.completed_at = new Date().toISOString();
-        updates.completed_by = currentUser;
+        updates.completed_by = visibilityContext.userId;
       }
       await TaskService.update(taskId, updates);
       loadData();
@@ -204,7 +203,7 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
           const p = profiles[id];
           return (
             <div key={id} className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-900 bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center overflow-hidden" title={p?.name}>
-              {p?.avatar ? <img src={p.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400">{p?.name?.charAt(0) || <User size={10}/>}</span>}
+              {p?.avatar ? <img src={p.avatar} alt="" className="w-full h-full object-cover" /> : <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400">{p?.name?.charAt(0) || <User size={10} />}</span>}
             </div>
           );
         })}
@@ -227,11 +226,10 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
         {/* Checkbox */}
         <button
           onClick={e => { e.stopPropagation(); handleToggle(task); }}
-          className={`w-5 h-5 rounded border-2 flex-shrink-0 transition-all cursor-pointer flex items-center justify-center ${
-            task.status?.is_done
-              ? 'bg-emerald-500 border-emerald-500 dark:bg-emerald-600 dark:border-emerald-600'
-              : 'border-slate-300 dark:border-slate-600 hover:border-indigo-500 dark:hover:border-indigo-400'
-          }`}
+          className={`w-5 h-5 rounded border-2 flex-shrink-0 transition-all cursor-pointer flex items-center justify-center ${task.status?.is_done
+            ? 'bg-emerald-500 border-emerald-500 dark:bg-emerald-600 dark:border-emerald-600'
+            : 'border-slate-300 dark:border-slate-600 hover:border-indigo-500 dark:hover:border-indigo-400'
+            }`}
         >
           {task.status?.is_done && (
             <svg viewBox="0 0 12 12" className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="2">
@@ -316,21 +314,19 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
                       onDragStart={() => setDragTaskId(task.id)}
                       onDragEnd={() => setDragTaskId(null)}
                       onClick={() => handleOpenTask(task)}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 group ${
-                        dragTaskId === task.id ? 'opacity-40' : ''
-                      } ${isDone
-                        ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 opacity-70'
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-sm'
-                      }`}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 group ${dragTaskId === task.id ? 'opacity-40' : ''
+                        } ${isDone
+                          ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 opacity-70'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-sm'
+                        }`}
                     >
                       <div className="flex items-start gap-2">
                         <button
                           onClick={(e) => { e.stopPropagation(); handleToggle(task); }}
-                          className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-all cursor-pointer ${
-                            isDone
-                              ? 'bg-emerald-500 border-emerald-500 dark:bg-emerald-600 dark:border-emerald-600'
-                              : 'border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500'
-                          }`}
+                          className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-all cursor-pointer ${isDone
+                            ? 'bg-emerald-500 border-emerald-500 dark:bg-emerald-600 dark:border-emerald-600'
+                            : 'border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500'
+                            }`}
                         >
                           {isDone && <CheckSquare size={10} className="text-white" />}
                         </button>

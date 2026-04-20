@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, MapPin, TrendingUp, Calendar, Building2, Filter, X, Globe, EyeOff, Star, ArrowUpDown } from 'lucide-react';
+import { Search, Plus, MapPin, TrendingUp, Calendar, Building2, Filter, X, Globe, EyeOff, Star, ArrowUpDown, LayoutGrid, List } from 'lucide-react';
 import { ProjectService } from '../services';
 import { BIMProject, BIMProjectStatus, BIM_PROJECT_STATUS_LABELS } from '../types';
 import { toast } from 'sonner';
@@ -124,23 +124,21 @@ const ProjectCard: React.FC<{ project: BIMProject; index: number; onClick: () =>
           <button
             onClick={(e) => onToggleWeb(e, project)}
             title={project.isPublishedWeb ? "Ẩn khỏi Web" : "Hiển thị trên Web"}
-            className={`p-1.5 rounded-md backdrop-blur-sm transition-all border ${
-              project.isPublishedWeb 
-                ? 'bg-emerald-500/80 hover:bg-emerald-600/90 border-emerald-400 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]' 
+            className={`p-1.5 rounded-md backdrop-blur-sm transition-all border ${project.isPublishedWeb
+                ? 'bg-emerald-500/80 hover:bg-emerald-600/90 border-emerald-400 text-white shadow-[0_0_10px_rgba(16,185,129,0.5)]'
                 : 'bg-black/40 hover:bg-black/60 border-white/20 text-slate-300'
-            }`}
+              }`}
           >
             {project.isPublishedWeb ? <Globe size={14} /> : <EyeOff size={14} />}
           </button>
-          
+
           <button
             onClick={(e) => onToggleFeatured(e, project)}
             title={project.isFeaturedWeb ? "Bỏ nổi bật" : "Đánh dấu nổi bật"}
-            className={`p-1.5 rounded-md backdrop-blur-sm transition-all border ${
-              project.isFeaturedWeb 
-                ? 'bg-amber-500/80 hover:bg-amber-600/90 border-amber-400 text-white shadow-[0_0_10px_rgba(245,158,11,0.5)]' 
+            className={`p-1.5 rounded-md backdrop-blur-sm transition-all border ${project.isFeaturedWeb
+                ? 'bg-amber-500/80 hover:bg-amber-600/90 border-amber-400 text-white shadow-[0_0_10px_rgba(245,158,11,0.5)]'
                 : 'bg-black/40 hover:bg-black/60 border-white/20 text-slate-300'
-            }`}
+              }`}
           >
             <Star size={14} className={project.isFeaturedWeb ? "fill-white" : ""} />
           </button>
@@ -232,6 +230,16 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
   const [statusFilter, setStatusFilter] = useState<BIMProjectStatus | 'All'>('All');
   const [showFilters, setShowFilters] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('newest');
+
+  type ViewMode = 'grid' | 'table';
+  const [viewMode, setViewModeState] = useState<ViewMode>(() => {
+    return (localStorage.getItem('cic-erp-project-view-mode') as ViewMode) || 'grid';
+  });
+
+  const setViewMode = (mode: ViewMode) => {
+    setViewModeState(mode);
+    localStorage.setItem('cic-erp-project-view-mode', mode);
+  };
 
   // Fetch projects
   useEffect(() => {
@@ -387,11 +395,10 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
         {/* Filter toggle */}
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all ${
-            showFilters || statusFilter !== 'All'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-all ${showFilters || statusFilter !== 'All'
               ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
               : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-          }`}
+            }`}
         >
           <Filter size={16} />
           Lọc trạng thái
@@ -399,6 +406,29 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
             <span className="ml-1 w-5 h-5 rounded-full bg-indigo-600 dark:bg-indigo-500 text-white text-[10px] flex items-center justify-center font-bold">1</span>
           )}
         </button>
+        {/* View Mode Toggle */}
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid'
+                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            title="Dạng lưới"
+          >
+            <LayoutGrid size={18} />
+          </button>
+          <button
+            onClick={() => setViewMode('table')}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === 'table'
+                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+              }`}
+            title="Dạng bảng"
+          >
+            <List size={18} />
+          </button>
+        </div>
       </div>
 
       {/* Status filter pills */}
@@ -406,11 +436,10 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
         <div className="flex flex-wrap gap-2 animate-in slide-in-from-top-2 duration-200">
           <button
             onClick={() => setStatusFilter('All')}
-            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-              statusFilter === 'All'
+            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${statusFilter === 'All'
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
+              }`}
           >
             Tất cả ({statusCounts.All})
           </button>
@@ -420,11 +449,10 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
               <button
                 key={status}
                 onClick={() => setStatusFilter(statusFilter === status ? 'All' : status)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-                  statusFilter === status
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${statusFilter === status
                     ? `${cfg.bg} ${cfg.text} ring-2 ring-offset-1 ring-current dark:ring-offset-slate-900`
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                }`}
+                  }`}
               >
                 <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
                 {BIM_PROJECT_STATUS_LABELS[status]} ({statusCounts[status] || 0})
@@ -434,7 +462,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
         </div>
       )}
 
-      {/* Grid */}
+      {/* Main Content */}
       {filteredProjects.length === 0 ? (
         <div className="text-center py-20">
           <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
@@ -442,13 +470,164 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
           </div>
           <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 mb-1">Chưa có dự án nào</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {searchTerm || statusFilter !== 'All' 
+            {searchTerm || statusFilter !== 'All'
               ? 'Không tìm thấy dự án phù hợp. Thử thay đổi bộ lọc.'
               : 'Dự án sẽ hiển thị ở đây khi được tạo.'}
           </p>
         </div>
+      ) : viewMode === 'table' ? (
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in duration-300">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs uppercase font-bold sticky top-0 z-10">
+                <tr>
+                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 rounded-tl-xl w-[250px] min-w-[250px]">Tên & Mã dự án</th>
+                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[200px] min-w-[200px]">Địa điểm / CĐT</th>
+                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[150px] min-w-[150px]">Giá trị</th>
+                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[180px] min-w-[180px]">Tiến độ</th>
+                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Trạng thái</th>
+                  <th className="px-4 py-4 border-b border-slate-200 dark:border-slate-800 text-right rounded-tr-xl">Nổi bật</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 bg-white dark:bg-slate-900">
+                {filteredProjects.map((p, idx) => {
+                  const cfg = STATUS_CONFIG[p.status] || STATUS_CONFIG['30_CHUANBI'];
+                  const tp = calcTimeProgress(p.startDate, p.endDate);
+                  const isDelayed = tp !== null && tp > p.progress;
+                  return (
+                    <tr
+                      key={p.id}
+                      onClick={() => onSelectProject(p.id)}
+                      className="hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 cursor-pointer transition-colors group"
+                    >
+                      {/* Name & Code */}
+                      <td className="px-6 py-4 whitespace-normal min-w-[250px]">
+                        <div className="flex items-start gap-4">
+                          <img
+                            src={p.thumbnailUrl || getPlaceholder(idx)}
+                            alt={p.name}
+                            className="w-12 h-12 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-slate-700"
+                            onError={(e) => { (e.target as HTMLImageElement).src = getPlaceholder(idx); }}
+                          />
+                          <div>
+                            <p className="font-bold text-[14px] text-slate-800 dark:text-slate-100 leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2">
+                              {p.name}
+                            </p>
+                            <p className="text-[11px] font-mono text-slate-400 font-semibold mt-0.5 uppercase">
+                              {p.code}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Location & Client */}
+                      <td className="px-6 py-4">
+                        <div className="space-y-1 w-[200px] whitespace-normal">
+                          {p.clientName ? (
+                            <div className="flex items-start gap-1.5" title={p.clientName}>
+                              <Building2 size={13} className="text-slate-400 shrink-0 mt-0.5" />
+                              <span className="text-[13px] text-slate-700 dark:text-slate-300 font-medium line-clamp-2 break-words">{p.clientName}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600 text-xs italic">Chưa xác định CĐT</span>
+                          )}
+                          {p.location && (
+                            <div className="flex items-center gap-1.5">
+                              <MapPin size={12} className="text-slate-400 shrink-0" />
+                              <span className="text-[12px] text-slate-500 dark:text-slate-400 truncate max-w-[170px]">{p.location}</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Value and Dates */}
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          {p.contractValue > 0 ? (
+                            <p className="font-black text-indigo-600 dark:text-indigo-400">
+                              {p.contractValue >= 1_000_000_000
+                                ? <>{(p.contractValue / 1_000_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} <span className="text-[11px] font-bold">Tỷ</span></>
+                                : <>{(p.contractValue / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 0 })} <span className="text-[11px] font-bold">Tr</span></>
+                              }
+                            </p>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600 text-xs italic">Chưa có HĐ</span>
+                          )}
+                          {p.startDate && (
+                            <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                              <Calendar size={12} className="shrink-0" />
+                              <span>{formatDate(p.startDate)}</span>
+                              {p.endDate && <span>→ {formatDate(p.endDate)}</span>}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Progress */}
+                      <td className="px-6 py-4 w-[180px]">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold text-slate-500 w-12">Thực tế</span>
+                            <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div className="h-full bg-indigo-500 dark:bg-indigo-400 rounded-full transition-all" style={{ width: `${Math.min(p.progress, 100)}%` }} />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 w-8 text-right">{p.progress}%</span>
+                          </div>
+                          {tp !== null && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-semibold text-slate-500 w-12">Hợp đồng</span>
+                              <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all ${isDelayed ? 'bg-rose-400 dark:bg-rose-500' : 'bg-slate-400 dark:bg-slate-500'}`} style={{ width: `${Math.min(tp, 100)}%` }} />
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 w-8 text-right">{tp}%</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${cfg.bg} ${cfg.text} border border-white/20 dark:border-slate-700/50`}>
+                          <span className={`w-1.5 h-1.5 rounded-full mr-2 ${cfg.dot}`} />
+                          {BIM_PROJECT_STATUS_LABELS[p.status]}
+                        </span>
+                      </td>
+
+                      {/* Actions (Pils) */}
+                      <td className="px-4 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={(e) => toggleWeb(e, p)}
+                            title={p.isPublishedWeb ? "Ẩn khỏi Web" : "Hiển thị trên Web"}
+                            className={`p-1.5 rounded-md transition-all border ${p.isPublishedWeb
+                                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-400'
+                              } hover:opacity-80`}
+                          >
+                            {p.isPublishedWeb ? <Globe size={15} /> : <EyeOff size={15} />}
+                          </button>
+
+                          <button
+                            onClick={(e) => toggleFeatured(e, p)}
+                            title={p.isFeaturedWeb ? "Bỏ nổi bật" : "Đánh dấu nổi bật"}
+                            className={`p-1.5 rounded-md transition-all border ${p.isFeaturedWeb
+                                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-500 dark:text-amber-400'
+                                : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-400'
+                              } hover:opacity-80`}
+                          >
+                            <Star size={15} className={p.isFeaturedWeb ? "fill-current" : ""} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-in fade-in duration-300">
           {filteredProjects.map((project, idx) => (
             <ProjectCard
               key={project.id}

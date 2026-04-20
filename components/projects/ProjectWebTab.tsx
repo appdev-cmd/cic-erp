@@ -19,7 +19,7 @@ const SerpPreview = ({ slug, title, description }: { slug: string; title: string
   const displayDesc = description || 'Mô tả ngắn gọn về dự án sẽ hiển thị tại đây trên kết quả tìm kiếm Google...';
 
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 space-y-1.5 font-['Arial',sans-serif]">
+    <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 space-y-1.5 font-['Arial',sans-serif]">
       <p className="text-[12px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
         <Search size={12} />
         Xem trước kết quả tìm kiếm Google
@@ -34,18 +34,16 @@ const SerpPreview = ({ slug, title, description }: { slug: string; title: string
         </p>
       </div>
       <div className="pt-2 flex items-center gap-2">
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-          (title?.length || 0) > 60
+        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${(title?.length || 0) > 60
             ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
             : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-        }`}>
+          }`}>
           Tiêu đề: {title?.length || 0}/60 ký tự
         </span>
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-          (description?.length || 0) > 160
+        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${(description?.length || 0) > 160
             ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
             : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-        }`}>
+          }`}>
           Mô tả: {description?.length || 0}/160 ký tự
         </span>
       </div>
@@ -64,7 +62,7 @@ const Toggle = ({
   icon: React.ReactNode;
   activeColor?: string;
 }) => (
-  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
+  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
     <div className="flex items-center gap-3">
       <div className={`p-2 rounded-lg ${checked ? `${activeColor} text-white` : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'} transition-colors`}>
         {icon}
@@ -76,21 +74,19 @@ const Toggle = ({
     </div>
     <button
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-        checked ? activeColor : 'bg-slate-300 dark:bg-slate-600'
-      }`}
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${checked ? activeColor : 'bg-slate-300 dark:bg-slate-600'
+        }`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-          checked ? 'translate-x-6' : 'translate-x-1'
-        }`}
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'
+          }`}
       />
     </button>
   </div>
 );
 
 /* ── Input Field ─────────────────────────────────────────── */
-const inputCls = 'w-full text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-all';
+const inputCls = 'w-full text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-all';
 const labelCls = 'block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5';
 
 /* ── Main Component ─────────────────────────────────────── */
@@ -166,19 +162,17 @@ const ProjectWebTab: React.FC<ProjectWebTabProps> = ({ project, onUpdate }) => {
       </div>
 
       {/* ── Published Status Banner ── */}
-      <div className={`flex items-center gap-3 p-4 rounded-xl border ${
-        form.isPublishedWeb
+      <div className={`flex items-center gap-3 p-4 rounded-xl border ${form.isPublishedWeb
           ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
           : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
-      }`}>
+        }`}>
         {form.isPublishedWeb
           ? <CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
           : <EyeOff size={18} className="text-slate-400 shrink-0" />
         }
         <div>
-          <p className={`text-sm font-bold ${
-            form.isPublishedWeb ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
-          }`}>
+          <p className={`text-sm font-bold ${form.isPublishedWeb ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
+            }`}>
             {form.isPublishedWeb ? 'Đang hiển thị trên website' : 'Chưa xuất bản lên website'}
           </p>
           {form.isPublishedWeb && form.slug && (

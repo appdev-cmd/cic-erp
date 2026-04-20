@@ -10,6 +10,8 @@ import { SlidePanelHeader } from '../ui/SlidePanelHeader';
 import MentionPeopleInput from './MentionPeopleInput';
 import MentionLinksInput, { type LinkedEntity } from './MentionLinksInput';
 import { dataClient } from '../../lib/dataClient';
+import { TaskTemplateService, type TaskTemplate } from '../../services/taskTemplateService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ChecklistItem { id: string; text: string; done: boolean; }
 
@@ -23,29 +25,33 @@ interface CreateTaskPanelProps {
 
 const PRIORITIES: { label: string; value: TaskPriority }[] = [
   { label: '🔴 Khẩn cấp', value: 'urgent' },
-  { label: '🟠 Cao',       value: 'high' },
+  { label: '🟠 Cao', value: 'high' },
   { label: '🔵 Trung bình', value: 'medium' },
-  { label: '⚪ Thấp',      value: 'low' },
+  { label: '⚪ Thấp', value: 'low' },
 ];
 
 const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({
   onTaskCreated, onClose, currentUserId, initialData, profile
 }) => {
-  const [title, setTitle]         = useState('');
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority]   = useState<TaskPriority>('medium');
-  const [dueDate, setDueDate]     = useState('');
+  const [priority, setPriority] = useState<TaskPriority>('medium');
+  const [dueDate, setDueDate] = useState('');
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
 
+  const { profile: authProfile } = useAuth();
+  const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+
   // People
-  const [assignees,  setAssignees]  = useState<string[]>([currentUserId]);
+  const [assignees, setAssignees] = useState<string[]>([currentUserId]);
   const [supporters, setSupporters] = useState<string[]>([]);
-  const [watchers,   setWatchers]   = useState<string[]>([]);
-  const [approvers,  setApprovers]  = useState<string[]>([]);
+  const [watchers, setWatchers] = useState<string[]>([]);
+  const [approvers, setApprovers] = useState<string[]>([]);
 
   // Tags
-  const [tags, setTags]       = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
@@ -92,6 +98,36 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({
       setOnCloseBlocked(undefined, null);
     }
   }, [hasUnsavedChanges, saving]);
+
+  // Load Task Templates
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const unitId = profile?.unit_id || authProfile?.unitId || null;
+        const data = await TaskTemplateService.getForUnit(unitId);
+        setTemplates(data || []);
+      } catch (err) {
+        console.error('Failed to load templates:', err);
+      }
+    };
+    fetchTemplates();
+  }, [profile?.unit_id, authProfile?.unitId]);
+
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+
+    const tpl = templates.find(t => t.id === templateId);
+    if (!tpl || !tpl.tasks_json || tpl.tasks_json.length === 0) return;
+
+    const taskData = tpl.tasks_json[0];
+    if (taskData.title) setTitle(taskData.title);
+    if (taskData.description) setDescription(taskData.description);
+    if (taskData.priority) setPriority(taskData.priority);
+    if (taskData.tags && taskData.tags.length > 0) {
+      setTags(prev => Array.from(new Set([...prev, ...taskData.tags!])));
+    }
+  };
 
   // Tag autocomplete
   useEffect(() => {
@@ -182,6 +218,27 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({
       </SlidePanelHeader>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-5 flex flex-col">
+
+        {/* ── Row 0: Select Template */}
+        {templates.length > 0 && (
+          <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
+            <div className="flex-1">
+              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                💡 Chọn từ biểu mẫu (Template)
+              </label>
+              <select
+                value={selectedTemplateId}
+                onChange={e => handleTemplateChange(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              >
+                <option value="">-- Không sử dụng biểu mẫu --</option>
+                {templates.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
 
         {/* ── Row 1: Priority + Deadline */}
         <div className="grid grid-cols-2 gap-4 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
