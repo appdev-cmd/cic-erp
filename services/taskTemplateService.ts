@@ -252,6 +252,28 @@ export const TaskTemplateService = {
       if (linksError) console.warn('Lỗi tạo liên kết task phụ thuộc:', linksError);
     }
 
+    // 7. Send Telegram notifications cho assignees (fire-and-forget, không block return)
+    if (insertedTasks && insertedTasks.length > 0) {
+      import('./telegramNotificationService').then(({ TelegramNotificationService }) => {
+        const creatorId = options?.creatorUserId;
+        newTasks.forEach((t, idx) => {
+          const insertedId = insertedTasks[idx]?.id;
+          const assigneeId = t.assignees?.[0];
+          // Chỉ notify nếu có assignee và khác người tạo
+          if (insertedId && assigneeId && assigneeId !== creatorId) {
+            TelegramNotificationService.notifyTaskChange({
+              eventType: 'assigned',
+              taskId: insertedId,
+              taskTitle: t.title,
+              assigneeId,
+              changedBy: creatorId,
+              dueDate: t.due_date,
+            }).catch(err => console.warn('Template task notify error:', err));
+          }
+        });
+      }).catch(() => { /* notification service không bắt buộc */ });
+    }
+
     return newTasks.length;
   }
 };

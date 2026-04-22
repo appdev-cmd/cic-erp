@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Plus, CheckSquare, Search, Clock, AlertTriangle, Calendar,
   X, MessageSquare, Tag, Copy, Pin, Play, CheckCircle2,
-  Briefcase, ArrowUpDown, Trash2, ChevronRight, Download
+  Briefcase, ArrowUpDown, Trash2, ChevronRight, Download,
+  ChevronUp, ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
@@ -15,6 +16,10 @@ import TaskDetailPanel from './TaskDetailPanel';
 import CreateTaskPanel from './CreateTaskPanel';
 import CalendarView from './CalendarView';
 import { GanttView } from './GanttView';
+import { BitrixListView } from './views/BitrixListView';
+import { DeadlineView } from './views/DeadlineView';
+import { PlannerView } from './views/PlannerView';
+import { BulkActionsBar } from './views/BulkActionsBar';
 import TaskTemplateManagerPanel from './TaskTemplateManagerPanel';
 import TeamDashboard from './TeamDashboard';
 import PeoplePickerPopover from './PeoplePickerPopover';
@@ -49,868 +54,6 @@ import {
 } from './TasksPageSubComponents';
 
 // ═══════════════════════════════════════
-// LIST VIEW (Bitrix24-style table)
-// ═══════════════════════════════════════
-const BitrixListView: React.FC<{
-  tasks: Task[];
-  statuses: TaskStatus[];
-  employees: Record<string, { name: string; avatar?: string }>;
-  selectedIds: Set<string>;
-  onToggleSelect: (id: string) => void;
-  onSelectAll: () => void;
-  onSelect: (id: string, initialTab?: 'detail' | 'comments' | 'history' | 'links' | 'time') => void;
-  onToggleComplete: (task: Task) => void;
-  onTogglePin: (taskId: string) => void;
-  onStartTask: (task: Task) => void;
-  onQuickCreate: (title: string, tags: string[]) => Promise<void>;
-  onTagClick: (tag: string) => void;
-  onUpdateStatus: (taskId: string, statusId: string) => void;
-  onUpdateDeadline: (taskId: string, deadline: string | null) => void;
-  onUpdateAssignee: (taskId: string, assigneeIds: string[]) => void;
-  onUpdateProject: (taskId: string, projectId: string | null) => void;
-  onQuickComment: (taskId: string, content: string) => Promise<void>;
-  projects: { id: string; name: string }[];
-}> = ({ tasks, statuses, employees, selectedIds, onToggleSelect, onSelectAll, onSelect, onToggleComplete, onTogglePin, onStartTask, onQuickCreate, onTagClick, onUpdateStatus, onUpdateDeadline, onUpdateAssignee, onUpdateProject, onQuickComment, projects }) => {
-  const [colWidths, setColWidths] = useState<Record<ColumnKey, number>>(loadColWidths);
-  // Inline edit state: which cell is being edited
-  const [editingCell, setEditingCell] = useState<{ taskId: string; col: 'status' | 'deadline' | 'assignee' | 'comment' } | null>(null);
-  // Comment counts loaded via batch
-  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
-  // Expand/collapse state for tree view
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const taskIds = tasks.map(t => t.id);
-    if (taskIds.length === 0) return;
-    DiscussionService.getCountsBatch('task', taskIds)
-      .then(counts => setCommentCounts(counts))
-      .catch((err) => { console.error(err); });
-  }, [tasks]);
-
-  const toggleExpand = (e: React.MouseEvent, taskId: string) => {
-    e.stopPropagation();
-    setExpandedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(taskId)) next.delete(taskId);
-      else next.add(taskId);
-      return next;
-    });
-  };
-
-  const flattenedTasks = useMemo(() => {
-    const childrenMap = new Map<string, Task[]>();
-    const roots: Task[] = [];
-    
-    // Group by parent_id
-    tasks.forEach(t => {
-      if (t.parent_id && tasks.some(x => x.id === t.parent_id)) {
-        if (!childrenMap.has(t.parent_id)) childrenMap.set(t.parent_id, []);
-        childrenMap.get(t.parent_id)!.push(t);
-      } else {
-        roots.push(t);
-      }
-    });
-
-    const result: (Task & { _level: number; _hasChildren: boolean })[] = [];
-    
-    const traverse = (t: Task, level: number) => {
-      const children = childrenMap.get(t.id) || [];
-      result.push({ ...t, _level: level, _hasChildren: children.length > 0 });
-      if (expandedIds.has(t.id)) {
-        // Có thể sort children theo sort_order nếu muốn
-        children.sort((a, b) => a.sort_order - b.sort_order).forEach(c => traverse(c, level + 1));
-      }
-    };
-
-    // Có thể sort roots theo priority/hạn ở ngoài, components wrap xử lý, ở đây chỉ sort the input roots
-    roots.forEach(r => traverse(r, 0));
-    return result;
-  }, [tasks, expandedIds]);
-
-
-  const handleWidthChange = useCallback((col: ColumnKey, width: number) => {
-    setColWidths(prev => ({ ...prev, [col]: width }));
-  }, []);
-
-  // Save to localStorage on width change (debounced)
-  useEffect(() => {
-    const timer = setTimeout(() => saveColWidths(colWidths), 300);
-    return () => clearTimeout(timer);
-  }, [colWidths]);
-
-  const thClass = "text-left px-3 py-3 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider relative select-none";
-  
-  return (
-    <div className="overflow-x-auto" style={{ overflow: 'visible' }}>
-      <table className="w-full text-sm table-fixed">
-        <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-700">
-            {/* Checkbox col */}
-            <th className="w-10 px-2 py-3" style={{ width: 40 }}>
-              <button
-                onClick={onSelectAll}
-                className={`w-4.5 h-4.5 rounded border-2 flex items-center justify-center transition-all cursor-pointer
-                  ${selectedIds.size > 0 && selectedIds.size === tasks.length
-                    ? 'bg-indigo-600 border-indigo-600 dark:bg-indigo-500 dark:border-indigo-500'
-                    : 'border-slate-300 dark:border-slate-600 hover:border-indigo-400'
-                  }`}
-                style={{ width: 18, height: 18 }}
-              >
-                {selectedIds.size > 0 && selectedIds.size === tasks.length && <CheckSquare size={11} className="text-white" />}
-              </button>
-            </th>
-            {/* Name col — auto to take remaining space */}
-            <th className={thClass}>
-              <span className="flex items-center gap-1 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300">
-                Tên <ArrowUpDown size={12} />
-              </span>
-            </th>
-            {/* Data columns — resizable */}
-            {COLUMN_KEYS.map(col => (
-              <th
-                key={col}
-                className={`${thClass} ${COL_RESPONSIVE[col] || ''}`}
-                style={{ width: colWidths[col] }}
-              >
-                {COL_LABELS[col]}
-                <ResizeHandle columnKey={col} getWidth={() => colWidths[col]} onWidthChange={handleWidthChange} />
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {/* Quick add row */}
-          <tr className="border-b border-slate-100 dark:border-slate-800">
-            <td colSpan={2 + COLUMN_KEYS.length} className="px-3 py-1">
-              <QuickTaskInput onCreateTask={onQuickCreate} />
-            </td>
-          </tr>
-          
-          {flattenedTasks.map((task) => {
-            const priorityConf = PRIORITY_CONFIG[task.priority];
-            const status = statuses.find(s => s.id === task.status_id);
-            const isOverdue = task.due_date && new Date(task.due_date) < new Date() && !task.completed_at;
-            const isDone = task.status?.is_done || status?.is_done;
-            const isInProgress = status?.name === 'Đang tiến hành' || status?.name === 'Đang thực hiện';
-            const hasPastStartDate = !!(task.start_date && task.start_date <= new Date().toISOString().split('T')[0]);
-            const isPendingApproval = task.approval_status === 'pending';
-            const showStartButton = !isDone && !isInProgress && !hasPastStartDate && !isPendingApproval;
-            const creator = task.created_by ? employees[task.created_by] : null;
-            const assignee = task.assignees?.[0] ? employees[task.assignees[0]] : null;
-
-            return (
-              <tr
-                key={task.id}
-                className={`group border-b border-slate-100 dark:border-slate-800 cursor-pointer transition-colors
-                  ${selectedIds.has(task.id) ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}
-                  ${isDone ? 'opacity-60' : ''}`}
-              >
-                {/* Checkbox */}
-                <td className="px-2 py-2.5" onClick={e => e.stopPropagation()}>
-                  <button
-                    onClick={() => onToggleSelect(task.id)}
-                    className={`w-4.5 h-4.5 rounded border-2 flex items-center justify-center transition-all cursor-pointer
-                      ${selectedIds.has(task.id)
-                        ? 'bg-indigo-600 border-indigo-600 dark:bg-indigo-500 dark:border-indigo-500'
-                        : 'border-slate-300 dark:border-slate-600 hover:border-indigo-400'
-                      }`}
-                    style={{ width: 18, height: 18 }}
-                  >
-                    {selectedIds.has(task.id) && <CheckSquare size={11} className="text-white" />}
-                  </button>
-                </td>
-
-                {/* Name + priority on second line */}
-                <td className="px-3 py-2" onClick={() => onSelect(task.id)}>
-                  <div className="flex items-start gap-2" style={{ paddingLeft: `${Math.min(task._level, 5) * 20}px` }}>
-                    {/* Expand/Collapse Toggle or Indent Line */}
-                    {task._hasChildren ? (
-                      <button 
-                        onClick={(e) => toggleExpand(e, task.id)}
-                        className="mt-0.5 w-4 h-4 flex-shrink-0 flex items-center justify-center rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-                      >
-                        <ChevronRight size={14} className={`transform transition-transform ${expandedIds.has(task.id) ? 'rotate-90' : ''}`} />
-                      </button>
-                    ) : task._level > 0 ? (
-                      <div className="w-4 h-4 flex-shrink-0 relative mt-0.5">
-                         <div className="absolute top-0 left-1.5 w-2 h-2.5 border-l-2 border-b-2 border-slate-300 dark:border-slate-600 rounded-bl" />
-                      </div>
-                    ) : null}
-
-                    <div className="min-w-0 flex-1">
-                      <span className={`font-semibold text-sm leading-tight ${isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>
-                        {task.title}
-                      </span>
-                      {/* Priority badge on second line */}
-                      {task.priority !== 'none' && (
-                        <div className="mt-0.5">
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${priorityConf.bg} ${priorityConf.darkBg} ${priorityConf.color} ${priorityConf.darkColor}`}>
-                            {priorityConf.label}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Hover quick actions: Start + Complete + Pin (pin last) */}
-                    <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0 mt-0.5" onClick={e => e.stopPropagation()}>
-                      {showStartButton && (
-                        <button
-                          onClick={() => onStartTask(task)}
-                          className="p-1 text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded cursor-pointer transition-colors"
-                          title="Bắt đầu"
-                        >
-                          <Play size={13} />
-                        </button>
-                      )}
-                      {!isDone && (
-                        <button
-                          onClick={() => onToggleComplete(task)}
-                          className="p-1 text-emerald-500 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded cursor-pointer transition-colors"
-                          title="Hoàn thành"
-                        >
-                          <CheckCircle2 size={13} />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => onTogglePin(task.id)}
-                        className={`p-1 rounded transition-colors cursor-pointer ${
-                          task.is_pinned
-                            ? 'text-amber-500 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-                            : 'text-slate-400 dark:text-slate-500 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-                        }`}
-                        title={task.is_pinned ? 'Bỏ ghim' : 'Ghim'}
-                      >
-                        <Pin size={13} />
-                      </button>
-                    </div>
-                    {/* Show pin icon when pinned (non-hover) */}
-                    {task.is_pinned && (
-                      <span className="flex-shrink-0 text-amber-500 dark:text-amber-400 group-hover:hidden mt-0.5">
-                        <Pin size={13} />
-                      </span>
-                    )}
-                  </div>
-                </td>
-
-                {/* Status — inline dropdown */}
-                <td className="px-3 py-2.5 relative" onClick={e => e.stopPropagation()}>
-                  <button
-                    onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'status' ? null : { taskId: task.id, col: 'status' })}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer hover:opacity-80 transition-opacity"
-                    title="Bấm để thay đổi trạng thái"
-                  >
-                    {status && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />}
-                    <span className="text-slate-600 dark:text-slate-400 truncate">{status?.name || '—'}</span>
-                  </button>
-                  {/* Status dropdown popover */}
-                  {editingCell?.taskId === task.id && editingCell?.col === 'status' && (
-                    <StatusDropdown
-                      statuses={statuses}
-                      currentStatusId={task.status_id || ''}
-                      onSelect={(statusId) => { onUpdateStatus(task.id, statusId); setEditingCell(null); }}
-                      onClose={() => setEditingCell(null)}
-                    />
-                  )}
-                </td>
-
-                {/* Deadline — inline date picker */}
-                <td className="px-3 py-2.5 relative" onClick={e => e.stopPropagation()}>
-                  {editingCell?.taskId === task.id && editingCell?.col === 'deadline' ? (
-                    <DeadlineInput
-                      currentValue={task.due_date || ''}
-                      onSave={(val) => { onUpdateDeadline(task.id, val || null); setEditingCell(null); }}
-                      onClose={() => setEditingCell(null)}
-                    />
-                  ) : task.due_date ? (
-                    <button
-                      onClick={() => setEditingCell({ taskId: task.id, col: 'deadline' })}
-                      className={`text-xs font-medium px-2 py-1 rounded-lg inline-block cursor-pointer hover:opacity-80 transition-opacity ${
-                        isOverdue
-                          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}
-                      title="Bấm để thay đổi deadline"
-                    >
-                      {isOverdue && <AlertTriangle size={11} className="inline mr-1" />}
-                      {formatDateTime(task.due_date)}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setEditingCell({ taskId: task.id, col: 'deadline' })}
-                      className="text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
-                      title="Bấm để đặt deadline"
-                    >
-                      <Calendar size={14} />
-                    </button>
-                  )}
-                </td>
-
-                {/* Ngày tạo (Created at) — date + time */}
-                <td className="px-3 py-2.5 hidden xl:table-cell" onClick={() => onSelect(task.id)}>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {formatDateTime(task.created_at)}
-                  </span>
-                </td>
-
-                {/* Người giao (Assigner / Created by) */}
-                <td className="px-3 py-2.5" onClick={() => onSelect(task.id)}>
-                  {creator ? (
-                    <div className="flex items-center gap-2">
-                      <PersonAvatar name={creator.name} avatar={creator.avatar} size={24} />
-                      <span className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[100px]">{creator.name}</span>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
-                  )}
-                </td>
-
-                {/* Người thực hiện — inline people picker */}
-                <td className="px-3 py-2.5 relative" onClick={e => e.stopPropagation()}>
-                  {assignee ? (
-                    <button
-                      onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'assignee' ? null : { taskId: task.id, col: 'assignee' })}
-                      className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                      title="Bấm để thay đổi"
-                    >
-                      <PersonAvatar name={assignee.name} avatar={assignee.avatar} size={24} />
-                      <span className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[100px]">{assignee.name}</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setEditingCell({ taskId: task.id, col: 'assignee' })}
-                      className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors flex items-center gap-1 opacity-0 group-hover:opacity-100"
-                      title="Chọn người thực hiện"
-                    >
-                      <Plus size={12} />
-                    </button>
-                  )}
-                  {/* People picker popover — opens upward, wider */}
-                  {editingCell?.taskId === task.id && editingCell?.col === 'assignee' && (
-                    <PeoplePickerPopover
-                      currentIds={task.assignees || []}
-                      onChange={(newIds) => { onUpdateAssignee(task.id, newIds); setEditingCell(null); }}
-                      onClose={() => setEditingCell(null)}
-                      align="left"
-                      minSelections={0}
-                      singleSelect
-                    />
-                  )}
-                </td>
-
-
-
-                {/* Bình luận — comment count badge and optional simple comment icon */}
-                <td className="px-3 py-2.5 hidden lg:table-cell relative" onClick={e => e.stopPropagation()}>
-                  <div className="flex items-center justify-center">
-                    {(commentCounts[task.id] || 0) > 0 ? (
-                      <div className="flex items-center gap-1.5 text-xs bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
-                        <button
-                          onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'comment' ? null : { taskId: task.id, col: 'comment' })}
-                          className="flex items-center text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition-colors p-0.5 rounded-sm"
-                          title="Nhắn tin nhanh"
-                        >
-                          <MessageSquare size={13} />
-                        </button>
-                        <button
-                          onClick={() => onSelect(task.id, 'comments')}
-                          className="flex items-center font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200 cursor-pointer transition-colors p-0.5 rounded-sm"
-                          title="Xem bình luận"
-                        >
-                          {commentCounts[task.id]}
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setEditingCell(editingCell?.taskId === task.id && editingCell?.col === 'comment' ? null : { taskId: task.id, col: 'comment' })}
-                        className="flex items-center gap-1 text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors opacity-0 group-hover:opacity-100 p-0.5 rounded"
-                        title="Để lại bình luận"
-                      >
-                        <MessageSquare size={14} />
-                      </button>
-                    )}
-                  </div>
-                  {editingCell?.taskId === task.id && editingCell?.col === 'comment' && (
-                    <InlineCommentInput
-                      onSave={async (content) => { 
-                        await onQuickComment(task.id, content); 
-                        setEditingCell(null);
-                        setCommentCounts(prev => ({ ...prev, [task.id]: (prev[task.id] || 0) + 1 }));
-                      }}
-                      onClose={() => setEditingCell(null)}
-                    />
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-
-      {tasks.length === 0 && (
-        <div className="text-center py-16">
-          <CheckSquare size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-4" />
-          <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400">Chưa có công việc nào</h3>
-          <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Tạo công việc mới hoặc chờ được giao từ hệ thống</p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════
-// DEADLINE VIEW (Kanban by deadline — with drag & drop)
-// ═══════════════════════════════════════
-type DeadlineColumnKey = 'later' | 'overdue' | 'today' | 'this_week' | 'next_week' | 'no_deadline';
-
-const DeadlineView: React.FC<{
-  tasks: Task[];
-  statuses: TaskStatus[];
-  employees: Record<string, { name: string; avatar?: string }>;
-  onSelect: (id: string) => void;
-  onToggleComplete: (task: Task) => void;
-  onQuickCreate: (title: string, tags: string[], dueDate?: string) => Promise<void>;
-  onUpdateDeadline: (taskId: string, deadline: string | null) => void;
-  onUpdateAssignee: (taskId: string, assigneeIds: string[]) => void;
-}> = ({ tasks, statuses, employees, onSelect, onToggleComplete, onQuickCreate, onUpdateDeadline, onUpdateAssignee }) => {
-  // Helper: format Date to local YYYY-MM-DD (avoids UTC shift from toISOString)
-  const localDateStr = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = localDateStr(today);
-  
-  const endOfWeek = new Date(today);
-  endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
-  const endOfWeekStr = localDateStr(endOfWeek);
-  
-  const endOfNextWeek = new Date(endOfWeek);
-  endOfNextWeek.setDate(endOfWeek.getDate() + 7);
-  const endOfNextWeekStr = localDateStr(endOfNextWeek);
-
-  const doneStatusIds = new Set(statuses.filter(s => s.is_done).map(s => s.id));
-  const activeTasks = tasks.filter(t => !doneStatusIds.has(t.status_id || ''));
-
-  // Helper: extract local YYYY-MM-DD from any ISO timestamp
-  const toDateStr = (d?: string) => {
-    if (!d) return '';
-    const dt = new Date(d);
-    return localDateStr(dt);
-  };
-
-  const [dragOverCol, setDragOverCol] = useState<DeadlineColumnKey | null>(null);
-  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
-  const [editingAssigneeTaskId, setEditingAssigneeTaskId] = useState<string | null>(null);
-  const [editingDeadlineTaskId, setEditingDeadlineTaskId] = useState<string | null>(null);
-
-  // Compute target deadline for a drop or quick-create
-  const getDeadlineForColumn = (colKey: DeadlineColumnKey): string | null => {
-    const now = new Date();
-    now.setHours(9, 0, 0, 0); // default 09:00
-    switch (colKey) {
-      case 'overdue': return null;
-      case 'today':
-        now.setFullYear(today.getFullYear(), today.getMonth(), today.getDate());
-        return now.toISOString();
-      case 'this_week': {
-        const wed = new Date(today);
-        const dayOfWeek = today.getDay();
-        const daysToWed = dayOfWeek <= 3 ? 3 - dayOfWeek : 7 - dayOfWeek + 3;
-        wed.setDate(today.getDate() + Math.max(daysToWed, 1));
-        wed.setHours(9, 0, 0, 0);
-        return wed.toISOString();
-      }
-      case 'next_week': {
-        const monday = new Date(endOfWeek);
-        monday.setDate(endOfWeek.getDate() + 1);
-        monday.setHours(9, 0, 0, 0);
-        return monday.toISOString();
-      }
-      case 'later': {
-        const futureMonday = new Date(endOfWeek);
-        futureMonday.setDate(endOfWeek.getDate() + 8);
-        futureMonday.setHours(9, 0, 0, 0);
-        return futureMonday.toISOString();
-      }
-      case 'no_deadline':
-        return null;
-      default: return null;
-    }
-  };
-
-  const handleDragStart = (e: React.DragEvent, taskId: string) => {
-    e.dataTransfer.setData('text/plain', taskId);
-    e.dataTransfer.effectAllowed = 'move';
-    setDraggingTaskId(taskId);
-  };
-
-  const handleDragEnd = () => {
-    setDraggingTaskId(null);
-    setDragOverCol(null);
-  };
-
-  const handleDragOver = (e: React.DragEvent, colKey: DeadlineColumnKey) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverCol !== colKey) setDragOverCol(colKey);
-  };
-
-  const handleDragLeave = (e: React.DragEvent, colKey: DeadlineColumnKey) => {
-    const relatedTarget = e.relatedTarget as Node | null;
-    const currentTarget = e.currentTarget as Node;
-    if (!currentTarget.contains(relatedTarget)) {
-      if (dragOverCol === colKey) setDragOverCol(null);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent, colKey: DeadlineColumnKey) => {
-    e.preventDefault();
-    setDragOverCol(null);
-    setDraggingTaskId(null);
-    const taskId = e.dataTransfer.getData('text/plain');
-    if (!taskId) return;
-
-    if (colKey === 'no_deadline') {
-      onUpdateDeadline(taskId, null);
-    } else if (colKey !== 'overdue') {
-      const newDeadline = getDeadlineForColumn(colKey);
-      if (newDeadline) onUpdateDeadline(taskId, newDeadline);
-    }
-  };
-
-  const columns: { key: DeadlineColumnKey; title: string; headerBg: string; tasks: Task[] }[] = [
-    {
-      key: 'overdue',
-      title: 'Quá hạn',
-      headerBg: 'bg-red-500',
-      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) < todayStr),
-    },
-    {
-      key: 'today',
-      title: 'Hôm nay',
-      headerBg: 'bg-amber-500',
-      tasks: activeTasks.filter(t => toDateStr(t.due_date) === todayStr),
-    },
-    {
-      key: 'this_week',
-      title: 'Tuần này',
-      headerBg: 'bg-emerald-500',
-      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) > todayStr && toDateStr(t.due_date) <= endOfWeekStr),
-    },
-    {
-      key: 'next_week',
-      title: 'Tuần sau',
-      headerBg: 'bg-blue-500',
-      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) > endOfWeekStr && toDateStr(t.due_date) <= endOfNextWeekStr),
-    },
-    {
-      key: 'no_deadline',
-      title: 'Không có deadline',
-      headerBg: 'bg-slate-400',
-      tasks: activeTasks.filter(t => !t.due_date),
-    },
-    {
-      key: 'later',
-      title: 'Hơn 2 tuần nữa',
-      headerBg: 'bg-purple-500',
-      tasks: activeTasks.filter(t => t.due_date && toDateStr(t.due_date) > endOfNextWeekStr),
-    },
-  ];
-
-  return (
-    <div className="flex gap-2 pb-4" style={{ minHeight: '60vh' }}>
-      {columns.map(col => (
-        <div
-          key={col.key}
-          className={`flex-1 min-w-0 transition-all duration-200 ${
-            dragOverCol === col.key ? 'scale-[1.02]' : ''
-          }`}
-          onDragOver={(e) => handleDragOver(e, col.key)}
-          onDragLeave={(e) => handleDragLeave(e, col.key)}
-          onDrop={(e) => handleDrop(e, col.key)}
-        >
-          {/* Column header */}
-          <div className={`${col.headerBg} text-white text-sm font-bold px-3 py-2 rounded-t-xl flex items-center justify-between`}>
-            <span>{col.title}</span>
-            <span className="bg-white/20 text-xs px-2 py-0.5 rounded-full">{col.tasks.length}</span>
-          </div>
-
-          {/* Cards + drop zone */}
-          <div className={`bg-slate-50 dark:bg-slate-800 rounded-b-xl p-2 space-y-2 min-h-[200px] transition-all duration-200 ${
-            dragOverCol === col.key
-              ? 'ring-2 ring-indigo-400 dark:ring-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/10'
-              : ''
-          }`}>
-            {/* Quick add */}
-            <div className="bg-white dark:bg-slate-900 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 px-3 py-1.5">
-              <QuickTaskInput
-                onCreateTask={(title, tags) => onQuickCreate(title, tags, getDeadlineForColumn(col.key) || undefined)}
-                placeholder="+ Thêm nhanh"
-              />
-            </div>
-
-            {col.tasks.map(task => {
-              const assignee = task.assignees?.[0] ? employees[task.assignees[0]] : null;
-              const isOverdue = task.due_date && task.due_date < todayStr;
-              const isDragging = draggingTaskId === task.id;
-
-              return (
-                <div
-                  key={task.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, task.id)}
-                  onDragEnd={handleDragEnd}
-                  onClick={() => onSelect(task.id)}
-                  className={`bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-3 cursor-grab hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-sm transition-all group active:cursor-grabbing ${
-                    isDragging ? 'opacity-40 scale-95' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onToggleComplete(task); }}
-                      className="w-4 h-4 mt-0.5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-all cursor-pointer border-slate-300 dark:border-slate-600 hover:border-indigo-400"
-                    >
-                      {task.status?.is_done && <CheckSquare size={10} className="text-emerald-500" />}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight">{task.title}</h4>
-                      {/* Tags */}
-                      {task.tags.length > 0 && (
-                        <div className="flex gap-1 mt-1.5">
-                          {task.tags.slice(0, 2).map(tag => (
-                            <span key={tag} className="text-[10px] text-indigo-500 dark:text-indigo-400">#{tag}</span>
-                          ))}
-                        </div>
-                      )}
-                      {/* Deadline badge */}
-                      <div className="relative mt-1.5" onClick={e => e.stopPropagation()}>
-                        {editingDeadlineTaskId === task.id ? (
-                          <div className="absolute top-0 left-0 z-50 min-w-[180px]">
-                            <DeadlineInput
-                              currentValue={task.due_date || ''}
-                              onSave={(val) => { onUpdateDeadline(task.id, val || null); setEditingDeadlineTaskId(null); }}
-                              onClose={() => setEditingDeadlineTaskId(null)}
-                            />
-                          </div>
-                        ) : task.due_date ? (
-                          <button
-                            onClick={() => setEditingDeadlineTaskId(task.id)}
-                            className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-opacity ${
-                              isOverdue
-                                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                                : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
-                            }`}
-                            title="Bấm để đổi deadline"
-                          >
-                            {formatDate(task.due_date)}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setEditingDeadlineTaskId(task.id)}
-                            className="inline-flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
-                            title="Bấm để đặt deadline"
-                          >
-                            <Calendar size={12} /> Đặt dl
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Footer: assignees — clickable to change */}
-                  <div className="flex items-center gap-1 mt-2 -ml-1 relative" onClick={e => e.stopPropagation()}>
-                    {task.assignees.length > 0 ? (
-                      task.assignees.slice(0, 3).map(id => {
-                        const emp = employees[id];
-                        return emp ? (
-                          <button
-                            key={id}
-                            onClick={() => setEditingAssigneeTaskId(editingAssigneeTaskId === task.id ? null : task.id)}
-                            className="cursor-pointer hover:ring-2 hover:ring-indigo-400 rounded-full transition-all"
-                            title="Bấm để đổi người phụ trách"
-                          >
-                            <PersonAvatar name={emp.name} avatar={emp.avatar} size={22} />
-                          </button>
-                        ) : null;
-                      })
-                    ) : (
-                      <button
-                        onClick={() => setEditingAssigneeTaskId(editingAssigneeTaskId === task.id ? null : task.id)}
-                        className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 cursor-pointer transition-colors flex items-center gap-0.5"
-                      >
-                        <Plus size={10} /> Giao việc
-                      </button>
-                    )}
-                    {editingAssigneeTaskId === task.id && (
-                      <PeoplePickerPopover
-                        currentIds={task.assignees || []}
-                        onChange={(newIds) => { onUpdateAssignee(task.id, newIds); setEditingAssigneeTaskId(null); }}
-                        onClose={() => setEditingAssigneeTaskId(null)}
-                        align="left"
-                        minSelections={0}
-                        singleSelect
-                      />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Drop placeholder when empty and dragging */}
-            {col.tasks.length === 0 && !draggingTaskId && (
-              <div className="text-center py-8 text-slate-400 dark:text-slate-500">
-                <Clock size={28} className="mx-auto mb-2 opacity-50" />
-                <p className="text-xs">Chưa có công việc</p>
-              </div>
-            )}
-            {draggingTaskId && col.tasks.length === 0 && (
-              <div className="text-center py-8 text-slate-400 dark:text-slate-500 border-2 border-dashed border-indigo-300 dark:border-indigo-600 rounded-lg">
-                <p className="text-xs font-medium text-indigo-500 dark:text-indigo-400">Thả vào đây</p>
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════
-// PLANNER VIEW (Bitrix24 Planner)
-// ═══════════════════════════════════════
-const PlannerView: React.FC<{
-  tasks: Task[];
-  statuses: TaskStatus[];
-  employees: Record<string, { name: string; avatar?: string }>;
-  onSelect: (id: string) => void;
-  onToggleComplete: (task: Task) => void;
-  onQuickCreate: (title: string, tags: string[]) => Promise<void>;
-}> = ({ tasks, statuses, employees, onSelect, onToggleComplete, onQuickCreate }) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const endOfWeek = new Date(today);
-  endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
-  const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
-  const todayStr = today.toISOString().split('T')[0];
-
-  const doneStatusIds = new Set(statuses.filter(s => s.is_done).map(s => s.id));
-  const activeTasks = tasks.filter(t => !doneStatusIds.has(t.status_id || ''));
-
-  const thisWeekTasks = activeTasks.filter(t => t.due_date && t.due_date >= todayStr && t.due_date <= endOfWeekStr);
-  const notPlannedTasks = activeTasks.filter(t => !t.due_date || t.due_date > endOfWeekStr || t.due_date < todayStr);
-
-  const [editingDeadlineTaskId, setEditingDeadlineTaskId] = useState<string | null>(null);
-
-  const plannerColumns = [
-    { title: 'Chưa lên kế hoạch', icon: <Clock size={15} />, headerClass: 'bg-slate-500', tasks: notPlannedTasks },
-    { title: 'Làm tuần này', icon: <Calendar size={15} />, headerClass: 'bg-indigo-500', tasks: thisWeekTasks },
-  ];
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ minHeight: '60vh' }}>
-      {plannerColumns.map(col => (
-        <div key={col.title} className="flex flex-col">
-          <div className={`${col.headerClass} text-white text-sm font-bold px-4 py-2.5 rounded-t-xl flex items-center justify-between`}>
-            <span className="flex items-center gap-2">{col.icon} {col.title}</span>
-            <span className="bg-white/20 text-xs px-2 py-0.5 rounded-full">{col.tasks.length}</span>
-          </div>
-          <div className="flex-1 bg-slate-50 dark:bg-slate-800 rounded-b-xl p-3 space-y-2 min-h-[200px]">
-            <div className="bg-white dark:bg-slate-900 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 px-3 py-1.5">
-              <QuickTaskInput onCreateTask={(title, tags) => onQuickCreate(title, tags)} placeholder="+ Thêm nhanh" />
-            </div>
-            {col.tasks.map(task => {
-              const assignee = task.assignees?.[0] ? employees[task.assignees[0]] : null;
-              const priorityConf = PRIORITY_CONFIG[task.priority];
-              return (
-                <div key={task.id} onClick={() => onSelect(task.id)} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-3 cursor-pointer hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-sm transition-all">
-                  <div className="flex items-start gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); onToggleComplete(task); }} className="w-4 h-4 mt-0.5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-all cursor-pointer border-slate-300 dark:border-slate-600 hover:border-indigo-400">
-                      {task.status?.is_done && <CheckSquare size={10} className="text-emerald-500" />}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight">{task.title}</h4>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${priorityConf.bg} ${priorityConf.darkBg} ${priorityConf.color} ${priorityConf.darkColor}`}>
-                          {priorityConf.label}
-                        </span>
-                        {task.due_date && <span className="text-[10px] text-slate-500 dark:text-slate-400">{formatDate(task.due_date)}</span>}
-                      </div>
-                      {task.tags.length > 0 && (
-                        <div className="flex gap-1 mt-1">
-                          {task.tags.slice(0, 3).map(tag => (<span key={tag} className="text-[10px] text-indigo-500 dark:text-indigo-400">#{tag}</span>))}
-                        </div>
-                      )}
-                    </div>
-                    {assignee && <PersonAvatar name={assignee.name} avatar={assignee.avatar} size={24} />}
-                  </div>
-                </div>
-              );
-            })}
-            {col.tasks.length === 0 && (
-              <div className="text-center py-8 text-slate-400 dark:text-slate-500">
-                <Clock size={28} className="mx-auto mb-2 opacity-50" />
-                <p className="text-xs">Chưa có công việc</p>
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════
-// BULK ACTIONS BAR
-// ═══════════════════════════════════════
-const BulkActionsBar: React.FC<{
-  selectedCount: number;
-  totalCount: number;
-  onComplete: () => void;
-  onSetDeadline: () => void;
-  onDelete: () => void;
-  onClearSelection: () => void;
-}> = ({ selectedCount, totalCount, onComplete, onSetDeadline, onDelete, onClearSelection }) => {
-  if (selectedCount === 0) return null;
-
-  return (
-    <div className="sticky bottom-0 z-40 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 shadow-lg px-6 py-3 flex items-center justify-between -mx-6">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onComplete}
-            className="px-4 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
-          >
-            <CheckCircle2 size={14} /> Hoàn thành
-          </button>
-          <button
-            onClick={onSetDeadline}
-            className="px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
-          >
-            <Calendar size={14} /> Đặt deadline
-          </button>
-          <button
-            onClick={onDelete}
-            className="px-4 py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
-          >
-            <Trash2 size={14} /> Xóa
-          </button>
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-slate-500 dark:text-slate-400">
-          Đã chọn: <strong className="text-slate-900 dark:text-slate-100">{selectedCount} / {totalCount}</strong>
-        </span>
-        <button
-          onClick={onClearSelection}
-          className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer underline"
-        >
-          Bỏ chọn
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════
 // TASKS PAGE (main)
 // ═══════════════════════════════════════
 
@@ -942,18 +85,44 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
       return 'list';
     }
   });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterProjectId, setFilterProjectId] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try { return localStorage.getItem('cic-erp-task-search') || ''; } catch { return ''; }
+  });
+  const [filterProjectId, setFilterProjectIdState] = useState<string>(() => {
+    try { return localStorage.getItem('cic-erp-task-project') || 'all'; } catch { return 'all'; }
+  });
+  const setFilterProjectId = (val: string) => {
+    setFilterProjectIdState(val);
+    try { localStorage.setItem('cic-erp-task-project', val); } catch { /* ignore */ }
+  };
   const [projects, setProjects] = useState<{id: string; name: string}[]>([]);
   const [employees, setEmployees] = useState<Record<string, { name: string; avatar?: string }>>({});
   const [personalUserTags, setPersonalUserTags] = useState<string[]>([]);
   const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
-  // Advanced filter states
-  const [filterStatusIds, setFilterStatusIds] = useState<string[]>([]);
-  const [filterAssigneeIds, setFilterAssigneeIds] = useState<string[]>([]);
-  const [filterDateRange, setFilterDateRange] = useState<DateRange>({});
+  // Advanced filter states — với persistence
+  const [filterStatusIds, setFilterStatusIdsState] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('cic-erp-task-status-ids') || '[]'); } catch { return []; }
+  });
+  const setFilterStatusIds = (val: string[]) => {
+    setFilterStatusIdsState(val);
+    try { localStorage.setItem('cic-erp-task-status-ids', JSON.stringify(val)); } catch { /* ignore */ }
+  };
+  const [filterAssigneeIds, setFilterAssigneeIdsState] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('cic-erp-task-assignee-ids') || '[]'); } catch { return []; }
+  });
+  const setFilterAssigneeIds = (val: string[]) => {
+    setFilterAssigneeIdsState(val);
+    try { localStorage.setItem('cic-erp-task-assignee-ids', JSON.stringify(val)); } catch { /* ignore */ }
+  };
+  const [filterDateRange, setFilterDateRangeState] = useState<DateRange>(() => {
+    try { return JSON.parse(localStorage.getItem('cic-erp-task-date-range') || '{}'); } catch { return {}; }
+  });
+  const setFilterDateRange = (val: DateRange) => {
+    setFilterDateRangeState(val);
+    try { localStorage.setItem('cic-erp-task-date-range', JSON.stringify(val)); } catch { /* ignore */ }
+  };
 
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [hasMore, setHasMore] = useState(false);
@@ -974,6 +143,11 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
       // ignore
     }
   }, [viewMode]);
+
+  // Persist search query
+  useEffect(() => {
+    try { localStorage.setItem('cic-erp-task-search', searchQuery); } catch { /* ignore */ }
+  }, [searchQuery]);
 
   const { getVisibleTasks, getMyTasks, isAdmin, isManager, visibilityContext } = useTaskVisibility();
 
@@ -1440,6 +614,51 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
   const overdueCount = tasks.filter(t => t.due_date && t.due_date < today && !doneStatusIds.includes(t.status_id || '')).length;
   const commentsCount = 0;
 
+  // ─── Keyboard Shortcuts ───
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' ||
+        target.isContentEditable || target.closest('[role="dialog"]');
+      if (isInput) return;
+
+      switch (e.key) {
+        case 'n':
+        case 'N':
+          e.preventDefault();
+          openPanel({
+            component: <CreateTaskPanel
+              onTaskCreated={loadData}
+              onClose={() => closePanel()}
+              currentUserId={visibilityContext.userId}
+              initialData={isEmbedded && sourceModule && sourceEntityId
+                ? { source_module: sourceModule, source_entity_id: sourceEntityId } : undefined}
+            />,
+            title: 'Thêm công việc',
+          });
+          break;
+        case 'Escape':
+          if (selectedIds.size > 0) {
+            setSelectedIds(new Set());
+          }
+          break;
+        case 'f':
+        case 'F':
+          e.preventDefault();
+          document.getElementById('task-search-input')?.focus();
+          break;
+        case 'r':
+        case 'R':
+          if (e.ctrlKey || e.metaKey) break; // let browser handle Ctrl+R
+          e.preventDefault();
+          loadData();
+          break;
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [openPanel, closePanel, loadData, visibilityContext.userId, selectedIds.size, isEmbedded, sourceModule, sourceEntityId]);
+
   return (
     <div className={`space-y-0 ${isEmbedded ? 'flex flex-col h-full min-h-0' : ''}`}>
       {/* ═══ TOP ROLE TABS (Bitrix24-style) ═══ */}
@@ -1668,6 +887,82 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
         </div>
       )}
 
+
+      {/* ─── Empty State ─── */}
+      {!loading && filteredTasks.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+          {(debouncedSearchQuery || filterStatusIds.length > 0 || filterAssigneeIds.length > 0 || filterProjectId !== 'all') ? (
+            // Case 1: Đang filter/search nhưng không có kết quả
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+                <Search size={28} className="text-slate-400" />
+              </div>
+              <h3 className="text-base font-bold text-slate-700 dark:text-slate-300 mb-2">Không tìm thấy công việc nào</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-5">
+                Thử thay đổi từ khóa tìm kiếm hoặc xóa bộ lọc để xem thêm kết quả.
+              </p>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterStatusIds([]);
+                  setFilterAssigneeIds([]);
+                  setFilterProjectId('all');
+                  setFilterDateRange({});
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors cursor-pointer"
+              >
+                <X size={14} /> Xóa tất cả bộ lọc
+              </button>
+            </>
+          ) : roleFilter === 'ongoing' && tasks.length === 0 ? (
+            // Case 2: Tab "Hoàn thành" trống
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center mb-4">
+                <CheckCircle2 size={28} className="text-emerald-400" />
+              </div>
+              <h3 className="text-base font-bold text-slate-700 dark:text-slate-300 mb-2">Chưa có công việc đang thực hiện</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+                Các công việc bạn đang thực hiện sẽ xuất hiện tại đây.
+              </p>
+            </>
+          ) : (
+            // Case 3: Tab khác không có task
+            <>
+              <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-4">
+                <CheckSquare size={28} className="text-indigo-400" />
+              </div>
+              <h3 className="text-base font-bold text-slate-700 dark:text-slate-300 mb-2">
+                {roleFilter === 'assisting' ? 'Bạn chưa được giao việc nào' :
+                 roleFilter === 'set_by_me' ? 'Bạn chưa tạo công việc nào' :
+                 roleFilter === 'all' ? 'Chưa có công việc nào' :
+                 'Không có công việc phù hợp'}
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-5">
+                Tạo công việc đầu tiên để bắt đầu quản lý tiến độ công việc.
+              </p>
+              {!isEmbedded && (
+                <button
+                  onClick={() => openPanel({
+                    component: <CreateTaskPanel
+                      onTaskCreated={loadData}
+                      onClose={() => closePanel()}
+                      currentUserId={visibilityContext.userId}
+                    />,
+                    title: 'Thêm công việc',
+                  })}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors cursor-pointer shadow-sm"
+                >
+                  <Plus size={15} /> Tạo công việc mới
+                </button>
+              )}
+              {!isEmbedded && (
+                <p className="text-xs text-slate-400 dark:text-slate-600 mt-3">Hoặc nhấn phím <kbd className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 text-[11px]">N</kbd> để tạo nhanh</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* ─── Load More button (T6.2) ─── */}
       {!loading && hasMore && (viewMode === 'list' || viewMode === 'deadline') && (
         <div className="flex justify-center py-4">
@@ -1683,6 +978,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
           </button>
         </div>
       )}
+
 
       {/* ═══ BULK ACTIONS BAR ═══ */}
       <BulkActionsBar

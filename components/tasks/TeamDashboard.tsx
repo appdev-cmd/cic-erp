@@ -127,6 +127,27 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ visibilityContext, onSele
   const [filterUnit, setFilterUnit] = useState<string>('all');
   const [showAll, setShowAll] = useState(false);
 
+  // Load unit labels từ Supabase thay vì hardcode
+  const [unitLabels, setUnitLabels] = useState<Record<string, string>>({});
+  useEffect(() => {
+    import('../../lib/dataClient').then(({ dataClient }) => {
+      Promise.resolve(dataClient.from('units').select('id, name, short_name'))
+        .then(({ data }) => {
+          if (data) {
+            const map: Record<string, string> = {};
+            data.forEach((u: any) => { map[u.id] = u.short_name || u.name || u.id; });
+            setUnitLabels(map);
+          }
+        })
+        .catch(() => { /* fallback to ID */ });
+    });
+  }, []);
+
+  const getUnitLabel = (unitId?: string) => {
+    if (!unitId) return '—';
+    return unitLabels[unitId] || unitId.toUpperCase();
+  };
+
   const loadStats = useCallback(async () => {
     try {
       setLoading(true);
@@ -278,7 +299,7 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ visibilityContext, onSele
               >
                 <option value="all">Tất cả đơn vị</option>
                 {units.map(u => (
-                  <option key={u} value={u}>{UNIT_LABELS[u] || u}</option>
+                  <option key={u} value={u}>{getUnitLabel(u)}</option>
                 ))}
               </select>
             </div>
@@ -347,7 +368,7 @@ const TeamDashboard: React.FC<TeamDashboardProps> = ({ visibilityContext, onSele
                     {/* Unit */}
                     <td className="px-3 py-3 text-center hidden md:table-cell">
                       <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                        {emp.unit_id ? (UNIT_LABELS[emp.unit_id] || emp.unit_id) : '—'}
+                        {getUnitLabel(emp.unit_id)}
                       </span>
                     </td>
 

@@ -178,10 +178,23 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         setTempCostDetails(updated);
     };
 
-    // Recalculate auto costs when inputTotal changes
+    const initialOpenTotalRef = useRef(inputTotal);
+    
+    // Update ref when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            initialOpenTotalRef.current = inputTotal;
+        }
+    }, [isOpen, inputTotal]);
+
+    // Recalculate auto costs when inputTotal changes (only if it genuinely changed after opening)
     useEffect(() => {
         if (!isOpen) return;
         if (!contractorTax && transferFeeType === 'none') return;
+        
+        // Skip recalculation if inputTotal is the same as when modal opened
+        if (inputTotal === initialOpenTotalRef.current) return;
+        
         const updated = updateAutoCosts(tempCostDetails, contractorTax, transferFeeType, inputTotal, usdRate, supplierShareCount);
         // Only update if amounts differ to avoid infinite loop
         const oldAutoAmounts = tempCostDetails.filter(d => d.id === AUTO_TAX_ID || d.id === AUTO_TRANSFER_ID).map(d => d.amount).join(',');
@@ -189,7 +202,7 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         if (oldAutoAmounts !== newAutoAmounts) {
             setTempCostDetails(updated);
         }
-    }, [inputTotal, usdRate, supplierShareCount]);
+    }, [inputTotal, usdRate, supplierShareCount, isOpen]);
 
     // Manual (non-auto) details
     const manualDetails = tempCostDetails.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
@@ -333,15 +346,19 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                                         <CurrencyCalculator
                                             value={detail.amount || 0}
                                             onChange={(vnd) => {
-                                                const newDetails = [...tempCostDetails];
-                                                newDetails[realIndex] = { ...newDetails[realIndex], amount: vnd };
-                                                setTempCostDetails(newDetails);
+                                                setTempCostDetails(prev => {
+                                                    const newDetails = [...prev];
+                                                    newDetails[realIndex] = { ...newDetails[realIndex], amount: vnd };
+                                                    return newDetails;
+                                                });
                                             }}
                                             formula={detail.formula}
                                             onFormulaChange={(f) => {
-                                                const newDetails = [...tempCostDetails];
-                                                newDetails[realIndex] = { ...newDetails[realIndex], formula: f };
-                                                setTempCostDetails(newDetails);
+                                                setTempCostDetails(prev => {
+                                                    const newDetails = [...prev];
+                                                    newDetails[realIndex] = { ...newDetails[realIndex], formula: f };
+                                                    return newDetails;
+                                                });
                                             }}
                                             formatVND={formatVND}
                                             inputClassName="w-full bg-white/60 dark:bg-slate-800/60 rounded-md px-2 py-1 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-rose-500 pr-6"
@@ -365,9 +382,11 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                                     placeholder="Tên chi phí (VD: Tiếp khách, Vận chuyển...)"
                                     value={detail.name}
                                     onChange={(e) => {
-                                        const newDetails = [...tempCostDetails];
-                                        newDetails[realIndex].name = e.target.value;
-                                        setTempCostDetails(newDetails);
+                                        setTempCostDetails(prev => {
+                                            const newDetails = [...prev];
+                                            newDetails[realIndex].name = e.target.value;
+                                            return newDetails;
+                                        });
                                     }}
                                     className="flex-1 bg-transparent px-3 py-2 text-sm font-medium outline-none border-b border-transparent focus:border-indigo-500 transition-colors text-slate-700 dark:text-slate-200"
                                 />
@@ -375,15 +394,19 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                                     <CurrencyCalculator
                                         value={detail.amount || 0}
                                         onChange={(vnd) => {
-                                            const newDetails = [...tempCostDetails];
-                                            newDetails[realIndex] = { ...newDetails[realIndex], amount: vnd };
-                                            setTempCostDetails(newDetails);
+                                            setTempCostDetails(prev => {
+                                                const newDetails = [...prev];
+                                                newDetails[realIndex] = { ...newDetails[realIndex], amount: vnd };
+                                                return newDetails;
+                                            });
                                         }}
                                         formula={detail.formula}
                                         onFormulaChange={(f) => {
-                                            const newDetails = [...tempCostDetails];
-                                            newDetails[realIndex] = { ...newDetails[realIndex], formula: f };
-                                            setTempCostDetails(newDetails);
+                                            setTempCostDetails(prev => {
+                                                const newDetails = [...prev];
+                                                newDetails[realIndex] = { ...newDetails[realIndex], formula: f };
+                                                return newDetails;
+                                            });
                                         }}
                                         formatVND={formatVND}
                                         inputClassName="w-full bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700 dark:text-slate-200 pr-7"

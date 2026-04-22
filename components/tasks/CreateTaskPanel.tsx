@@ -34,6 +34,7 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({
   const [title, setTitle]         = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority]   = useState<TaskPriority>('medium');
+  const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate]     = useState('');
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState('');
@@ -78,7 +79,7 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({
   const { lockPanel, unlockPanel, setOnCloseBlocked, forceClosePanel } = useSlidePanel();
 
   const hasUnsavedChanges =
-    title.trim() !== '' || description.trim() !== '' || dueDate !== '' ||
+    title.trim() !== '' || description.trim() !== '' || dueDate !== '' || startDate !== '' ||
     assignees[0] !== currentUserId || supporters.length > 0 ||
     checklist.length > 0 || newCheckItem.trim() !== '' || tags.length > 0 ||
     links.length > 0;
@@ -140,6 +141,7 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({
         title: title.trim(),
         description: description.trim() || undefined,
         priority,
+        start_date: startDate || undefined,
         due_date: dueDate || undefined,
         assignees,
         supporters,
@@ -183,8 +185,8 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({
 
       <div className="flex-1 overflow-y-auto p-6 space-y-5 flex flex-col">
 
-        {/* ── Row 1: Priority + Deadline */}
-        <div className="grid grid-cols-2 gap-4 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        {/* ── Row 1: Priority + Start date + Deadline */}
+        <div className="grid grid-cols-3 gap-4 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
           <div>
             <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Ưu tiên</label>
             <select
@@ -194,6 +196,17 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({
             >
               {PRIORITIES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Ngày bắt đầu</label>
+            <div className="relative">
+              <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10 pointer-events-none" />
+              <DateInput
+                value={startDate}
+                onChange={setStartDate}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              />
+            </div>
           </div>
           <div>
             <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 block">Deadline</label>

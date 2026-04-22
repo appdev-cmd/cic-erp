@@ -531,14 +531,11 @@ export const TaskService = {
       }
       if (filters.is_overdue) {
         query = query.lt('due_date', new Date().toISOString().split('T')[0]);
-        // Exclude done tasks
+        // Exclude done tasks — dùng not in thay vì loop neq để hiệu quả hơn
         const statuses = await this.getStatuses();
         const doneIds = statuses.filter(s => s.is_done).map(s => s.id);
         if (doneIds.length > 0) {
-          // Use not-in for filtering out done statuses
-          for (const doneId of doneIds) {
-            query = query.neq('status_id', doneId);
-          }
+          query = query.not('status_id', 'in', `(${doneIds.join(',')})`);
         }
       }
       if (filters.search) {
@@ -655,9 +652,6 @@ export const TaskService = {
    * Get role-based task counts for badge counters on tabs.
    */
   async getRoleCounts(userId: string, role?: string): Promise<Record<string, number>> {
-    const roles = ['all', 'ongoing', 'assisting', 'set_by_me', 'following'];
-    const counts: Record<string, number> = {};
-    
     // Batch: get all user tasks, then filter in-memory for counts
     let { data, error } = await supabase
       .from('tasks')
@@ -676,16 +670,24 @@ export const TaskService = {
     const statuses = await this.getStatuses();
     const doneIds = new Set(statuses.filter(s => s.is_done).map(s => s.id));
 
-    counts.all = data.length;
-    counts.ongoing = data.filter(t => 
-      (t.assignees || []).includes(userId) && !doneIds.has(t.status_id)
+    // all = tasks chưa hoàn thành (active tasks)
+    const activeTasks = data.filter(t => !doneIds.has(t.status_id));
+
+    const counts: Record<string, number> = {};
+    counts.all = activeTasks.length;
+    counts.ongoing = activeTasks.filter(t =>
+      (t.assignees || []).includes(userId)
     ).length;
-    counts.assisting = data.filter(t => (t.supporters || []).includes(userId)).length;
+    counts.assisting = activeTasks.filter(t =>
+      (t.supporters || []).includes(userId) && !(t.assignees || []).includes(userId)
+    ).length;
+    // set_by_me và following tính cả tasks đã xong (để thấy lịch sử)
     counts.set_by_me = data.filter(t => t.created_by === userId).length;
     counts.following = data.filter(t => (t.watchers || []).includes(userId)).length;
 
     return counts;
   },
+
 
   // ═══════════════════════════════════════
   // SUPERVISING / TEAM MANAGEMENT
@@ -833,21 +835,24 @@ export const TaskService = {
       allTasks = allTasks.filter((t: any) => !(t.tags || []).includes('_test_data'));
     }
 
-    // Build per-employee stats
+    // Build per-employee stats (per-employee có thể double-count nếu nhiều sub cùng assign)
     const empStatsMap = new Map<string, { total: number; overdue: number; inProgress: number; completed: number }>();
     subIds.forEach(id => empStatsMap.set(id, { total: 0, overdue: 0, inProgress: 0, completed: 0 }));
 
+    // Totals: đếm từng task một lần duy nhất (không double-count theo employee)
     const totals = { total: allTasks.length, overdue: 0, inProgress: 0, completed: 0 };
 
     allTasks.forEach(t => {
       const isDone = doneIds.has(t.status_id);
       const isOverdue = !isDone && t.due_date && t.due_date < today;
 
+      // Tính totals chỉ 1 lần per task
       if (isDone) totals.completed++;
       else if (isOverdue) totals.overdue++;
       else totals.inProgress++;
 
-      // Attribute to each involved subordinate
+      // Per-employee: attribute đến từng subordinate được assign
+      // (task có 2 sub assign → count vào cả 2 người — đây là intended behavior)
       (t.assignees || []).forEach((aId: string) => {
         const stats = empStatsMap.get(aId);
         if (stats) {

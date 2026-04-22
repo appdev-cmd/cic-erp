@@ -99,6 +99,7 @@ export const TaskFilterBar: React.FC<TaskFilterBarProps> = ({
       <div ref={searchWrapperRef} className="relative flex-1 sm:w-64 md:w-80 lg:w-96">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
+          id="task-search-input"
           ref={searchInputRef}
           value={searchQuery}
           onChange={e => {

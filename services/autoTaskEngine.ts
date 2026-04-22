@@ -174,6 +174,129 @@ export const AutoTaskEngine = {
   },
 
   /**
+   * Called when contract reaches Acceptance/Completed status.
+   * Generates: task nghiệm thu và thanh lý hợp đồng.
+   */
+  async onContractCompleted(contract: ContractContext): Promise<AutoTaskResult[]> {
+    const results: AutoTaskResult[] = [];
+    const assignees = contract.assigneeIds || [];
+    const creator = contract.createdBy || '';
+
+    const { data: existingTasks } = await supabase
+      .from('tasks').select('id, source_event')
+      .eq('source_entity_id', contract.id).eq('source_event', 'contract_completed_acceptance');
+    if ((existingTasks || []).length > 0) return results;
+
+    const acceptanceTask = await createAutoTask({
+      title: `Nghiệm thu hợp đồng ${contract.contractNumber}`,
+      description: `Hợp đồng "${contract.name}" đã hoàn thành.\n\nViệc cần làm:\n- Lập biên bản nghiệm thu\n- Thu thập hồ sơ hoàn công\n- Yêu cầu thanh toán lần cuối\n- Lưu trữ hồ sơ`,
+      priority: 'high',
+      assignees,
+      due_date: addDays(new Date(), 14),
+      source_module: 'contract',
+      source_event: 'contract_completed_acceptance',
+      source_entity_id: contract.id,
+      created_by: creator,
+      tags: ['hợp-đồng', 'nghiệm-thu'],
+      action_type: 'navigate',
+      action_label: 'Mở hợp đồng',
+      action_config: { url: `/contracts/${contract.id}` },
+    }, {
+      entity_type: 'contract',
+      entity_id: contract.id,
+      entity_label: `${contract.contractNumber} - ${contract.name}`,
+      url: `/contracts/${contract.id}`,
+    });
+    results.push(acceptanceTask);
+
+    return results;
+  },
+
+  /**
+   * Called when a payment is overdue (status = overdue / trễ hạn).
+   * Generates: task nhắc nhở thu hồi công nợ.
+   */
+  async onPaymentOverdue(contract: ContractContext, paymentInfo: {
+    paymentId: string;
+    amount: number;
+    dueDate: string;
+  }): Promise<AutoTaskResult[]> {
+    const results: AutoTaskResult[] = [];
+    const assignees = contract.assigneeIds || [];
+
+    // Tránh tạo trùng cho cùng 1 payment
+    const eventKey = `payment_overdue_${paymentInfo.paymentId}`;
+    const { data: existingTasks } = await supabase
+      .from('tasks').select('id').eq('source_event', eventKey);
+    if ((existingTasks || []).length > 0) return results;
+
+    const amount = new Intl.NumberFormat('vi-VN').format(paymentInfo.amount);
+    const overdueTask = await createAutoTask({
+      title: `⚠️ Công nợ quá hạn: ${contract.contractNumber}`,
+      description: `Thanh toán của hợp đồng "${contract.name}" đã quá hạn.\n\n💰 Số tiền: ${amount} VNĐ\n📅 Hạn thanh toán: ${paymentInfo.dueDate}\n\nViệc cần làm:\n- Liên hệ khách hàng đôn đốc thanh toán\n- Ghi nhận cam kết thanh toán mới\n- Báo cáo BGĐ nếu không giải quyết được`,
+      priority: 'urgent',
+      assignees,
+      due_date: addDays(new Date(), 3),
+      source_module: 'contract',
+      source_event: eventKey,
+      source_entity_id: contract.id,
+      created_by: 'system',
+      tags: ['hợp-đồng', 'công-nợ', 'overdue'],
+      action_type: 'navigate',
+      action_label: 'Xem thanh toán',
+      action_config: { url: `/contracts/${contract.id}#payments` },
+    }, {
+      entity_type: 'contract',
+      entity_id: contract.id,
+      entity_label: `${contract.contractNumber} - ${contract.name}`,
+      url: `/contracts/${contract.id}`,
+    });
+    results.push(overdueTask);
+
+    return results;
+  },
+
+  /**
+   * Called when PAKD is approved.
+   * Generates: task triển khai dự án.
+   */
+  async onPAKDApproved(contract: ContractContext): Promise<AutoTaskResult[]> {
+    const results: AutoTaskResult[] = [];
+    const assignees = contract.assigneeIds || [];
+    const creator = contract.createdBy || '';
+
+    const { data: existingTasks } = await supabase
+      .from('tasks').select('id').eq('source_entity_id', contract.id)
+      .eq('source_event', 'pakd_approved_deploy');
+    if ((existingTasks || []).length > 0) return results;
+
+    const deployTask = await createAutoTask({
+      title: `Triển khai hợp đồng ${contract.contractNumber}`,
+      description: `PAKD hợp đồng "${contract.name}" đã được phê duyệt.\n\nViệc cần làm:\n- Phân công nhân sự triển khai\n- Lập kế hoạch chi tiết\n- Chuẩn bị tài liệu kỹ thuật\n- Thông báo các bên liên quan`,
+      priority: 'high',
+      assignees,
+      start_date: today(),
+      due_date: addDays(new Date(), 10),
+      source_module: 'contract',
+      source_event: 'pakd_approved_deploy',
+      source_entity_id: contract.id,
+      created_by: creator,
+      tags: ['hợp-đồng', 'triển-khai', 'pakd'],
+      action_type: 'navigate',
+      action_label: 'Mở PAKD',
+      action_config: { url: `/contracts/${contract.id}#pakd` },
+    }, {
+      entity_type: 'contract',
+      entity_id: contract.id,
+      entity_label: `${contract.contractNumber} - ${contract.name}`,
+      url: `/contracts/${contract.id}`,
+    });
+    results.push(deployTask);
+
+    return results;
+  },
+
+  /**
    * Generic: create a custom task linked to any entity.
    */
   async createLinkedTask(
