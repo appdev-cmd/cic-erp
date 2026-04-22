@@ -29,6 +29,7 @@ export interface TaskTemplate {
   tasks_json: TemplateTaskItem[];
   applicable_entity_types: string[];
   category: string;
+  unit_ids: string[];
   is_active: boolean;
   created_at: string;
   created_by?: string;
@@ -68,9 +69,30 @@ export const TaskTemplateService = {
       });
   },
 
+  /**
+   * Lọc templates theo unit_id của người dùng hiện tại
+   * Trả về templates áp dụng cho toàn công ty (unit_ids rỗng) hoặc mảng có chứa unit_id.
+   */
+  async getForUnit(unitId?: string | null): Promise<TaskTemplate[]> {
+    const { data, error } = await supabase
+      .from('task_templates')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || [])
+      .map(normalizeTemplate)
+      .filter(t => {
+        if (!unitId) return true; // If no unit given, return all? Or maybe just general ones. We'll return true.
+        return !t.unit_ids || t.unit_ids.length === 0 || t.unit_ids.includes(unitId);
+      });
+  },
+
   async create(template: Omit<TaskTemplate, 'id' | 'created_at'>): Promise<TaskTemplate> {
     const { data: userData } = await supabase.auth.getUser();
-    
+
     const { data, error } = await supabase
       .from('task_templates')
       .insert({
@@ -233,13 +255,13 @@ export const TaskTemplateService = {
       if (t.depends_on) {
         const thisInserted = insertedTasks?.find(it => it.custom_fields?.template_task_id === t.id);
         const precursorInserted = insertedTasks?.find(it => it.custom_fields?.template_task_id === t.depends_on);
-        
+
         if (thisInserted && precursorInserted) {
           linksToCreate.push({
-             task_id: precursorInserted.id,
-             entity_type: 'task',
-             entity_id: thisInserted.id,
-             link_type: 'blocks'
+            task_id: precursorInserted.id,
+            entity_type: 'task',
+            entity_id: thisInserted.id,
+            link_type: 'blocks'
           });
         }
       }
@@ -286,6 +308,7 @@ function normalizeTemplate(t: any): TaskTemplate {
     ...t,
     tasks_json: Array.isArray(t.tasks_json) ? t.tasks_json : [],
     applicable_entity_types: Array.isArray(t.applicable_entity_types) ? t.applicable_entity_types : [],
+    unit_ids: Array.isArray(t.unit_ids) ? t.unit_ids : [],
     category: t.category || 'general',
     is_active: t.is_active ?? true,
   };

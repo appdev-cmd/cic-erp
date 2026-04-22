@@ -41,7 +41,7 @@ export interface BIMProject {
   area?: number;               // Diện tích (m²)
   projectPhase?: string;       // Giai đoạn dự án
   contractId?: string;         // ID hợp đồng gắn với dự án
-  
+
   // Web Integration fields
   isPublishedWeb?: boolean;
   isFeaturedWeb?: boolean;
@@ -53,7 +53,17 @@ export interface BIMProject {
   webStats?: string;
   summary?: string;            // Tóm tắt ngắn (Web)
   viewCount?: number;
-  
+
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type ProjectMemberRole = 'Manager' | 'Member' | 'Viewer';
+
+export interface ProjectMember {
+  id: string;
+  projectId: string;
+  employeeId: string;
+  role: ProjectMemberRole;
+  createdAt: string;
 }

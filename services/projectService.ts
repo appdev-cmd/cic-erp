@@ -32,7 +32,7 @@ function toProject(row: any): BIMProject {
     area: Number(row.area) || 0,
     projectPhase: row.project_phase,
     contractId: row.contract_id,
-    
+
     // Web Integration
     isPublishedWeb: row.is_published_web,
     isFeaturedWeb: row.is_featured_web,
@@ -74,7 +74,7 @@ function toRow(project: Partial<BIMProject>): Record<string, any> {
   if (project.area !== undefined) row.area = project.area;
   if (project.projectPhase !== undefined) row.project_phase = project.projectPhase;
   if (project.contractId !== undefined) row.contract_id = project.contractId;
-  
+
   if (project.isPublishedWeb !== undefined) row.is_published_web = project.isPublishedWeb;
   if (project.isFeaturedWeb !== undefined) row.is_featured_web = project.isFeaturedWeb;
   if (project.slug !== undefined) row.slug = project.slug;
@@ -139,4 +139,71 @@ export const ProjectService = {
       .eq('id', id);
     if (error) throw error;
   },
+};
+
+// ── Project Member Service ─────────────────────────────────
+export const ProjectMemberService = {
+  async getByProject(projectId: string): Promise<any[]> {
+    const { data, error } = await dataClient
+      .from('project_members')
+      .select(`
+        *,
+        employees:employee_id (*)
+      `)
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    // Ngôn ngữ ứng dụng sử dụng camelCase nên ta map lại 
+    return (data || []).map(row => ({
+      id: row.id,
+      projectId: row.project_id,
+      employeeId: row.employee_id,
+      role: row.role,
+      createdAt: row.created_at,
+      employee: {
+        id: row.employees?.id,
+        name: row.employees?.name,
+        email: row.employees?.email,
+        phone: row.employees?.phone,
+        avatar: row.employees?.avatar,
+        position: row.employees?.position,
+        department: row.employees?.department,
+        unitId: row.employees?.unit_id,
+      }
+    }));
+  },
+
+  async addMember(projectId: string, employeeId: string, role: string = 'Member'): Promise<any> {
+    const { data, error } = await dataClient
+      .from('project_members')
+      .insert({
+        project_id: projectId,
+        employee_id: employeeId,
+        role: role
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async removeMember(id: string): Promise<void> {
+    const { error } = await dataClient
+      .from('project_members')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  async updateRole(id: string, role: string): Promise<any> {
+    const { data, error } = await dataClient
+      .from('project_members')
+      .update({ role })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
 };

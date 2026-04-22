@@ -30,7 +30,7 @@ export const draftSocialPostTool: OpenClawTool = {
         })
         .select('id')
         .single();
-        
+
       if (pipeErr) throw pipeErr;
 
       // 2. Tạo bản ghi social post
@@ -46,7 +46,7 @@ export const draftSocialPostTool: OpenClawTool = {
           zalo_status: 'pending',
           created_by: context.userId as any
         });
-        
+
       if (socialErr) throw socialErr;
 
       return {
@@ -81,7 +81,7 @@ export const scheduleSocialPostTool: OpenClawTool = {
         .eq('pipeline_id', args.pipeline_id);
 
       if (error) throw error;
-      
+
       return {
         success: true,
         message: `Đã lên lịch đăng công việc thành công vào lúc ${args.scheduled_time}.`
@@ -109,7 +109,7 @@ export const analyzeSeoContentTool: OpenClawTool = {
     const wordCount = args.content.split(/\s+/).length;
     const keywordCount = (args.content.match(new RegExp(args.focus_keyword, 'gi')) || []).length;
     const keywordDensity = ((keywordCount / wordCount) * 100).toFixed(2);
-    
+
     let seoFeedback = [];
     if (parseFloat(keywordDensity) < 1.5) seoFeedback.push(`Mật độ từ khóa "${args.focus_keyword}" quá thấp (${keywordDensity}%). Cần tăng lên khoảng 1.5-3%.`);
     if (parseFloat(keywordDensity) > 3) seoFeedback.push(`Mật độ từ khóa "${args.focus_keyword}" quá cao (${keywordDensity}% - nhồi nhét từ khóa). Cần giảm xuống 1.5-3%.`);
@@ -151,15 +151,15 @@ export const generateNewsletterTool: OpenClawTool = {
         })
         .select('id')
         .single();
-        
+
       if (error) throw error;
-      
+
       return {
         success: true,
         campaign_id: data.id,
         message: 'Đã tạo bản nháp Newsletter thành công.'
       };
-    } catch(err: any) {
+    } catch (err: any) {
       return { error: err.message };
     }
   }
@@ -184,14 +184,14 @@ export const scheduleEmailCampaignTool: OpenClawTool = {
           status: 'scheduled'
         })
         .eq('id', args.campaign_id);
-        
+
       if (error) throw error;
-      
+
       return {
         success: true,
         message: `Đã đổi trạng thái chiến dịch thành "scheduled" gửi lúc ${args.scheduled_time}`
       };
-    } catch(err: any) {
+    } catch (err: any) {
       return { error: err.message };
     }
   }
@@ -209,7 +209,7 @@ export const readWebUrlTool: OpenClawTool = {
   execute: async (args) => {
     try {
       const response = await fetch(`https://r.jina.ai/${args.url}`, {
-         headers: { 'Accept': 'text/plain' }
+        headers: { 'Accept': 'text/plain' }
       });
       let text = await response.text();
       // Cắt ngắn nếu quá dài
@@ -223,6 +223,115 @@ export const readWebUrlTool: OpenClawTool = {
   }
 };
 
+// ═══════════════════════════════════════════════
+// Tool 7: Web Search (Jina Search API)
+// ═══════════════════════════════════════════════
+export const webSearchTool: OpenClawTool = {
+  name: 'web_search',
+  description: 'Tìm kiếm thông tin trên internet. Trả về nội dung web. Phù hợp để quét dự án mới, kiểm tra thông tin công ty, tìm thông tin liên hệ / tin tức.',
+  schema: {
+    query: { type: 'string', description: 'Từ khóa tìm kiếm (VD: dự án bất động sản sắp khởi công tại miền Bắc 2026)' },
+    limit: { type: 'number', description: 'Số kết quả tối đa (mặc định 5)' }
+  },
+  execute: async (args) => {
+    try {
+      const q = encodeURIComponent(args.query);
+      const limit = args.limit || 5;
+      const response = await fetch(`https://s.jina.ai/${q}`, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      const data = await response.json();
+      return { success: true, query: args.query, results: data?.data?.slice(0, limit) || [] };
+    } catch (err: any) {
+      return { error: 'Không thể tìm kiếm: ' + err.message };
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════
+// Tool 8: Lưu thông tin khách hàng (Lead Hunter)
+// ═══════════════════════════════════════════════
+export const saveLeadTool: OpenClawTool = {
+  name: 'save_lead',
+  description: 'Lưu hoặc cập nhật hồ sơ khách hàng tiềm năng vào danh sách (Lead pipeline). Rất quan trọng khi dùng ở cuối quy trình dò quét web.',
+  schema: {
+    company_name: { type: 'string', description: 'Tên công ty / tổ chức mục tiêu' },
+    project_name: { type: 'string', description: 'Tên dự án liên quan (khởi công / cấp phép)' },
+    industry: { type: 'string', description: 'Ngành nghề: Y tế, BĐS, Công nghiệp, Hạ tầng...' },
+    potential_score: { type: 'number', description: 'Điểm tiềm năng (0 - 100)' },
+    service_need: { type: 'string', description: 'Nhu cầu khả dĩ: Kiểm kê GHG, tư vấn BIM, ...' },
+    urgency_reason: { type: 'string', description: 'Tín hiệu mua hàng/lý do cấp thiết' },
+    decision_makers: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Danh sách nhân sự/vai trò có thể hoặc đã truy xuất được. Dạng chuỗi hoặc JSON'
+    },
+    contact_approach: { type: 'string', description: 'Cách thức tiệp cận đề xuất' }
+  },
+  execute: async (args, context: UserContext) => {
+    try {
+      const { data, error } = await supabase
+        .from('mkt_leads')
+        .insert({
+          company_name: args.company_name,
+          project_name: args.project_name || null,
+          industry: args.industry || null,
+          potential_score: args.potential_score || 0,
+          service_need: args.service_need || null,
+          urgency_reason: args.urgency_reason || null,
+          decision_makers: args.decision_makers || [],
+          contact_approach: args.contact_approach || null,
+          created_by: context.userId as any,
+          status: 'new'
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        message: `Đã lưu thành công hồ sơ lead cho công ty ${args.company_name}. Điểm: ${args.potential_score}.`,
+        lead_id: data.id
+      };
+    } catch (err: any) {
+      return { error: err.message };
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════
+// Tool 9: Đọc danh sách Leads
+// ═══════════════════════════════════════════════
+export const getLeadsTool: OpenClawTool = {
+  name: 'get_leads',
+  description: 'Lấy các hồ sơ lead hiện có trong cơ sở dữ liệu để xem hoặc cập nhật. Trả về top lead có điểm cao.',
+  schema: {
+    status: { type: 'string', description: 'Trạng thái lead (new, contacted, qualified, closed)' },
+    limit: { type: 'number', description: 'Số lượng tối đa' }
+  },
+  execute: async (args) => {
+    try {
+      let query = supabase.from('mkt_leads').select('*').order('potential_score', { ascending: false });
+
+      if (args.status) {
+        query = query.eq('status', args.status);
+      }
+      query = query.limit(args.limit || 10);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return { success: true, count: data.length, leads: data };
+    } catch (err: any) {
+      return { error: err.message };
+    }
+  }
+};
+
+
 // Mảng tools gom nhóm
 export const marketingToolsRegistry: OpenClawTool[] = [
   draftSocialPostTool,
@@ -230,5 +339,8 @@ export const marketingToolsRegistry: OpenClawTool[] = [
   analyzeSeoContentTool,
   generateNewsletterTool,
   scheduleEmailCampaignTool,
-  readWebUrlTool
+  readWebUrlTool,
+  webSearchTool,
+  saveLeadTool,
+  getLeadsTool
 ];
