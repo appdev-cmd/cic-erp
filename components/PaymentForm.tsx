@@ -15,6 +15,7 @@ import {
     Package,
     AlertTriangle
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Payment, PaymentStatus, PaymentMethod, VoucherType, ExpenseCategory, VATInvoiceLineItem, Contract } from '../types';
 import { ContractService, CustomerService } from '../services';
 import NumberInput from './ui/NumberInput';
@@ -988,20 +989,16 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                             onClick={(e) => {
                                 if (!contractId || !amount) {
                                     e.preventDefault();
-                                    import('sonner').then(({ toast }) => {
-                                        if (!contractId) toast.error("Vui lòng chọn Hợp đồng");
-                                        else if (!amount) toast.error("Vui lòng nhập Số tiền");
-                                    });
+                                    if (!contractId) toast.error('Vui long chon Hop dong');
+                                    else if (!amount) toast.error('Vui long nhap So tien');
                                     return;
                                 }
                                 if (isExceedingLimit && financialLimit) {
                                     e.preventDefault();
-                                    import('sonner').then(({ toast }) => {
-                                        toast.error(
-                                            `Vượt giới hạn! ${financialLimit.remainLabel}: ${formatCurrency(Math.max(0, financialLimit.remaining))} VND. Số tiền nhập: ${formatCurrency(amount)} VND.`,
-                                            { duration: 5000 }
-                                        );
-                                    });
+                                    toast.error(
+                                        `Vuot gioi han! ${financialLimit.remainLabel}: ${formatCurrency(Math.max(0, financialLimit.remaining))} VND. So tien nhap: ${formatCurrency(amount)} VND.`,
+                                        { duration: 5000 }
+                                    );
                                     return;
                                 }
                                 handleSubmit();

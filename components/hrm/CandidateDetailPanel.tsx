@@ -5,6 +5,7 @@ import { recruitmentService } from '../../services/recruitmentService';
 import { formatDate, formatDateTime } from '../../utils/formatters';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import CandidateForm from './CandidateForm';
 
 const calculateDays = (start: string, end: string) => {
   const diff = new Date(end).getTime() - new Date(start).getTime();
@@ -691,7 +692,7 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
       {/* Render form đè lên khi chọn Edit */}
       {showEditForm && (
         <React.Suspense fallback={<div>Loading...</div>}>
-          <CandidateFormBase 
+          <CandidateForm 
             jobOpenings={[]} 
             candidate={cand} 
             onClose={() => setShowEditForm(false)} 
@@ -707,7 +708,5 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
   );
 };
 
-// Sử dụng lazy loading cho CandidateForm để tránh circular dependency nếu có
-const CandidateFormBase = React.lazy(() => import('./CandidateForm'));
 
 export default CandidateDetailPanel;

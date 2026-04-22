@@ -174,10 +174,8 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
 
     // Load user's personal tags
     if (visibilityContext.userId) {
-      import('../../services/taskPersonalTagService').then(m => {
-        m.TaskPersonalTagService.getAllUserTags(visibilityContext.userId).then(tags => {
-          setPersonalUserTags(tags);
-        });
+      TaskPersonalTagService.getAllUserTags(visibilityContext.userId).then(tags => {
+        setPersonalUserTags(tags);
       });
     }
   }, [visibilityContext.userId]);

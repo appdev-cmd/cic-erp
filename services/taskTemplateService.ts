@@ -100,6 +100,7 @@ export const TaskTemplateService = {
         description: template.description,
         tasks_json: template.tasks_json,
         applicable_entity_types: template.applicable_entity_types || [],
+        unit_ids: template.unit_ids || [],
         category: template.category || 'general',
         is_active: template.is_active ?? true,
         created_by: template.created_by || userData.user?.id,
@@ -119,6 +120,7 @@ export const TaskTemplateService = {
         ...(template.description !== undefined && { description: template.description }),
         ...(template.tasks_json !== undefined && { tasks_json: template.tasks_json }),
         ...(template.applicable_entity_types !== undefined && { applicable_entity_types: template.applicable_entity_types }),
+        ...(template.unit_ids !== undefined && { unit_ids: template.unit_ids }),
         ...(template.category !== undefined && { category: template.category }),
         ...(template.is_active !== undefined && { is_active: template.is_active }),
       })

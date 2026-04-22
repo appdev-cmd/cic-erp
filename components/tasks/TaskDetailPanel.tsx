@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { TaskService } from '../../services/taskService';
 import { TaskPersonalTagService } from '../../services/taskPersonalTagService';
 import { EntityRegistryService } from '../../services/entityRegistryService';
+import { dataClient } from '../../lib/dataClient';
 import { formatDate, formatDateTime } from '../../utils/formatters';
 import DiscussionBox from '../ui/DiscussionBox';
 import SearchableSelect from '../ui/SearchableSelect';
@@ -285,8 +286,6 @@ const PersonalTagInput: React.FC<{
   const loadTags = useCallback(async () => {
     if (loadedOnce) return;
     try {
-      const { TaskPersonalTagService } = await import('../../services/taskPersonalTagService');
-      const { dataClient } = await import('../../lib/dataClient');
       const { data: { user } } = await dataClient.auth.getUser();
       if (user) {
         const tags = await TaskPersonalTagService.getAllUserTags(user.id);

@@ -138,6 +138,7 @@ export const TaskTemplateManagerPanel: React.FC<TaskTemplateManagerPanelProps> =
           description: editDesc.trim(),
           tasks_json: tasksWithOrder,
           applicable_entity_types: editEntityTypes,
+          unit_ids: [],
         });
         toast.success('Cập nhật mẫu thành công');
       } else {
@@ -147,6 +148,7 @@ export const TaskTemplateManagerPanel: React.FC<TaskTemplateManagerPanelProps> =
           tasks_json: tasksWithOrder,
           applicable_entity_types: editEntityTypes,
           category: 'general',
+          unit_ids: [],
           is_active: true,
         });
         toast.success('Tạo mẫu thành công');

@@ -12,7 +12,7 @@ interface DirectCostModalProps {
     onClose: () => void;
     lineItem: LineItem | null;
     tempCostDetails: DirectCostDetail[];
-    setTempCostDetails: (details: DirectCostDetail[]) => void;
+    setTempCostDetails: React.Dispatch<React.SetStateAction<DirectCostDetail[]>>;
     onSave: () => void;
     formatVND: (val: number) => string;
     inputTotal?: number; // quantity * inputPrice — for auto-calc
