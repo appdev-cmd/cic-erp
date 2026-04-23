@@ -508,24 +508,41 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
     const curr = stats.actual[metric] || 0;
     if (yearFilter === 'All') return { value: '0.0', isUp: true, lastYearTotal: 0 };
 
-    const currentMonth = new Date().getMonth() + 1; // 1-12
+    // Determine which months of the previous year to compare against
+    let startMonth = 1;
+    let endMonth = new Date().getMonth() + 1; // default: YTD (cả năm → so sánh tới tháng hiện tại)
+
+    if (periodFilter) {
+      if (periodFilter.startsWith('M')) {
+        // Tháng cụ thể: so sánh cùng tháng năm ngoái
+        const m = parseInt(periodFilter.substring(1));
+        startMonth = m;
+        endMonth = m;
+      } else if (periodFilter.startsWith('Q')) {
+        // Quý cụ thể: so sánh cùng quý năm ngoái
+        const q = parseInt(periodFilter.substring(1));
+        startMonth = (q - 1) * 3 + 1;
+        endMonth = q * 3;
+      }
+    }
 
     // Use monthlyHistLast (already loaded monthly data for previous year)
-    // Sum only months 1 through currentMonth for same-period comparison
     const samePeriodData = monthlyHistLast.filter(
-      h => h.month != null && h.month >= 1 && h.month <= currentMonth
+      h => h.month != null && h.month >= startMonth && h.month <= endMonth
     );
 
     let lastYearVal = 0;
     if (samePeriodData.length > 0) {
       lastYearVal = samePeriodData.reduce((sum, h) => sum + (h[metric] || 0), 0);
     } else {
-      // Fallback: use annual aggregate from historicalData
-      const currentYear = parseInt(yearFilter);
-      const lastYear = currentYear - 1;
-      const lastYearAnnual = historicalData.find(h => h.year === lastYear);
-      if (lastYearAnnual) {
-        lastYearVal = lastYearAnnual[metric] || 0;
+      // Fallback: use annual aggregate from historicalData (only when viewing full year)
+      if (!periodFilter) {
+        const currentYear = parseInt(yearFilter);
+        const lastYear = currentYear - 1;
+        const lastYearAnnual = historicalData.find(h => h.year === lastYear);
+        if (lastYearAnnual) {
+          lastYearVal = lastYearAnnual[metric] || 0;
+        }
       }
     }
 
