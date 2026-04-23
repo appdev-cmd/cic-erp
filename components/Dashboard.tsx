@@ -569,6 +569,13 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
     return { ...t, revProfit: t.adminProfit, cash: 0 };
   }, [safeUnit, rawDistData]);
 
+  // Khi lọc theo tháng/quý: không có kế hoạch KPI, nên ẩn chỉ tiêu + tỷ lệ hoàn thành
+  // Chỉ khi xem cả năm (periodFilter rỗng) mới hiển thị kế hoạch năm
+  const isFilteringByPeriod = !!periodFilter;
+  const effectiveTarget = isFilteringByPeriod
+    ? { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
+    : displayTarget;
+
   if (loadingConfig || !selectedUnit) {
     return <DashboardSkeleton />;
   }
@@ -595,11 +602,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
         {/* Main KPI Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          <KPIItem title="Ký kết" metric="signing" stats={stats.actual} target={displayTarget} yoy={getYoY('signing')} color="indigo" icon={<FileText size={20} />} />
-          <KPIItem title="Doanh thu" metric="revenue" stats={stats.actual} target={displayTarget} yoy={getYoY('revenue')} color="emerald" icon={<CreditCard size={20} />} />
-          <KPIItem title="LNG Quản trị" metric="adminProfit" stats={stats.actual} target={displayTarget} yoy={getYoY('adminProfit')} color="purple" icon={<TrendingUp size={20} />} />
-          <KPIItem title="LNG Doanh thu" metric="revProfit" stats={stats.actual} target={displayTarget} yoy={getYoY('revProfit')} color="amber" icon={<Target size={20} />} />
-          <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={displayTarget} yoy={{ value: '0', isUp: true, lastYearTotal: 0 }} color="cyan" icon={<Wallet size={20} />} />
+          <KPIItem title="Ký kết" metric="signing" stats={stats.actual} target={effectiveTarget} yoy={getYoY('signing')} color="indigo" icon={<FileText size={20} />} />
+          <KPIItem title="Doanh thu" metric="revenue" stats={stats.actual} target={effectiveTarget} yoy={getYoY('revenue')} color="emerald" icon={<CreditCard size={20} />} />
+          <KPIItem title="LNG Quản trị" metric="adminProfit" stats={stats.actual} target={effectiveTarget} yoy={getYoY('adminProfit')} color="purple" icon={<TrendingUp size={20} />} />
+          <KPIItem title="LNG Doanh thu" metric="revProfit" stats={stats.actual} target={effectiveTarget} yoy={getYoY('revProfit')} color="amber" icon={<Target size={20} />} />
+          <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={effectiveTarget} yoy={{ value: '0', isUp: true, lastYearTotal: 0 }} color="cyan" icon={<Wallet size={20} />} />
         </div>
 
         {/* Status Highlights — 5 contract statuses */}

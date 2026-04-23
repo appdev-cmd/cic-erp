@@ -84,9 +84,10 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     const PAYMENT_TABLE_COLUMNS = useMemo(() => [
         { key: 'stt', defaultWidth: 45, minWidth: 35 },
         { key: 'extra', defaultWidth: 130, minWidth: 70 },
-        { key: 'customer', defaultWidth: 280, minWidth: 120 },
-        { key: 'contract', defaultWidth: 200, minWidth: 100 },
-        { key: 'date', defaultWidth: 110, minWidth: 70 },
+        { key: 'customer', defaultWidth: 260, minWidth: 120 },
+        { key: 'contract', defaultWidth: 180, minWidth: 100 },
+        { key: 'signedDate', defaultWidth: 100, minWidth: 70 },
+        { key: 'date', defaultWidth: 100, minWidth: 70 },
         { key: 'amount', defaultWidth: 140, minWidth: 80 },
         { key: 'actions', defaultWidth: 45, minWidth: 35 },
     ], []);
@@ -97,7 +98,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
         columns: PAYMENT_TABLE_COLUMNS,
     });
 
-    const { selectedUnit, yearFilter } = useLayoutContext();
+    const { selectedUnit, yearFilter, periodFilter } = useLayoutContext();
     const unitFilter = selectedUnit?.id || 'all';
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -133,11 +134,13 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                 voucherType: voucherTab,
                 status: statusFilter,
                 unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter],
-                year: yearFilter
+                year: yearFilter,
+                periodFilter: periodFilter || undefined
             }),
             page === 1 ? PaymentService.getStats({
                 unitIds: unitFilter === 'all' ? visibleUnits : [unitFilter],
-                year: yearFilter
+                year: yearFilter,
+                periodFilter: periodFilter || undefined
             }) : Promise.resolve(null),
             page === 1 && units.length === 0 ? UnitService.getAll() : Promise.resolve(null)
         ]);
@@ -150,7 +153,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             hasMore: listRes.data.length >= PAGE_SIZE,
             totalCount: listRes.count
         };
-    }, [debouncedSearch, voucherTab, statusFilter, unitFilter, visibleUnits, yearFilter, units.length]);
+    }, [debouncedSearch, voucherTab, statusFilter, unitFilter, visibleUnits, yearFilter, periodFilter, units.length]);
 
     const {
         items: payments,
@@ -165,7 +168,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
     } = useInfiniteScroll<Payment>({
         fetchFn: fetchPaymentPage,
         pageSize: PAGE_SIZE,
-        resetDeps: [debouncedSearch, voucherTab, statusFilter, unitFilter, visibleUnits, yearFilter]
+        resetDeps: [debouncedSearch, voucherTab, statusFilter, unitFilter, visibleUnits, yearFilter, periodFilter]
     });
 
     // Realtime: silent refresh when payment data changes from another tab
@@ -448,7 +451,8 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                     { key: 'extra', label: getExtraColumnHeader(), align: 'left' },
                                     { key: 'customer', label: 'Khách hàng', align: 'left' },
                                     { key: 'contract', label: 'Hợp đồng', align: 'left' },
-                                    { key: 'date', label: 'Ngày', align: 'left' },
+                                    { key: 'signedDate', label: 'Ngày ký HĐ', align: 'left' },
+                                    { key: 'date', label: 'Ngày chứng từ', align: 'left' },
                                     { key: 'amount', label: 'Số tiền', align: 'right' },
                                     ...(canDelete ? [{ key: 'actions', label: '', align: 'center' }] : []),
                                 ].map((col, idx, arr) => (
@@ -477,7 +481,9 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                             ) : payments.map((payment, index) => {
                                 const statusConfig = getStatusConfig(payment.status);
                                 const StatusIcon = statusConfig.icon;
-                                const dateStr = payment.paymentDate || payment.dueDate;
+                                const dateStr = payment.voucherType === 'VAT_INVOICE'
+                                    ? (payment.invoiceDate || payment.paymentDate)
+                                    : (payment.paymentDate || payment.invoiceDate || payment.dueDate);
 
                                 return (
                                     <tr
@@ -509,6 +515,11 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                                                 <FileText size={12} />
                                                 <span className="text-xs font-medium">{(payment as any).contractCode || payment.contractId}</span>
                                             </button>
+                                        </td>
+                                        <td className="py-3 px-3 hidden sm:table-cell">
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                {(payment as any).signedDate ? formatDate((payment as any).signedDate) : '—'}
+                                            </span>
                                         </td>
                                         <td className="py-3 px-3 hidden sm:table-cell">
                                             <div className="flex items-center gap-1.5">

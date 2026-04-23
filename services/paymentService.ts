@@ -4,7 +4,7 @@ import { TelegramNotificationService } from './telegramNotificationService';
 import { ContractTaskDefinitionService } from './contractTaskDefinitionService';
 
 // Helper to map DB Payment to Frontend Payment
-const mapPayment = (p: any): Payment & { unitId?: string; customerName?: string; contractCode?: string } => ({
+const mapPayment = (p: any): Payment & { unitId?: string; customerName?: string; contractCode?: string; signedDate?: string } => ({
     id: p.id,
     contractId: p.contract_id,
     customerId: p.customer_id,
@@ -30,12 +30,43 @@ const mapPayment = (p: any): Payment & { unitId?: string; customerName?: string;
     createdBy: p.created_by || undefined,
     unitId: p.contracts?.unit_id || undefined,
     customerName: p.customers?.name || undefined,
-    contractCode: p.contracts?.contract_code || undefined
+    contractCode: p.contracts?.contract_code || undefined,
+    signedDate: p.contracts?.signed_date || undefined
 });
 
 // Auto-derive payment_type from voucher_type
 const derivePaymentType = (voucherType: VoucherType): 'Revenue' | 'Expense' => {
     return voucherType === 'EXPENSE' ? 'Expense' : 'Revenue';
+};
+
+/**
+ * Compute date range from year + periodFilter for voucher date filtering.
+ * Returns { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' } or null if no filter.
+ */
+const getVoucherDateRange = (year?: string, periodFilter?: string): { start: string; end: string } | null => {
+    const effectiveYear = year && year !== 'All' && year !== 'all' ? parseInt(year) : null;
+    if (!effectiveYear && !periodFilter) return null;
+
+    const y = effectiveYear || new Date().getFullYear();
+    let startMonth = 1;
+    let endMonth = 12;
+
+    if (periodFilter) {
+        if (periodFilter.startsWith('M')) {
+            const m = parseInt(periodFilter.substring(1));
+            startMonth = m;
+            endMonth = m;
+        } else if (periodFilter.startsWith('Q')) {
+            const q = parseInt(periodFilter.substring(1));
+            startMonth = (q - 1) * 3 + 1;
+            endMonth = q * 3;
+        }
+    }
+
+    const start = `${y}-${startMonth.toString().padStart(2, '0')}-01`;
+    const lastDay = new Date(y, endMonth, 0).getDate();
+    const end = `${y}-${endMonth.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
+    return { start, end };
 };
 
 export const PaymentService = {
@@ -64,14 +95,15 @@ export const PaymentService = {
         status?: string;
         unitIds?: string[] | 'all';
         year?: string;
+        periodFilter?: string; // 'M4', 'Q2', etc.
     }): Promise<{ data: Payment[]; count: number }> => {
-        const { page, limit, search, voucherType, type, status, unitIds, year } = params;
+        const { page, limit, search, voucherType, type, status, unitIds, year, periodFilter } = params;
         const from = (page - 1) * limit;
         const to = from + limit - 1;
 
         let query = supabase
             .from('payments')
-            .select('*, contracts(unit_id, contract_code), customers(name)', { count: 'exact' });
+            .select('*, contracts(unit_id, contract_code, signed_date), customers(name)', { count: 'exact' });
 
         // Multi-field search: Số HĐ, khách hàng, hợp đồng, số chứng từ, số tiền
         // Uses RPC for Vietnamese diacritics-insensitive search (e.g. "cong ty" matches "Công ty")
@@ -131,18 +163,10 @@ export const PaymentService = {
             query = query.eq('status', status);
         }
 
-        // Year + Unit filter: filter contracts by year and unit, then get matching payments
-        const needContractFilter = (unitIds && unitIds !== 'all' && unitIds.length > 0) || (year && year !== 'All');
-        if (needContractFilter) {
+        // Unit filter: filter contracts by unit, then get matching payments
+        if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
             let contractQuery = supabase.from('contracts').select('id');
-            if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
-                contractQuery = contractQuery.in('unit_id', unitIds);
-            }
-            if (year && year !== 'All') {
-                contractQuery = contractQuery
-                    .gte('signed_date', `${year}-01-01`)
-                    .lte('signed_date', `${year}-12-31`);
-            }
+            contractQuery = contractQuery.in('unit_id', unitIds);
             const { data: contracts } = await contractQuery;
             const contractIds = contracts?.map(c => c.id) || [];
             if (contractIds.length > 0) {
@@ -152,8 +176,21 @@ export const PaymentService = {
             }
         }
 
-        // Pagination & Sort
-        query = query.order('due_date', { ascending: false }).range(from, to);
+        // Date filter: filter by voucher's own date (invoice_date or payment_date)
+        // based on year + periodFilter
+        const dateRange = getVoucherDateRange(year, periodFilter);
+        if (dateRange) {
+            // Use payment_date as primary, fallback covered by OR
+            // For VAT_INVOICE: invoice_date is the key date
+            // For RECEIPT/EXPENSE: payment_date is the key date  
+            // We filter using a combined approach:
+            const dateCol = voucherType === 'VAT_INVOICE' ? 'invoice_date' : 'payment_date';
+            query = query.gte(dateCol, dateRange.start).lte(dateCol, dateRange.end);
+        }
+
+        // Pagination & Sort — sort by voucher date (invoice_date for VAT, payment_date for others)
+        const sortCol = voucherType === 'VAT_INVOICE' ? 'invoice_date' : 'payment_date';
+        query = query.order(sortCol, { ascending: false }).range(from, to);
 
         const { data, error, count } = await query;
         if (error) throw error;
@@ -180,8 +217,8 @@ export const PaymentService = {
     /**
      * Get financial stats — by voucher type or overall
      */
-    getStats: async (params: { voucherType?: VoucherType; type?: string; unitIds?: string[] | 'all'; year?: string }) => {
-        const { voucherType, type, unitIds, year } = params;
+    getStats: async (params: { voucherType?: VoucherType; type?: string; unitIds?: string[] | 'all'; year?: string; periodFilter?: string }) => {
+        const { voucherType, type, unitIds, year, periodFilter } = params;
         let query = supabase.from('payments').select('*');
 
         if (voucherType) {
@@ -190,18 +227,10 @@ export const PaymentService = {
             query = query.eq('payment_type', type);
         }
 
-        // Year + Unit filter: filter contracts first, then get matching payments
-        const needContractFilter = (unitIds && unitIds !== 'all' && unitIds.length > 0) || (year && year !== 'All');
-        if (needContractFilter) {
+        // Unit filter: filter contracts by unit
+        if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
             let contractQuery = supabase.from('contracts').select('id');
-            if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
-                contractQuery = contractQuery.in('unit_id', unitIds);
-            }
-            if (year && year !== 'All') {
-                contractQuery = contractQuery
-                    .gte('signed_date', `${year}-01-01`)
-                    .lte('signed_date', `${year}-12-31`);
-            }
+            contractQuery = contractQuery.in('unit_id', unitIds);
             const { data: contracts } = await contractQuery;
             const contractIds = contracts?.map(c => c.id) || [];
             if (contractIds.length > 0) {
@@ -214,10 +243,18 @@ export const PaymentService = {
         const { data, error } = await query;
         if (error || !data) return { totalAmount: 0, revenueAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0, expenseAmount: 0, expenseCount: 0, pendingExpenseAmount: 0, advanceAmount: 0, advanceCount: 0 };
 
-        const total = data.reduce((sum, p) => sum + (p.amount || 0), 0);
+        // Apply date filter in JS for stats (since we need to filter different date columns per voucher type)
+        const dateRange = getVoucherDateRange(year, periodFilter);
+        const filteredData = dateRange ? data.filter(p => {
+            const dateStr = p.voucher_type === 'VAT_INVOICE' ? (p.invoice_date || p.payment_date) : (p.payment_date || p.invoice_date);
+            if (!dateStr) return false;
+            return dateStr >= dateRange.start && dateStr <= dateRange.end;
+        }) : data;
+
+        const total = filteredData.reduce((sum, p) => sum + (p.amount || 0), 0);
 
         // VAT Invoice stats
-        const vatData = data.filter(p => p.voucher_type === 'VAT_INVOICE');
+        const vatData = filteredData.filter(p => p.voucher_type === 'VAT_INVOICE');
         const invoiced = vatData.reduce((sum, p) => sum + (p.amount || 0), 0);
 
         // Pre-VAT revenue (matches Dashboard "Doanh thu")
@@ -250,14 +287,14 @@ export const PaymentService = {
         }
 
         // Receipt stats (Tiền về + Tạm ứng)
-        const receiptData = data.filter(p => p.voucher_type === 'RECEIPT');
+        const receiptData = filteredData.filter(p => p.voucher_type === 'RECEIPT');
         const cashData = receiptData.filter(p => p.status === 'Tiền về' || p.status === 'Paid');
         const cash = cashData.reduce((sum, p) => sum + (p.amount || 0), 0);
         const advanceData = receiptData.filter(p => p.status === 'Tạm ứng');
         const advance = advanceData.reduce((sum, p) => sum + (p.amount || 0), 0);
 
         // Expense stats
-        const expenseData = data.filter(p => p.voucher_type === 'EXPENSE');
+        const expenseData = filteredData.filter(p => p.voucher_type === 'EXPENSE');
         const paidExpense = expenseData.filter(p => p.status === 'Đã chi');
         const expense = paidExpense.reduce((sum, p) => sum + (p.amount || 0), 0);
         const pendingExpense = expenseData.filter(p => p.status === 'Đề nghị chi').reduce((sum, p) => sum + (p.amount || 0), 0);
