@@ -452,6 +452,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
       if (!d) return 0;
       if (activeMetric === 'signing') return d.signing;
       if (activeMetric === 'revenue') return d.revenue;
+      if (activeMetric === 'revProfit') return d.revProfit;
       return d.profit;
     };
 

@@ -51,6 +51,8 @@ export const getStatusColor = (status: ContractStatus | string): string => {
         case 'Acceptance':
         case 'Liquidated':
             return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800';
+        case 'PendingSettlement':
+            return 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 border border-violet-200 dark:border-violet-800';
         case 'Both_Approved':
         case 'Completed':
             return 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';

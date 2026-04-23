@@ -797,15 +797,16 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Chuyển trạng thái:</span>
             <div className="flex gap-2 flex-wrap">
-              {(['Processing', 'Suspended', 'Handover', 'Acceptance'] as const)
+              {(['Processing', 'Suspended', 'Handover', 'Acceptance', 'PendingSettlement'] as const)
                 .filter(s => s !== contract.status)
                 .map(targetStatus => {
-                  const labels: Record<string, string> = { Processing: 'Đang thực hiện', Suspended: 'Tạm dừng', Handover: 'Bàn giao', Acceptance: 'Nghiệm thu/TL' };
+                  const labels: Record<string, string> = { Processing: 'Đang thực hiện', Suspended: 'Tạm dừng', Handover: 'Bàn giao', Acceptance: 'Nghiệm thu/TL', PendingSettlement: 'Chờ QT-PD DA' };
                   const colors: Record<string, string> = {
                     Processing: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50 border-orange-200 dark:border-orange-800',
                     Suspended: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 border-rose-200 dark:border-rose-800',
                     Handover: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400 hover:bg-cyan-200 dark:hover:bg-cyan-900/50 border-cyan-200 dark:border-cyan-800',
                     Acceptance: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 border-blue-200 dark:border-blue-800',
+                    PendingSettlement: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-900/50 border-violet-200 dark:border-violet-800',
                   };
                   return (
                     <button

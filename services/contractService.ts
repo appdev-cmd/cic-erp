@@ -761,47 +761,9 @@ export const ContractService = {
         newContractsCount: number,
         renewalContractsCount: number
     }> => {
-        console.log('[ContractService.getStatsFallback] Using pre-computed columns');
-        // OPTIMIZED: No payments JOIN — use pre-computed columns on contracts table
-        let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, category, unit_id, unit_allocations, end_date');
-
-        // Only apply year filter at query level (unit filter is done in JS for allocation support)
-        if (year && year !== 'All' && year !== 'all') {
-            let startDate = `${year}-01-01`;
-            let endDate = `${year}-12-31`;
-
-            if (periodFilter) {
-                if (periodFilter.startsWith('M')) {
-                    const month = parseInt(periodFilter.substring(1));
-                    startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-                    endDate = new Date(parseInt(year), month, 0).toISOString().split('T')[0];
-                } else if (periodFilter.startsWith('Q')) {
-                    const quarter = parseInt(periodFilter.substring(1));
-                    const startMonth = (quarter - 1) * 3 + 1;
-                    const endMonth = quarter * 3;
-                    startDate = `${year}-${startMonth.toString().padStart(2, '0')}-01`;
-                    endDate = new Date(parseInt(year), endMonth, 0).toISOString().split('T')[0];
-                }
-            }
-            query = query.gte('signed_date', startDate).lte('signed_date', endDate);
-        } else if (periodFilter) {
-            const currentYear = new Date().getFullYear();
-            let startDate = `${currentYear}-01-01`;
-            let endDate = `${currentYear}-12-31`;
-
-            if (periodFilter.startsWith('M')) {
-                const month = parseInt(periodFilter.substring(1));
-                startDate = `${currentYear}-${month.toString().padStart(2, '0')}-01`;
-                endDate = new Date(currentYear, month, 0).toISOString().split('T')[0];
-            } else if (periodFilter.startsWith('Q')) {
-                const quarter = parseInt(periodFilter.substring(1));
-                const startMonth = (quarter - 1) * 3 + 1;
-                const endMonth = quarter * 3;
-                startDate = `${currentYear}-${startMonth.toString().padStart(2, '0')}-01`;
-                endDate = new Date(currentYear, endMonth, 0).toISOString().split('T')[0];
-            }
-            query = query.gte('signed_date', startDate).lte('signed_date', endDate);
-        }
+        console.log('[ContractService.getStatsFallback] Using direct query with payments');
+        // We MUST fetch payments to correctly calculate revenue/cash by time period.
+        let query = supabase.from('contracts').select('id, value, estimated_cost, status, unit_id, unit_allocations, end_date, signed_date, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type, payment_date, invoice_date, vat_invoice_items)');
 
         const { data, error } = await query;
         if (error) {
@@ -818,48 +780,125 @@ export const ContractService = {
         console.log('[ContractService.getStatsFallback] Got contracts:', data?.length);
 
         const isFilteringByUnit = !isAll(unitId);
+        
+        // Parse time filters
+        const targetYear = year && year !== 'All' && year !== 'all' ? parseInt(year) : null;
+        let startPeriodDate: Date | null = null;
+        let endPeriodDate: Date | null = null;
+        
+        if (targetYear) {
+            startPeriodDate = new Date(`${targetYear}-01-01T00:00:00`);
+            endPeriodDate = new Date(`${targetYear}-12-31T23:59:59`);
+            
+            if (periodFilter) {
+                if (periodFilter.startsWith('M')) {
+                    const month = parseInt(periodFilter.substring(1));
+                    startPeriodDate = new Date(targetYear, month - 1, 1);
+                    endPeriodDate = new Date(targetYear, month, 0, 23, 59, 59);
+                } else if (periodFilter.startsWith('Q')) {
+                    const quarter = parseInt(periodFilter.substring(1));
+                    const startMonth = (quarter - 1) * 3;
+                    const endMonth = quarter * 3 - 1;
+                    startPeriodDate = new Date(targetYear, startMonth, 1);
+                    endPeriodDate = new Date(targetYear, endMonth + 1, 0, 23, 59, 59);
+                }
+            }
+        } else if (periodFilter) {
+            const currentYear = new Date().getFullYear();
+            if (periodFilter.startsWith('M')) {
+                const month = parseInt(periodFilter.substring(1));
+                startPeriodDate = new Date(currentYear, month - 1, 1);
+                endPeriodDate = new Date(currentYear, month, 0, 23, 59, 59);
+            } else if (periodFilter.startsWith('Q')) {
+                const quarter = parseInt(periodFilter.substring(1));
+                const startMonth = (quarter - 1) * 3;
+                const endMonth = quarter * 3 - 1;
+                startPeriodDate = new Date(currentYear, startMonth, 1);
+                endPeriodDate = new Date(currentYear, endMonth + 1, 0, 23, 59, 59);
+            }
+        }
+
+        const isInPeriod = (dateStr: string | null | undefined): boolean => {
+            if (!dateStr) return false;
+            if (!startPeriodDate || !endPeriodDate) return true;
+            const d = new Date(dateStr);
+            return d >= startPeriodDate && d <= endPeriodDate;
+        };
 
         return (data || []).reduce((acc: any, curr: any) => {
-            const val = curr.value || 0;
-            const rev = curr.actual_revenue || 0;
-            const adminProfit = curr.admin_profit || 0;
-            const revProfit = curr.rev_profit || 0;
-            const cash = curr.cash_received || 0;
-            const cat = curr.category || 'Mới';
-
-            // Determine this unit's share percentage using shared helper
             let sharePct = 100;
-
             if (isFilteringByUnit) {
                 sharePct = getUnitSharePct(curr, unitId);
             }
-
-            if (sharePct === 0) return acc; // Skip contracts where unit has no share
-
+            if (sharePct === 0) return acc;
+            
             const fraction = sharePct / 100;
+            const isSignedMatch = isInPeriod(curr.signed_date);
+            const val = curr.value || 0;
+            const estimatedCost = curr.estimated_cost || 0;
+            const expectedProfit = val - estimatedCost;
 
-            return {
-                totalContracts: acc.totalContracts + 1,
-                totalValue: acc.totalValue + val * fraction,
-                totalRevenue: acc.totalRevenue + rev * fraction,
-                totalProfit: acc.totalProfit + adminProfit * fraction,
-                totalSigningProfit: acc.totalSigningProfit + adminProfit * fraction,
-                totalRevenueProfit: acc.totalRevenueProfit + revProfit * fraction,
-                totalCash: acc.totalCash + cash * fraction,
-                activeCount: acc.activeCount + (['Processing', 'Acceptance', 'Handover'].includes(curr.status) ? 1 : 0),
-                pendingCount: acc.pendingCount + (curr.status === 'Pending' ? 1 : 0),
-                suspendedCount: acc.suspendedCount + (curr.status === 'Suspended' ? 1 : 0),
-                completedCount: acc.completedCount + (curr.status === 'Completed' ? 1 : 0),
-                acceptanceCount: acc.acceptanceCount + (curr.status === 'Acceptance' ? 1 : 0),
-                processingCount: acc.processingCount + (curr.status === 'Processing' ? 1 : 0),
-                handoverCount: acc.handoverCount + (curr.status === 'Handover' ? 1 : 0),
-                newContractsCount: acc.newContractsCount + (cat === 'Mới' ? 1 : 0),
-                renewalContractsCount: acc.renewalContractsCount + (['Gia hạn', 'Bảo trì'].includes(cat) ? 1 : 0),
-                expiredCount: acc.expiredCount + (
+            // Stats from contract (only if signed_date matches filter)
+            if (isSignedMatch) {
+                acc.totalContracts++;
+                acc.totalValue += val * fraction;
+                acc.totalProfit += expectedProfit * fraction;
+                acc.totalSigningProfit += expectedProfit * fraction;
+                
+                acc.activeCount += (['Processing', 'Acceptance', 'Handover'].includes(curr.status) ? 1 : 0);
+                acc.pendingCount += (curr.status === 'Pending' ? 1 : 0);
+                acc.suspendedCount += (curr.status === 'Suspended' ? 1 : 0);
+                acc.completedCount += (curr.status === 'Completed' ? 1 : 0);
+                acc.acceptanceCount += (curr.status === 'Acceptance' ? 1 : 0);
+                acc.processingCount += (curr.status === 'Processing' ? 1 : 0);
+                acc.handoverCount += (curr.status === 'Handover' ? 1 : 0);
+                acc.expiredCount += (
                     ['Processing', 'Acceptance'].includes(curr.status) && curr.end_date && new Date(curr.end_date) < new Date() ? 1 : 0
-                )
-            };
-        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, suspendedCount: 0, handoverCount: 0, newContractsCount: 0, renewalContractsCount: 0 });
+                );
+            }
+            
+            // Calculate revenue and cash from payments (filtered by their own dates)
+            const payments = curr.payments || [];
+            
+            // Revenue (Doanh thu)
+            const revenuePayments = payments.filter(
+                (p: any) => p.voucher_type === 'VAT_INVOICE' &&
+                    ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status) &&
+                    isInPeriod(p.invoice_date || p.payment_date)
+            );
+            
+            let contractRevInPeriod = 0;
+            revenuePayments.forEach((p: any) => {
+                if (p.vat_invoice_items && p.vat_invoice_items.length > 0) {
+                    contractRevInPeriod += p.vat_invoice_items.reduce((s: number, item: any) => s + (Number(item.amountBeforeVAT) || 0), 0);
+                } else {
+                    const gross = Number(p.amount) || 0;
+                    const hasVat = curr.has_vat !== false;
+                    const vatRate = curr.vat_rate ?? 10;
+                    const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+                    contractRevInPeriod += Math.round(gross / vatDivisor);
+                }
+            });
+            
+            // Cash (Tiền về)
+            const cashPayments = payments.filter(
+                (p: any) => p.voucher_type === 'RECEIPT' &&
+                    ['Tạm ứng', 'Tiền về', 'Paid'].includes(p.status) &&
+                    isInPeriod(p.payment_date)
+            );
+            const contractCashInPeriod = cashPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+            
+            acc.totalRevenue += contractRevInPeriod * fraction;
+            acc.totalCash += contractCashInPeriod * fraction;
+            
+            // Revenue Profit (LNG Doanh thu)
+            if (val > 0) {
+                const profitRatio = expectedProfit / val;
+                acc.totalRevenueProfit += (contractRevInPeriod * profitRatio) * fraction;
+            }
+
+            return acc;
+        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, suspendedCount: 0, handoverCount: 0 });
     },
 
     /**
@@ -1040,27 +1079,19 @@ export const ContractService = {
         return { totalAmount: 0, paidAmount: 0, remainingAmount: 0, overdueAmount: 0 };
     },
 
-    getChartDataRPC: async (unitId: string = 'all', year: string = 'all'): Promise<Array<{ month: number, revenue: number, profit: number, signing: number }>> => {
+    getChartDataRPC: async (unitId: string = 'all', year: string = 'all'): Promise<Array<{ month: number, revenue: number, profit: number, revProfit: number, signing: number }>> => {
         const logPrefix = '[ContractService.getChartDataRPC]';
         console.log(`${logPrefix} START (Forcing DIRECT QUERY)`, { unitId, year });
 
         // FORCE FALLBACK - Bypass RPC
         return ContractService.getChartDataFallback(unitId, year);
-
     },
 
     // FALLBACK for chart data (with unit_allocations support)
-    getChartDataFallback: async (unitId: string = 'all', year: string = 'all'): Promise<Array<{ month: number, revenue: number, profit: number, signing: number }>> => {
-        console.log('[ContractService.getChartDataFallback] Using direct query');
-        // Fetch all contracts with unit_allocations for allocation-aware filtering
-        let query = supabase.from('contracts').select('signed_date, value, actual_revenue, estimated_cost, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type)');
-
-        // Only apply year filter at query level (unit filter is done in JS)
-        if (year && year !== 'All' && year !== 'all') {
-            const startDate = `${year}-01-01`;
-            const endDate = `${year}-12-31`;
-            query = query.gte('signed_date', startDate).lte('signed_date', endDate);
-        }
+    getChartDataFallback: async (unitId: string = 'all', year: string = 'all'): Promise<Array<{ month: number, revenue: number, profit: number, revProfit: number, signing: number }>> => {
+        console.log('[ContractService.getChartDataFallback] Using direct query with payments');
+        // Fetch ALL contracts with payments, NO signed_date filter at query level!
+        let query = supabase.from('contracts').select('signed_date, value, estimated_cost, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type, payment_date, invoice_date, vat_invoice_items)');
 
         const { data, error } = await query;
         if (error) {
@@ -1069,35 +1100,69 @@ export const ContractService = {
         }
 
         const isFilteringByUnit = !isAll(unitId);
+        const targetYear = year && year !== 'All' && year !== 'all' ? parseInt(year) : null;
 
         // Aggregate by month
-        const monthlyData: Record<number, { revenue: number, profit: number, signing: number }> = {};
+        const monthlyData: Record<number, { revenue: number, profit: number, revProfit: number, signing: number }> = {};
         for (let m = 1; m <= 12; m++) {
-            monthlyData[m] = { revenue: 0, profit: 0, signing: 0 };
+            monthlyData[m] = { revenue: 0, profit: 0, revProfit: 0, signing: 0 };
         }
 
         (data || []).forEach((c: any) => {
-            if (!c.signed_date) return;
-
-            // Determine unit share percentage using shared helper
             let sharePct = 100;
             if (isFilteringByUnit) {
                 sharePct = getUnitSharePct(c, unitId);
             }
-
             if (sharePct === 0) return;
-
             const fraction = sharePct / 100;
-            const month = new Date(c.signed_date).getMonth() + 1;
-            // Use payment-calculated revenue (consistent with stats)
-            const rev = calculateRevenueFromPayments(
-                c.payments || [], c.vat_rate ?? 10, c.has_vat !== false, c.actual_revenue || 0
-            );
-            if (monthlyData[month]) {
-                monthlyData[month].signing += (c.value || 0) * fraction;
-                monthlyData[month].revenue += rev * fraction;
-                monthlyData[month].profit += ((c.value || 0) - (c.estimated_cost || 0)) * fraction;
+            const val = c.value || 0;
+            const expectedProfit = val - (c.estimated_cost || 0);
+
+            // 1. Signing & Profit (based on signed_date)
+            if (c.signed_date) {
+                const sDate = new Date(c.signed_date);
+                if (!targetYear || sDate.getFullYear() === targetYear) {
+                    const month = sDate.getMonth() + 1;
+                    monthlyData[month].signing += val * fraction;
+                    monthlyData[month].profit += expectedProfit * fraction;
+                }
             }
+
+            // 2. Revenue (based on payment.invoice_date or payment.payment_date)
+            const payments = c.payments || [];
+            const revenuePayments = payments.filter(
+                (p: any) => p.voucher_type === 'VAT_INVOICE' &&
+                    ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status)
+            );
+
+            revenuePayments.forEach((p: any) => {
+                const pDateStr = p.invoice_date || p.payment_date;
+                if (!pDateStr) return;
+                
+                const pDate = new Date(pDateStr);
+                if (!targetYear || pDate.getFullYear() === targetYear) {
+                    const month = pDate.getMonth() + 1;
+                    
+                    let preVatAmount = 0;
+                    if (p.vat_invoice_items && p.vat_invoice_items.length > 0) {
+                        preVatAmount = p.vat_invoice_items.reduce((s: number, item: any) => s + (Number(item.amountBeforeVAT) || 0), 0);
+                    } else {
+                        const gross = Number(p.amount) || 0;
+                        const hasVat = c.has_vat !== false;
+                        const vatRate = c.vat_rate ?? 10;
+                        const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+                        preVatAmount = Math.round(gross / vatDivisor);
+                    }
+                    
+                    monthlyData[month].revenue += preVatAmount * fraction;
+                    
+                    // Add proportional revProfit for the recognized revenue
+                    if (val > 0) {
+                        const profitRatio = expectedProfit / val;
+                        monthlyData[month].revProfit += (preVatAmount * profitRatio) * fraction;
+                    }
+                }
+            });
         });
 
         return Object.entries(monthlyData).map(([month, vals]) => ({

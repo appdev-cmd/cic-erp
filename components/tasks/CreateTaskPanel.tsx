@@ -192,6 +192,7 @@ const CreateTaskPanel: React.FC<CreateTaskPanelProps> = ({
       });
 
       toast.success('Đã tạo công việc thành công');
+      window.dispatchEvent(new CustomEvent('tasks-updated'));
       onTaskCreated();
       forceClosePanel();
       if (onClose) onClose();

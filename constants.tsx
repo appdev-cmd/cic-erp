@@ -70,6 +70,7 @@ export const CONTRACT_STATUS_LABELS: Record<string, string> = {
   'Suspended': 'Tạm dừng/Huỷ',
   'Handover': 'Bàn giao',
   'Acceptance': 'Nghiệm thu/TL',
+  'PendingSettlement': 'Chờ quyết toán - PD DA',
   'Completed': 'Hoàn thành',
   // Workflow statuses
   'Draft': 'Nháp',
