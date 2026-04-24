@@ -10,68 +10,17 @@ import {
 } from '../../types';
 import { PermissionService } from '../../services';
 import { dataClient } from '../../lib/dataClient';
+import {
+    RESOURCE_LABELS, ACTION_LABELS, ROLE_LABELS, ROLE_TAB_COLORS as ROLE_COLORS,
+    ALL_ROLES, ACTIONS, RESOURCES,
+} from '../../lib/permissionConstants';
 
-// ─── Constants ─────────────────────────────────────────
-const RESOURCE_LABELS: Record<PermissionResource, string> = {
-    contracts: 'Hợp đồng',
-    customers: 'Khách hàng',
-    products: 'Sản phẩm / DV',
-    payments: 'Thanh toán',
-    employees: 'Nhân sự',
-    units: 'Đơn vị',
-    tasks: 'Công việc',
-    settings: 'Cài đặt',
-    permissions: 'Phân quyền',
-    reports: 'Báo cáo',
-    news: 'Tin tức',
-    projects: 'Dự án (BIM)',
-    requests: 'Đề xuất',
-    leaves: 'Nghỉ phép',
-    recruitment: 'Tuyển dụng',
-};
-
-const ACTION_LABELS: Record<PermissionAction, string> = {
-    view: 'Xem',
-    create: 'Thêm',
-    update: 'Sửa',
-    delete: 'Xóa',
-};
-
-const ROLE_LABELS: Record<UserRole, string> = {
-    Admin: 'Quản trị HT',
-    Leadership: 'Ban lãnh đạo',
-    UnitLeader: 'Lãnh đạo ĐV',
-    AdminUnit: 'Admin ĐV',
-    NVKD: 'NV Kinh doanh',
-    NVKT: 'NV Kỹ thuật',
-    Accountant: 'Kế toán',
-    ChiefAccountant: 'KT Trưởng',
-    Legal: 'Pháp chế',
-    Marketing: 'Marketing',
-};
-
-const ROLE_COLORS: Record<UserRole, { bg: string; active: string }> = {
-    Admin: { bg: 'text-red-500 dark:text-red-400', active: 'bg-red-500/10 border-red-500 dark:bg-red-500/20 text-red-600 dark:text-red-400' },
-    Leadership: { bg: 'text-purple-500 dark:text-purple-400', active: 'bg-purple-500/10 border-purple-500 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400' },
-    UnitLeader: { bg: 'text-blue-500 dark:text-blue-400', active: 'bg-blue-500/10 border-blue-500 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' },
-    AdminUnit: { bg: 'text-cyan-500 dark:text-cyan-400', active: 'bg-cyan-500/10 border-cyan-500 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400' },
-    NVKD: { bg: 'text-emerald-500 dark:text-emerald-400', active: 'bg-emerald-500/10 border-emerald-500 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' },
-    NVKT: { bg: 'text-teal-500 dark:text-teal-400', active: 'bg-teal-500/10 border-teal-500 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400' },
-    Accountant: { bg: 'text-amber-500 dark:text-amber-400', active: 'bg-amber-500/10 border-amber-500 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' },
-    ChiefAccountant: { bg: 'text-orange-500 dark:text-orange-400', active: 'bg-orange-500/10 border-orange-500 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400' },
-    Legal: { bg: 'text-indigo-500 dark:text-indigo-400', active: 'bg-indigo-500/10 border-indigo-500 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' },
-    Marketing: { bg: 'text-pink-500 dark:text-pink-400', active: 'bg-pink-500/10 border-pink-500 dark:bg-pink-500/20 text-pink-600 dark:text-pink-400' },
-};
-
-const ALL_ROLES: UserRole[] = ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD', 'NVKT', 'Accountant', 'ChiefAccountant', 'Legal', 'Marketing'];
-const ACTIONS: PermissionAction[] = ['view', 'create', 'update', 'delete'];
-const RESOURCES: PermissionResource[] = ['contracts', 'customers', 'products', 'payments', 'employees', 'units', 'tasks', 'settings', 'permissions', 'reports', 'news', 'projects', 'requests', 'leaves', 'recruitment'];
 
 // ─── Component ─────────────────────────────────────────
 const RoleDefaultsManager: React.FC = () => {
     const [selectedRole, setSelectedRole] = useState<UserRole>('NVKD');
     const [rolePerms, setRolePerms] = useState<Record<UserRole, Record<PermissionResource, PermissionAction[]>>>(() => {
-        // Initialize from DEFAULT_ROLE_PERMISSIONS
+        // Initialize from hardcode defaults (overwritten by DB on mount)
         const initial: any = {};
         ALL_ROLES.forEach(role => {
             initial[role] = {} as any;
@@ -83,8 +32,43 @@ const RoleDefaultsManager: React.FC = () => {
     });
     const [hasChanges, setHasChanges] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [applying, setApplying] = useState(false);
     const [showApplyConfirm, setShowApplyConfirm] = useState(false);
+
+    // ─── Load from DB on mount ───────────────────────────
+    // Ưu tiên DB (persistent), fallback về DEFAULT_ROLE_PERMISSIONS (hardcode)
+    React.useEffect(() => {
+        const loadFromDB = async () => {
+            try {
+                const { data, error } = await dataClient
+                    .from('role_permission_defaults')
+                    .select('role, resource, actions');
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    setRolePerms(prev => {
+                        const merged = { ...prev };
+                        data.forEach(row => {
+                            const role = row.role as UserRole;
+                            const resource = row.resource as PermissionResource;
+                            if (merged[role]) {
+                                merged[role] = { ...merged[role], [resource]: row.actions || [] };
+                            }
+                        });
+                        return merged;
+                    });
+                }
+            } catch (err) {
+                console.warn('role_permission_defaults: fallback to hardcode', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadFromDB();
+    }, []);
+
 
     const currentPerms = rolePerms[selectedRole];
 
@@ -140,16 +124,41 @@ const RoleDefaultsManager: React.FC = () => {
         setHasChanges(true);
     }, [selectedRole]);
 
-    // ─── Save to types (in-memory only, shows toast) ────
-    const handleSave = useCallback(() => {
-        // Update the in-memory DEFAULT_ROLE_PERMISSIONS
-        ALL_ROLES.forEach(role => {
-            const perms = rolePerms[role];
-            (DEFAULT_ROLE_PERMISSIONS as any)[role] = { ...perms };
-        });
-        setHasChanges(false);
-        toast.success('Đã lưu cấu hình quyền mặc định');
+    // ─── Save to DB (persistent) + update in-memory fallback ────────
+    const handleSave = useCallback(async () => {
+        setSaving(true);
+        try {
+            // Chuẩn bị upsert rows cho tất cả roles
+            const rows = ALL_ROLES.flatMap(role =>
+                RESOURCES.map(resource => ({
+                    role,
+                    resource,
+                    actions: rolePerms[role][resource] || [],
+                    updated_at: new Date().toISOString(),
+                }))
+            );
+
+            const { error } = await dataClient
+                .from('role_permission_defaults')
+                .upsert(rows, { onConflict: 'role,resource' });
+
+            if (error) throw error;
+
+            // Cũng cập nhật in-memory để consistent ngay lập tức
+            ALL_ROLES.forEach(role => {
+                (DEFAULT_ROLE_PERMISSIONS as any)[role] = { ...rolePerms[role] };
+            });
+
+            setHasChanges(false);
+            toast.success('Đã lưu quyền mặc định theo role vào cơ sở dữ liệu');
+        } catch (err) {
+            console.error('Error saving role defaults:', err);
+            toast.error('Lỗi khi lưu — kiểm tra quyền Admin hoặc kết nối DB');
+        } finally {
+            setSaving(false);
+        }
     }, [rolePerms]);
+
 
     // ─── Apply defaults to all users with this role ─────
     const handleApplyToAll = useCallback(async () => {
@@ -238,12 +247,13 @@ const RoleDefaultsManager: React.FC = () => {
                         <button
                             onClick={handleSave}
                             disabled={saving}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-60 rounded-lg transition-colors"
                         >
-                            <Save size={13} />
-                            Lưu
+                            {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                            {saving ? 'Đang lưu...' : 'Lưu vào DB'}
                         </button>
                     )}
+
                     <button
                         onClick={() => setShowApplyConfirm(true)}
                         disabled={applying}
@@ -302,7 +312,7 @@ const RoleDefaultsManager: React.FC = () => {
                                                     onClick={() => handleToggle(resource, action)}
                                                     className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:scale-110 cursor-pointer ${hasAction
                                                         ? 'bg-emerald-500/20 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/30'
-                                                        : 'bg-slate-200/60 text-slate-400 dark:bg-slate-700/60 dark:text-slate-500 hover:bg-slate-300/60 dark:hover:bg-slate-600/60'
+                                                        : 'bg-slate-200/60 text-slate-400 dark:bg-slate-800 dark:text-slate-500 hover:bg-slate-300/60 dark:hover:bg-slate-700'
                                                         }`}
                                                 >
                                                     {hasAction ? <Check size={15} strokeWidth={2.5} /> : <X size={15} />}
@@ -345,7 +355,7 @@ const RoleDefaultsManager: React.FC = () => {
             {/* ─── Apply Confirm Dialog ─── */}
             {showApplyConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl dark:shadow-black/40 border border-slate-200 dark:border-slate-700">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl dark:shadow-black/40 border border-slate-200 dark:border-slate-700">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                                 <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400" />

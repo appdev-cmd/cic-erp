@@ -177,13 +177,16 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     payments: ['view'],
     tasks: ['view', 'create', 'update'],
   },
-  // Marketing — Quản lý tin tức, website, ấn phẩm
+  // Marketing — Quảng bá, truyền thông, nội dung website
+  // Xem: dự án, sản phẩm/DV, đối tác/khách hàng
+  // Quản lý toàn quyền: tin tức, website
   Marketing: {
-    contracts: ['view'],
-    customers: ['view'],
-    products: ['view'],
-    news: ['view', 'create', 'update', 'delete'],
-    tasks: ['view', 'create', 'update'],
+    projects:  ['view'],                              // Xem dự án BIM để khai thác nội dung
+    products:  ['view', 'create', 'update'],          // Xem & cập nhật thông tin sản phẩm/DV
+    customers: ['view'],                              // Xem đối tác/khách hàng (tham chiếu)
+    news:      ['view', 'create', 'update', 'delete'],// Toàn quyền nội dung website
+    tasks:     ['view', 'create', 'update'],          // Quản lý công việc của mình
+    contracts: ['view'],                              // Xem hợp đồng (reference, không sửa)
   },
 };
 

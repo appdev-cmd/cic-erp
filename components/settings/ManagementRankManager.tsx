@@ -23,8 +23,8 @@ interface UnitOption {
 }
 
 const RANK_PRESETS = [
-  { rank: 100, label: 'CT/TGĐ', desc: 'Xem được tất cả công việc', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20' },
-  { rank: 80, label: 'Phó TGĐ', desc: 'Xem công việc thuộc đơn vị quản lý', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+  { rank: 100, label: 'CT/TGĐ', desc: 'Xem được tất cả công việc', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900' },
+  { rank: 80, label: 'Phó TGĐ', desc: 'Xem công việc thuộc đơn vị quản lý', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-900' },
   { rank: 50, label: 'Trưởng ĐV', desc: 'Xem công việc trong đơn vị', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-900/20' },
   { rank: 0, label: 'Nhân viên', desc: 'Chỉ xem công việc liên quan', color: 'text-slate-500 dark:text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800' },
 ];
@@ -63,7 +63,7 @@ const EmployeeRankRow: React.FC<{
     <div className={`rounded-xl border transition-all ${isDirty ? 'border-indigo-300 dark:border-indigo-600 shadow-sm' : 'border-slate-200 dark:border-slate-700'}`}>
       <div
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-3 p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors rounded-xl"
+        className="flex items-center gap-3 p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors rounded-xl"
       >
         {/* Avatar */}
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
@@ -123,7 +123,7 @@ const EmployeeRankRow: React.FC<{
                 max={200}
                 value={rank}
                 onChange={e => setRank(parseInt(e.target.value) || 0)}
-                className="w-16 text-xs text-center px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                className="w-16 text-xs text-center px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
               />
             </div>
           </div>
@@ -249,7 +249,7 @@ const ManagementRankManager: React.FC = () => {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Tìm nhân viên..."
-          className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
 

@@ -433,6 +433,27 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                     />
                 </div>
+
+                {/* Status filter — only renders when current tab has filterable statuses */}
+                {getStatusOptions().length > 1 && (
+                    <div className="relative flex items-center">
+                        <Filter size={14} className="absolute left-3 text-slate-400 pointer-events-none z-10" />
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="pl-9 pr-9 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all appearance-none cursor-pointer min-w-[160px]"
+                        >
+                            {getStatusOptions().map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                        <div className="absolute right-3 pointer-events-none text-slate-400">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Table */}

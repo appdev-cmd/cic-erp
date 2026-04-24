@@ -19,8 +19,8 @@ interface AuditEntry {
 
 const ACTION_COLORS: Record<string, string> = {
     UPDATE: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-    INSERT: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
-    DELETE: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+    INSERT: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300',
+    DELETE: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
 };
 
 const TABLE_LABELS: Record<string, string> = {
@@ -121,7 +121,7 @@ const PermissionAuditLog: React.FC = () => {
                         <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">+Thêm:</span>
                             {added.map(a => (
-                                <span key={a} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-medium">
+                                <span key={a} className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 font-medium">
                                     {ACTION_LABELS[a] || a}
                                 </span>
                             ))}
@@ -131,7 +131,7 @@ const PermissionAuditLog: React.FC = () => {
                         <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] text-red-500 dark:text-red-400 font-bold">−Bỏ:</span>
                             {removed.map(a => (
-                                <span key={a} className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-medium">
+                                <span key={a} className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-400 font-medium">
                                     {ACTION_LABELS[a] || a}
                                 </span>
                             ))}
@@ -183,13 +183,13 @@ const PermissionAuditLog: React.FC = () => {
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Tìm theo tên, ghi chú..."
-                        className="w-full pl-9 pr-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        className="w-full pl-9 pr-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     />
                 </div>
                 <select
                     value={tableFilter}
                     onChange={e => { setTableFilter(e.target.value); setPage(0); }}
-                    className="px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                    className="px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-orange-500 cursor-pointer"
                 >
                     <option value="all">Tất cả loại</option>
                     {Object.entries(TABLE_LABELS).map(([k, v]) => (
@@ -199,7 +199,7 @@ const PermissionAuditLog: React.FC = () => {
                 <button
                     onClick={() => fetchLogs()}
                     disabled={loading}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
                 >
                     <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                     Làm mới
@@ -222,14 +222,14 @@ const PermissionAuditLog: React.FC = () => {
                     {filtered.map(entry => (
                         <div
                             key={entry.id}
-                            className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden transition-all"
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden transition-all"
                         >
                             <button
-                                className="w-full flex items-start gap-3 p-4 text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                                className="w-full flex items-start gap-3 p-4 text-left cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                 onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
                             >
                                 {/* Icon */}
-                                <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 mt-0.5">
                                     {entry.table_name === 'user_permissions' ? (
                                         <Shield size={15} className="text-indigo-500" />
                                     ) : (
@@ -260,7 +260,7 @@ const PermissionAuditLog: React.FC = () => {
 
                             {/* Expanded detail */}
                             {expandedId === entry.id && (
-                                <div className="px-4 pb-4 pt-0 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20">
+                                <div className="px-4 pb-4 pt-0 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800">
                                     <div className="mt-3 space-y-3">
                                         <div className="grid grid-cols-2 gap-3 text-xs">
                                             <div>
@@ -274,7 +274,7 @@ const PermissionAuditLog: React.FC = () => {
                                         </div>
                                         <div>
                                             <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Chi tiết thay đổi</span>
-                                            <div className="mt-1.5 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                                            <div className="mt-1.5 p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
                                                 {renderDiff(entry)}
                                             </div>
                                         </div>
@@ -292,7 +292,7 @@ const PermissionAuditLog: React.FC = () => {
                     <button
                         onClick={() => setPage(p => Math.max(0, p - 1))}
                         disabled={page === 0}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                     >
                         ← Trước
                     </button>
@@ -300,7 +300,7 @@ const PermissionAuditLog: React.FC = () => {
                     <button
                         onClick={() => setPage(p => p + 1)}
                         disabled={filtered.length < PAGE_SIZE}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                     >
                         Sau →
                     </button>

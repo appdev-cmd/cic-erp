@@ -21,13 +21,13 @@ const RouteAuditPanel: React.FC = () => {
     return (
         <div className="space-y-6">
             {/* Deny-by-Default Banner */}
-            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900 border border-emerald-200 dark:border-emerald-800">
                 <ShieldCheck size={20} className="text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
                 <div className="text-sm text-emerald-700 dark:text-emerald-400">
                     <p className="font-bold">Chế độ: Deny-by-Default</p>
                     <p className="text-xs mt-1 opacity-80">
                         Mọi URL không nằm trong danh sách dưới đây sẽ bị <b>tự động chặn</b>. 
-                        Khi thêm phân hệ mới, lập trình viên phải khai báo route trong file <code className="bg-emerald-100 dark:bg-emerald-900/40 px-1 rounded">routePermissions.ts</code>.
+                        Khi thêm phân hệ mới, lập trình viên phải khai báo route trong file <code className="bg-emerald-100 dark:bg-emerald-900 px-1 rounded">routePermissions.ts</code>.
                     </p>
                 </div>
             </div>
@@ -86,10 +86,10 @@ const RouteAuditPanel: React.FC = () => {
                             {Object.entries(protectedByModule).map(([module, entries]) => (
                                 <React.Fragment key={module}>
                                     {entries.map((entry, i) => (
-                                        <tr key={entry.pattern} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/80 bg-white dark:bg-slate-900">
+                                        <tr key={entry.pattern} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 bg-white dark:bg-slate-900">
                                             {i === 0 && (
                                                 <td
-                                                    className="px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 align-top border-r border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800"
+                                                    className="px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 align-top border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
                                                     rowSpan={entries.length}
                                                 >
                                                     {module}

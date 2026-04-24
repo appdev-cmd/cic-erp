@@ -13,8 +13,6 @@ interface AuthContextType {
 
     // Permission helpers
     hasRole: (role: UserRole | UserRole[]) => boolean;
-    canEdit: (resource: 'contract' | 'pakd', resourceUnitId?: string, status?: string) => boolean;
-    canApprove: (resource: 'pakd', curStatus: string) => boolean;
     refreshProfile: () => Promise<void>;
 }
 
@@ -450,62 +448,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return roles.includes(profile.role);
     };
 
-    const canEdit = (resource: 'contract' | 'pakd', resourceUnitId?: string, status?: string) => {
-        if (!profile) return false;
-        // Admin role (from database) has full access
-        if (profile.role === 'Admin' || profile.role === 'Leadership') return true;
-
-        // If no status is passed, assume editable unless specific restrictions apply based on role/unit
-        if (!status) return true;
-
-        // Most resources are editable only in Draft or early stages
-        // Contracts typically editable until signed/active, but here we simplify
-        if (['Draft', 'New', 'Processing'].includes(status)) {
-            // If resourceUnitId provided, check if user belongs to that unit or is global
-            if (resourceUnitId && profile.unitId) {
-                if (profile.unitId === 'all') return true;
-                if (resourceUnitId !== profile.unitId) return false;
-            }
-            return true;
-        }
-
-        // Once approved/active, editing is restricted
-        return false;
-    };
-
-    const canApprove = (resource: 'pakd', curStatus: string) => {
-        if (!profile) return false;
-        // Admin/Leadership role (from database) has full access
-        if (profile.role === 'Admin' || profile.role === 'Leadership') return true;
-
-        switch (curStatus) {
-            case 'Pending_Unit':
-                return profile.role === 'UnitLeader' || profile.role === 'AdminUnit';
-            case 'Pending_Finance':
-                return profile.role === 'Accountant' || profile.role === 'ChiefAccountant';
-            case 'Pending_Board':
-                return false; // Already handled by early return if it was Leadership
-            default:
-                return false;
-        }
-    };
-
     const refreshProfile = async () => {
         if (!user) return;
-        // Use dataClient for data operations
-        const { data: profiles } = await dataClient.from('profiles').select('*').eq('id', user.id);
+        // Fetch profile kèm theo unit code để sidebar cập nhật ngay
+        const { data: profiles } = await dataClient
+            .from('profiles')
+            .select('*, units(code)')
+            .eq('id', user.id);
         if (profiles && profiles.length > 0) {
+            const p = profiles[0];
             setProfile({
-                id: profiles[0].id,
-                email: profiles[0].email || user.email || '',
-                fullName: profiles[0].full_name,
-                role: profiles[0].role as UserRole,
-                unitId: profiles[0].unit_id,
-                avatarUrl: profiles[0].avatar_url,
-                employeeId: profiles[0].employee_id
+                id: p.id,
+                email: p.email || user.email || '',
+                fullName: p.full_name,
+                role: p.role as UserRole,
+                unitId: p.unit_id,
+                unitCode: (p.units as any)?.code ?? undefined, // ← cập nhật unitCode
+                avatarUrl: p.avatar_url,
+                employeeId: p.employee_id
             });
         }
     };
+
 
 
     const value = {
@@ -515,8 +479,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         signOut,
         hasRole,
-        canEdit,
-        canApprove,
         refreshProfile,
     };
 

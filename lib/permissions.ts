@@ -18,7 +18,8 @@ import { UserRole } from '../types';
 
 /** Roles that can see data across ALL units (toàn công ty) */
 export const GLOBAL_VIEW_ROLES: UserRole[] = [
-    'Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'
+    'Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant',
+    'Marketing', // Marketing xem news/projects toàn công ty để quảng bá
 ];
 
 /** Roles scoped to their own unit only */
@@ -69,13 +70,11 @@ const BIM_UNIT_CODE = 'BIM';
 
 /**
  * Can VIEW the BIM Projects section?
- * Per PHANQUYENHETHONG.md: Admin, Leadership, and users in the BIM center.
- *
- * Previously controlled by hardcoded dev emails — now role/unit-based only.
- * To grant access to a specific user, set user_permissions.projects.view = true in DB.
+ * Per PHANQUYENHETHONG.md: Admin, Leadership, users in BIM center, and Marketing.
+ * Marketing xem projects để khai thác nội dung truyền thông.
  */
 export function canViewProjects(role: UserRole, userUnitCode?: string): boolean {
-    if (role === 'Admin' || role === 'Leadership') return true;
+    if (role === 'Admin' || role === 'Leadership' || role === 'Marketing') return true;
     if (userUnitCode === BIM_UNIT_CODE) return true;
     return false;
 }
@@ -171,6 +170,12 @@ export function canUpdateContractFinancials(role: UserRole): boolean {
 // ═══════════════════════════════════════════
 // Payment type helpers — role-based
 // ═══════════════════════════════════════════
+
+/** Roles that can VIEW payment data (xem phiếu thu/chi) */
+export const PAYMENT_VIEW_ROLES: UserRole[] = [
+    'NVKD', 'NVKT', 'AdminUnit', 'UnitLeader',
+    'Accountant', 'ChiefAccountant', 'Admin', 'Leadership',
+];
 
 /** Business roles that can enter PLANNED payment data */
 export const PAYMENT_PLANNED_ROLES: UserRole[] = ['NVKD', 'AdminUnit', 'UnitLeader', 'Admin'];

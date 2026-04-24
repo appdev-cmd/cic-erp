@@ -185,7 +185,7 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand, isFormOpenEx
                     placeholder="Tìm theo tên, mã, quốc gia..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-slate-900 dark:text-slate-100"
                 />
             </div>
 
@@ -376,7 +376,7 @@ const BrandManager: React.FC<BrandManagerProps> = ({ onSelectBrand, isFormOpenEx
                                     </td>
                                     <td className="py-3 px-3 text-center hidden lg:table-cell">
                                         {brand.isActive ? (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-[10px] font-bold">
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-400 rounded-lg text-[10px] font-bold">
                                                 <CheckCircle size={11} />
                                                 Active
                                             </span>

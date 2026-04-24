@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-    Shield, Users, Check, X, Loader2, Search, Eye, EyeOff, Building2,
-    ChevronDown, RefreshCw, AlertTriangle, Filter, GitCompare, Copy,
-    RotateCcw, TrendingUp, Info
+    Shield, Users, Check, X, Loader2, Search, Eye, Building2,
+    RefreshCw, AlertTriangle, GitCompare,
+    RotateCcw, Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -16,65 +16,13 @@ import {
 import { dataClient } from '../../lib/dataClient';
 import { AuditLogService } from '../../services/auditLogService';
 import { useAuth } from '../../contexts/AuthContext';
+import {
+    RESOURCE_LABELS, ACTION_LABELS, ROLE_LABELS, ROLE_BADGE_COLORS as ROLE_COLORS,
+    ALL_ROLES, ACTIONS, RESOURCES, GLOBAL_VIEW_ROLE_LIST,
+} from '../../lib/permissionConstants';
 
-// ─── Constants ─────────────────────────────────────────
-const RESOURCE_LABELS: Record<PermissionResource, string> = {
-    contracts: 'Hợp đồng',
-    customers: 'Khách hàng',
-    products: 'Sản phẩm / DV',
-    tasks: 'Công việc',
-    payments: 'Tài chính',
-    employees: 'Nhân sự',
-    units: 'Đơn vị',
-    settings: 'Cài đặt',
-    permissions: 'Phân quyền',
-    reports: 'Báo cáo',
-    news: 'Tin tức',
-    projects: 'Dự án (BIM)',
-    requests: 'Đề xuất',
-    leaves: 'Nghỉ phép',
-    recruitment: 'Tuyển dụng',
-};
-
-const ACTION_LABELS: Record<PermissionAction, string> = {
-    view: 'Xem',
-    create: 'Thêm',
-    update: 'Sửa',
-    delete: 'Xóa',
-};
-
-const ROLE_LABELS: Record<UserRole, string> = {
-    Admin: 'Quản trị HT',
-    Leadership: 'Ban lãnh đạo',
-    UnitLeader: 'Lãnh đạo ĐV',
-    AdminUnit: 'Admin ĐV',
-    NVKD: 'NV Kinh doanh',
-    NVKT: 'NV Kỹ thuật',
-    Accountant: 'Kế toán',
-    ChiefAccountant: 'KT Trưởng',
-    Legal: 'Pháp chế',
-    Marketing: 'Marketing',
-};
-
-const ROLE_COLORS: Record<UserRole, string> = {
-    Admin: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    Leadership: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-    UnitLeader: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    AdminUnit: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
-    NVKD: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-    NVKT: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
-    Accountant: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    ChiefAccountant: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-    Legal: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-    Marketing: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
-};
-
-const ALL_ROLES: UserRole[] = ['Admin', 'Leadership', 'UnitLeader', 'AdminUnit', 'NVKD', 'NVKT', 'Accountant', 'ChiefAccountant', 'Legal', 'Marketing'];
-const ACTIONS: PermissionAction[] = ['view', 'create', 'update', 'delete'];
-const RESOURCES: PermissionResource[] = ['contracts', 'customers', 'products', 'tasks', 'payments', 'employees', 'units', 'settings', 'permissions', 'reports', 'news', 'projects', 'requests', 'leaves', 'recruitment'];
-
-// Global view roles
-const GLOBAL_ROLES: UserRole[] = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
+// Global view roles — dùng cho cross-unit visibility panel
+const GLOBAL_ROLES: UserRole[] = GLOBAL_VIEW_ROLE_LIST;
 
 // ─── Types ─────────────────────────────────────────────
 interface EmployeeUser extends UserProfile {
@@ -339,7 +287,7 @@ const PermissionManager: React.FC = () => {
                             onClick={() => setRoleFilter(roleFilter === role ? 'all' : role)}
                             className={`flex items-center justify-between px-3 py-2 rounded-lg border text-left transition-all cursor-pointer ${roleFilter === role
                                 ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20'
-                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600'
+                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600'
                             }`}
                         >
                             <span className={`text-[10px] font-bold truncate ${ROLE_COLORS[role]?.split(' ')[0] ? '' : ''} ${roleFilter === role ? 'text-orange-700 dark:text-orange-300' : 'text-slate-600 dark:text-slate-300'}`}>
@@ -355,7 +303,7 @@ const PermissionManager: React.FC = () => {
                     onClick={() => setRoleFilter('all')}
                     className={`flex items-center justify-between px-3 py-2 rounded-lg border text-left transition-all cursor-pointer ${roleFilter === 'all'
                         ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/20'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 hover:border-slate-300'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300'
                     }`}
                 >
                     <span className={`text-[10px] font-bold ${roleFilter === 'all' ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-500'}`}>Tất cả</span>
@@ -375,7 +323,7 @@ const PermissionManager: React.FC = () => {
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             placeholder="Tên, email..."
-                            className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 dark:border-slate-600 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                            className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 dark:border-slate-600 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                         />
                     </div>
                 </div>
@@ -385,7 +333,7 @@ const PermissionManager: React.FC = () => {
                     <select
                         value={roleFilter}
                         onChange={e => setRoleFilter(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 dark:border-slate-600 focus:ring-2 focus:ring-orange-500"
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 dark:border-slate-600 focus:ring-2 focus:ring-orange-500"
                     >
                         <option value="all">Tất cả vai trò</option>
                         {ALL_ROLES.map(role => (
@@ -399,7 +347,7 @@ const PermissionManager: React.FC = () => {
                     <select
                         value={unitFilter}
                         onChange={e => setUnitFilter(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 dark:border-slate-600 focus:ring-2 focus:ring-orange-500"
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 dark:border-slate-600 focus:ring-2 focus:ring-orange-500"
                     >
                         <option value="all">Tất cả đơn vị</option>
                         {allUnits.map(unit => (
@@ -482,7 +430,7 @@ const PermissionManager: React.FC = () => {
                                 setShowResetConfirm(true);
                             }}
                             disabled={isSelf}
-                            className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white dark:bg-slate-700 dark:border-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                             {ALL_ROLES.map(role => (
                                 <option key={role} value={role}>{ROLE_LABELS[role]}</option>
@@ -564,7 +512,7 @@ const PermissionManager: React.FC = () => {
                                 {RESOURCES.map((resource, idx) => {
                                     const rowHasCustom = ACTIONS.some(a => diffCells.has(`${resource}:${a}`));
                                     return (
-                                        <tr key={resource} className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 transition-colors duration-150 ${rowHasCustom && showDiff ? 'bg-amber-50/30 dark:bg-amber-950/10' : idx % 2 === 0 ? 'bg-transparent' : 'bg-slate-50/50 dark:bg-slate-800'} hover:bg-orange-50/30 dark:hover:bg-slate-700`}>
+                                        <tr key={resource} className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 transition-colors duration-150 ${rowHasCustom && showDiff ? 'bg-amber-50/30 dark:bg-amber-900' : idx % 2 === 0 ? 'bg-transparent' : 'bg-slate-50/50 dark:bg-slate-800'} hover:bg-orange-50/30 dark:hover:bg-slate-700`}>
                                             <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
                                                 {RESOURCE_LABELS[resource]}
                                                 {rowHasCustom && showDiff && (
@@ -583,7 +531,7 @@ const PermissionManager: React.FC = () => {
                                                         : 'bg-red-400/15 text-red-500 dark:text-red-400 border border-red-400/50 hover:bg-red-400/25'
                                                     : hasAction
                                                         ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/30'
-                                                        : 'bg-slate-200/60 text-slate-400 dark:bg-slate-700/60 dark:text-slate-500 hover:bg-slate-300/60';
+                                                        : 'bg-slate-200/60 text-slate-400 dark:bg-slate-800 dark:text-slate-500 hover:bg-slate-300/60';
                                                 return (
                                                     <td key={action} className="text-center py-3 px-3">
                                                         <div className="flex flex-col items-center gap-0.5">
@@ -629,7 +577,7 @@ const PermissionManager: React.FC = () => {
                         </p>
 
                         {selectedUser.role && GLOBAL_ROLES.includes(selectedUser.role) ? (
-                            <div className="flex items-center gap-2 py-2 px-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                            <div className="flex items-center gap-2 py-2 px-3 bg-emerald-50 dark:bg-emerald-900 rounded-lg border border-emerald-200 dark:border-emerald-800">
                                 <Eye size={14} className="text-emerald-600 dark:text-emerald-400" />
                                 <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
                                     Role <strong>{ROLE_LABELS[selectedUser.role]}</strong> luôn xem được tất cả đơn vị
@@ -713,7 +661,7 @@ const PermissionManager: React.FC = () => {
             {/* ─── Confirm Role Change Dialog ─── */}
             {showResetConfirm && pendingRole && selectedUser && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl dark:shadow-black/40 border border-slate-200 dark:border-slate-700">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl dark:shadow-black/40 border border-slate-200 dark:border-slate-700">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                                 <AlertTriangle size={20} className="text-amber-600 dark:text-amber-400" />

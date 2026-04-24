@@ -113,7 +113,7 @@ const AIPermissionManager: React.FC = () => {
                                         {user.profile?.fullName || 'Unknown'}
                                     </span>
                                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${user.profile?.role === 'Admin'
-                                            ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                                            ? 'bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400'
                                             : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                                         }`}>
                                         {user.profile?.role}

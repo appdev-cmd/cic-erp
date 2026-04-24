@@ -3,6 +3,35 @@ import { Payment, VoucherType } from '../types';
 import { TelegramNotificationService } from './telegramNotificationService';
 import { ContractTaskDefinitionService } from './contractTaskDefinitionService';
 
+/**
+ * Derive ISO date range from year + optional periodFilter ("M4" = April, "Q2" = Q2).
+ * Used for filtering payments directly by due_date.
+ */
+const deriveDateRange = (year: string, period?: string): { startDate: string; endDate: string } => {
+    const y = parseInt(year);
+    if (period?.startsWith('M')) {
+        const m = parseInt(period.substring(1));
+        const monthStr = m.toString().padStart(2, '0');
+        const daysInMonth = new Date(y, m, 0).getDate();
+        return {
+            startDate: `${year}-${monthStr}-01`,
+            endDate: `${year}-${monthStr}-${daysInMonth.toString().padStart(2, '0')}`
+        };
+    } else if (period?.startsWith('Q')) {
+        const q = parseInt(period.substring(1));
+        const startMonthNum = (q - 1) * 3 + 1;
+        const endMonthNum = q * 3;
+        const startMonth = startMonthNum.toString().padStart(2, '0');
+        const endMonth = endMonthNum.toString().padStart(2, '0');
+        const daysInEndMonth = new Date(y, endMonthNum, 0).getDate();
+        return {
+            startDate: `${year}-${startMonth}-01`,
+            endDate: `${year}-${endMonth}-${daysInEndMonth.toString().padStart(2, '0')}`
+        };
+    }
+    return { startDate: `${year}-01-01`, endDate: `${year}-12-31` };
+};
+
 // Helper to map DB Payment to Frontend Payment
 const mapPayment = (p: any): Payment & { unitId?: string; customerName?: string; contractCode?: string; signedDate?: string } => ({
     id: p.id,
@@ -163,17 +192,12 @@ export const PaymentService = {
             query = query.eq('status', status);
         }
 
-        // Unit filter: filter contracts by unit, then get matching payments
+        // Unit filter: look up contracts by unit_id, then filter payments
         if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
-            let contractQuery = supabase.from('contracts').select('id');
-            contractQuery = contractQuery.in('unit_id', unitIds);
-            const { data: contracts } = await contractQuery;
+            const { data: contracts } = await supabase.from('contracts').select('id').in('unit_id', unitIds);
             const contractIds = contracts?.map(c => c.id) || [];
-            if (contractIds.length > 0) {
-                query = query.in('contract_id', contractIds);
-            } else {
-                return { data: [], count: 0 };
-            }
+            if (contractIds.length === 0) return { data: [], count: 0 };
+            query = query.in('contract_id', contractIds);
         }
 
         // Date filter: filter by voucher's own date (invoice_date or payment_date)
@@ -227,17 +251,14 @@ export const PaymentService = {
             query = query.eq('payment_type', type);
         }
 
-        // Unit filter: filter contracts by unit
+        // Unit filter: via contracts
         if (unitIds && unitIds !== 'all' && unitIds.length > 0) {
-            let contractQuery = supabase.from('contracts').select('id');
-            contractQuery = contractQuery.in('unit_id', unitIds);
-            const { data: contracts } = await contractQuery;
+            const { data: contracts } = await supabase.from('contracts').select('id').in('unit_id', unitIds);
             const contractIds = contracts?.map(c => c.id) || [];
-            if (contractIds.length > 0) {
-                query = query.in('contract_id', contractIds);
-            } else {
+            if (contractIds.length === 0) {
                 return { totalAmount: 0, revenueAmount: 0, invoicedAmount: 0, cashReceivedAmount: 0, invoicedCount: 0, cashReceivedCount: 0, expenseAmount: 0, expenseCount: 0, pendingExpenseAmount: 0, advanceAmount: 0, advanceCount: 0 };
             }
+            query = query.in('contract_id', contractIds);
         }
 
         const { data, error } = await query;

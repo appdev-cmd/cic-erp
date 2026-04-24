@@ -65,11 +65,28 @@ export const PermissionService = {
     },
 
     /**
-     * Initialize default permissions for a user based on their role
+     * Initialize default permissions for a user based on their role.
+     * Ưu tiên đọc từ role_permission_defaults (DB), fallback về DEFAULT_ROLE_PERMISSIONS (hardcode).
      */
     async initializeForUser(userId: string, role: UserRole): Promise<void> {
-        const defaultPerms = DEFAULT_ROLE_PERMISSIONS[role];
-        if (!defaultPerms) return;
+        // Thử load từ DB trước
+        let defaultPerms: Partial<Record<PermissionResource, PermissionAction[]>>;
+        try {
+            const { data: dbDefaults } = await supabase
+                .from('role_permission_defaults')
+                .select('resource, actions')
+                .eq('role', role);
+
+            if (dbDefaults && dbDefaults.length > 0) {
+                defaultPerms = Object.fromEntries(
+                    dbDefaults.map(r => [r.resource, r.actions || []])
+                ) as any;
+            } else {
+                defaultPerms = DEFAULT_ROLE_PERMISSIONS[role] || {};
+            }
+        } catch {
+            defaultPerms = DEFAULT_ROLE_PERMISSIONS[role] || {};
+        }
 
         const permissions = Object.entries(defaultPerms).map(([resource, actions]) => ({
             user_id: userId,
@@ -115,9 +132,30 @@ export const PermissionService = {
     },
 
     /**
-     * Get default permissions for a role (without DB call)
+     * Get default permissions for a role.
+     * Ưu tiên DB, fallback hardcode.
      */
     getDefaultPermissions(role: UserRole): Partial<Record<PermissionResource, PermissionAction[]>> {
         return DEFAULT_ROLE_PERMISSIONS[role] || {};
     },
+
+    /**
+     * Load role defaults from DB (async version).
+     */
+    async getDefaultPermissionsFromDB(role: UserRole): Promise<Partial<Record<PermissionResource, PermissionAction[]>>> {
+        try {
+            const { data } = await supabase
+                .from('role_permission_defaults')
+                .select('resource, actions')
+                .eq('role', role);
+
+            if (data && data.length > 0) {
+                return Object.fromEntries(data.map(r => [r.resource, r.actions || []])) as any;
+            }
+        } catch {
+            // fallthrough
+        }
+        return DEFAULT_ROLE_PERMISSIONS[role] || {};
+    },
 };
+

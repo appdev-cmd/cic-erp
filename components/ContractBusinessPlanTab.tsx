@@ -28,7 +28,7 @@ interface Props {
 }
 
 const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
-    const { profile, canEdit: canEditResource, canApprove } = useAuth();
+    const { profile } = useAuth();
     const [plan, setPlan] = useState<BusinessPlan | null>(null);
     const [reviews, setReviews] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);

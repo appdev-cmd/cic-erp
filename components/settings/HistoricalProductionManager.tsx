@@ -236,7 +236,7 @@ const HistoricalProductionManager: React.FC = () => {
 
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* View Mode Toggle */}
-                    <div className="flex bg-white dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="flex bg-white dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
                         <button
                             onClick={() => setViewMode('yearly')}
                             className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-bold transition-all ${viewMode === 'yearly'
@@ -264,7 +264,7 @@ const HistoricalProductionManager: React.FC = () => {
                         <select
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(Number(e.target.value))}
-                            className="appearance-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 pr-10 text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                            className="appearance-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 pr-10 text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
                         >
                             {YEARS.map(y => (
                                 <option key={y} value={y}>Năm {y}</option>
@@ -306,7 +306,7 @@ const HistoricalProductionManager: React.FC = () => {
                             onClick={() => setSelectedMetric(m.key)}
                             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${selectedMetric === m.key
                                 ? `${m.bgActive} text-white shadow-sm`
-                                : `bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 ${m.bgInactive}`
+                                : `bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 ${m.bgInactive}`
                                 }`}
                         >
                             {m.label}
@@ -322,7 +322,7 @@ const HistoricalProductionManager: React.FC = () => {
                 </div>
             ) : viewMode === 'yearly' ? (
                 /* ====== YEARLY VIEW ====== */
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
@@ -367,7 +367,7 @@ const HistoricalProductionManager: React.FC = () => {
                                     </tr>
                                 ))}
                                 {/* Totals Row */}
-                                <tr className="bg-orange-50 dark:bg-orange-900/20 border-t-2 border-orange-200 dark:border-orange-800">
+                                <tr className="bg-orange-50 dark:bg-orange-900 border-t-2 border-orange-200 dark:border-orange-800">
                                     <td className="py-4 px-5">
                                         <div className="flex items-center gap-2">
                                             <TrendingUp size={16} className="text-orange-600 dark:text-orange-400" />
@@ -388,7 +388,7 @@ const HistoricalProductionManager: React.FC = () => {
                 </div>
             ) : (
                 /* ====== MONTHLY VIEW ====== */
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
@@ -445,8 +445,8 @@ const HistoricalProductionManager: React.FC = () => {
                                     </tr>
                                 ))}
                                 {/* Monthly Totals Row */}
-                                <tr className="bg-orange-50 dark:bg-orange-900/20 border-t-2 border-orange-200 dark:border-orange-800">
-                                    <td className="py-3 px-4 sticky left-0 bg-orange-50 dark:bg-orange-900/20 z-10">
+                                <tr className="bg-orange-50 dark:bg-orange-900 border-t-2 border-orange-200 dark:border-orange-800">
+                                    <td className="py-3 px-4 sticky left-0 bg-orange-50 dark:bg-orange-900 z-10">
                                         <div className="flex items-center gap-2">
                                             <TrendingUp size={14} className="text-orange-600 dark:text-orange-400" />
                                             <span className="text-xs font-black text-orange-700 dark:text-orange-300">TỔNG</span>

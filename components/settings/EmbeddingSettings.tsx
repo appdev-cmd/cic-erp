@@ -235,7 +235,7 @@ const EmbeddingSettings: React.FC = () => {
         <button
           onClick={handleTest}
           disabled={testing}
-          className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
+          className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
         >
           {testing ? <Loader2 size={14} className="animate-spin" /> : <TestTube size={14} />}
           {testing ? 'Đang kiểm tra...' : 'Kiểm tra kết nối'}
@@ -246,7 +246,7 @@ const EmbeddingSettings: React.FC = () => {
       {testResult && (
         <div className={`rounded-xl p-4 border ${
           testResult.status === 'success'
-            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+            ? 'bg-emerald-50 dark:bg-emerald-900 border-emerald-200 dark:border-emerald-800'
             : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800'
         }`}>
           <div className="flex items-start gap-2">
