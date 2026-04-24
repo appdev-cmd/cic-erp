@@ -149,6 +149,15 @@ export function getHiddenNavItems(
         hidden.add('reports');
     }
 
+    // Analytics: Admin và Leadership mặc định, hoặc được cấp quyền qua DB
+    const hasAnalyticsViewInDB = dbPermissions?.get('analytics')?.has('view');
+    if (hasAnalyticsViewInDB === undefined) {
+        // DB chưa load → fallback role-based: chỉ Admin và Leadership
+        if (role !== 'Admin' && role !== 'Leadership') hidden.add('analytics');
+    } else if (!hasAnalyticsViewInDB) {
+        hidden.add('analytics');
+    }
+
     return hidden;
 }
 

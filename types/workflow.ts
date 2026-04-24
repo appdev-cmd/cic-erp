@@ -73,7 +73,8 @@ export type PermissionResource =
   | 'projects'
   | 'requests'
   | 'leaves'
-  | 'recruitment';
+  | 'recruitment'
+  | 'analytics';
 
 export interface UserPermission {
   id?: string;
@@ -103,6 +104,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     requests: ['view', 'create', 'update', 'delete'],
     leaves: ['view', 'create', 'update', 'delete'],
     recruitment: ['view', 'create', 'update', 'delete'],
+    analytics: ['view', 'create', 'update', 'delete'],
   },
   // Ban lãnh đạo — Toàn quyền dữ liệu, KHÔNG settings/permissions, payments chỉ xem
   Leadership: {
@@ -117,6 +119,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     requests: ['view', 'create', 'update', 'delete'],
     leaves: ['view', 'create', 'update', 'delete'],
     recruitment: ['view', 'create', 'update', 'delete'],
+    analytics: ['view'],
   },
   // Lãnh đạo đơn vị — HĐ/KH/SP: VCU, payments: chỉ xem (tạo phiếu cần cấp quyền qua Settings)
   UnitLeader: {
@@ -181,11 +184,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
   // Xem: dự án, sản phẩm/DV, đối tác/khách hàng
   // Quản lý toàn quyền: tin tức, website
   Marketing: {
-    projects:  ['view'],                              // Xem dự án BIM để khai thác nội dung
-    products:  ['view', 'create', 'update'],          // Xem & cập nhật thông tin sản phẩm/DV
+    projects: ['view'],                              // Xem dự án BIM để khai thác nội dung
+    products: ['view', 'create', 'update'],          // Xem & cập nhật thông tin sản phẩm/DV
     customers: ['view'],                              // Xem đối tác/khách hàng (tham chiếu)
-    news:      ['view', 'create', 'update', 'delete'],// Toàn quyền nội dung website
-    tasks:     ['view', 'create', 'update'],          // Quản lý công việc của mình
+    news: ['view', 'create', 'update', 'delete'],// Toàn quyền nội dung website
+    tasks: ['view', 'create', 'update'],          // Quản lý công việc của mình
     contracts: ['view'],                              // Xem hợp đồng (reference, không sửa)
   },
 };

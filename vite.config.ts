@@ -139,7 +139,7 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       port: 3000,
-      host: 'localhost',
+      host: '0.0.0.0', // Mở cho LAN nội bộ (văn phòng) — thay đổi từ 'localhost'
       proxy: {
         // Gemma vLLM — target từ env (máy chủ công ty) hoặc fallback localhost dev
         '/api/vllm_gemma': {

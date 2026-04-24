@@ -80,22 +80,22 @@ function getEnvKey(provider: AIProvider): string {
   };
   const keyName = envMap[provider] || '';
   const vitePrefix = 'VITE_' + keyName;
-  
+
   // Try Vite config first
   try {
     if (typeof (import.meta as any).env !== 'undefined') {
       const val = (import.meta as any).env[vitePrefix] || (import.meta as any).env[keyName];
       if (val) return val;
     }
-  } catch {}
-  
+  } catch { }
+
   // Try Node process process.env second
   try {
     if (typeof process !== 'undefined' && process.env) {
       return process.env[vitePrefix] || process.env[keyName] || '';
     }
-  } catch {}
-  
+  } catch { }
+
   return '';
 }
 
@@ -160,29 +160,36 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<string> 
   let success = true;
   let errorMsg = '';
 
+  // Helper: wrap a sub-generator while collecting output
+  async function* collectAndYield(gen: AsyncGenerator<string>): AsyncGenerator<string> {
+    for await (const chunk of gen) {
+      outputBuffer += chunk;
+      yield chunk;
+    }
+  }
+
   try {
     if (request.signal?.aborted) return;
 
-    // Route to correct provider
+    // Route to correct provider — use collectAndYield to intercept chunks for logging
     switch (provider) {
       case 'gemini':
-        yield* streamGemini(request);
+        yield* collectAndYield(streamGemini(request));
         break;
       case 'local':
-        yield* streamOpenAICompatible(request, 'local');
+        yield* collectAndYield(streamOpenAICompatible(request, 'local'));
         break;
       case 'openai':
-        yield* streamOpenAICompatible(request, 'openai');
+        yield* collectAndYield(streamOpenAICompatible(request, 'openai'));
         break;
       case 'deepseek': {
         let apiModelId = request.model;
         if (apiModelId === 'deepseek-r1') apiModelId = 'deepseek-reasoner';
-        yield* streamOpenAICompatible({ ...request, model: apiModelId }, 'deepseek');
+        yield* collectAndYield(streamOpenAICompatible({ ...request, model: apiModelId }, 'deepseek'));
         break;
       }
       default:
-        // Fallback: try as local
-        yield* streamOpenAICompatible(request, 'local');
+        yield* collectAndYield(streamOpenAICompatible(request, 'local'));
     }
   } catch (error: any) {
     if (error?.name === 'AbortError' || request.signal?.aborted) return;
@@ -193,18 +200,26 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<string> 
     // Try fallback model
     const fallback = getFallbackModel(provider);
     if (fallback) {
-      yield `\n\n*(Chuyển sang ${fallback.name} do lỗi kết nối ${request.model})*\n\n`;
+      const fallbackMsg = `\n\n*(Chuyển sang ${fallback.name} do lỗi kết nối ${request.model})*\n\n`;
+      outputBuffer += fallbackMsg;
+      yield fallbackMsg;
       try {
-        yield* streamChat({ ...request, model: fallback.id });
+        yield* collectAndYield(streamChat({ ...request, model: fallback.id }) as any);
         return;
       } catch {
         // Fallback also failed
       }
     }
 
-    yield formatError(request.model, error);
+    const errMsg = formatError(request.model, error);
+    outputBuffer += errMsg;
+    yield errMsg;
   } finally {
     const latencyMs = Date.now() - startTime;
+    // Estimate tokens: ~4 chars per token (rough approximation)
+    const inputText = request.messages.map(m => m.content).join(' ');
+    const estimatedPromptTokens = Math.ceil(inputText.length / 4);
+    const estimatedCompletionTokens = Math.ceil(outputBuffer.length / 4);
 
     // Async log (fire-and-forget)
     logAICall({
@@ -215,6 +230,9 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<string> 
       provider,
       action_type: 'chat',
       source: request.meta?.source || 'web-chat',
+      prompt_tokens: estimatedPromptTokens,
+      completion_tokens: estimatedCompletionTokens,
+      total_cost_usd: estimateCost(request.model, estimatedPromptTokens, estimatedCompletionTokens),
       latency_ms: latencyMs,
       success,
       error_message: errorMsg || undefined,
@@ -224,22 +242,27 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<string> 
   }
 }
 
+
 // ═══════════════════════════════════════
 // GEMINI STREAMING
 // ═══════════════════════════════════════
 
 async function* streamGemini(request: ChatRequest): AsyncGenerator<string> {
   const customKey = getCustomKey('gemini');
-  const shouldUseEdge = !customKey && await isEdgeFunctionAvailable('gemini-proxy');
+  const envKey = getEnvKey('gemini');
+  const apiKey = customKey || envKey;
 
-  if (shouldUseEdge) {
-    yield* streamGeminiViaEdge(request);
-    return;
+  // Ưu tiên: nếu có key (custom hoặc env) → dùng Direct API ngay
+  // Edge Function chỉ dùng khi không có key nào trong local env
+  if (!apiKey) {
+    const shouldUseEdge = await isEdgeFunctionAvailable('gemini-proxy');
+    if (shouldUseEdge) {
+      yield* streamGeminiViaEdge(request);
+      return;
+    }
+    throw new Error('Thiếu Gemini API Key. Vào ⚙️ Settings → nhập Gemini API Key hoặc tạo tại aistudio.google.com/app/apikey');
   }
 
-  // Direct Gemini API
-  const apiKey = customKey || getEnvKey('gemini');
-  if (!apiKey) throw new Error('Missing Gemini API Key');
 
   const { GoogleGenerativeAI } = await import('@google/generative-ai');
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -410,7 +433,7 @@ async function* streamOpenAICompatible(
   const needsSysWorkaround = request.model?.toLowerCase().includes('gemma');
   if (request.systemInstruction) {
     const sysRole = needsSysWorkaround ? 'user' : 'system';
-    const sysContent = needsSysWorkaround 
+    const sysContent = needsSysWorkaround
       ? `[HỆ THỐNG - CHỈ DẪN]\n${request.systemInstruction}\n\n(Hãy tuân thủ chỉ dẫn trên khi trả lời)`
       : request.systemInstruction;
     messages.push({ role: sysRole, content: sysContent });
@@ -444,56 +467,56 @@ async function* streamOpenAICompatible(
     }
     const content = chunk.choices[0]?.delta?.content || '';
     if (!content) continue;
-    
+
     buffer += content;
-    
-    while(buffer.length > 0) {
-       const startIdx = buffer.indexOf('<|tool');
-       if (startIdx === -1) {
-          // No start tag found. Check for partial tags at the end.
-          let matchPartial = false;
-          const openTag = '<|tool_call|>';
-          for (let i = 1; i <= openTag.length; i++) {
-             if (buffer.endsWith(openTag.slice(0, i))) {
-                matchPartial = true;
-                const safePart = buffer.slice(0, buffer.length - i);
-                if (safePart) yield safePart;
-                buffer = buffer.slice(buffer.length - i);
-                break;
-             }
+
+    while (buffer.length > 0) {
+      const startIdx = buffer.indexOf('<|tool');
+      if (startIdx === -1) {
+        // No start tag found. Check for partial tags at the end.
+        let matchPartial = false;
+        const openTag = '<|tool_call|>';
+        for (let i = 1; i <= openTag.length; i++) {
+          if (buffer.endsWith(openTag.slice(0, i))) {
+            matchPartial = true;
+            const safePart = buffer.slice(0, buffer.length - i);
+            if (safePart) yield safePart;
+            buffer = buffer.slice(buffer.length - i);
+            break;
           }
-          if (!matchPartial) {
-             yield buffer;
-             buffer = '';
+        }
+        if (!matchPartial) {
+          yield buffer;
+          buffer = '';
+        }
+        break;
+      } else {
+        // Found <|tool...
+        if (startIdx > 0) {
+          yield buffer.slice(0, startIdx);
+          buffer = buffer.slice(startIdx);
+          continue; // Re-evaluate
+        }
+        // Buffer starts with <|tool...
+        // Wait for the full block
+        const closeBracket = buffer.indexOf('}>');
+        const closeTag = buffer.indexOf('<|/tool_call|>');
+
+        let endIdx = -1;
+        if (closeTag !== -1) endIdx = closeTag + 14; // length of <|/tool_call|>
+        else if (closeBracket !== -1) endIdx = closeBracket + 2;
+
+        if (endIdx === -1) {
+          // If buffer is getting too large and we still haven't found closing, just clear it
+          if (buffer.length > 500) {
+            buffer = '';
           }
-          break;
-       } else {
-          // Found <|tool...
-          if (startIdx > 0) {
-             yield buffer.slice(0, startIdx);
-             buffer = buffer.slice(startIdx);
-             continue; // Re-evaluate
-          }
-          // Buffer starts with <|tool...
-          // Wait for the full block
-          const closeBracket = buffer.indexOf('}>');
-          const closeTag = buffer.indexOf('<|/tool_call|>');
-          
-          let endIdx = -1;
-          if (closeTag !== -1) endIdx = closeTag + 14; // length of <|/tool_call|>
-          else if (closeBracket !== -1) endIdx = closeBracket + 2;
-          
-          if (endIdx === -1) {
-             // If buffer is getting too large and we still haven't found closing, just clear it
-             if (buffer.length > 500) {
-                 buffer = '';
-             }
-             break; // Wait for more chunks to close the tag
-          }
-          
-          // Discard the entire block
-          buffer = buffer.slice(endIdx);
-       }
+          break; // Wait for more chunks to close the tag
+        }
+
+        // Discard the entire block
+        buffer = buffer.slice(endIdx);
+      }
     }
   }
   if (buffer) yield buffer;
@@ -593,89 +616,89 @@ export async function* streamEnterpriseAI(
 // ═══════════════════════════════════════
 
 function extractGemmaToolCalls(content: string): { tool_calls: any[], cleaned_content: string } | null {
-    let tool_calls: any[] = [];
-    if (!content.includes('<|tool_call|>') && !content.includes('call:')) return null;
+  let tool_calls: any[] = [];
+  if (!content.includes('<|tool_call|>') && !content.includes('call:')) return null;
 
-    // Dọn dẹp sơ bộ lỗi sinh ký tự của vLLM Gemma
-    content = content.replace(/<<\|tool_call\|>/g, '<|tool_call|>');
-    
-    // Use balanced brace matching for nested JSON (e.g. export_document with chart JSON)
-    const callPattern = /(?:<\|tool_call\|>)?\s*call:([a-zA-Z0-9_]+)\{/g;
-    let match;
-    let hasMatch = false;
-    let cleaned_content = content;
-    const toRemove: string[] = [];
-    
-    while ((match = callPattern.exec(content)) !== null) {
-        hasMatch = true;
-        const fnName = match[1];
-        const braceStart = match.index + match[0].length - 1;
-        
-        // Balanced brace matching
-        let depth = 0;
-        let end = braceStart;
-        for (let i = braceStart; i < content.length; i++) {
-          if (content[i] === '{') depth++;
-          else if (content[i] === '}') {
-            depth--;
-            if (depth === 0) { end = i; break; }
-          }
-        }
-        
-        const fullMatchStr = content.substring(match.index, end + 1);
-        toRemove.push(fullMatchStr);
-        
-        let rawJson = content.substring(braceStart, end + 1);
-        // Clean up any tool_call tags inside
-        rawJson = rawJson.replace(/<\|\/?tool_call\|?>/g, '');
-        rawJson = rawJson.replace(/<\/?tool_call\|?>/g, '');
-        
-        // Fix multiline strings and unescaped quotes wrapped in `<|"|>` tokens
-        rawJson = rawJson.replace(/<\|(?:\"|\')\|?>([\s\S]*?)<\|(?:\"|\')\|?>/g, (match, innerString) => {
-            // Escape literal newlines and actual quotes inside the string part
-            const escaped = innerString
-                .replace(/\\/g, '\\\\')
-                .replace(/\n/g, '\\n')
-                .replace(/\r/g, '\\r')
-                .replace(/"/g, '\\"')
-                .replace(/\t/g, '\\t');
-            return '"' + escaped + '"';
-        });
+  // Dọn dẹp sơ bộ lỗi sinh ký tự của vLLM Gemma
+  content = content.replace(/<<\|tool_call\|>/g, '<|tool_call|>');
 
-        // Clean up weird Gemma quote tokens just in case format was unclosed
-        rawJson = rawJson.replace(/<\|"\|?>/g, '"');
-        rawJson = rawJson.replace(/<\|'\|?>/g, "'");
-        
-        // Fix unquoted keys
-        let jsonStr = rawJson.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/gs, '$1"$2":');
-        // Fix single quotes for values just in case
-        jsonStr = jsonStr.replace(/:\s*'([^']*)'/g, ':"$1"');
-        
-        try {
-            const argsObj = JSON.parse(jsonStr);
-            tool_calls.push({
-                id: 'call_' + Math.random().toString(36).substr(2, 9),
-                type: 'function',
-                function: {
-                    name: fnName,
-                    arguments: JSON.stringify(argsObj)
-                }
-            });
-        } catch (e) {
-            console.error('[Gemma Parser] Failed to parse JSON args:', jsonStr.substring(0, 200));
+  // Use balanced brace matching for nested JSON (e.g. export_document with chart JSON)
+  const callPattern = /(?:<\|tool_call\|>)?\s*call:([a-zA-Z0-9_]+)\{/g;
+  let match;
+  let hasMatch = false;
+  let cleaned_content = content;
+  const toRemove: string[] = [];
+
+  while ((match = callPattern.exec(content)) !== null) {
+    hasMatch = true;
+    const fnName = match[1];
+    const braceStart = match.index + match[0].length - 1;
+
+    // Balanced brace matching
+    let depth = 0;
+    let end = braceStart;
+    for (let i = braceStart; i < content.length; i++) {
+      if (content[i] === '{') depth++;
+      else if (content[i] === '}') {
+        depth--;
+        if (depth === 0) { end = i; break; }
+      }
+    }
+
+    const fullMatchStr = content.substring(match.index, end + 1);
+    toRemove.push(fullMatchStr);
+
+    let rawJson = content.substring(braceStart, end + 1);
+    // Clean up any tool_call tags inside
+    rawJson = rawJson.replace(/<\|\/?tool_call\|?>/g, '');
+    rawJson = rawJson.replace(/<\/?tool_call\|?>/g, '');
+
+    // Fix multiline strings and unescaped quotes wrapped in `<|"|>` tokens
+    rawJson = rawJson.replace(/<\|(?:\"|\')\|?>([\s\S]*?)<\|(?:\"|\')\|?>/g, (match, innerString) => {
+      // Escape literal newlines and actual quotes inside the string part
+      const escaped = innerString
+        .replace(/\\/g, '\\\\')
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/"/g, '\\"')
+        .replace(/\t/g, '\\t');
+      return '"' + escaped + '"';
+    });
+
+    // Clean up weird Gemma quote tokens just in case format was unclosed
+    rawJson = rawJson.replace(/<\|"\|?>/g, '"');
+    rawJson = rawJson.replace(/<\|'\|?>/g, "'");
+
+    // Fix unquoted keys
+    let jsonStr = rawJson.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/gs, '$1"$2":');
+    // Fix single quotes for values just in case
+    jsonStr = jsonStr.replace(/:\s*'([^']*)'/g, ':"$1"');
+
+    try {
+      const argsObj = JSON.parse(jsonStr);
+      tool_calls.push({
+        id: 'call_' + Math.random().toString(36).substr(2, 9),
+        type: 'function',
+        function: {
+          name: fnName,
+          arguments: JSON.stringify(argsObj)
         }
+      });
+    } catch (e) {
+      console.error('[Gemma Parser] Failed to parse JSON args:', jsonStr.substring(0, 200));
     }
-    
-    if (!hasMatch) return null;
-    
-    for (const rm of toRemove) {
-        cleaned_content = cleaned_content.replace(rm, '');
-    }
-    // Dọn dẹp nốt thẻ đóng nếu có sót lại
-    cleaned_content = cleaned_content.replace(/<\|\/?tool_call\|?>/g, '').trim();
-    cleaned_content = cleaned_content.replace(/<\/?tool_call\|?>/g, '').trim();
-    
-    return { tool_calls, cleaned_content };
+  }
+
+  if (!hasMatch) return null;
+
+  for (const rm of toRemove) {
+    cleaned_content = cleaned_content.replace(rm, '');
+  }
+  // Dọn dẹp nốt thẻ đóng nếu có sót lại
+  cleaned_content = cleaned_content.replace(/<\|\/?tool_call\|?>/g, '').trim();
+  cleaned_content = cleaned_content.replace(/<\/?tool_call\|?>/g, '').trim();
+
+  return { tool_calls, cleaned_content };
 }
 
 
@@ -686,11 +709,11 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
   const customKey = getCustomKey('openai');
   const apiKey = customKey || getEnvKey('openai');
   const provider = detectProvider(request.model);
-  
+
   const isVllm = provider === 'local';
   let baseURL: string;
   let authKey: string;
-  
+
   if (isVllm) {
     baseURL = request.baseUrl || getLocalAIBaseURL(request.model);
     authKey = 'sk-cic-2026';  // LiteLLM master key
@@ -760,13 +783,13 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
       if (isVllmOrLocal && isGemmaModel) {
         // Manually inject tools schema for Gemma models because vLLM chat templates for Gemma 
         // might ignore the tools array payload.
-        const toolsDesc = request.tools.map(t => 
-           `- Tên công cụ: ${t.function.name}\n  Mô tả: ${t.function.description}\n  Tham số: ${JSON.stringify(t.function.parameters)}`
+        const toolsDesc = request.tools.map(t =>
+          `- Tên công cụ: ${t.function.name}\n  Mô tả: ${t.function.description}\n  Tham số: ${JSON.stringify(t.function.parameters)}`
         ).join('\n\n');
-        
+
         formattedMessages.unshift({
-           role: 'user',
-           content: `[HỆ THỐNG BẮT BUỘC]
+          role: 'user',
+          content: `[HỆ THỐNG BẮT BUỘC]
 Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doanh nghiệp, KPI, công nợ, báo cáo. Danh sách công cụ hiện có:\n\n${toolsDesc}\n\nĐể gọi công cụ, BẠN PHẢI TRẢ VỀ CHÍNH XÁC CÚ PHÁP NÀY TRONG CÂU TRẢ LỜI NGAY LẬP TỨC VÀ KHÔNG VIẾT THÊM GÌ KHÁC:\ncall:ten_cong_cu{"tham_so": "gia tri"}\n\nVí dụ: call:get_debt_report{"sortBy":"amount"}`
         });
       } else {
@@ -794,15 +817,15 @@ Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doan
     if (data.choices && data.choices[0]) {
       let content = data.choices[0].message?.content || undefined;
       let tool_calls = data.choices[0].message?.tool_calls;
-      
+
       // Fallback for Gemma-like models that output <|tool_call|> text
       if (!tool_calls || tool_calls.length === 0) {
         if (content && (content.includes('<|tool_call|>') || content.includes('call:'))) {
-            const extracted = extractGemmaToolCalls(content);
-            if (extracted && extracted.tool_calls.length > 0) {
-               tool_calls = extracted.tool_calls;
-               content = extracted.cleaned_content || undefined;
-            }
+          const extracted = extractGemmaToolCalls(content);
+          if (extracted && extracted.tool_calls.length > 0) {
+            tool_calls = extracted.tool_calls;
+            content = extracted.cleaned_content || undefined;
+          }
         }
       }
 
@@ -811,7 +834,7 @@ Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doan
         tool_calls
       };
     }
-    
+
     return {};
   } catch (err: any) {
     console.error('[callAgentTurn] Error:', err);

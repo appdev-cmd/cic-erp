@@ -49,6 +49,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { getVisibleAgentsFilter, routeUserToAgentFilter } from '../services/ai/openclaw/router';
 import { AgentConfigService } from '../services/ai/agentConfigService';
 import { agentDefinitions } from '../services/ai/openclaw/agents/definitions';
+import { runReActLoop } from '../services/ai/openclaw/react-loop';
+import { erpToolsRegistry } from '../services/ai/openclaw/tools/registry';
 import type { DepartmentAgent, UserContext } from '../services/ai/openclaw/types';
 import { cn } from '../lib/utils';
 import * as AiHistory from '../services/aiChatHistoryService';
@@ -79,7 +81,7 @@ const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
       }
 
       // ═══ AUTO-NORMALIZE: Chuyển đổi mọi format về chuẩn { xAxisKey, lines } ═══
-      
+
       // 1) Tìm xAxisKey: ưu tiên config → fallback 'name' nếu có trong data
       if (!config.xAxisKey) {
         const firstItem = config.data[0];
@@ -91,7 +93,7 @@ const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
       // 2) Tìm lines: ưu tiên config.lines → chuyển từ config.keys → auto-detect
       if (!config.lines || !Array.isArray(config.lines) || config.lines.length === 0) {
         const chartColors = config.colors || ['#6366f1', '#94a3b8', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'];
-        
+
         if (config.keys && Array.isArray(config.keys)) {
           // Format từ tool: { keys: ['kyTruoc', 'kyNay'], colors: [...] }
           config.lines = config.keys.map((key: string, i: number) => ({
@@ -102,7 +104,7 @@ const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
         } else {
           // Auto-detect: lấy tất cả numeric keys (trừ xAxisKey)
           const firstItem = config.data[0];
-          const numericKeys = Object.keys(firstItem).filter(k => 
+          const numericKeys = Object.keys(firstItem).filter(k =>
             k !== config.xAxisKey && typeof firstItem[k] === 'number'
           );
           config.lines = numericKeys.map((key: string, i: number) => ({
@@ -301,10 +303,10 @@ const AIAssistant: React.FC = () => {
           setDbAgents(Object.values(agentDefinitions));
         });
     } else {
-      AgentConfigService.getActive().then(setDbAgents).catch(() => {});
+      AgentConfigService.getActive().then(setDbAgents).catch(() => { });
     }
   }, [_profile?.role]);
-  
+
   const dynamicAgents = React.useMemo(() => {
     const _context: UserContext = {
       userId: _profile?.id || 'web',
@@ -322,22 +324,11 @@ const AIAssistant: React.FC = () => {
         color: a.color || 'bg-indigo-600',
         icon: (a.icon && ICON_MAP[a.icon]) || Icons.Bot,
         prompt: a.systemPrompt,
-        suggestions: a.allowedTools && a.allowedTools.length > 0 
-          ? ['Dữ liệu hôm nay thế nào?', 'Tóm tắt báo cáo gần nhất'] 
+        suggestions: a.allowedTools && a.allowedTools.length > 0
+          ? ['Dữ liệu hôm nay thế nào?', 'Tóm tắt báo cáo gần nhất']
           : ['Bạn có thể giúp gì cho tôi?']
       };
     });
-    // Add default SYSTEM general if not present
-    if (!agentMap['SYSTEM']) {
-      agentMap['SYSTEM'] = {
-        name: 'Tổng quát',
-        role: 'Trợ lý ảo Enterprise',
-        color: 'bg-indigo-600',
-        icon: Icons.Sparkles,
-        prompt: 'Bạn là Trợ lý AI Enterprise của CIC.',
-        suggestions: ['Tổng doanh thu công ty năm nay bao nhiêu?', 'Ai là nhân sự xuất sắc nhất năm nay?']
-      };
-    }
     return agentMap;
   }, [_profile, dbAgents]);
 
@@ -355,7 +346,7 @@ const AIAssistant: React.FC = () => {
 
 
   const [currentAgent, setCurrentAgent] = useState<string>(() => {
-    return localStorage.getItem(AGENT_STORAGE_KEY) || 'SYSTEM';
+    return localStorage.getItem(AGENT_STORAGE_KEY) || 'agent-bgd';
   });
 
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -377,7 +368,7 @@ const AIAssistant: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showAgentMenu, setShowAgentMenu] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>('chat');
-  
+
   // ─── Chat History State ─────────────────────────────────
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
@@ -491,7 +482,7 @@ const AIAssistant: React.FC = () => {
   const [customOpenAIKey, setCustomOpenAIKey] = useState(() => localStorage.getItem(CUSTOM_OPENAI_KEY) || '');
   const [customDeepseekKey, setCustomDeepseekKey] = useState(() => localStorage.getItem(CUSTOM_DEEPSEEK_KEY) || '');
   const [localAIBaseURL, setLocalAIBaseURL] = useState(() => localStorage.getItem('cic_local_ai_base_url') || '/api/vllm');
-  const [localAITestResult, setLocalAITestResult] = useState<{ok: boolean; models: string[]} | null>(null);
+  const [localAITestResult, setLocalAITestResult] = useState<{ ok: boolean; models: string[] } | null>(null);
   const [localAITesting, setLocalAITesting] = useState(false);
   const [widgetHistoryBanner, setWidgetHistoryBanner] = useState(false);
 
@@ -516,22 +507,22 @@ const AIAssistant: React.FC = () => {
     if (mentionStartPos === null) return;
     const val = inputRef.current?.value || input;
     const beforePart = val.slice(0, mentionStartPos);
-    
+
     // Find end of current query text inside input
     const cursor = inputRef.current?.selectionStart || val.length;
     const afterPart = val.slice(cursor);
-    
+
     // Insert: @Label
     const mentionText = `@${item.label} `;
     const newInput = beforePart + mentionText + afterPart;
-    
+
     setInput(newInput);
     setShowMentionDropdown(false);
     setSelectedMentions(prev => {
       if (!prev.find(p => p.id === item.id)) return [...prev, item];
       return prev;
     });
-    
+
     // Focus back and set cursor
     setTimeout(() => {
       if (inputRef.current) {
@@ -549,14 +540,14 @@ const AIAssistant: React.FC = () => {
       if (widgetHistory) {
         setWidgetHistoryBanner(true);
       }
-    } catch {}
+    } catch { }
   }, []);
 
   const importWidgetHistory = useCallback(() => {
     try {
       const raw = localStorage.getItem('cic_widget_chat_history');
       if (!raw) return;
-      const parsed = JSON.parse(raw) as {role: string; content: string; timestamp: string}[];
+      const parsed = JSON.parse(raw) as { role: string; content: string; timestamp: string }[];
       const imported: Message[] = parsed.map((m, i) => ({
         id: `widget_${i}_${Date.now()}`,
         role: m.role as 'user' | 'model',
@@ -634,7 +625,7 @@ const AIAssistant: React.FC = () => {
 
       // Lấy từ vLLM Proxy
       try {
-        const res = await fetch(`/api/vllm/models`, { 
+        const res = await fetch(`/api/vllm/models`, {
           signal: AbortSignal.timeout(3000),
           headers: { 'Authorization': `Bearer sk-cic-2026` }
         });
@@ -648,7 +639,7 @@ const AIAssistant: React.FC = () => {
 
       // Lấy từ vLLM Proxy (Gemma)
       try {
-        const res = await fetch(`/api/vllm_gemma/models`, { 
+        const res = await fetch(`/api/vllm_gemma/models`, {
           signal: AbortSignal.timeout(3000),
           headers: { 'Authorization': `Bearer sk-cic-2026` }
         });
@@ -737,8 +728,8 @@ const AIAssistant: React.FC = () => {
           if (file.type.indexOf('image/') === 0) {
             const reader = new FileReader();
             const base64Promise = new Promise<string>((resolve) => {
-               reader.onload = (e) => resolve(e.target?.result as string);
-               reader.readAsDataURL(file);
+              reader.onload = (e) => resolve(e.target?.result as string);
+              reader.readAsDataURL(file);
             });
             const b64 = await base64Promise;
             fileContents += `\n\n![Image](${b64})`;
@@ -828,59 +819,44 @@ const AIAssistant: React.FC = () => {
         // Loại bỏ phần text indicator UI để LLM không bị rối context
         const cleanContent = m.content.replace(/> 🔍 \*Hệ thống đang truy xuất dữ liệu từ công cụ(.*?)\*\n\n/g, '').trim();
         return {
-          role: m.role as 'user'|'model',
+          role: m.role as 'user' | 'model',
           content: cleanContent
         };
       });
 
-      // ─── PHÂN LUỒNG XỬ LÝ HERMES ────────────────────────
+      // ─── THỰC THI RE-ACT LOOP TRỰC TIẾP TỪ BROWSER ────────────────────────
       let finalContent = '';
-      const proxyUrl = import.meta.env.VITE_HERMES_PROXY_URL || 'http://localhost:3005';
-      const res = await fetch(`${proxyUrl}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMsg.content,
-          agentId: currentAgent,
-          userId: _userContext.userId,
-          history: history,
-          userContext: _userContext
-        }),
-        signal: controller.signal
-      });
-
-      if (!res.ok || !res.body) throw new Error('Proxy connection failed');
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let done = false;
-
       let streamContent = '';
-      while (!done) {
-        if (controller.signal.aborted) {
-          reader.cancel();
-          break;
+
+      const reactResult = await runReActLoop(
+        userMsg.content,
+        _userContext,
+        agentConf,
+        erpToolsRegistry.filter(t => agentConf.allowedTools?.includes(t.name)), // Lọc theo allowedTools
+        history,
+        8,
+        controller.signal,
+        (toolName: string) => {
+          // Tool Call Callback
+          setMessages(prev => prev.map(m =>
+            m.id === botMsgId
+              ? { ...m, content: streamContent + `\n\n> 🔍 *Hệ thống đang truy xuất dữ liệu từ \`${toolName}\`...*\n\n` }
+              : m
+          ));
+        },
+        currentModel, // Sử dụng model đang chọn ở dropdown UI
+        (chunk: string) => {
+          // Stream Callback
+          streamContent += chunk;
+          setMessages(prev => prev.map(m =>
+            m.id === botMsgId
+              ? { ...m, content: streamContent }
+              : m
+          ));
         }
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        if (value) {
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
-          for (const line of lines) {
-            if (line.startsWith('data: ') && !line.includes('[DONE]')) {
-              try {
-                const data = JSON.parse(line.substring(6));
-                streamContent += data.text;
-                setMessages(prev => prev.map(m =>
-                  m.id === botMsgId
-                    ? { ...m, content: streamContent }
-                    : m
-                ));
-              } catch(e) {}
-            }
-          }
-        }
-      }
-      finalContent = streamContent;
+      );
+
+      finalContent = streamContent || reactResult.reply || '';
 
       // Khi xong hoàn toàn
       setMessages(prev => prev.map(m =>
@@ -1253,8 +1229,8 @@ const AIAssistant: React.FC = () => {
                     alert.severity === 'danger'
                       ? "bg-rose-50 dark:bg-rose-900/15 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/25"
                       : alert.severity === 'warning'
-                      ? "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/25"
-                      : "bg-sky-50 dark:bg-sky-900/15 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/25"
+                        ? "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/25"
+                        : "bg-sky-50 dark:bg-sky-900/15 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/25"
                   )}
                 >
                   <span className="text-base">{alert.icon}</span>
@@ -1362,7 +1338,7 @@ const AIAssistant: React.FC = () => {
               // Smart Quick Actions — Dynamic suggestions based on conversation context
               const lastContent = (lastMsg?.content || '').toLowerCase();
               const quickActions: { label: string; icon: string; action: string }[] = [];
-              
+
               // Context-aware suggestions
               if (lastContent.includes('hợp đồng') || lastContent.includes('contract')) {
                 quickActions.push(
@@ -1514,7 +1490,7 @@ const AIAssistant: React.FC = () => {
                     }
                   }}
                 />
-                
+
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="absolute left-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer z-10"

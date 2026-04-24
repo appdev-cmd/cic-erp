@@ -10,6 +10,8 @@ import {
 } from '../../types';
 import { PermissionService } from '../../services';
 import { dataClient } from '../../lib/dataClient';
+import { AuditLogService } from '../../services/auditLogService';
+import { useAuth } from '../../contexts/AuthContext';
 import {
     RESOURCE_LABELS, ACTION_LABELS, ROLE_LABELS, ROLE_TAB_COLORS as ROLE_COLORS,
     ALL_ROLES, ACTIONS, RESOURCES,
@@ -18,6 +20,10 @@ import {
 
 // ─── Component ─────────────────────────────────────────
 const RoleDefaultsManager: React.FC = () => {
+    const { profile: adminProfile } = useAuth();
+    const isValidUUID = (s?: string | null) => !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+    const safeAdminId = isValidUUID(adminProfile?.id) ? adminProfile!.id : null;
+
     const [selectedRole, setSelectedRole] = useState<UserRole>('NVKD');
     const [rolePerms, setRolePerms] = useState<Record<UserRole, Record<PermissionResource, PermissionAction[]>>>(() => {
         // Initialize from hardcode defaults (overwritten by DB on mount)
@@ -167,7 +173,7 @@ const RoleDefaultsManager: React.FC = () => {
             // Get all employees with this role
             const { data: employees, error: empError } = await dataClient
                 .from('employees')
-                .select('id')
+                .select('id, name')
                 .eq('role_code', selectedRole);
 
             if (empError) throw empError;
@@ -184,6 +190,18 @@ const RoleDefaultsManager: React.FC = () => {
             for (const emp of employees) {
                 try {
                     await PermissionService.initializeForUser(emp.id, selectedRole);
+
+                    // Audit log
+                    await AuditLogService.create({
+                        user_id: safeAdminId,
+                        table_name: 'employees',
+                        record_id: emp.id,
+                        action: 'UPDATE',
+                        old_data: { role: selectedRole },
+                        new_data: { role: selectedRole },
+                        comment: `Thay đổi role ${emp.name || 'Nhân viên'}: ${ROLE_LABELS[selectedRole]} → ${ROLE_LABELS[selectedRole]}. Permissions đã reset về mặc định.`,
+                    });
+
                     successCount++;
                 } catch (err) {
                     console.error(`Failed to init perms for ${emp.id}:`, err);

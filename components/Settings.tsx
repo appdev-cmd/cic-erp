@@ -301,7 +301,7 @@ const Settings: React.FC = () => {
     })).filter(g => (!g.adminOnly || isAdmin) && g.items.length > 0);
 
     return (
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-7xl mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Cài đặt</h1>
@@ -313,10 +313,10 @@ const Settings: React.FC = () => {
                 <div className="w-52 flex-shrink-0">
                     <nav className="space-y-0.5 sticky top-6">
                         {visibleGroups.map(group => (
-                            <div key={group.id} className="mb-3">
+                            <div key={group.id} className="mb-4">
                                 {/* Group label */}
-                                <div className="flex items-center gap-1.5 px-2 py-1.5 mb-0.5">
-                                    <span className="text-slate-400 dark:text-slate-500">{group.icon}</span>
+                                <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+                                    <span className="text-slate-400 dark:text-slate-500 w-5 flex justify-center">{group.icon}</span>
                                     <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                                         {group.label}
                                     </span>
@@ -332,7 +332,7 @@ const Settings: React.FC = () => {
                                             }`}
                                     >
                                         <span className="flex items-center gap-2">
-                                            <span className={activeTab === item.id ? 'text-orange-500' : 'text-slate-400 dark:text-slate-500'}>
+                                            <span className={`${activeTab === item.id ? 'text-orange-500' : 'text-slate-400 dark:text-slate-500'} w-5 flex justify-center`}>
                                                 {item.icon}
                                             </span>
                                             {item.label}
