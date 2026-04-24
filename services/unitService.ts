@@ -189,28 +189,52 @@ export const UnitService = {
             const allUnits = await UnitService.getAll();
 
             const effectiveYear = year !== undefined && year !== null ? year : new Date().getFullYear();
-            let startDate = `${effectiveYear}-01-01`;
-            let endDate = `${effectiveYear}-12-31`;
+            let startPeriodDate: Date | null = null;
+            let endPeriodDate: Date | null = null;
 
-            if (periodFilter) {
+            if (year !== null && year !== undefined && year !== 'All' as any) {
+                startPeriodDate = new Date(`${effectiveYear}-01-01T00:00:00`);
+                endPeriodDate = new Date(`${effectiveYear}-12-31T23:59:59`);
+
+                if (periodFilter) {
+                    if (periodFilter.startsWith('M')) {
+                        const month = parseInt(periodFilter.substring(1));
+                        startPeriodDate = new Date(effectiveYear, month - 1, 1);
+                        endPeriodDate = new Date(effectiveYear, month, 0, 23, 59, 59);
+                    } else if (periodFilter.startsWith('Q')) {
+                        const quarter = parseInt(periodFilter.substring(1));
+                        const startMonth = (quarter - 1) * 3;
+                        const endMonth = quarter * 3;
+                        startPeriodDate = new Date(effectiveYear, startMonth, 1);
+                        endPeriodDate = new Date(effectiveYear, endMonth, 0, 23, 59, 59);
+                    }
+                }
+            } else if (periodFilter) {
+                const currentYear = new Date().getFullYear();
                 if (periodFilter.startsWith('M')) {
                     const month = parseInt(periodFilter.substring(1));
-                    startDate = `${effectiveYear}-${month.toString().padStart(2, '0')}-01`;
-                    endDate = new Date(effectiveYear, month, 0).toISOString().split('T')[0];
+                    startPeriodDate = new Date(currentYear, month - 1, 1);
+                    endPeriodDate = new Date(currentYear, month, 0, 23, 59, 59);
                 } else if (periodFilter.startsWith('Q')) {
                     const quarter = parseInt(periodFilter.substring(1));
-                    const startMonth = (quarter - 1) * 3 + 1;
+                    const startMonth = (quarter - 1) * 3;
                     const endMonth = quarter * 3;
-                    startDate = `${effectiveYear}-${startMonth.toString().padStart(2, '0')}-01`;
-                    endDate = new Date(effectiveYear, endMonth, 0).toISOString().split('T')[0];
+                    startPeriodDate = new Date(currentYear, startMonth, 1);
+                    endPeriodDate = new Date(currentYear, endMonth, 0, 23, 59, 59);
                 }
             }
 
+            const isInPeriod = (dateStr: string | null | undefined): boolean => {
+                if (!dateStr) return false;
+                if (!startPeriodDate || !endPeriodDate) return true;
+                const d = new Date(dateStr);
+                return d >= startPeriodDate && d <= endPeriodDate;
+            };
+
+            // Fetch ALL contracts with payments to parse revenue by time period
             const { data: contracts, error } = await supabase
                 .from('contracts')
-                .select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, unit_id, unit_allocations')
-                .gte('signed_date', startDate)
-                .lte('signed_date', endDate);
+                .select('id, value, estimated_cost, status, unit_id, unit_allocations, signed_date, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type, payment_date, invoice_date, vat_invoice_items)');
 
             if (error) throw error;
 
@@ -227,12 +251,52 @@ export const UnitService = {
                     if (sharePct === 0) return;
 
                     const fraction = sharePct / 100;
-                    contractCount++;
-                    totalSigning += (Number(c.value) || 0) * fraction;
-                    totalRevenue += (Number(c.actual_revenue) || 0) * fraction;
-                    totalProfit += (Number(c.admin_profit) || 0) * fraction;
-                    totalRevenueProfit += (Number(c.rev_profit) || 0) * fraction;
-                    totalCash += (Number(c.cash_received) || 0) * fraction;
+                    const val = c.value || 0;
+                    const expectedProfit = val - (c.estimated_cost || 0);
+
+                    // Signing Metrics
+                    if (isInPeriod(c.signed_date)) {
+                        contractCount++;
+                        totalSigning += val * fraction;
+                        totalProfit += expectedProfit * fraction;
+                    }
+
+                    // Revenue and Cash Metrics via Payments
+                    const payments = c.payments || [];
+
+                    const revenuePayments = payments.filter(
+                        (p: any) => p.voucher_type === 'VAT_INVOICE' &&
+                            ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status) &&
+                            isInPeriod(p.invoice_date || p.payment_date)
+                    );
+
+                    let contractRevInPeriod = 0;
+                    revenuePayments.forEach((p: any) => {
+                        if (p.vat_invoice_items && p.vat_invoice_items.length > 0) {
+                            contractRevInPeriod += p.vat_invoice_items.reduce((s: number, item: any) => s + (Number(item.amountBeforeVAT) || 0), 0);
+                        } else {
+                            const gross = Number(p.amount) || 0;
+                            const hasVat = c.has_vat !== false;
+                            const vatRate = c.vat_rate ?? 10;
+                            const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+                            contractRevInPeriod += Math.round(gross / vatDivisor);
+                        }
+                    });
+
+                    const cashPayments = payments.filter(
+                        (p: any) => p.voucher_type === 'RECEIPT' &&
+                            ['Tạm ứng', 'Tiền về', 'Paid'].includes(p.status) &&
+                            isInPeriod(p.payment_date)
+                    );
+                    const contractCashInPeriod = cashPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+
+                    totalRevenue += contractRevInPeriod * fraction;
+                    totalCash += contractCashInPeriod * fraction;
+
+                    if (val > 0) {
+                        const profitRatio = expectedProfit / val;
+                        totalRevenueProfit += (contractRevInPeriod * profitRatio) * fraction;
+                    }
                 });
 
                 return {
