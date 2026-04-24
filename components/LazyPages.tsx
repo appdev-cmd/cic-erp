@@ -1006,3 +1006,6 @@ export const LazyPublicApplicationForm: React.FC = () => withSuspense(<PublicApp
 
 // CMS / News
 export const LazyNewsPage: React.FC = () => withSuspense(<NewsList />);
+
+// Settings / System
+export const LazyAIObservabilityDashboardPage: React.FC = () => withSuspense(<AIObservabilityDashboard />);
