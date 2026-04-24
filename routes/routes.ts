@@ -26,4 +26,5 @@ export const ROUTES = {
     CHAT: '/chat',
     USER_GUIDE: '/user-guide',
     SETTINGS: '/settings',
+    AI_DASHBOARD: '/admin/ai-dashboard',
 } as const;

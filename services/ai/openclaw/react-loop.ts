@@ -5,7 +5,7 @@ import { extractMentionContextFromText } from '../../mentionService';
 import type { ChatRequest, ChatMessage } from '../types';
 import type { DepartmentAgent, OpenClawTool, ReactAgentResult, ReActState, UserContext } from './types';
 
-export const OPENCLAW_SYSTEM_PROMPT_PREFIX = `Bạn là OpenClaw Agent, một chuyên viên AI thông minh của dự án CIC ERP.
+export const OPENCLAW_SYSTEM_PROMPT_PREFIX = `Bạn là CIC Agent, một chuyên gia AI thông minh của dự án CIC ERP.
 Nhiệm vụ chính: tiếp nhận yêu cầu từ người dùng, sử dụng công cụ (tools) để truy xuất dữ liệu ERP khi CẦN THIẾT, sau đó phân tích và trả lời.
 
 NGUYÊN TẮC BẮT BUỘC (TUYỆT ĐỐI TUÂN THỦ):
@@ -49,7 +49,7 @@ export async function runReActLoop(
     },
   }));
 
-  const systemContent = 
+  const systemContent =
     OPENCLAW_SYSTEM_PROMPT_PREFIX +
     `Vai trò cụ thể của bạn:\n${agentConfig.systemPrompt}\n\n` +
     `Thông tin User đang chat:\n` +
@@ -88,16 +88,16 @@ export async function runReActLoop(
     };
 
     console.log(`[OpenClaw] Step ${state.steps}: Calling LLM (${request.model})`);
-    
+
     const turn = await callAgentTurn(request);
-    
+
     // Save assistant message to history
     if (turn.message || (turn.tool_calls && turn.tool_calls.length > 0)) {
       messages.push({
         role: 'model',
         content: turn.message || '',
         // @ts-ignore
-        tool_calls: turn.tool_calls 
+        tool_calls: turn.tool_calls
       });
     }
 
@@ -121,10 +121,10 @@ export async function runReActLoop(
 
       state.usedTools.push(fnName);
       if (onToolCall) onToolCall(fnName, args);
-      
+
       const tool = availableTools.find(t => t.name === fnName);
       let outputStr = '';
-      
+
       if (!tool) {
         outputStr = `Lỗi: Tool ${fnName} không tồn tại.`;
       } else {
@@ -199,7 +199,7 @@ export async function runReActLoop(
   // Quá số bước mà chưa xong
   const lastMsg = messages[messages.length - 1];
   if (lastMsg && lastMsg.role === 'model' && lastMsg.content) {
-     return { reply: lastMsg.content, steps: state.steps, usedTools: state.usedTools };
+    return { reply: lastMsg.content, steps: state.steps, usedTools: state.usedTools };
   }
 
   return { reply: 'Xin lỗi, hệ thống bị gián đoạn. Vui lòng hỏi lại.', steps: state.steps, usedTools: state.usedTools };

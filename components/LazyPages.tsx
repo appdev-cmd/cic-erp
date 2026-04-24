@@ -82,6 +82,7 @@ const RequestsPage = lazyWithRetry(() => import('./hrm/RequestsPage'));
 const PublicApplicationForm = lazyWithRetry(() => import('./hrm/PublicApplicationForm'));
 const WebsiteManager = lazyWithRetry(() => import('./WebsiteManager'));
 const NewsList = lazyWithRetry(() => import('./NewsList'));
+const AIObservabilityDashboard = lazyWithRetry(() => import('./AIObservabilityDashboard'));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (

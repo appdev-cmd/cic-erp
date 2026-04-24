@@ -93,9 +93,10 @@ export function getHiddenNavItems(
 ): Set<string> {
     const hidden = new Set<string>();
 
-    // Settings: only Admin
+    // Settings & AI Dashboard: only Admin
     if (role !== 'Admin') {
         hidden.add('settings');
+        hidden.add('ai-dashboard');
     }
 
     // Units: check DB permission first, fallback to role-based

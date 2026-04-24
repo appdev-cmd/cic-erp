@@ -200,25 +200,30 @@ export const scheduleEmailCampaignTool: OpenClawTool = {
 // ═══════════════════════════════════════════════
 // Tool 6: Đọc nội dung bài viết từ URL 
 // ═══════════════════════════════════════════════
+
 export const readWebUrlTool: OpenClawTool = {
   name: 'read_web_url',
-  description: 'Truy cập vào một URL để đọc nội dung bài viết. Rất hữu ích khi người dùng cung cấp đường link để yêu cầu tổng hợp hoặc lấy thông tin.',
+  description: 'Đọc và trích xuất nội dung từ một URL website bất kỳ. Rất hiệu quả để đọc lấy nội dung nguồn từ bài đăng đối thủ, hoặc văn bản luật pháp.',
   schema: {
     url: { type: 'string', description: 'Đường dẫn URL của bài viết (vd: https://....)' }
   },
   execute: async (args) => {
     try {
-      const response = await fetch(`https://r.jina.ai/${args.url}`, {
-        headers: { 'Accept': 'text/plain' }
-      });
-      let text = await response.text();
-      // Cắt ngắn nếu quá dài
-      if (text.length > 15000) {
-        text = text.substring(0, 15000) + '...[Nội dung đã bị cắt bớt]';
+      const apiKey = import.meta.env.VITE_JINA_API_KEY || localStorage.getItem('cic_custom_jina_key');
+      if (!apiKey) {
+        return { error: '❌ Yêu cầu cấu hình VITE_JINA_API_KEY trong file .env.local hoặc nhập Jina API Key trong Personal Settings để đọc nội dung Web.' };
       }
-      return { success: true, url: args.url, content: text };
+
+      const response = await fetch(`https://r.jina.ai/${args.url}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        }
+      });
+      const data = await response.json();
+      return { success: true, url: args.url, title: data?.data?.title, content: data?.data?.content?.substring(0, 10000) };
     } catch (err: any) {
-      return { error: 'Không thể đọc nội dung link: ' + err.message };
+      return { error: 'Không thể đọc URL: ' + err.message };
     }
   }
 };
@@ -226,6 +231,7 @@ export const readWebUrlTool: OpenClawTool = {
 // ═══════════════════════════════════════════════
 // Tool 7: Web Search (Jina Search API)
 // ═══════════════════════════════════════════════
+
 export const webSearchTool: OpenClawTool = {
   name: 'web_search',
   description: 'Tìm kiếm thông tin trên internet. Trả về nội dung web. Phù hợp để quét dự án mới, kiểm tra thông tin công ty, tìm thông tin liên hệ / tin tức.',
@@ -235,11 +241,17 @@ export const webSearchTool: OpenClawTool = {
   },
   execute: async (args) => {
     try {
+      const apiKey = import.meta.env.VITE_JINA_API_KEY || localStorage.getItem('cic_custom_jina_key');
+      if (!apiKey) {
+        return { error: '❌ Yêu cầu cấu hình VITE_JINA_API_KEY trong file .env.local hoặc nhập Jina API Key trong Personal Settings để dùng Web Search.' };
+      }
+
       const q = encodeURIComponent(args.query);
       const limit = args.limit || 5;
       const response = await fetch(`https://s.jina.ai/${q}`, {
         headers: {
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
         }
       });
       const data = await response.json();

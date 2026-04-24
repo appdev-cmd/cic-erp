@@ -35,25 +35,24 @@ app.post('/cron/daily-alerts', async (request, reply) => {
   return reply.send({ ok: true, sent });
 });
 
-const CRON_HOUR = Number(process.env.CRON_ALERT_HOUR ?? '8');
-let cronTimer: ReturnType<typeof setInterval> | null = null;
+import cron from 'node-cron';
+
+const CRON_HOUR = process.env.CRON_ALERT_HOUR ?? '8';
 
 function scheduleDailyAlerts(): void {
-  const checkInterval = 60_000;
-  let lastRunDate = '';
-  cronTimer = setInterval(async () => {
-    const now = new Date();
-    const today = now.toISOString().slice(0, 10);
-    if (now.getHours() === CRON_HOUR && lastRunDate !== today) {
-      lastRunDate = today;
-      try {
-        const sent = await runDailyAlerts();
-        app.log.info(`Daily alerts sent to ${sent} users`);
-      } catch (err) {
-        app.log.error(err);
-      }
+  // Lên lịch chạy vào CRON_HOUR giờ sáng mỗi ngày
+  cron.schedule(`0 ${CRON_HOUR} * * *`, async () => {
+    app.log.info(`[CRON] Starting daily alerts at ${CRON_HOUR}:00`);
+    try {
+      const sent = await runDailyAlerts();
+      app.log.info(`[CRON] Daily alerts sent to ${sent} users`);
+    } catch (err) {
+      app.log.error(err);
     }
-  }, checkInterval);
+  }, {
+    scheduled: true,
+    timezone: "Asia/Ho_Chi_Minh" // Chạy theo giờ Việt Nam
+  });
 }
 
 function getHeader(

@@ -1,5 +1,7 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { marked } from 'marked';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import {
   Send,
@@ -1304,10 +1306,12 @@ const AIAssistant: React.FC = () => {
                             try {
                               const titleVi = msg.content.substring(0, 60).replace(/[#*`]/g, '').trim() + '...';
                               const slug = 'ai-post-' + Date.now();
+                              // Convert markdown to HTML directly to prevent rendering errors on website
+                              const htmlContent = await marked.parse(msg.content);
                               await NewsService.create({
                                 titleVi,
                                 slug,
-                                contentVi: msg.content,
+                                contentVi: htmlContent,
                                 status: 'pending_approval'
                               });
                               toast.success('Đã gửi bài viết lên mục Tin tức chờ duyệt!');

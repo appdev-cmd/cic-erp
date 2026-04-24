@@ -19,7 +19,8 @@ import {
   Briefcase,
   Bot,
   Newspaper,
-  Globe
+  Globe,
+  Activity
 } from 'lucide-react';
 import { UserRole, PlanStatus } from './types';
 
@@ -113,6 +114,7 @@ export const NAV_ITEMS = [
 
   // Quản trị Website và Hệ thống
   { id: 'website', label: 'Website', icon: <Globe size={20} /> },
+  { id: 'ai-dashboard', label: 'AI Dashboard', icon: <Activity size={20} /> },
   { id: 'settings', label: 'Cài đặt', icon: <Settings size={20} /> },
 ];
 

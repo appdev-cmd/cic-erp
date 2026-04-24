@@ -31,10 +31,10 @@ function buildHelpHtml(): string {
   const skills = getLoadedSkills();
   const skillSection = skills.length > 0
     ? [
-        '',
-        '<b>🧩 OpenClaw Skills đã cài:</b>',
-        ...skills.map(s => `• ${s.emoji} <b>${s.name}</b> — ${esc(s.description)}`),
-      ].join('\n')
+      '',
+      '<b>🧩 OpenClaw Skills đã cài:</b>',
+      ...skills.map(s => `• ${s.emoji} <b>${s.name}</b> — ${esc(s.description)}`),
+    ].join('\n')
     : '';
 
   return [
@@ -327,7 +327,7 @@ async function handleCheckLeaveBalance(chatId: number, ctx: ResolvedContext): Pr
     await tgSendMessage(chatId, msg);
     return msg;
   }
-  const lines = balances.map(b => 
+  const lines = balances.map(b =>
     `• ${b.leave_type}: Tổng ${b.total_days} ngày | Đã dùng: ${b.used_days} | Chờ duyệt: ${b.pending_days} | Còn lại: <b>${b.total_days - b.used_days - b.pending_days}</b> ngày`
   );
   const msg = `<b>🏖️ Quỹ phép năm ${currentYear} của bạn:</b>\n\n` + lines.join('\n');
@@ -368,7 +368,7 @@ async function handleListPendingLeaves(chatId: number, ctx: ResolvedContext): Pr
     await tgSendMessage(chatId, msg);
     return msg;
   }
-  const lines = leaves.map(l => 
+  const lines = leaves.map(l =>
     `🆔 <b>${l.id.slice(0, 6)}</b> | ${esc(l.employees?.name || 'Unknown')}\n🏖️ ${l.leave_type}: ${l.start_date} → ${l.end_date} (${l.total_days} ngày)\n📝 ${esc(l.reason)}`
   );
   const msg = `<b>📋 Đơn chờ duyệt bộ phận (${leaves.length}):</b>\n\n` + lines.join('\n\n') + `\n\n<i>Dùng lệnh: "Duyệt đơn mã XXX"</i>`;
@@ -481,15 +481,9 @@ export async function openclawHandleMessage(chatId: number, text: string): Promi
     return;
   }
 
-  // --- BẢO MẬT BAN GIÁM ĐỐC ---
-  const ALLOWED_ADMIN_IDS = ['5754517299', '5156059305'];
-  if (ctx.role !== 'Leadership' && !ALLOWED_ADMIN_IDS.includes(String(chatId))) {
-    const msg = '⛔ Có vẻ bạn đã đi nhầm vào phòng của Ban Giám đốc. Bạn không có quyền truy cập Bot này!';
-    await tgSendMessage(chatId, msg);
-    await auditLog(String(chatId), ctx.employeeId, 'unauthorized_access_bod', { role: ctx.role });
-    return;
-  }
-  // -----------------------------
+  // --- BẢO MẬT & PHÂN QUYỀN ĐÃ ĐƯỢC XỬ LÝ Ở TẦNG DB (telegram_bot_resolve_context) ---
+  // Any employee with telegram_verified = true (ctx.ok === true) is allowed to chat.
+  // Data access is naturally scoped by ctx.role and ctx.unitId inside the individual tools.
 
   await addMessage(chatId, 'user', text);
   const t = text.trim().toLowerCase();

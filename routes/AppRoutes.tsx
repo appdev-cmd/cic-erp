@@ -41,6 +41,7 @@ import {
     LazyAgentManagerPage as AgentManagerPage,
     LazyPublicApplicationForm as PublicApplicationForm,
     LazyWebsiteManagerPage as WebsiteManagerPage,
+    LazyAIObservabilityDashboardPage as AIObservabilityDashboardPage,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -136,6 +137,9 @@ export const router = createBrowserRouter([
 
             // Settings
             { path: 'settings', element: <SettingsPage /> },
+
+            // AI Dashboard
+            { path: 'admin/ai-dashboard', element: <AIObservabilityDashboardPage /> },
 
             // User Guide
             { path: 'user-guide', element: <UserGuidePage /> },
