@@ -495,6 +495,9 @@ const AIAssistant: React.FC = () => {
   const [mentionStartPos, setMentionStartPos] = useState<number | null>(null);
   const [selectedMentions, setSelectedMentions] = useState<MentionResult[]>([]);
 
+  // ─── Active Tool Call Indicator ──────────────────────
+  const [activeToolCalls, setActiveToolCalls] = useState<string[]>([]);
+
   const handleSearchMention = async (q: string) => {
     try {
       const results = await searchMentions(q);
@@ -839,12 +842,12 @@ const AIAssistant: React.FC = () => {
         8,
         controller.signal,
         (toolName: string) => {
-          // Tool Call Callback
-          setMessages(prev => prev.map(m =>
-            m.id === botMsgId
-              ? { ...m, content: streamContent + `\n\n> 🔍 *Hệ thống đang truy xuất dữ liệu từ \`${toolName}\`...*\n\n` }
-              : m
-          ));
+          // Tool Call Callback — push vào active tool list (hiển thị bubble)
+          setActiveToolCalls(prev => [...prev, toolName]);
+          // Xóa tool indicator sau 5s (fallback)
+          setTimeout(() => {
+            setActiveToolCalls(prev => prev.filter((_, i) => i > 0));
+          }, 5000);
         },
         currentModel, // Sử dụng model đang chọn ở dropdown UI
         (chunk: string) => {
@@ -899,6 +902,7 @@ const AIAssistant: React.FC = () => {
       ));
     } finally {
       setIsTyping(false);
+      setActiveToolCalls([]); // Clear tool indicators
     }
   };
 
@@ -1199,6 +1203,21 @@ const AIAssistant: React.FC = () => {
         <AIDataIngestion />
       ) : (
         <>
+          {/* ═══ Tool Call Indicator Bubbles ═══════════════════ */}
+          {activeToolCalls.length > 0 && (
+            <div className="mx-4 md:mx-6 mt-3 flex flex-wrap gap-2">
+              {activeToolCalls.map((tool, i) => (
+                <div
+                  key={`${tool}-${i}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-full text-xs text-violet-700 dark:text-violet-300 font-medium animate-pulse"
+                >
+                  <Zap size={11} className="text-violet-500 shrink-0" />
+                  <span className="font-mono">{tool}</span>
+                  <span className="text-violet-400 dark:text-violet-500">•••</span>
+                </div>
+              ))}
+            </div>
+          )}
           {/* ═══ Widget History Import Banner ═════════════════ */}
           {widgetHistoryBanner && (
             <div className="mx-4 md:mx-6 mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl flex items-center gap-3">

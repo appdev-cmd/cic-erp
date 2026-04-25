@@ -109,59 +109,83 @@ export async function runReActLoop(
       break;
     }
 
-    // Xử lý tool_calls
-    for (const tc of turn.tool_calls) {
-      const fnName = tc.function.name;
-      let args = {};
-      try {
-        args = typeof tc.function.arguments === 'string' ? JSON.parse(tc.function.arguments) : tc.function.arguments;
-      } catch (e) {
-        console.error('Failed to parse tool args:', tc.function.arguments);
-      }
+    // ── Parallel Tool Execution ──────────────────────────────────────────
+    // Chạy tất cả tool_calls ĐỒNG THỜI thay vì tuần tự.
+    // Latency giảm từ N×T → max(T) khi agent gọi nhiều tools cùng lúc.
 
+    const executeWithTimeout = (
+      tool: OpenClawTool,
+      args: any,
+      ctx: UserContext,
+      timeoutMs = 15000
+    ): Promise<string | object> => {
+      return Promise.race([
+        tool.execute(args, ctx),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Tool timeout (15s)')), timeoutMs)
+        ),
+      ]);
+    };
+
+    // Parse tất cả tool calls trước
+    const parsedCalls = turn.tool_calls.map((tc: any) => {
+      let args: any = {};
+      try {
+        args = typeof tc.function.arguments === 'string'
+          ? JSON.parse(tc.function.arguments)
+          : tc.function.arguments;
+      } catch {
+        console.error('[OpenClaw] Failed to parse tool args:', tc.function.arguments);
+      }
+      return { tc, fnName: tc.function.name as string, args };
+    });
+
+    // Thông báo tool calls đang chạy
+    parsedCalls.forEach(({ fnName, args }) => {
       state.usedTools.push(fnName);
       if (onToolCall) onToolCall(fnName, args);
+    });
 
-      const tool = availableTools.find(t => t.name === fnName);
-      let outputStr = '';
+    console.log(`[OpenClaw] Step ${state.steps}: Running ${parsedCalls.length} tool(s) in parallel: [${parsedCalls.map(c => c.fnName).join(', ')}]`);
 
-      if (!tool) {
-        outputStr = `Lỗi: Tool ${fnName} không tồn tại.`;
-      } else {
-        // Timeout + Retry: mỗi tool có tối đa 15s, retry 1 lần nếu lỗi
-        const executeWithTimeout = (t: OpenClawTool, a: any, ctx: UserContext, timeoutMs = 15000): Promise<string | object> => {
-          return Promise.race([
-            t.execute(a, ctx),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Tool timeout (15s)')), timeoutMs))
-          ]);
-        };
+    // Chạy song song tất cả tools
+    const toolResults = await Promise.all(
+      parsedCalls.map(async ({ tc, fnName, args }) => {
+        const tool = availableTools.find(t => t.name === fnName);
+        if (!tool) {
+          return { tc, fnName, outputStr: `Lỗi: Tool "${fnName}" không tồn tại trong registry.` };
+        }
 
+        let outputStr = '';
         let attempts = 0;
         const maxRetries = 1;
         while (attempts <= maxRetries) {
           try {
             const result = await executeWithTimeout(tool, args, userContext);
-            outputStr = typeof result === 'object' ? JSON.stringify(result) : result;
+            outputStr = typeof result === 'object' ? JSON.stringify(result) : String(result);
             break;
           } catch (err: any) {
             attempts++;
             if (attempts > maxRetries) {
-              outputStr = `Lỗi hệ thống khi chạy tool ${fnName}: ${err.message || String(err)}`;
+              outputStr = `Lỗi khi chạy tool "${fnName}": ${err.message || String(err)}`;
               console.error(`[OpenClaw] Tool ${fnName} failed after ${attempts} attempts:`, err.message);
             } else {
               console.warn(`[OpenClaw] Tool ${fnName} failed, retrying (${attempts}/${maxRetries})...`);
             }
           }
         }
-      }
+        return { tc, fnName, outputStr };
+      })
+    );
 
-      // Trả kết quả tool về cho LLM
+    // Đẩy tool results vào conversation history (theo thứ tự gốc)
+    for (const { tc, outputStr } of toolResults) {
       messages.push({
         role: 'tool',
         // @ts-ignore
         tool_call_id: tc.id,
-        name: fnName,
-        content: outputStr.slice(0, 10000)
+        name: tc.function.name,
+        content: outputStr.slice(0, 10000),
       });
     }
 

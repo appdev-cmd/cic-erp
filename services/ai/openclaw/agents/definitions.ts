@@ -25,6 +25,7 @@ DANH SÁCH CÁC SUB-AGENT BẠN CÓ THỂ GIAO VIỆC:
 - "agent-bgd": Quản lý doanh thu, hợp đồng, chi phí, công nợ, đánh giá hiệu suất nhân sự kinh doanh.
 - "agent-mkt": Gợi ý viết bài SEO, tìm kiếm thông tin trên Web, phân tích social media.
 - "agent-hr": Xin nghỉ phép, xem trạng thái nhân sự, tạo task.
+- "agent-planning": Lên kế hoạch tuần/tháng tự động, phân tích bottleneck, dự báo kết quả kinh doanh quý tới.
 
 BẮT BUỘC TRẢ LỜI 100% TIẾNG VIỆT, KHÔNG HƯ CẤU SỐ LIỆU. CHÉP ĐÚNG MARKDOWN TỪ SUB-AGENT.`,
       allowedTools: ['delegate_task_to_agent'],
@@ -159,5 +160,45 @@ OUTPUT cuối: Trình bày bảng danh sách Leads với điểm số và thông
 TUYỆT ĐỐI GIAO TIẾP VỚI NGƯỜI DÙNG BẰNG TIẾNG VIỆT 100%.`,
       allowedTools: ['read_web_url', 'draft_social_post', 'schedule_social_post', 'analyze_seo_content', 'generate_newsletter', 'schedule_email_campaign', 'search_knowledge_base', 'web_search', 'save_lead', 'get_leads'],
       preferredModel: VLLM_MODEL,
-   }
+   },
+   PLANNING: {
+      id: 'agent-planning',
+      name: 'Trợ lý Lập kế hoạch',
+      departmentId: '*',
+      description: 'AI Planner — Tự động lên kế hoạch tuần/tháng, phát hiện bottleneck nguồn lực, dự báo hiệu suất kinh doanh quý tiếp theo.',
+      icon: 'CalendarDays',
+      color: 'bg-violet-600',
+      dataScope: 'company',
+      isActive: true,
+      systemPrompt: `Bạn là AI Planning Agent (Trợ lý Lập kế hoạch chiến lược) của CIC ERP.
+
+NHIỆM VỤ CHÍNH:
+1. Lên kế hoạch tuần/tháng tự động → gọi "create_smart_plan" (TỰ ĐỘNG TẠO TASKS, không hỏi xác nhận)
+2. Phát hiện bottleneck/tắc nghẽn → gọi "analyze_bottleneck"
+3. Dự báo kết quả kinh doanh → gọi "forecast_next_quarter"
+4. Kết hợp với "get_smart_insights" để có bức tranh tổng thể trước khi lên kế hoạch
+
+QUY TẮC BẮT BUỘC:
+- Mọi kế hoạch đề xuất PHẢI dựa trên DỮ LIỆU THỰC TẾ từ tools, không phỏng đoán
+- Khi create_smart_plan trả về tasks đã tạo → THÔNG BÁO RÕ cho user biết đã tạo bao nhiêu tasks
+- Trình bày theo cấu trúc: Tình hình hiện tại → Kế hoạch hành động → Tasks đã tạo → Gợi ý tiếp theo
+- Luôn thêm 💡 Gợi ý hành động tiếp theo sau mỗi báo cáo
+- TRẢ LỜI 100% TIẾNG VIỆT, chỉ dùng Markdown thuần túy`,
+      allowedTools: [
+        'create_smart_plan',
+        'analyze_bottleneck',
+        'forecast_next_quarter',
+        'get_dashboard_kpi',
+        'get_smart_insights',
+        'get_overdue_contracts',
+        'get_debt_report',
+        'get_contract_expiry_timeline',
+        'get_employee_workload',
+        'search_employees',
+        'create_task_ai',
+        'get_daily_briefing',
+      ],
+      preferredModel: VLLM_MODEL,
+   },
 };
+

@@ -7,6 +7,7 @@ import {
   ChevronRight, X
 } from 'lucide-react';
 import { AgentConfigService, type AgentConfigRow } from '../services/ai/agentConfigService';
+import { getEnabledModels } from '../services/ai/models';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { cn } from '../lib/utils';
 import { erpToolsRegistry } from '../services/ai/openclaw/tools/registry';
@@ -332,20 +333,38 @@ const AgentManager: React.FC = () => {
                   {/* Info Cards */}
                   <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Model</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Model mặc định</p>
                   {canManage ? (
                     <select
                       className="mt-1 w-full p-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded outline-none text-slate-800 dark:text-slate-200"
-                      value={editingForm.preferred_model || ''}
+                      value={editingForm.preferred_model || 'gemma-4-26b'}
                       onChange={e => setEditingForm(prev => ({ ...prev, preferred_model: e.target.value }))}
                     >
-                      <option value="gemma-4-26b">gemma-4-26b</option>
-                      <option value="gpt-4o">gpt-4o</option>
-                      <option value="gpt-4o-mini">gpt-4o-mini</option>
-                      <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
+                      {/* Group by provider */}
+                      {(['local', 'gemini', 'openai', 'deepseek'] as const).map(provider => {
+                        const models = getEnabledModels().filter(m => m.provider === provider);
+                        if (models.length === 0) return null;
+                        const providerLabel: Record<string, string> = {
+                          local: '🖥 Local (vLLM)',
+                          gemini: '✨ Google Gemini',
+                          openai: '🤖 OpenAI',
+                          deepseek: '🔷 DeepSeek',
+                        };
+                        return (
+                          <optgroup key={provider} label={providerLabel[provider]}>
+                            {models.map(m => (
+                              <option key={m.id} value={m.id}>
+                                {m.name}{m.isDefault ? ' ★' : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
                     </select>
                   ) : (
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5 truncate">{selectedAgent.preferred_model}</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5 truncate">
+                      {getEnabledModels().find(m => m.id === selectedAgent.preferred_model)?.name || selectedAgent.preferred_model || 'Gemma 4 26B (mặc định)'}
+                    </p>
                   )}
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">

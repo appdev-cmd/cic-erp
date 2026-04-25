@@ -11,6 +11,7 @@ import { createTaskAiTool, approveTaskTool, exportDocumentTool, sendNotification
 import { getDashboardKpiTool, getComparativeReportTool, getUnitRankingTool, getDailyBriefingTool, getComprehensiveReportTool, getSmartInsightsTool } from './dashboard.tools';
 import { searchKnowledgeBaseTool, searchDocumentRegistryTool } from './knowledge.tools';
 import { delegateTaskTool } from './master.tools';
+import { createSmartPlanTool, analyzeBottleneckTool, forecastNextQuarterTool } from './planning.tools';
 
 export {
     searchContractsTool, getContractDetailTool, getContractStatsTool, getOverdueContractsTool, getContractExpiryTimelineTool,
@@ -21,7 +22,8 @@ export {
     createTaskAiTool, approveTaskTool, exportDocumentTool, sendNotificationEmailTool,
     getDashboardKpiTool, getComparativeReportTool, getUnitRankingTool, getDailyBriefingTool, getComprehensiveReportTool, getSmartInsightsTool,
     searchKnowledgeBaseTool, searchDocumentRegistryTool,
-    delegateTaskTool
+    delegateTaskTool,
+    createSmartPlanTool, analyzeBottleneckTool, forecastNextQuarterTool,
 };
 
 export const erpToolsRegistry: OpenClawTool[] = [
@@ -57,5 +59,8 @@ export const erpToolsRegistry: OpenClawTool[] = [
   getSmartInsightsTool,
   searchKnowledgeBaseTool,
   searchDocumentRegistryTool,
-  delegateTaskTool
+  delegateTaskTool,
+  createSmartPlanTool,
+  analyzeBottleneckTool,
+  forecastNextQuarterTool,
 ];
