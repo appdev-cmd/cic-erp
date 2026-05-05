@@ -25,6 +25,7 @@ import { Unit, KPIPlan, Employee, Contract } from '../types';
 import UnitForm from './UnitForm';
 import UnitSigningTab from './UnitSigningTab';
 import { usePermissionCheck } from '../hooks/usePermissions';
+import { useSlidePanelSafe } from '../contexts/SlidePanelContext';
 
 import { formatDate } from '../utils/formatters';
 import UnitAgentChat from './UnitAgentChat';
@@ -42,6 +43,8 @@ type TabType = 'overview' | 'signing' | 'employees' | 'contracts' | 'history';
 const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract, onViewPersonnel, yearFilter = String(new Date().getFullYear()) }) => {
     const { can } = usePermissionCheck();
     const canEditUnit = can('units', 'update');
+    const slidePanel = useSlidePanelSafe();
+
     const [activeTab, setActiveTabState] = useState<TabType>(() => {
         return (localStorage.getItem('cic-erp-unit-tab') as TabType) || 'overview';
     });
@@ -73,6 +76,11 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
         try {
             const unitData = await UnitService.getById(unitId);
             setUnit(unitData || null);
+
+            // Update the slide panel title with the actual unit name dynamically
+            if (unitData && slidePanel) {
+                slidePanel.updatePanelTitle(undefined, unitData.name);
+            }
 
             if (unitData) {
                 const yearParam = yearFilter === 'All' ? null : parseInt(yearFilter);

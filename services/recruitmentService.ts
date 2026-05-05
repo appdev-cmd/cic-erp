@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { JobOpening, Candidate, CandidateApplication, ApplicationStage, ApplicationEvaluation } from '../types/hrmTypes';
+import { OnboardingService } from './onboardingService';
 
 export const recruitmentService = {
   // ── Job Openings ──
@@ -16,7 +17,7 @@ export const recruitmentService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    
+
     return data.map((item: any) => ({
       ...item,
       unit_name: item.unit?.name,
@@ -219,10 +220,48 @@ export const recruitmentService = {
         stage_updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .select(`*, candidate:candidates(*)`)
+      .select(`*, candidate:candidates(*), job_opening:job_openings(title, department)`)
       .single();
 
     if (error) throw error;
+
+    // Trigger Onboarding if Hired
+    if (stage === 'hired' && data.candidate) {
+      try {
+        // 1. Convert candidate to Employee
+        const { data: newEmp, error: empError } = await supabase
+          .from('employees')
+          .insert({
+            name: data.candidate.full_name,
+            email: data.candidate.email,
+            phone: data.candidate.phone,
+            employee_code: `NV${Math.floor(1000 + Math.random() * 9000)}`,
+            position: data.job_opening?.title || 'New Hire',
+            status: 'active',
+            join_date: new Date().toISOString().split('T')[0]
+          })
+          .select()
+          .single();
+
+        if (empError) throw empError;
+
+        // 2. Fetch default onboarding template
+        const templates = await OnboardingService.getTemplates();
+        const defaultTemplate = templates.find(t => t.is_default) || templates[0];
+
+        if (defaultTemplate) {
+          await OnboardingService.launchOnboarding(
+            newEmp.id,
+            defaultTemplate.id,
+            new Date().toISOString().split('T')[0],
+            data.id
+          );
+        }
+      } catch (e) {
+        console.error('Lỗi khi tự động trigger onboarding:', e);
+      }
+    }
+
     return data as CandidateApplication;
   },
 

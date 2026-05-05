@@ -313,29 +313,29 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
   }, [loadingMore, hasMore, debouncedSearchQuery, visibilityContext, roleFilter, filterProjectId, filterStatusIds, filterAssigneeIds, filterDateRange, isEmbedded, sourceModule, sourceEntityId]);
 
 
+  // T6.4: Listen to global realtime events dispatched by useRealtimeSync
+  // (avoids channel name conflicts when multiple TasksPage instances exist)
   useEffect(() => {
-    const channel = dataClient
-      .channel('tasks-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-        // T6.4: Smart realtime — chỉ update row đơn, không reload toàn bộ
-        if (payload.eventType === 'DELETE') {
-          setTasks(prev => prev.filter(t => t.id !== payload.old.id));
-        } else if (payload.eventType === 'INSERT') {
-          // New task from AI agent or other users → reload one time to get enriched data
-          loadData();
-        } else if (payload.eventType === 'UPDATE' && payload.new) {
-          const updated = payload.new as any;
-          setTasks(prev => prev.map(t => {
-            if (t.id !== updated.id) return t;
-            return { ...t, ...updated };
-          }));
-        }
-      })
-      .subscribe();
+    const handleTaskChanged = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail) { loadData(); return; }
 
-    return () => {
-      dataClient.removeChannel(channel);
+      if (detail.eventType === 'DELETE') {
+        setTasks(prev => prev.filter(t => t.id !== detail.id));
+      } else if (detail.eventType === 'INSERT') {
+        // New task from contract, AI agent, or other users → reload to get enriched data
+        loadData();
+      } else if (detail.eventType === 'UPDATE' && detail.record) {
+        const updated = detail.record;
+        setTasks(prev => prev.map(t => {
+          if (t.id !== updated.id) return t;
+          return { ...t, ...updated };
+        }));
+      }
     };
+
+    window.addEventListener('task-changed', handleTaskChanged);
+    return () => window.removeEventListener('task-changed', handleTaskChanged);
   }, [loadData]);
 
   // Tasks are primarily governed by visibilityContext and personal filters

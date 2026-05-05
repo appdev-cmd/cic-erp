@@ -42,6 +42,14 @@ import {
     LazyPublicApplicationForm as PublicApplicationForm,
     LazyWebsiteManagerPage as WebsiteManagerPage,
     LazyAIObservabilityDashboardPage as AIObservabilityDashboardPage,
+    LazyAttendanceSettingsPage as AttendanceSettingsPage,
+    LazyOvertimeRequestsPage as OvertimeRequestsPage,
+    LazyPayrollPage as PayrollPage,
+    LazyInsuranceDashboardPage as InsuranceDashboardPage,
+    LazyOnboardingPage as OnboardingPage,
+    LazyPerformancePage as PerformancePage,
+    LazySelfServicePortal as SelfServicePortal,
+    LazyHRAnalyticsDashboard as HRAnalyticsDashboardPage,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -131,6 +139,14 @@ export const router = createBrowserRouter([
             { path: 'hrm/recruitment', element: <RecruitmentPage /> },
             { path: 'hrm/leave', element: <LeavePage /> },
             { path: 'hrm/requests', element: <RequestsPage /> },
+            { path: 'hrm/attendance-settings', element: <AttendanceSettingsPage /> },
+            { path: 'hrm/overtime', element: <OvertimeRequestsPage /> },
+            { path: 'hrm/payroll', element: <PayrollPage /> },
+            { path: 'hrm/insurance', element: <InsuranceDashboardPage /> },
+            { path: 'hrm/onboarding', element: <OnboardingPage /> },
+            { path: 'hrm/performance', element: <PerformancePage /> },
+            { path: 'hrm/self-service', element: <SelfServicePortal /> },
+            { path: 'hrm/analytics', element: <HRAnalyticsDashboardPage /> },
 
             // Web Content / Website
             { path: 'website', element: <WebsiteManagerPage /> },

@@ -36,6 +36,8 @@ interface SlidePanelContextType {
     setOnCloseBlocked: (id: string | undefined, callback: (() => void) | null) => void;
     /** Force-close a panel (bypasses lock — used by discard/save handlers) */
     forceClosePanel: (id?: string) => void;
+    /** Update the title of a panel */
+    updatePanelTitle: (id: string | undefined, title: string) => void;
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -227,6 +229,13 @@ export const SlidePanelProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }, []);
 
+    const updatePanelTitle = useCallback((id: string | undefined, title: string) => {
+        const currentPanels = panelsRef.current;
+        if (currentPanels.length === 0) return;
+        const targetId = id || currentPanels[currentPanels.length - 1].id;
+        setPanels(prev => prev.map(p => p.id === targetId ? { ...p, title } : p));
+    }, []);
+
     const value = useMemo(() => ({
         panels,
         openPanel,
@@ -240,7 +249,8 @@ export const SlidePanelProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         isTopPanelLocked,
         setOnCloseBlocked,
         forceClosePanel,
-    }), [panels, openPanel, closePanel, closeAllPanels, focusPanel, hasOpenPanels, closingPanels, lockPanel, unlockPanel, isTopPanelLocked, setOnCloseBlocked, forceClosePanel]);
+        updatePanelTitle,
+    }), [panels, openPanel, closePanel, closeAllPanels, focusPanel, hasOpenPanels, closingPanels, lockPanel, unlockPanel, isTopPanelLocked, setOnCloseBlocked, forceClosePanel, updatePanelTitle]);
 
     return (
         <SlidePanelContext.Provider value={value}>

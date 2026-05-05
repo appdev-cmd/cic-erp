@@ -11,9 +11,11 @@ import {
 import { EmployeeService, ContractService, UnitService } from '../services';
 import { EmployeeDocumentService, EmployeeDocument } from '../services/employeeDocumentService';
 import PersonnelForm from './PersonnelForm';
+import { ContractsHRTab, SalaryHistoryTab, AssetsTab } from './hrm/CoreHRTabs';
 import { Employee, Contract, Unit, UserRole } from '../types';
 import { formatDate } from '../utils/formatters';
 import DateInput from './ui/DateInput';
+import { useSlidePanelSafe } from '../contexts/SlidePanelContext';
 
 interface PersonnelDetailProps {
     personnelId: string;
@@ -36,7 +38,7 @@ interface PersonnelStats {
     target: { signing: number; revenue: number; adminProfit: number; revProfit: number; cash: number };
 }
 
-type DetailTab = 'overview' | 'documents' | 'kpi' | 'contracts';
+type DetailTab = 'overview' | 'documents' | 'kpi' | 'contracts' | 'hr_contracts' | 'salary' | 'assets';
 
 const DOC_TYPE_OPTIONS = [
     { value: 'degree', label: 'Bằng cấp' },
@@ -76,6 +78,7 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
     const [showDocForm, setShowDocForm] = useState(false);
     const [editingDoc, setEditingDoc] = useState<EmployeeDocument | null>(null);
     const [docForm, setDocForm] = useState({ name: '', docType: 'other' as string, description: '', url: '', issuedDate: '', expiryDate: '' });
+    const slidePanel = useSlidePanelSafe();
 
     const currentYear = new Date().getFullYear();
     const filteredContracts = contracts.filter(c => {
@@ -111,6 +114,17 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
             setIsLoading(false);
         }
     };
+
+    // Update browser tab title with employee name
+    useEffect(() => {
+        if (person) {
+            document.title = `${person.name} - CIC ERP`;
+            if (slidePanel?.updatePanelTitle) {
+                slidePanel.updatePanelTitle(undefined, person.name);
+            }
+        }
+        return () => { document.title = 'CIC ERP'; };
+    }, [person, slidePanel]);
 
     useEffect(() => { fetchData(kpiYear); }, [personnelId, kpiYear]);
 
@@ -215,6 +229,9 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
 
     const tabs: { id: DetailTab; label: string; icon: any; count?: number }[] = [
         { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard },
+        { id: 'hr_contracts', label: 'HĐ Lao động', icon: Shield },
+        { id: 'salary', label: 'Lương', icon: DollarSign },
+        { id: 'assets', label: 'Tài sản', icon: CreditCard },
         { id: 'documents', label: 'Hồ sơ', icon: FolderOpen, count: documents.length },
         { id: 'kpi', label: 'Chỉ tiêu KD', icon: Target },
         { id: 'contracts', label: 'Hợp đồng', icon: FileText, count: contracts.length },
@@ -415,10 +432,10 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
                                 <div key={doc.id} className="px-5 py-4 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
                                     <div className={`p-2.5 rounded-lg shrink-0 ${typeStyle.bg}`}>
                                         {doc.docType === 'degree' ? <GraduationCap size={20} className={typeStyle.color} /> :
-                                         doc.docType === 'certificate' ? <Award size={20} className={typeStyle.color} /> :
-                                         doc.docType === 'contract' ? <FileText size={20} className={typeStyle.color} /> :
-                                         doc.docType === 'id_card' ? <CreditCard size={20} className={typeStyle.color} /> :
-                                         <FileText size={20} className={typeStyle.color} />}
+                                            doc.docType === 'certificate' ? <Award size={20} className={typeStyle.color} /> :
+                                                doc.docType === 'contract' ? <FileText size={20} className={typeStyle.color} /> :
+                                                    doc.docType === 'id_card' ? <CreditCard size={20} className={typeStyle.color} /> :
+                                                        <FileText size={20} className={typeStyle.color} />}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between gap-2">
@@ -664,6 +681,9 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
             {/* Tab Content */}
             <div>
                 {activeTab === 'overview' && renderOverview()}
+                {activeTab === 'hr_contracts' && <ContractsHRTab employeeId={person.id} />}
+                {activeTab === 'salary' && <SalaryHistoryTab employeeId={person.id} />}
+                {activeTab === 'assets' && <AssetsTab employeeId={person.id} />}
                 {activeTab === 'documents' && renderDocuments()}
                 {activeTab === 'kpi' && renderKpi()}
                 {activeTab === 'contracts' && renderContracts()}

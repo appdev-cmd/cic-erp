@@ -83,6 +83,14 @@ const PublicApplicationForm = lazyWithRetry(() => import('./hrm/PublicApplicatio
 const WebsiteManager = lazyWithRetry(() => import('./WebsiteManager'));
 const NewsList = lazyWithRetry(() => import('./NewsList'));
 const AIObservabilityDashboard = lazyWithRetry(() => import('./AIObservabilityDashboard'));
+const AttendanceSettingsPanel = lazyWithRetry(() => import('./hrm/AttendanceSettings').then(m => ({ default: m.AttendanceSettingsPanel })));
+const OvertimeRequestsPanel = lazyWithRetry(() => import('./hrm/OvertimeRequests').then(m => ({ default: m.OvertimeRequestsPanel })));
+const PayrollPage = lazyWithRetry(() => import('./hrm/PayrollPage').then(m => ({ default: m.PayrollPage })));
+const InsuranceDashboard = lazyWithRetry(() => import('./hrm/InsuranceDashboard').then(m => ({ default: m.InsuranceDashboard })));
+const OnboardingPage = lazyWithRetry(() => import('./hrm/OnboardingPage').then(m => ({ default: m.OnboardingPage })));
+const PerformancePage = lazyWithRetry(() => import('./hrm/PerformancePage').then(m => ({ default: m.PerformancePage })));
+const SelfServicePortal = lazyWithRetry(() => import('./hrm/SelfServicePortal').then(m => ({ default: m.SelfServicePortal })));
+const HRAnalyticsDashboard = lazyWithRetry(() => import('./hrm/HRAnalyticsDashboard').then(m => ({ default: m.HRAnalyticsDashboard })));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
@@ -730,9 +738,9 @@ export function useOpenEntityPanel() {
                     component: (
                         <Suspense fallback={<DetailPageSkeleton />}>
                             <div className="p-4 md:p-6 lg:p-8">
-                                <ProjectDetail 
-                                    projectId={entityId} 
-                                    onBack={() => closePanel()} 
+                                <ProjectDetail
+                                    projectId={entityId}
+                                    onBack={() => closePanel()}
                                     onEdit={(project) => {
                                         openPanel({
                                             title: 'Chỉnh sửa dự án',
@@ -1001,6 +1009,42 @@ export const LazyHRMPage: React.FC = () => withSuspense(<HRMPage />);
 export const LazyRecruitmentPage: React.FC = () => withSuspense(<RecruitmentPage />);
 export const LazyLeavePage: React.FC = () => withSuspense(<LeavePage />);
 export const LazyRequestsPage: React.FC = () => withSuspense(<RequestsPage />);
+
+export const LazyAttendanceSettingsPage: React.FC = () => {
+    return withSuspense(
+        <div className="max-w-4xl mx-auto p-4 md:p-6"><AttendanceSettingsPanel /></div>
+    );
+};
+
+export const LazyOvertimeRequestsPage: React.FC = () => {
+    return withSuspense(
+        <div className="max-w-6xl mx-auto p-4 md:p-6"><OvertimeRequestsPanel /></div>
+    );
+};
+
+export const LazyPayrollPage: React.FC = () => {
+    return withSuspense(<PayrollPage />);
+};
+
+export const LazyInsuranceDashboardPage: React.FC = () => {
+    return withSuspense(<InsuranceDashboard />);
+};
+
+export const LazyOnboardingPage: React.FC = () => {
+    return withSuspense(<OnboardingPage />);
+};
+
+export const LazyPerformancePage: React.FC = () => {
+    return withSuspense(<PerformancePage />);
+};
+
+export const LazySelfServicePortal: React.FC = () => {
+    return withSuspense(<SelfServicePortal />);
+};
+
+export const LazyHRAnalyticsDashboard: React.FC = () => {
+    return withSuspense(<HRAnalyticsDashboard />);
+};
 
 export const LazyPublicApplicationForm: React.FC = () => withSuspense(<PublicApplicationForm />, <FormPageSkeleton />);
 
