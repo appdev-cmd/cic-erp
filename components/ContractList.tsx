@@ -450,6 +450,11 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           empAllocs.forEach((a: any) => {
             if (a.employeeId) ids.add(a.employeeId);
           });
+          // Support unit employees from unit_allocations (hợp đồng phối hợp)
+          const unitAllocs: any[] = c.unit_allocations?.allocations || [];
+          unitAllocs.forEach((a: any) => {
+            if (a.role === 'support' && a.employeeId) ids.add(a.employeeId);
+          });
         });
         setContractSalespersonIds(ids);
       } catch (e) {

@@ -202,20 +202,21 @@ export const ContractService = {
 
             // Helper: get employee's percentage within the contract (from employee_allocations)
             const getEmployeePct = (c: any, targetEmployeeId: string): number => {
+                // Check unit_allocations FIRST — support unit employee stored here
+                // (must run before empAllocs early-return to avoid missing support contracts)
+                const unitAllocations: any[] = c.unit_allocations?.allocations || [];
+                const supportMatch = unitAllocations.find(
+                    (a: any) => a.role === 'support' && a.employeeId === targetEmployeeId
+                );
+                if (supportMatch) return 100; // support unit PIC gets 100% of their unit's share
+
                 const empAllocs: any[] = c.employee_allocations || [];
                 if (empAllocs.length === 0) {
                     // Legacy: if contract's employee_id matches, 100%
                     return c.employee_id === targetEmployeeId ? 100 : 0;
                 }
                 const match = empAllocs.find((a: any) => a.employeeId === targetEmployeeId);
-                if (match) return match.percent || 100;
-                // Also check unit_allocations for support unit employees
-                const unitAllocations: any[] = c.unit_allocations?.allocations || [];
-                const supportMatch = unitAllocations.find(
-                    (a: any) => a.role === 'support' && a.employeeId === targetEmployeeId
-                );
-                if (supportMatch) return 100; // support unit PIC gets 100% of their unit's share
-                return 0;
+                return match ? (match.percent || 100) : 0;
             };
 
             // Filter in JS: include contracts where this unit is lead or support
