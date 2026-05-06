@@ -31,14 +31,13 @@ const STATUS_COLORS: Record<BIMProjectStatus, { bg: string; text: string; border
   '70_LUUTRU':         { bg: 'bg-teal-50 dark:bg-teal-900/20',      text: 'text-teal-700 dark:text-teal-400',      border: 'border-teal-200 dark:border-teal-700',      dot: 'bg-teal-500' },
 };
 
-type TabKey = 'general' | 'construction' | 'finance' | 'documents' | 'website';
+type TabKey = 'general' | 'finance' | 'documents' | 'website';
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: 'general',      label: 'Thông tin chung', icon: <MapPin size={14} /> },
-  { key: 'construction', label: 'Công trình',       icon: <Layers size={14} /> },
-  { key: 'finance',      label: 'Tài chính',        icon: <TrendingUp size={14} /> },
-  { key: 'documents',    label: 'Tài liệu',         icon: <FolderOpen size={14} /> },
-  { key: 'website',      label: 'Website',          icon: <Globe size={14} /> },
+  { key: 'general',   label: 'Thông tin chung', icon: <MapPin size={14} /> },
+  { key: 'finance',   label: 'Tài chính',        icon: <TrendingUp size={14} /> },
+  { key: 'documents', label: 'Tài liệu',         icon: <FolderOpen size={14} /> },
+  { key: 'website',   label: 'Website',          icon: <Globe size={14} /> },
 ];
 
 const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) => {
@@ -335,6 +334,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
             {/* TAB 1: Thông tin chung */}
             {activeTab === 'general' && (
               <div className="space-y-4 animate-in fade-in duration-200">
+                {/* Địa điểm & Đối tác */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <MapPin size={13} className="text-indigo-500" /> Địa điểm & Đối tác
@@ -378,6 +378,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                   </div>
                 </div>
 
+                {/* Thời gian */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <Calendar size={13} className="text-indigo-500" /> Thời gian thực hiện
@@ -394,42 +395,10 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                   </div>
                 </div>
 
+                {/* Quy mô dự án */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <FileSignature size={13} className="text-indigo-500" /> Hợp đồng liên kết
-                  </h3>
-                  <SearchableSelect
-                    value={contractId || null}
-                    onChange={(id) => {
-                      setContractId(id || '');
-                      if (id) {
-                        const selected = contracts.find(c => c.id === id);
-                        if (selected) {
-                          if (selected.value && selected.value > 0) setContractValue(Math.round(selected.value));
-                          if (selected.startDate) setStartDate(selected.startDate);
-                          if (selected.endDate) setEndDate(selected.endDate);
-                          toast.success('Đã tự động nhận giá trị và thời gian từ hợp đồng');
-                        }
-                      }
-                    }}
-                    onSearch={handleSearchContracts}
-                    placeholder="Gõ mã, tên HĐ hoặc tên khách hàng..."
-                    getDisplayValue={getContractDisplay}
-                    size="md"
-                    initialOptions={contracts.slice(0, 10).map(c => ({
-                      id: c.id, name: `${c.code} — ${c.title}`, subText: c.customerName || undefined,
-                    }))}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: Công trình */}
-            {activeTab === 'construction' && (
-              <div className="animate-in fade-in duration-200">
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Layers size={13} className="text-indigo-500" /> Phân loại công trình
+                    <Layers size={13} className="text-indigo-500" /> Quy mô dự án
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -496,9 +465,39 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
               </div>
             )}
 
-            {/* TAB 3: Tài chính */}
+            {/* TAB 2: Tài chính */}
             {activeTab === 'finance' && (
-              <div className="animate-in fade-in duration-200">
+              <div className="space-y-4 animate-in fade-in duration-200">
+                {/* Hợp đồng liên kết */}
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <FileSignature size={13} className="text-indigo-500" /> Hợp đồng liên kết
+                  </h3>
+                  <SearchableSelect
+                    value={contractId || null}
+                    onChange={(id) => {
+                      setContractId(id || '');
+                      if (id) {
+                        const selected = contracts.find(c => c.id === id);
+                        if (selected) {
+                          if (selected.value && selected.value > 0) setContractValue(Math.round(selected.value));
+                          if (selected.startDate) setStartDate(selected.startDate);
+                          if (selected.endDate) setEndDate(selected.endDate);
+                          toast.success('Đã tự động nhận giá trị và thời gian từ hợp đồng');
+                        }
+                      }
+                    }}
+                    onSearch={handleSearchContracts}
+                    placeholder="Gõ mã, tên HĐ hoặc tên khách hàng..."
+                    getDisplayValue={getContractDisplay}
+                    size="md"
+                    initialOptions={contracts.slice(0, 10).map(c => ({
+                      id: c.id, name: `${c.code} — ${c.title}`, subText: c.customerName || undefined,
+                    }))}
+                  />
+                </div>
+
+                {/* Giá trị & Tiến độ */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <TrendingUp size={13} className="text-indigo-500" /> Giá trị & Tiến độ
@@ -570,7 +569,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
               </div>
             )}
 
-            {/* TAB 4: Tài liệu */}
+            {/* TAB 3: Tài liệu */}
             {activeTab === 'documents' && (
               <div className="space-y-4 animate-in fade-in duration-200">
                 {/* Thumbnail */}
@@ -658,7 +657,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
               </div>
             )}
 
-            {/* TAB 5: Website */}
+            {/* TAB 4: Website */}
             {activeTab === 'website' && (
               <div className="space-y-4 animate-in fade-in duration-200">
                 {/* Publish settings */}
