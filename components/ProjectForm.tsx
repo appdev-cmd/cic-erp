@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Save, X, MapPin, Building2, Calendar, TrendingUp, FileText, Loader2, FileSignature, Image, Clipboard, Upload, Plus, Trash2 } from 'lucide-react';
+import { Save, X, MapPin, Building2, Calendar, TrendingUp, FileText, Loader2, FileSignature, Image, Clipboard, Upload, Plus, Trash2, Layers } from 'lucide-react';
 import DateInput from './ui/DateInput';
 import { ProjectService, ContractService, CustomerService } from '../services';
 import { BIMProject, BIMProjectStatus, BIM_PROJECT_STATUS_LABELS } from '../types';
@@ -51,6 +51,16 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [contractId, setContractId] = useState(project?.contractId || '');
   const [endUserId, setEndUserId] = useState(project?.endUserId || '');
   const [endUserName, setEndUserName] = useState(project?.endUserName || '');
+
+  // Thông tin công trình
+  const [constructionType, setConstructionType] = useState(project?.constructionType || '');
+  const [constructionGrade, setConstructionGrade] = useState(project?.constructionGrade || '');
+  const [area, setArea] = useState(project?.area || 0);
+  const [buildingArea, setBuildingArea] = useState(project?.buildingArea || 0);
+  const [projectPhase, setProjectPhase] = useState(project?.projectPhase || '');
+  const [serviceType, setServiceType] = useState(project?.serviceType || '');
+  const [projectGroup, setProjectGroup] = useState(project?.projectGroup || '');
+
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [customerFormType, setCustomerFormType] = useState<'investor' | 'client'>('investor');
   const [contracts, setContracts] = useState<{ id: string; code: string; title: string; customerName?: string; value?: number; startDate?: string; endDate?: string }[]>([]);
@@ -246,6 +256,13 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         webCategory: webCategory.trim() || undefined,
         webClientName: webClientName.trim() || undefined,
         webStats: JSON.stringify(webStats.filter(s => s.label.trim() || s.value.trim())),
+        constructionType: constructionType.trim() || undefined,
+        constructionGrade: constructionGrade.trim() || undefined,
+        area: area || undefined,
+        buildingArea: buildingArea || undefined,
+        projectPhase: projectPhase.trim() || undefined,
+        serviceType: serviceType.trim() || undefined,
+        projectGroup: projectGroup.trim() || undefined,
       };
 
       let result: BIMProject;
@@ -490,7 +507,108 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         </div>
       </div>
 
-      {/* Section 5: Bổ sung */}
+      {/* Section 5: Thông tin công trình */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Layers size={16} className="text-indigo-500" />
+          Thông tin công trình
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Loại công trình</label>
+            <select
+              value={constructionType}
+              onChange={e => setConstructionType(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">-- Chọn loại --</option>
+              <option value="Dân dụng">Dân dụng</option>
+              <option value="Công nghiệp">Công nghiệp</option>
+              <option value="Hạ tầng">Hạ tầng</option>
+              <option value="Nông nghiệp">Nông nghiệp</option>
+              <option value="Quốc phòng">Quốc phòng</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Cấp công trình</label>
+            <select
+              value={constructionGrade}
+              onChange={e => setConstructionGrade(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">-- Chọn cấp --</option>
+              <option value="Cấp đặc biệt">Cấp đặc biệt</option>
+              <option value="Cấp I">Cấp I</option>
+              <option value="Cấp II">Cấp II</option>
+              <option value="Cấp III">Cấp III</option>
+              <option value="Cấp IV">Cấp IV</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Diện tích sàn (m²)</label>
+            <input
+              type="number"
+              value={area || ''}
+              onChange={e => setArea(Number(e.target.value) || 0)}
+              placeholder="VD: 38500"
+              min={0}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Diện tích xây dựng (m²)</label>
+            <input
+              type="number"
+              value={buildingArea || ''}
+              onChange={e => setBuildingArea(Number(e.target.value) || 0)}
+              placeholder="VD: 12000"
+              min={0}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Giai đoạn thực hiện</label>
+            <input
+              type="text"
+              value={projectPhase}
+              onChange={e => setProjectPhase(e.target.value)}
+              placeholder="VD: Thiết kế cơ sở, Thiết kế kỹ thuật..."
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Loại dịch vụ</label>
+            <input
+              type="text"
+              value={serviceType}
+              onChange={e => setServiceType(e.target.value)}
+              placeholder="VD: Tư vấn BIM, Quản lý dự án..."
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Nhóm dự án</label>
+            <div className="flex gap-3">
+              {['A', 'B'].map(group => (
+                <button
+                  key={group}
+                  type="button"
+                  onClick={() => setProjectGroup(projectGroup === group ? '' : group)}
+                  className={`flex-1 py-2.5 text-sm font-black rounded-lg border transition-all ${
+                    projectGroup === group
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700'
+                  }`}
+                >
+                  Nhóm {group}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 6: Bổ sung */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
         <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
           <Building2 size={16} className="text-indigo-500" />
@@ -639,7 +757,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         </div>
       </div>
 
-      {/* Section 6: Web Content & Description */}
+      {/* Section 7: Web Content & Description */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
         <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
           <FileText size={16} className="text-indigo-500" />
@@ -715,7 +833,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                       setWebStats(newStats);
                     }}
                     placeholder="VD: Diện tích"
-                    className="flex-1 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg"
+                    className={inputCls}
                   />
                   <input
                     type="text"
@@ -726,7 +844,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                       setWebStats(newStats);
                     }}
                     placeholder="VD: 15,000 m2"
-                    className="flex-1 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg"
+                    className={inputCls}
                   />
                   <button
                     type="button"
