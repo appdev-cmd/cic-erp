@@ -479,7 +479,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in duration-300">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs uppercase font-bold sticky top-0 z-10">
+              <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-xs uppercase font-bold sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 rounded-tl-xl w-[250px] min-w-[250px]">Tên & Mã dự án</th>
                   <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[200px] min-w-[200px]">Địa điểm / CĐT</th>
@@ -600,8 +600,8 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
                             onClick={(e) => toggleWeb(e, p)}
                             title={p.isPublishedWeb ? "Ẩn khỏi Web" : "Hiển thị trên Web"}
                             className={`p-1.5 rounded-md transition-all border ${p.isPublishedWeb
-                                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-400'
+                                ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
                               } hover:opacity-80`}
                           >
                             {p.isPublishedWeb ? <Globe size={15} /> : <EyeOff size={15} />}
@@ -611,8 +611,8 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
                             onClick={(e) => toggleFeatured(e, p)}
                             title={p.isFeaturedWeb ? "Bỏ nổi bật" : "Đánh dấu nổi bật"}
                             className={`p-1.5 rounded-md transition-all border ${p.isFeaturedWeb
-                                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-500 dark:text-amber-400'
-                                : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-400'
+                                ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-500 dark:text-amber-400'
+                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
                               } hover:opacity-80`}
                           >
                             <Star size={15} className={p.isFeaturedWeb ? "fill-current" : ""} />

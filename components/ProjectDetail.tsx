@@ -560,7 +560,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
           {((project.area && project.area > 0) || (project.buildingArea && project.buildingArea > 0)) && (
             <div className="grid grid-cols-2 gap-3">
               {project.area && project.area > 0 && (
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg">
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-3 rounded-lg">
                   <Ruler size={16} className="text-slate-400 dark:text-slate-500 shrink-0" />
                   <div>
                     <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Diện tích sàn</p>
@@ -571,7 +571,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
                 </div>
               )}
               {project.buildingArea && project.buildingArea > 0 && (
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg">
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-3 rounded-lg">
                   <Ruler size={16} className="text-slate-400 dark:text-slate-500 shrink-0" />
                   <div>
                     <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Diện tích XD</p>
@@ -623,7 +623,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {contacts.map(contact => (
-              <div key={contact.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+              <div key={contact.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
                 <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
                   <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
                     {contact.name.charAt(0)}
