@@ -38,7 +38,8 @@ export interface BIMProject {
   projectGroup?: string;       // Nhóm dự án (A, B)
   constructionType?: string;   // Loại công trình
   constructionGrade?: string;  // Cấp công trình (I, II)
-  area?: number;               // Diện tích (m²)
+  area?: number;               // Diện tích sàn (m²)
+  buildingArea?: number;       // Diện tích xây dựng (m²)
   projectPhase?: string;       // Giai đoạn dự án
   contractId?: string;         // ID hợp đồng gắn với dự án
 

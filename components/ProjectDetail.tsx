@@ -1,6 +1,8 @@
 import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
-import { ArrowLeft, MapPin, Building2, Calendar, FileText, TrendingUp, Clock, Edit, Trash2, CheckSquare, Loader2, FileSignature, ExternalLink, Folder, LayoutDashboard, Users, Globe } from 'lucide-react';
+import { ArrowLeft, MapPin, Building2, Calendar, FileText, TrendingUp, Clock, Edit, Trash2, CheckSquare, Loader2, FileSignature, ExternalLink, Folder, LayoutDashboard, Users, Globe, Layers, Ruler, Phone, Mail, Tag, Briefcase } from 'lucide-react';
 import { ProjectService, ContractService } from '../services';
+import { CustomerService } from '../services/customerService';
+import { CustomerContact } from '../types';
 import { BIMProject, BIM_PROJECT_STATUS_LABELS, BIMProjectStatus } from '../types';
 import { toast } from 'sonner';
 import { formatDate } from '../utils/formatters';
@@ -51,6 +53,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
     localStorage.setItem('cic-erp-project-tab', tab);
   };
   const [contractInfo, setContractInfo] = useState<{ id: string; contractCode: string; name?: string } | null>(null);
+  const [contacts, setContacts] = useState<CustomerContact[]>([]);
   const { openPanel, closePanel } = useSlidePanel();
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<BIMProjectStatus | null>(null);
@@ -118,6 +121,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
       })
       .catch(() => setContractInfo(null));
   }, [project?.contractId]);
+
+  // Fetch contacts of linked customer
+  useEffect(() => {
+    if (!project?.customerId) { setContacts([]); return; }
+    CustomerService.getContacts(project.customerId)
+      .then(setContacts)
+      .catch(() => setContacts([]));
+  }, [project?.customerId]);
 
   // Open contract detail in slide panel
   const handleOpenContract = useCallback(() => {
@@ -469,6 +480,46 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
               </div>
             </div>
           )}
+
+          {project.constructionType && (
+            <div className="flex items-start gap-3">
+              <Layers size={16} className="text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Loại công trình</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300">{project.constructionType}</p>
+              </div>
+            </div>
+          )}
+
+          {project.constructionGrade && (
+            <div className="flex items-start gap-3">
+              <Tag size={16} className="text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Cấp công trình</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300">{project.constructionGrade}</p>
+              </div>
+            </div>
+          )}
+
+          {project.projectPhase && (
+            <div className="flex items-start gap-3">
+              <FileText size={16} className="text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Giai đoạn thực hiện</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300">{project.projectPhase}</p>
+              </div>
+            </div>
+          )}
+
+          {project.serviceType && (
+            <div className="flex items-start gap-3">
+              <Briefcase size={16} className="text-slate-400 dark:text-slate-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Loại dịch vụ</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300">{project.serviceType}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* KPI / Numbers */}
@@ -494,7 +545,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
             <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg">
               <TrendingUp size={20} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
               <div>
-                <p className="text-[11px] font-semibold text-indigo-500 dark:text-indigo-400 uppercase">Giá trị hợp đồng</p>
+                <p className="text-[11px] font-semibold text-indigo-500 dark:text-indigo-400 uppercase">Giá trị hợp đồng chính</p>
                 <p className="text-xl font-black text-indigo-700 dark:text-indigo-300">
                   {project.contractValue >= 1_000_000_000
                     ? <>{(project.contractValue / 1_000_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} <span className="text-sm font-bold">Tỷ</span></>
@@ -502,6 +553,44 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
                   }
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Diện tích */}
+          {((project.area && project.area > 0) || (project.buildingArea && project.buildingArea > 0)) && (
+            <div className="grid grid-cols-2 gap-3">
+              {project.area && project.area > 0 && (
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg">
+                  <Ruler size={16} className="text-slate-400 dark:text-slate-500 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Diện tích sàn</p>
+                    <p className="text-sm font-black text-slate-700 dark:text-slate-300">
+                      {project.area.toLocaleString('vi-VN')} <span className="text-xs font-semibold">m²</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+              {project.buildingArea && project.buildingArea > 0 && (
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-lg">
+                  <Ruler size={16} className="text-slate-400 dark:text-slate-500 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">Diện tích XD</p>
+                    <p className="text-sm font-black text-slate-700 dark:text-slate-300">
+                      {project.buildingArea.toLocaleString('vi-VN')} <span className="text-xs font-semibold">m²</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Nhóm dự án */}
+          {project.projectGroup && (
+            <div className="flex items-center justify-between py-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Nhóm dự án</span>
+              <span className="text-xs font-black text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
+                Nhóm {project.projectGroup}
+              </span>
             </div>
           )}
         </div>
@@ -512,13 +601,68 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
           <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">Mô tả & Ghi chú</h2>
           {project.description && (
-            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-3">{project.description}</p>
+            <div
+              className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-3 prose prose-sm dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: project.description }}
+            />
           )}
           {project.notes && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
               <p className="text-sm text-amber-800 dark:text-amber-300">{project.notes}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Liên hệ từ module Đối tác */}
+      {contacts.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-4">
+            Đầu mối liên hệ
+            <span className="ml-2 text-xs font-semibold text-slate-400 dark:text-slate-500 normal-case">({project.clientName})</span>
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {contacts.map(contact => (
+              <div key={contact.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                  <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+                    {contact.name.charAt(0)}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{contact.name}</p>
+                    {contact.isPrimary && (
+                      <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-full">
+                        Chính
+                      </span>
+                    )}
+                  </div>
+                  {contact.position && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{contact.position}</p>
+                  )}
+                  {contact.department && (
+                    <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{contact.department}</p>
+                  )}
+                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                    {contact.phone && (
+                      <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+                        <Phone size={11} /> {contact.phone}
+                      </a>
+                    )}
+                    {contact.email && (
+                      <a href={`mailto:${contact.email}`} className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+                        <Mail size={11} /> {contact.email}
+                      </a>
+                    )}
+                  </div>
+                  {contact.notes && (
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 italic truncate">{contact.notes}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
       </>

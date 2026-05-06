@@ -30,6 +30,7 @@ function toProject(row: any): BIMProject {
     constructionType: row.construction_type,
     constructionGrade: row.construction_grade,
     area: Number(row.area) || 0,
+    buildingArea: Number(row.building_area) || 0,
     projectPhase: row.project_phase,
     contractId: row.contract_id,
 
@@ -72,6 +73,7 @@ function toRow(project: Partial<BIMProject>): Record<string, any> {
   if (project.constructionType !== undefined) row.construction_type = project.constructionType;
   if (project.constructionGrade !== undefined) row.construction_grade = project.constructionGrade;
   if (project.area !== undefined) row.area = project.area;
+  if (project.buildingArea !== undefined) row.building_area = project.buildingArea;
   if (project.projectPhase !== undefined) row.project_phase = project.projectPhase;
   if (project.contractId !== undefined) row.contract_id = project.contractId;
 
