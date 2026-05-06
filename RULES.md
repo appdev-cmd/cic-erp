@@ -84,12 +84,41 @@ Mỗi khi chỉnh sửa liên quan đến giao diện frontend (bao gồm: sửa
 ✅ border-slate-200 dark:border-slate-800
 ```
 
+### 4.5 Sticky element PHẢI dùng nền đặc hoàn toàn
+Khi dùng `sticky` hoặc `fixed`, nền bán trong suốt sẽ lộ nội dung phía sau khi scroll.
+```
+❌ sticky top-0 dark:bg-slate-800/50   (lộ trắng khi scroll)
+✅ sticky top-0 dark:bg-slate-900      (hoàn toàn che khuất)
+```
+
+### 4.6 Badge màu vs Card/Panel — Quy tắc opacity khác nhau
+| Loại phần tử | Opacity cho phép | Ví dụ |
+|---|---|---|
+| **Badge / Tag / Pill** (nhỏ, trên nền đặc) | `/20` – `/30` OK | `dark:bg-indigo-900/20` |
+| **Card / Panel / Container** (vùng lớn) | Luôn full opacity | `dark:bg-slate-800` |
+| **Hover state** | `/50` – `/60` OK | `dark:hover:bg-indigo-900/50` |
+
+```
+✅ Badge:   dark:bg-amber-900/20   (màu nhạt trên nền tối — đúng)
+✅ Card:    dark:bg-slate-800       (nền đặc — đúng)
+❌ Card:    dark:bg-slate-800/60    (xuyên thấu — SAI)
+```
+
+### 4.7 Kế thừa pattern trước khi viết mới
+Trước khi thêm component/section mới, **đọc code xung quanh** để dùng đúng class pattern đang có:
+```
+✅ Xem component anh em cùng file → copy class pattern
+❌ Tự đặt class mới không theo pattern → sẽ không đồng bộ
+```
+
 ### Checklist khi viết component mới:
 - [ ] Mọi `bg-white` → `dark:bg-slate-900`
 - [ ] Mọi `bg-slate-50/100` → `dark:bg-slate-800`
 - [ ] Mọi `text-{color}-600/700` → `dark:text-{color}-400`
 - [ ] Mọi `text-slate-900` → `dark:text-slate-100`
-- [ ] Mọi `border-slate-200` → `dark:border-slate-800`
+- [ ] Mọi `border-slate-200` → `dark:border-slate-700` hoặc `dark:border-slate-800`
 - [ ] Mọi `hover:bg-*` → `dark:hover:bg-*`
-- [ ] KHÔNG dùng opacity < 1.0 cho `dark:bg-slate-*`
+- [ ] KHÔNG dùng opacity < 1.0 cho `dark:bg-slate-*` trong Card/Panel
+- [ ] Element có `sticky`/`fixed` → dùng nền full opacity (`dark:bg-slate-900`)
+- [ ] Badge nhỏ có thể dùng `/20`–`/30`; Card/Panel thì không
 
