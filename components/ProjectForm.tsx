@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Save, X, MapPin, Building2, Calendar, TrendingUp, FileText, Loader2,
-  FileSignature, Image, Clipboard, Upload, Plus, Trash2, Layers, Globe, FolderOpen,
+  FileSignature, Image, Clipboard, Upload, Plus, Trash2, Layers, Globe, FolderOpen, User,
 } from 'lucide-react';
 import DateInput from './ui/DateInput';
 import { ProjectService, ContractService, CustomerService } from '../services';
@@ -56,6 +56,12 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [clientName, setClientName] = useState(project?.clientName || '');
   const [endUserId, setEndUserId] = useState(project?.endUserId || '');
   const [endUserName, setEndUserName] = useState(project?.endUserName || '');
+
+  // Đầu mối dự án
+  const [contactName, setContactName] = useState(project?.contactName || '');
+  const [contactTitle, setContactTitle] = useState(project?.contactTitle || '');
+  const [contactPhone, setContactPhone] = useState(project?.contactPhone || '');
+  const [contactEmail, setContactEmail] = useState(project?.contactEmail || '');
   const [startDate, setStartDate] = useState(project?.startDate || '');
   const [endDate, setEndDate] = useState(project?.endDate || '');
   const [contractId, setContractId] = useState(project?.contractId || '');
@@ -206,6 +212,10 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         location: location.trim() || undefined,
         customerId: customerId || undefined, clientName: clientName.trim() || undefined,
         endUserId: endUserId || undefined, endUserName: endUserName.trim() || undefined,
+        contactName: contactName.trim() || undefined,
+        contactTitle: contactTitle.trim() || undefined,
+        contactPhone: contactPhone.trim() || undefined,
+        contactEmail: contactEmail.trim() || undefined,
         startDate: startDate || undefined, endDate: endDate || undefined,
         contractId: contractId || undefined,
         constructionType: constructionType.trim() || undefined,
@@ -460,6 +470,35 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                         addNewLabel="Thêm Đối tác"
                         size="md"
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Đầu mối dự án */}
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <User size={13} className="text-indigo-500" /> Đầu mối dự án
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelCls}>Họ tên</label>
+                      <input type="text" value={contactName} onChange={e => setContactName(e.target.value)}
+                        placeholder="VD: Nguyễn Văn A" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Chức vụ</label>
+                      <input type="text" value={contactTitle} onChange={e => setContactTitle(e.target.value)}
+                        placeholder="VD: Giám đốc dự án" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Số điện thoại</label>
+                      <input type="tel" value={contactPhone} onChange={e => setContactPhone(e.target.value)}
+                        placeholder="VD: 0901 234 567" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Email</label>
+                      <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)}
+                        placeholder="VD: contact@company.com" className={inputCls} />
                     </div>
                   </div>
                 </div>
