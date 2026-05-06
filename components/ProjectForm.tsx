@@ -378,23 +378,6 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                   </div>
                 </div>
 
-                {/* Thời gian */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Calendar size={13} className="text-indigo-500" /> Thời gian thực hiện
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelCls}>Ngày bắt đầu</label>
-                      <DateInput value={startDate} onChange={setStartDate} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Ngày kết thúc</label>
-                      <DateInput value={endDate} onChange={setEndDate} className={inputCls} />
-                    </div>
-                  </div>
-                </div>
-
                 {/* Quy mô dự án */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -495,6 +478,30 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                       id: c.id, name: `${c.code} — ${c.title}`, subText: c.customerName || undefined,
                     }))}
                   />
+                </div>
+
+                {/* Thời gian thực hiện */}
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                      <Calendar size={13} className="text-indigo-500" /> Thời gian thực hiện
+                    </h3>
+                    {contractId && (startDate || endDate) && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold border border-indigo-200 dark:border-indigo-800">
+                        <FileSignature size={10} /> Liên kết từ hợp đồng
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelCls}>Ngày bắt đầu</label>
+                      <DateInput value={startDate} onChange={setStartDate} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Ngày kết thúc</label>
+                      <DateInput value={endDate} onChange={setEndDate} className={inputCls} />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Giá trị & Tiến độ */}
