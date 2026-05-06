@@ -425,152 +425,162 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
 
         {/* ── Tab Content ───────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950">
-          <div className="p-6 space-y-4 max-w-4xl">
+          <div className="p-5 space-y-4">
 
             {/* TAB 1: Thông tin chung */}
             {activeTab === 'general' && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                {/* Địa điểm & Đối tác */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <MapPin size={13} className="text-indigo-500" /> Địa điểm & Đối tác
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <label className={labelCls}>Địa điểm</label>
-                      <input type="text" value={location} onChange={e => setLocation(e.target.value)}
-                        placeholder="VD: Phường Điện Biên Phủ, TP. Hồ Chí Minh" className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>
-                        <Building2 size={11} className="inline mr-1" />Chủ đầu tư
-                      </label>
-                      <SearchableSelect
-                        value={customerId || null}
-                        onChange={(id, option) => { setCustomerId(id || ''); setClientName(option?.name || ''); }}
-                        onSearch={handleSearchCustomers}
-                        placeholder="Gõ tên để tìm..."
-                        getDisplayValue={getCustomerDisplay}
-                        onAddNew={() => { setCustomerFormType('investor'); setShowCustomerForm(true); }}
-                        addNewLabel="Thêm Đối tác"
-                        size="md"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelCls}>
-                        <Building2 size={11} className="inline mr-1" />Khách hàng
-                      </label>
-                      <SearchableSelect
-                        value={endUserId || null}
-                        onChange={(id, option) => { setEndUserId(id || ''); setEndUserName(option?.name || ''); }}
-                        onSearch={handleSearchCustomers}
-                        placeholder="Gõ tên để tìm..."
-                        getDisplayValue={getEndUserDisplay}
-                        onAddNew={() => { setCustomerFormType('client'); setShowCustomerForm(true); }}
-                        addNewLabel="Thêm Đối tác"
-                        size="md"
-                      />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in duration-200">
+
+                {/* Cột trái: Địa điểm & Đầu mối */}
+                <div className="space-y-4">
+                  {/* Địa điểm & Đối tác */}
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <MapPin size={13} className="text-indigo-500" /> Địa điểm & Đối tác
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className={labelCls}>Địa điểm</label>
+                        <input type="text" value={location} onChange={e => setLocation(e.target.value)}
+                          placeholder="VD: Phường Điện Biên Phủ, TP. Hồ Chí Minh" className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>
+                          <Building2 size={11} className="inline mr-1" />Chủ đầu tư
+                        </label>
+                        <SearchableSelect
+                          value={customerId || null}
+                          onChange={(id, option) => { setCustomerId(id || ''); setClientName(option?.name || ''); }}
+                          onSearch={handleSearchCustomers}
+                          placeholder="Gõ tên để tìm..."
+                          getDisplayValue={getCustomerDisplay}
+                          onAddNew={() => { setCustomerFormType('investor'); setShowCustomerForm(true); }}
+                          addNewLabel="Thêm Đối tác"
+                          size="md"
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>
+                          <Building2 size={11} className="inline mr-1" />Khách hàng
+                        </label>
+                        <SearchableSelect
+                          value={endUserId || null}
+                          onChange={(id, option) => { setEndUserId(id || ''); setEndUserName(option?.name || ''); }}
+                          onSearch={handleSearchCustomers}
+                          placeholder="Gõ tên để tìm..."
+                          getDisplayValue={getEndUserDisplay}
+                          onAddNew={() => { setCustomerFormType('client'); setShowCustomerForm(true); }}
+                          addNewLabel="Thêm Đối tác"
+                          size="md"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Đầu mối dự án */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <User size={13} className="text-indigo-500" /> Đầu mối dự án
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelCls}>Họ tên</label>
-                      <input type="text" value={contactName} onChange={e => setContactName(e.target.value)}
-                        placeholder="VD: Nguyễn Văn A" className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Chức vụ</label>
-                      <input type="text" value={contactTitle} onChange={e => setContactTitle(e.target.value)}
-                        placeholder="VD: Giám đốc dự án" className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Số điện thoại</label>
-                      <input type="tel" value={contactPhone} onChange={e => setContactPhone(e.target.value)}
-                        placeholder="VD: 0901 234 567" className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Email</label>
-                      <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)}
-                        placeholder="VD: contact@company.com" className={inputCls} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quy mô dự án */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Layers size={13} className="text-indigo-500" /> Quy mô dự án
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelCls}>Loại công trình</label>
-                      <select value={constructionType} onChange={e => setConstructionType(e.target.value)} className={inputCls}>
-                        <option value="">-- Chọn loại --</option>
-                        <option value="Dân dụng">Dân dụng</option>
-                        <option value="Công nghiệp">Công nghiệp</option>
-                        <option value="Hạ tầng">Hạ tầng</option>
-                        <option value="Nông nghiệp">Nông nghiệp</option>
-                        <option value="Quốc phòng">Quốc phòng</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Cấp công trình</label>
-                      <select value={constructionGrade} onChange={e => setConstructionGrade(e.target.value)} className={inputCls}>
-                        <option value="">-- Chọn cấp --</option>
-                        <option value="Cấp đặc biệt">Cấp đặc biệt</option>
-                        <option value="Cấp I">Cấp I</option>
-                        <option value="Cấp II">Cấp II</option>
-                        <option value="Cấp III">Cấp III</option>
-                        <option value="Cấp IV">Cấp IV</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Diện tích sàn (m²)</label>
-                      <input type="number" value={area || ''} onChange={e => setArea(Number(e.target.value) || 0)}
-                        placeholder="VD: 38500" min={0} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Diện tích xây dựng (m²)</label>
-                      <input type="number" value={buildingArea || ''} onChange={e => setBuildingArea(Number(e.target.value) || 0)}
-                        placeholder="VD: 12000" min={0} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Giai đoạn thực hiện</label>
-                      <input type="text" value={projectPhase} onChange={e => setProjectPhase(e.target.value)}
-                        placeholder="VD: Thiết kế cơ sở, Thiết kế kỹ thuật..." className={inputCls} />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className={labelCls}>Nhóm dự án</label>
-                      <div className="flex gap-3">
-                        {['A', 'B'].map(group => (
-                          <button key={group} type="button"
-                            onClick={() => setProjectGroup(projectGroup === group ? '' : group)}
-                            className={`flex-1 py-2.5 text-sm font-black rounded-lg border transition-all ${
-                              projectGroup === group
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                                : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700'
-                            }`}
-                          >
-                            Nhóm {group}
-                          </button>
-                        ))}
+                  {/* Đầu mối dự án */}
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <User size={13} className="text-indigo-500" /> Đầu mối dự án
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelCls}>Họ tên</label>
+                        <input type="text" value={contactName} onChange={e => setContactName(e.target.value)}
+                          placeholder="VD: Nguyễn Văn A" className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Chức vụ</label>
+                        <input type="text" value={contactTitle} onChange={e => setContactTitle(e.target.value)}
+                          placeholder="VD: Giám đốc dự án" className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Số điện thoại</label>
+                        <input type="tel" value={contactPhone} onChange={e => setContactPhone(e.target.value)}
+                          placeholder="VD: 0901 234 567" className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Email</label>
+                        <input type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)}
+                          placeholder="VD: contact@company.com" className={inputCls} />
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Cột phải: Quy mô dự án */}
+                <div>
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 h-full">
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <Layers size={13} className="text-indigo-500" /> Quy mô dự án
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className={labelCls}>Loại công trình</label>
+                        <select value={constructionType} onChange={e => setConstructionType(e.target.value)} className={inputCls}>
+                          <option value="">-- Chọn loại --</option>
+                          <option value="Dân dụng">Dân dụng</option>
+                          <option value="Công nghiệp">Công nghiệp</option>
+                          <option value="Hạ tầng">Hạ tầng</option>
+                          <option value="Nông nghiệp">Nông nghiệp</option>
+                          <option value="Quốc phòng">Quốc phòng</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Cấp công trình</label>
+                        <select value={constructionGrade} onChange={e => setConstructionGrade(e.target.value)} className={inputCls}>
+                          <option value="">-- Chọn cấp --</option>
+                          <option value="Cấp đặc biệt">Cấp đặc biệt</option>
+                          <option value="Cấp I">Cấp I</option>
+                          <option value="Cấp II">Cấp II</option>
+                          <option value="Cấp III">Cấp III</option>
+                          <option value="Cấp IV">Cấp IV</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Diện tích sàn (m²)</label>
+                        <input type="number" value={area || ''} onChange={e => setArea(Number(e.target.value) || 0)}
+                          placeholder="VD: 38500" min={0} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Diện tích XD (m²)</label>
+                        <input type="number" value={buildingArea || ''} onChange={e => setBuildingArea(Number(e.target.value) || 0)}
+                          placeholder="VD: 12000" min={0} className={inputCls} />
+                      </div>
+                      <div className="col-span-2">
+                        <label className={labelCls}>Giai đoạn thực hiện</label>
+                        <input type="text" value={projectPhase} onChange={e => setProjectPhase(e.target.value)}
+                          placeholder="VD: Thiết kế cơ sở, Thiết kế kỹ thuật..." className={inputCls} />
+                      </div>
+                      <div className="col-span-2">
+                        <label className={labelCls}>Nhóm dự án</label>
+                        <div className="flex gap-3">
+                          {['A', 'B'].map(group => (
+                            <button key={group} type="button"
+                              onClick={() => setProjectGroup(projectGroup === group ? '' : group)}
+                              className={`flex-1 py-2.5 text-sm font-black rounded-lg border transition-all ${
+                                projectGroup === group
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                                  : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700'
+                              }`}
+                            >
+                              Nhóm {group}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             )}
 
             {/* TAB 2: Tài chính */}
             {activeTab === 'finance' && (
-              <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in duration-200">
+
+                {/* Cột trái: HĐ liên kết + Thời gian */}
+                <div className="space-y-4">
                 {/* Hợp đồng liên kết */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -612,7 +622,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className={labelCls}>Ngày bắt đầu</label>
                       <DateInput value={startDate} onChange={setStartDate} className={inputCls} />
@@ -623,13 +633,16 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                     </div>
                   </div>
                 </div>
+                </div>{/* end cột trái */}
 
+                {/* Cột phải: Giá trị & Tiến độ + KPI */}
+                <div className="space-y-4">
                 {/* Giá trị & Tiến độ */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <TrendingUp size={13} className="text-indigo-500" /> Giá trị & Tiến độ
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-5">
                     <div>
                       <label className={labelCls}>Giá trị hợp đồng (VNĐ)</label>
                       <input
@@ -678,9 +691,9 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                   </div>
                 </div>
 
-                {/* Value display card */}
+                {/* KPI cards */}
                 {contractValue > 0 && (
-                  <div className="mt-4 grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     {[
                       { label: 'Giá trị HĐ', value: (contractValue / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' Tr', color: 'text-indigo-600 dark:text-indigo-400' },
                       { label: 'Đã thực hiện', value: ((contractValue * progress / 100) / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' Tr', color: 'text-emerald-600 dark:text-emerald-400' },
@@ -693,13 +706,15 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                     ))}
                   </div>
                 )}
+                </div>{/* end cột phải */}
+
               </div>
             )}
 
             {/* TAB 3: Tài liệu */}
             {activeTab === 'documents' && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                {/* Thumbnail */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in duration-200">
+                {/* Cột trái: Thumbnail */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <Image size={13} className="text-indigo-500" /> Ảnh đại diện
@@ -753,122 +768,128 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                   </div>
                 </div>
 
-                {/* Folder links */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <FolderOpen size={13} className="text-indigo-500" /> Link lưu trữ hồ sơ
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className={labelCls}>Folder tiền dự án (Potential)</label>
-                      <input type="url" value={folderPotentialUrl} onChange={e => setFolderPotentialUrl(e.target.value)}
-                        placeholder="https://drive.google.com/..." className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Folder triển khai (Ongoing)</label>
-                      <input type="url" value={folderOngoingUrl} onChange={e => setFolderOngoingUrl(e.target.value)}
-                        placeholder="https://drive.google.com/..." className={inputCls} />
+                {/* Cột phải: Folder links + Ghi chú */}
+                <div className="space-y-4">
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <FolderOpen size={13} className="text-indigo-500" /> Link lưu trữ hồ sơ
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className={labelCls}>Folder tiền dự án (Potential)</label>
+                        <input type="url" value={folderPotentialUrl} onChange={e => setFolderPotentialUrl(e.target.value)}
+                          placeholder="https://drive.google.com/..." className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Folder triển khai (Ongoing)</label>
+                        <input type="url" value={folderOngoingUrl} onChange={e => setFolderOngoingUrl(e.target.value)}
+                          placeholder="https://drive.google.com/..." className={inputCls} />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Notes */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <FileText size={13} className="text-indigo-500" /> Ghi chú
-                  </h3>
-                  <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                    placeholder="Ghi chú thêm về dự án..." rows={4}
-                    className={inputCls + ' resize-none'} />
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <FileText size={13} className="text-indigo-500" /> Ghi chú
+                    </h3>
+                    <textarea value={notes} onChange={e => setNotes(e.target.value)}
+                      placeholder="Ghi chú thêm về dự án..." rows={6}
+                      className={inputCls + ' resize-none'} />
+                  </div>
                 </div>
               </div>
             )}
 
             {/* TAB 4: Website */}
             {activeTab === 'website' && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                {/* Publish settings */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Globe size={13} className="text-indigo-500" /> Cài đặt xuất bản
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelCls}>Đường dẫn tĩnh (Slug)</label>
-                      <input type="text" value={slug} onChange={e => setSlug(e.target.value)}
-                        placeholder="VD: chung-cu-cao-cap-abc" className={inputCls} />
-                    </div>
-                    <div className="flex items-end gap-6 pb-1">
-                      <label className="flex items-center gap-2.5 cursor-pointer group">
-                        <div className={`relative w-10 h-5.5 rounded-full transition-colors ${isPublishedWeb ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}`}
-                          onClick={() => setIsPublishedWeb(!isPublishedWeb)}>
-                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isPublishedWeb ? 'translate-x-4.5' : ''}`} />
-                        </div>
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Hiển thị Web</span>
-                      </label>
-                      <label className="flex items-center gap-2.5 cursor-pointer group">
-                        <div className={`relative w-10 h-5.5 rounded-full transition-colors ${isFeaturedWeb ? 'bg-orange-500' : 'bg-slate-300 dark:bg-slate-700'}`}
-                          onClick={() => setIsFeaturedWeb(!isFeaturedWeb)}>
-                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isFeaturedWeb ? 'translate-x-4.5' : ''}`} />
-                        </div>
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tiêu biểu</span>
-                      </label>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Lĩnh vực (Web Category)</label>
-                      <input type="text" value={webCategory} onChange={e => setWebCategory(e.target.value)}
-                        placeholder="VD: Cầu đường, Toà nhà thương mại..." className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Khách hàng hiển thị Web</label>
-                      <input type="text" value={webClientName} onChange={e => setWebClientName(e.target.value)}
-                        placeholder="VD: Tập đoàn Vingroup" className={inputCls} />
-                    </div>
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in duration-200">
 
-                {/* Stats */}
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <TrendingUp size={13} className="text-indigo-500" /> Chỉ số dự án (Project Stats)
-                  </h3>
-                  <div className="space-y-2">
-                    {webStats.map((stat, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-400 dark:text-slate-500 w-5 text-center">{idx + 1}</span>
-                        <input type="text" value={stat.label}
-                          onChange={e => { const s = [...webStats]; s[idx].label = e.target.value; setWebStats(s); }}
-                          placeholder="Nhãn (VD: Diện tích)" className={inputCls} />
-                        <input type="text" value={stat.value}
-                          onChange={e => { const s = [...webStats]; s[idx].value = e.target.value; setWebStats(s); }}
-                          placeholder="Giá trị (VD: 15,000 m²)" className={inputCls} />
-                        <button type="button" onClick={() => setWebStats(webStats.filter((_, i) => i !== idx))}
-                          className="p-2 text-rose-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all shrink-0">
-                          <Trash2 size={15} />
-                        </button>
+                {/* Cột trái: Cài đặt xuất bản + Stats */}
+                <div className="space-y-4">
+                  {/* Publish settings */}
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <Globe size={13} className="text-indigo-500" /> Cài đặt xuất bản
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className={labelCls}>Đường dẫn tĩnh (Slug)</label>
+                        <input type="text" value={slug} onChange={e => setSlug(e.target.value)}
+                          placeholder="VD: chung-cu-cao-cap-abc" className={inputCls} />
                       </div>
-                    ))}
-                    <button type="button" onClick={() => setWebStats([...webStats, { label: '', value: '' }])}
-                      className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 mt-1 transition-colors">
-                      <Plus size={13} /> Thêm chỉ số
-                    </button>
+                      <div className="flex items-center gap-6 pt-1">
+                        <label className="flex items-center gap-2.5 cursor-pointer group">
+                          <div className={`relative w-10 h-5.5 rounded-full transition-colors ${isPublishedWeb ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+                            onClick={() => setIsPublishedWeb(!isPublishedWeb)}>
+                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isPublishedWeb ? 'translate-x-4.5' : ''}`} />
+                          </div>
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Hiển thị Web</span>
+                        </label>
+                        <label className="flex items-center gap-2.5 cursor-pointer group">
+                          <div className={`relative w-10 h-5.5 rounded-full transition-colors ${isFeaturedWeb ? 'bg-orange-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                            onClick={() => setIsFeaturedWeb(!isFeaturedWeb)}>
+                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isFeaturedWeb ? 'translate-x-4.5' : ''}`} />
+                          </div>
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Tiêu biểu</span>
+                        </label>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Lĩnh vực (Web Category)</label>
+                        <input type="text" value={webCategory} onChange={e => setWebCategory(e.target.value)}
+                          placeholder="VD: Cầu đường, Toà nhà thương mại..." className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Khách hàng hiển thị Web</label>
+                        <input type="text" value={webClientName} onChange={e => setWebClientName(e.target.value)}
+                          placeholder="VD: Tập đoàn Vingroup" className={inputCls} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <TrendingUp size={13} className="text-indigo-500" /> Chỉ số dự án (Project Stats)
+                    </h3>
+                    <div className="space-y-2">
+                      {webStats.map((stat, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-400 dark:text-slate-500 w-5 text-center">{idx + 1}</span>
+                          <input type="text" value={stat.label}
+                            onChange={e => { const s = [...webStats]; s[idx].label = e.target.value; setWebStats(s); }}
+                            placeholder="Nhãn (VD: Diện tích)" className={inputCls} />
+                          <input type="text" value={stat.value}
+                            onChange={e => { const s = [...webStats]; s[idx].value = e.target.value; setWebStats(s); }}
+                            placeholder="Giá trị (VD: 15,000 m²)" className={inputCls} />
+                          <button type="button" onClick={() => setWebStats(webStats.filter((_, i) => i !== idx))}
+                            className="p-2 text-rose-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all shrink-0">
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => setWebStats([...webStats, { label: '', value: '' }])}
+                        className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 mt-1 transition-colors">
+                        <Plus size={13} /> Thêm chỉ số
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* SEO & Description */}
+                {/* Cột phải: Nội dung & SEO */}
                 <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 space-y-4">
                   <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
                     <FileText size={13} className="text-indigo-500" /> Nội dung & SEO
                   </h3>
                   <div>
                     <label className={labelCls}>Tóm tắt ngắn (Summary)</label>
-                    <textarea value={summary} onChange={e => setSummary(e.target.value)} rows={2}
+                    <textarea value={summary} onChange={e => setSummary(e.target.value)} rows={3}
                       placeholder="Mô tả tóm tắt hiển thị trên danh sách..." className={inputCls + ' resize-none'} />
                   </div>
                   <div>
                     <RichTextEditor label="Mô tả chi tiết" value={description} onChange={setDescription} minHeight="200px" />
                   </div>
                 </div>
+
               </div>
             )}
 
