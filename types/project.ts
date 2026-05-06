@@ -41,6 +41,12 @@ export interface BIMProject {
   projectPhase?: string;       // Giai đoạn dự án
   contractId?: string;         // ID hợp đồng gắn với dự án
 
+  // Đầu mối liên hệ dự án
+  contactName?: string;
+  contactTitle?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+
   // Web Integration fields
   isPublishedWeb?: boolean;
   isFeaturedWeb?: boolean;

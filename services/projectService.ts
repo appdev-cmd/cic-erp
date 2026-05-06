@@ -33,6 +33,10 @@ function toProject(row: any): BIMProject {
     buildingArea: Number(row.building_area) || 0,
     projectPhase: row.project_phase,
     contractId: row.contract_id,
+    contactName: row.contact_name,
+    contactTitle: row.contact_title,
+    contactPhone: row.contact_phone,
+    contactEmail: row.contact_email,
 
     // Web Integration
     isPublishedWeb: row.is_published_web,
@@ -76,6 +80,10 @@ function toRow(project: Partial<BIMProject>): Record<string, any> {
   if (project.buildingArea !== undefined) row.building_area = project.buildingArea;
   if (project.projectPhase !== undefined) row.project_phase = project.projectPhase;
   if (project.contractId !== undefined) row.contract_id = project.contractId;
+  if (project.contactName !== undefined) row.contact_name = project.contactName;
+  if (project.contactTitle !== undefined) row.contact_title = project.contactTitle;
+  if (project.contactPhone !== undefined) row.contact_phone = project.contactPhone;
+  if (project.contactEmail !== undefined) row.contact_email = project.contactEmail;
 
   if (project.isPublishedWeb !== undefined) row.is_published_web = project.isPublishedWeb;
   if (project.isFeaturedWeb !== undefined) row.is_featured_web = project.isFeaturedWeb;
