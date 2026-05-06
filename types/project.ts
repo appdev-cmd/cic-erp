@@ -2,16 +2,14 @@
 // DỰ ÁN TƯ VẤN BIM (BIM Consulting Projects)
 // ============================================
 
-export type BIMProjectStatus = '10_XUCTIEN' | '20_BAOGIA' | '30_CHUANBI' | '40_TRINHTHAMDINH' | '50_HOTROQLDA' | '60_THANHQUYETTOAN' | '70_LUUTRU';
+export type BIMProjectStatus = 'new' | 'active' | 'paused' | 'done' | 'cancelled';
 
 export const BIM_PROJECT_STATUS_LABELS: Record<BIMProjectStatus, string> = {
-  '10_XUCTIEN': 'Xúc tiến dự án',
-  '20_BAOGIA': 'Báo giá',
-  '30_CHUANBI': 'Chuẩn bị',
-  '40_TRINHTHAMDINH': 'Trình thẩm định',
-  '50_HOTROQLDA': 'Hỗ trợ QLDA',
-  '60_THANHQUYETTOAN': 'Thanh quyết toán',
-  '70_LUUTRU': 'Lưu trữ',
+  'new':       'Mới',
+  'active':    'Đang triển khai',
+  'paused':    'Tạm dừng',
+  'done':      'Hoàn thành',
+  'cancelled': 'Hủy',
 };
 
 export interface BIMProject {

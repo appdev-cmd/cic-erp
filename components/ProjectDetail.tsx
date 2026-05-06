@@ -23,13 +23,11 @@ interface ProjectDetailProps {
 
 // ── Status Colors ───────────────────────────────────────────────────────
 const STATUS_COLORS: Record<BIMProjectStatus, { bg: string; text: string; dot: string; border: string }> = {
-  '10_XUCTIEN': { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-400', dot: 'bg-amber-500', border: 'border-amber-200 dark:border-amber-800' },
-  '20_BAOGIA': { bg: 'bg-cyan-50 dark:bg-cyan-900/20', text: 'text-cyan-700 dark:text-cyan-400', dot: 'bg-cyan-500', border: 'border-cyan-200 dark:border-cyan-800' },
-  '30_CHUANBI': { bg: 'bg-orange-50 dark:bg-orange-900/20', text: 'text-orange-700 dark:text-orange-400', dot: 'bg-orange-500', border: 'border-orange-200 dark:border-orange-800' },
-  '40_TRINHTHAMDINH': { bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-700 dark:text-blue-400', dot: 'bg-blue-500', border: 'border-blue-200 dark:border-blue-800' },
-  '50_HOTROQLDA': { bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-400', dot: 'bg-purple-500', border: 'border-purple-200 dark:border-purple-800' },
-  '60_THANHQUYETTOAN': { bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-400', dot: 'bg-emerald-500', border: 'border-emerald-200 dark:border-emerald-800' },
-  '70_LUUTRU': { bg: 'bg-teal-50 dark:bg-teal-900/20', text: 'text-teal-700 dark:text-teal-400', dot: 'bg-teal-500', border: 'border-teal-200 dark:border-teal-800' },
+  'new':       { bg: 'bg-slate-50 dark:bg-slate-800',      text: 'text-slate-700 dark:text-slate-300',     dot: 'bg-slate-400',    border: 'border-slate-300 dark:border-slate-600' },
+  'active':    { bg: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-700 dark:text-indigo-400',   dot: 'bg-indigo-500',   border: 'border-indigo-300 dark:border-indigo-700' },
+  'paused':    { bg: 'bg-amber-50 dark:bg-amber-900/20',   text: 'text-amber-700 dark:text-amber-400',     dot: 'bg-amber-500',    border: 'border-amber-300 dark:border-amber-700' },
+  'done':      { bg: 'bg-emerald-50 dark:bg-emerald-900/20',text:'text-emerald-700 dark:text-emerald-400', dot: 'bg-emerald-500',  border: 'border-emerald-300 dark:border-emerald-700' },
+  'cancelled': { bg: 'bg-rose-50 dark:bg-rose-900/20',     text: 'text-rose-700 dark:text-rose-400',       dot: 'bg-rose-500',     border: 'border-rose-300 dark:border-rose-700' },
 };
 
 const PLACEHOLDER_IMAGES = [
@@ -175,11 +173,11 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
     );
   }
 
-  const statusCfg = STATUS_COLORS[project.status] || STATUS_COLORS['30_CHUANBI'];
+  const statusCfg = STATUS_COLORS[project.status] || STATUS_COLORS['new'];
   const thumbnail = project.thumbnailUrl || PLACEHOLDER_IMAGES[0];
 
   // Progress bar status mapping — show which stages are completed
-  const allStatuses: BIMProjectStatus[] = ['10_XUCTIEN', '20_BAOGIA', '30_CHUANBI', '40_TRINHTHAMDINH', '50_HOTROQLDA', '60_THANHQUYETTOAN', '70_LUUTRU'];
+  const allStatuses: BIMProjectStatus[] = ['new', 'active', 'paused', 'done', 'cancelled'];
   const currentIdx = allStatuses.indexOf(project.status);
 
   return (

@@ -13,41 +13,11 @@ interface ProjectListProps {
 
 // ── Status Colors & Config ──────────────────────────────────────────────
 const STATUS_CONFIG: Record<BIMProjectStatus, { bg: string; text: string; dot: string }> = {
-  '10_XUCTIEN': {
-    bg: 'bg-amber-100 dark:bg-amber-900/30',
-    text: 'text-amber-700 dark:text-amber-400',
-    dot: 'bg-amber-500',
-  },
-  '20_BAOGIA': {
-    bg: 'bg-cyan-100 dark:bg-cyan-900/30',
-    text: 'text-cyan-700 dark:text-cyan-400',
-    dot: 'bg-cyan-500',
-  },
-  '30_CHUANBI': {
-    bg: 'bg-orange-100 dark:bg-orange-900/30',
-    text: 'text-orange-700 dark:text-orange-400',
-    dot: 'bg-orange-500',
-  },
-  '40_TRINHTHAMDINH': {
-    bg: 'bg-blue-100 dark:bg-blue-900/30',
-    text: 'text-blue-700 dark:text-blue-400',
-    dot: 'bg-blue-500',
-  },
-  '50_HOTROQLDA': {
-    bg: 'bg-purple-100 dark:bg-purple-900/30',
-    text: 'text-purple-700 dark:text-purple-400',
-    dot: 'bg-purple-500',
-  },
-  '60_THANHQUYETTOAN': {
-    bg: 'bg-emerald-100 dark:bg-emerald-900/30',
-    text: 'text-emerald-700 dark:text-emerald-400',
-    dot: 'bg-emerald-500',
-  },
-  '70_LUUTRU': {
-    bg: 'bg-teal-100 dark:bg-teal-900/30',
-    text: 'text-teal-700 dark:text-teal-400',
-    dot: 'bg-teal-500',
-  },
+  'new':       { bg: 'bg-slate-100 dark:bg-slate-800',       text: 'text-slate-700 dark:text-slate-300',    dot: 'bg-slate-400' },
+  'active':    { bg: 'bg-indigo-100 dark:bg-indigo-900/30',  text: 'text-indigo-700 dark:text-indigo-400',  dot: 'bg-indigo-500' },
+  'paused':    { bg: 'bg-amber-100 dark:bg-amber-900/30',    text: 'text-amber-700 dark:text-amber-400',    dot: 'bg-amber-500' },
+  'done':      { bg: 'bg-emerald-100 dark:bg-emerald-900/30',text: 'text-emerald-700 dark:text-emerald-400',dot: 'bg-emerald-500' },
+  'cancelled': { bg: 'bg-rose-100 dark:bg-rose-900/30',      text: 'text-rose-700 dark:text-rose-400',      dot: 'bg-rose-500' },
 };
 
 const ALL_STATUSES = Object.keys(BIM_PROJECT_STATUS_LABELS) as BIMProjectStatus[];
@@ -100,7 +70,7 @@ const ProgressBar: React.FC<{ label: string; value: number; color: string }> = (
 
 // ── Project Card Component ──────────────────────────────────────────────
 const ProjectCard: React.FC<{ project: BIMProject; index: number; onClick: () => void; onToggleWeb: (e: React.MouseEvent, p: BIMProject) => void; onToggleFeatured: (e: React.MouseEvent, p: BIMProject) => void }> = ({ project, index, onClick, onToggleWeb, onToggleFeatured }) => {
-  const statusCfg = STATUS_CONFIG[project.status] || STATUS_CONFIG['30_CHUANBI'];
+  const statusCfg = STATUS_CONFIG[project.status] || STATUS_CONFIG['new'];
   const thumbnail = project.thumbnailUrl || getPlaceholder(index);
 
   return (
@@ -491,7 +461,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 bg-white dark:bg-slate-900">
                 {filteredProjects.map((p, idx) => {
-                  const cfg = STATUS_CONFIG[p.status] || STATUS_CONFIG['30_CHUANBI'];
+                  const cfg = STATUS_CONFIG[p.status] || STATUS_CONFIG['new'];
                   const tp = calcTimeProgress(p.startDate, p.endDate);
                   const isDelayed = tp !== null && tp > p.progress;
                   return (

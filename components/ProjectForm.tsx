@@ -19,17 +19,17 @@ interface ProjectFormProps {
   onCancel: () => void;
 }
 
-const ALL_STATUSES: BIMProjectStatus[] = ['10_XUCTIEN', '20_BAOGIA', '30_CHUANBI', '40_TRINHTHAMDINH', '50_HOTROQLDA', '60_THANHQUYETTOAN', '70_LUUTRU'];
+const ALL_STATUSES: BIMProjectStatus[] = ['new', 'active', 'paused', 'done', 'cancelled'];
 
 const STATUS_COLORS: Record<BIMProjectStatus, { bg: string; text: string; border: string; dot: string }> = {
-  '10_XUCTIEN':        { bg: 'bg-amber-50 dark:bg-amber-900/20',    text: 'text-amber-700 dark:text-amber-400',    border: 'border-amber-200 dark:border-amber-700',    dot: 'bg-amber-500' },
-  '20_BAOGIA':         { bg: 'bg-cyan-50 dark:bg-cyan-900/20',      text: 'text-cyan-700 dark:text-cyan-400',      border: 'border-cyan-200 dark:border-cyan-700',      dot: 'bg-cyan-500' },
-  '30_CHUANBI':        { bg: 'bg-orange-50 dark:bg-orange-900/20',  text: 'text-orange-700 dark:text-orange-400',  border: 'border-orange-200 dark:border-orange-700',  dot: 'bg-orange-500' },
-  '40_TRINHTHAMDINH':  { bg: 'bg-blue-50 dark:bg-blue-900/20',      text: 'text-blue-700 dark:text-blue-400',      border: 'border-blue-200 dark:border-blue-700',      dot: 'bg-blue-500' },
-  '50_HOTROQLDA':      { bg: 'bg-purple-50 dark:bg-purple-900/20',  text: 'text-purple-700 dark:text-purple-400',  border: 'border-purple-200 dark:border-purple-700',  dot: 'bg-purple-500' },
-  '60_THANHQUYETTOAN': { bg: 'bg-emerald-50 dark:bg-emerald-900/20',text: 'text-emerald-700 dark:text-emerald-400',border: 'border-emerald-200 dark:border-emerald-700',dot: 'bg-emerald-500' },
-  '70_LUUTRU':         { bg: 'bg-teal-50 dark:bg-teal-900/20',      text: 'text-teal-700 dark:text-teal-400',      border: 'border-teal-200 dark:border-teal-700',      dot: 'bg-teal-500' },
+  'new':       { bg: 'bg-slate-50 dark:bg-slate-800',     text: 'text-slate-700 dark:text-slate-300',    border: 'border-slate-300 dark:border-slate-600',   dot: 'bg-slate-400' },
+  'active':    { bg: 'bg-indigo-50 dark:bg-indigo-900/20',text: 'text-indigo-700 dark:text-indigo-400',  border: 'border-indigo-300 dark:border-indigo-700', dot: 'bg-indigo-500' },
+  'paused':    { bg: 'bg-amber-50 dark:bg-amber-900/20',  text: 'text-amber-700 dark:text-amber-400',    border: 'border-amber-300 dark:border-amber-700',   dot: 'bg-amber-500' },
+  'done':      { bg: 'bg-emerald-50 dark:bg-emerald-900/20',text:'text-emerald-700 dark:text-emerald-400',border:'border-emerald-300 dark:border-emerald-700',dot: 'bg-emerald-500' },
+  'cancelled': { bg: 'bg-rose-50 dark:bg-rose-900/20',   text: 'text-rose-700 dark:text-rose-400',      border: 'border-rose-300 dark:border-rose-700',     dot: 'bg-rose-500' },
 };
+
+const PREDEFINED_SERVICE_TYPES = ['Tư vấn BIM', 'Tư vấn Thẩm tra BIM', 'Tư vấn Đào tạo BIM'];
 
 type TabKey = 'general' | 'finance' | 'documents' | 'website';
 
@@ -48,7 +48,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   // ── Core identity (always visible) ─────────────────────────
   const [code, setCode] = useState(project?.code || '');
   const [name, setName] = useState(project?.name || '');
-  const [status, setStatus] = useState<BIMProjectStatus>(project?.status || '10_XUCTIEN');
+  const [status, setStatus] = useState<BIMProjectStatus>(project?.status || 'new');
 
   // ── Tab: Thông tin chung ────────────────────────────────────
   const [location, setLocation] = useState(project?.location || '');
@@ -66,7 +66,13 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [area, setArea] = useState(project?.area || 0);
   const [buildingArea, setBuildingArea] = useState(project?.buildingArea || 0);
   const [projectPhase, setProjectPhase] = useState(project?.projectPhase || '');
-  const [serviceType, setServiceType] = useState(project?.serviceType || '');
+  // serviceType lưu dạng mảng trong UI, serialize thành chuỗi phân cách "|" khi lưu DB
+  const [serviceTypes, setServiceTypes] = useState<string[]>(() => {
+    const raw = project?.serviceType || '';
+    return raw ? raw.split('|').map(s => s.trim()).filter(Boolean) : [];
+  });
+  const [customServiceInput, setCustomServiceInput] = useState('');
+  const [showCustomServiceInput, setShowCustomServiceInput] = useState(false);
   const [projectGroup, setProjectGroup] = useState(project?.projectGroup || '');
 
   // ── Tab: Tài chính ──────────────────────────────────────────
@@ -206,7 +212,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
         constructionGrade: constructionGrade.trim() || undefined,
         area: area || undefined, buildingArea: buildingArea || undefined,
         projectPhase: projectPhase.trim() || undefined,
-        serviceType: serviceType.trim() || undefined,
+        serviceType: serviceTypes.length > 0 ? serviceTypes.join(' | ') : undefined,
         projectGroup: projectGroup.trim() || undefined,
         contractValue, progress,
         thumbnailUrl: thumbnailUrl.trim() || undefined,
@@ -277,26 +283,106 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
             </div>
           </div>
 
-          {/* Status row */}
-          <div className="mt-3">
-            <label className={labelCls}>Trạng thái</label>
-            <div className="flex flex-wrap gap-1.5">
-              {ALL_STATUSES.map(s => {
-                const c = STATUS_COLORS[s];
-                const isActive = status === s;
-                return (
-                  <button key={s} type="button" onClick={() => setStatus(s)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                      isActive
-                        ? `${c.bg} ${c.text} ${c.border} ring-2 ring-current/20`
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? c.dot : 'bg-slate-300 dark:bg-slate-600'}`} />
-                    {BIM_PROJECT_STATUS_LABELS[s]}
+          {/* Status + Service Type row */}
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Trạng thái — bên trái */}
+            <div>
+              <label className={labelCls}>Trạng thái</label>
+              <div className="flex flex-wrap gap-1.5">
+                {ALL_STATUSES.map(s => {
+                  const c = STATUS_COLORS[s];
+                  const isActive = status === s;
+                  return (
+                    <button key={s} type="button" onClick={() => setStatus(s)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                        isActive
+                          ? `${c.bg} ${c.text} ${c.border} ring-2 ring-current/20`
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? c.dot : 'bg-slate-300 dark:bg-slate-600'}`} />
+                      {BIM_PROJECT_STATUS_LABELS[s]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Loại dịch vụ — bên phải */}
+            <div>
+              <label className={labelCls}>Loại dịch vụ</label>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {PREDEFINED_SERVICE_TYPES.map(svc => {
+                  const isSelected = serviceTypes.includes(svc);
+                  return (
+                    <button key={svc} type="button"
+                      onClick={() => setServiceTypes(prev =>
+                        isSelected ? prev.filter(s => s !== svc) : [...prev, svc]
+                      )}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-600 dark:hover:text-indigo-400'
+                      }`}
+                    >
+                      {isSelected && <X size={9} />}
+                      {svc}
+                    </button>
+                  );
+                })}
+                {/* Tags tùy chỉnh đã thêm */}
+                {serviceTypes.filter(s => !PREDEFINED_SERVICE_TYPES.includes(s)).map(svc => (
+                  <span key={svc}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border bg-violet-600 text-white border-violet-600">
+                    {svc}
+                    <button type="button" onClick={() => setServiceTypes(prev => prev.filter(s => s !== svc))}>
+                      <X size={9} />
+                    </button>
+                  </span>
+                ))}
+                {/* Nút thêm mới */}
+                {showCustomServiceInput ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={customServiceInput}
+                      onChange={e => setCustomServiceInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = customServiceInput.trim();
+                          if (val && !serviceTypes.includes(val)) setServiceTypes(prev => [...prev, val]);
+                          setCustomServiceInput('');
+                          setShowCustomServiceInput(false);
+                        }
+                        if (e.key === 'Escape') { setCustomServiceInput(''); setShowCustomServiceInput(false); }
+                      }}
+                      placeholder="Tên dịch vụ..."
+                      autoFocus
+                      className="w-36 px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-indigo-400 dark:border-indigo-600 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <button type="button"
+                      onClick={() => {
+                        const val = customServiceInput.trim();
+                        if (val && !serviceTypes.includes(val)) setServiceTypes(prev => [...prev, val]);
+                        setCustomServiceInput('');
+                        setShowCustomServiceInput(false);
+                      }}
+                      className="p-1 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded">
+                      <Save size={12} />
+                    </button>
+                    <button type="button" onClick={() => { setCustomServiceInput(''); setShowCustomServiceInput(false); }}
+                      className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded">
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setShowCustomServiceInput(true)}
+                    className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold border border-dashed border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 hover:border-indigo-400 dark:hover:border-indigo-600 hover:text-indigo-500 dark:hover:text-indigo-400 transition-all">
+                    <Plus size={10} /> Thêm khác
                   </button>
-                );
-              })}
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -420,11 +506,6 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                       <label className={labelCls}>Giai đoạn thực hiện</label>
                       <input type="text" value={projectPhase} onChange={e => setProjectPhase(e.target.value)}
                         placeholder="VD: Thiết kế cơ sở, Thiết kế kỹ thuật..." className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Loại dịch vụ</label>
-                      <input type="text" value={serviceType} onChange={e => setServiceType(e.target.value)}
-                        placeholder="VD: Tư vấn BIM, Quản lý dự án..." className={inputCls} />
                     </div>
                     <div className="md:col-span-2">
                       <label className={labelCls}>Nhóm dự án</label>
