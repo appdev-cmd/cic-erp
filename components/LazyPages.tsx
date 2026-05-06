@@ -973,7 +973,12 @@ export const LazyProjectDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const { openPanel, closePanel } = useSlidePanel();
 
-    if (!id) return <div>Project not found</div>;
+    // Guard: nếu id không phải UUID hợp lệ (vd: "new", "edit") → về danh sách
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!id || !UUID_REGEX.test(id)) {
+        navigate('/projects', { replace: true });
+        return null;
+    }
     return withSuspense(
         <ProjectDetail
             projectId={id}

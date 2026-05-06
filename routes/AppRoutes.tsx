@@ -130,8 +130,9 @@ export const router = createBrowserRouter([
             // Tasks
             { path: 'tasks', element: <TasksPage /> },
 
-            // Projects (BIM)
+            // Projects (BIM) — 'new' phải đứng trước ':id' để tránh match sai
             { path: 'projects', element: <ProjectListPage /> },
+            { path: 'projects/new', element: <ProjectListPage /> },
             { path: 'projects/:id', element: <ProjectDetailPage /> },
 
             // HRM
