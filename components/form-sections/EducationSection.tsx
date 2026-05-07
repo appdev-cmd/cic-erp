@@ -9,7 +9,7 @@ const EducationSection: React.FC<FormSectionProps> = ({ formData, setFormData })
                 <GraduationCap size={18} className="text-amber-500" />
                 Học vấn & Chuyên môn
             </h4>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                     <label className="block text-xs text-slate-500 mb-1">Trình độ học vấn</label>
                     <input

@@ -3,7 +3,7 @@
 
 import React, { Suspense, lazy, useCallback, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useLayoutContext } from './layout/MainLayout';
+import { useLayoutContext } from '../contexts/LayoutContext';
 import { ROUTES } from '../routes/routes';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
 import {

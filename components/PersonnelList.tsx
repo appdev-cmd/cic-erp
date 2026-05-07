@@ -55,9 +55,19 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     // Import modal state
     const [isImportOpen, setIsImportOpen] = useState(false);
 
-    // Delete confirmation state
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // View mode: 'table' (Web) or 'grid' (Mobile/Tablet friendly)
+    const [viewMode, setViewMode] = useState<'table' | 'grid'>(() => {
+        const saved = localStorage.getItem('personnel-view-mode');
+        return (saved as 'table' | 'grid') || 'table';
+    });
+
+    const toggleViewMode = (mode: 'table' | 'grid') => {
+        setViewMode(mode);
+        localStorage.setItem('personnel-view-mode', mode);
+    };
 
     // === Resizable columns ===
     const PERSONNEL_TABLE_COLUMNS = useMemo(() => [
@@ -380,6 +390,24 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         </>
                     )}
 
+                    {/* View Mode Toggle */}
+                    <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-1">
+                        <button
+                            onClick={() => toggleViewMode('table')}
+                            className={`p-2 rounded-md transition-all ${viewMode === 'table' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                            title="Chế độ bảng (Web)"
+                        >
+                            <FileSpreadsheet size={18} />
+                        </button>
+                        <button
+                            onClick={() => toggleViewMode('grid')}
+                            className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                            title="Chế độ thẻ (Mobile/Tablet)"
+                        >
+                            <User size={18} />
+                        </button>
+                    </div>
+
                     {/* Add Button — Spec §6.5: only Admin/Leadership */}
                     {(() => {
                         const canAdd = can('employees', 'create');
@@ -392,7 +420,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                 className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-200/50 hover:shadow-xl transition-all"
                             >
                                 <Plus size={18} />
-                                <span className="hidden sm:inline">Thêm NV</span>
+                                <span className="hidden sm:inline text-nowrap">Thêm NV</span>
                             </button>
                         );
                     })()}
@@ -481,13 +509,13 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                 </div>
             </div>
 
-            {/* Personnel Table - HR focused */}
-            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
-                {isLoading ? (
-                    <div className="flex items-center justify-center py-16">
-                        <Loader2 size={32} className="animate-spin text-indigo-500" />
-                    </div>
-                ) : (
+            {/* Personnel Content - Table or Grid View */}
+            {isLoading ? (
+                <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-16 flex items-center justify-center">
+                    <Loader2 size={32} className="animate-spin text-indigo-500" />
+                </div>
+            ) : viewMode === 'table' ? (
+                <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <div className={`overflow-x-auto ${isResizing ? 'select-none' : ''}`}>
                         <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
                             <colgroup>
@@ -530,39 +558,39 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                         {/* Name & Position */}
                                         <td className="py-4 px-6">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-indigo-200/50 dark:shadow-none overflow-hidden">
+                                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-indigo-200/50 dark:shadow-none overflow-hidden flex-shrink-0">
                                                     {person.avatar ? (
                                                         <img src={person.avatar} alt={person.name} className="w-full h-full object-cover" />
                                                     ) : (
                                                         person.name.split(' ').pop()?.charAt(0) || '?'
                                                     )}
                                                 </div>
-                                                <div>
-                                                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{person.name}</h3>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">{person.position || person.roleCode || '—'}</p>
+                                                <div className="truncate">
+                                                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">{person.name}</h3>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{person.position || person.roleCode || '—'}</p>
                                                 </div>
                                             </div>
                                         </td>
 
                                         {/* Unit */}
-                                        <td className="py-4 px-6 hidden md:table-cell">
+                                        <td className="py-4 px-6">
                                             <span className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300">
                                                 {units.find(u => u.id === person.unitId)?.code || '—'}
                                             </span>
                                         </td>
 
                                         {/* Contact */}
-                                        <td className="py-4 px-6 hidden lg:table-cell">
+                                        <td className="py-4 px-6">
                                             <div className="space-y-1">
                                                 {person.email && (
                                                     <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                        <Mail size={12} />
-                                                        <span className="truncate max-w-[180px]">{person.email}</span>
+                                                        <Mail size={12} className="flex-shrink-0" />
+                                                        <span className="truncate">{person.email}</span>
                                                     </div>
                                                 )}
                                                 {person.phone && (
                                                     <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                        <Phone size={12} />
+                                                        <Phone size={12} className="flex-shrink-0" />
                                                         <span>{person.phone}</span>
                                                     </div>
                                                 )}
@@ -570,14 +598,14 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                         </td>
 
                                         {/* DOB */}
-                                        <td className="py-4 px-6 hidden xl:table-cell">
+                                        <td className="py-4 px-6">
                                             <span className="text-sm text-slate-600 dark:text-slate-400">
                                                 {formatDate(person.dateOfBirth)}
                                             </span>
                                         </td>
 
                                         {/* Join Date */}
-                                        <td className="py-4 px-6 hidden xl:table-cell">
+                                        <td className="py-4 px-6">
                                             <span className="text-sm text-slate-600 dark:text-slate-400">
                                                 {formatDate(person.dateJoined)}
                                             </span>
@@ -638,7 +666,115 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                             </tbody>
                         </table>
                     </div>
-                )}
+                </div>
+            ) : (
+                /* Grid View (Mobile/Tablet optimized) */
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredPersonnel.map((person) => (
+                        <div
+                            key={person.id}
+                            onClick={() => onSelectPersonnel(person.slug || person.id)}
+                            className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 hover:shadow-xl hover:shadow-indigo-500/10 transition-all cursor-pointer group relative overflow-hidden"
+                        >
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-indigo-200/50 dark:shadow-none overflow-hidden flex-shrink-0">
+                                    {person.avatar ? (
+                                        <img src={person.avatar} alt={person.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        person.name.split(' ').pop()?.charAt(0) || '?'
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-black text-slate-900 dark:text-slate-100 text-base truncate group-hover:text-indigo-600 transition-colors">{person.name}</h3>
+                                    <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mt-0.5">{person.position || 'Nhân viên'}</p>
+                                    <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[10px] font-black text-slate-500 dark:text-slate-400">
+                                        <Building size={10} />
+                                        {units.find(u => u.id === person.unitId)?.code || 'N/A'}
+                                    </div>
+                                </div>
+                                <div className="absolute top-4 right-4">
+                                    {(() => {
+                                        const showEdit = can('employees', 'update');
+                                        const showDelete = can('employees', 'delete');
+                                        if (!showEdit && !showDelete) return null;
+
+                                        return (
+                                            <div className="relative">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setActionMenuId(actionMenuId === person.id ? null : person.id); }}
+                                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-400"
+                                                >
+                                                    <MoreVertical size={16} />
+                                                </button>
+                                                {actionMenuId === person.id && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
+                                                        <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden">
+                                                            {showEdit && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); setEditingPerson(person); setIsFormOpen(true); setActionMenuId(null); }}
+                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                                                >
+                                                                    <Pencil size={14} /> Chỉnh sửa
+                                                                </button>
+                                                            )}
+                                                            {showDelete && (
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleDelete(person.id); }}
+                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                >
+                                                                    <Trash2 size={14} /> Xóa
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                {person.email && (
+                                    <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+                                        <div className="w-6 h-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                                            <Mail size={12} />
+                                        </div>
+                                        <span className="truncate">{person.email}</span>
+                                    </div>
+                                )}
+                                {person.phone && (
+                                    <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+                                        <div className="w-6 h-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                                            <Phone size={12} />
+                                        </div>
+                                        <span>{person.phone}</span>
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+                                    <div className="w-6 h-6 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                                        <Calendar size={12} />
+                                    </div>
+                                    <span>Vào làm: {formatDate(person.dateJoined)}</span>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onSelectPersonnel(person.slug || person.id); }}
+                                className="w-full mt-4 py-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg text-xs font-bold transition-all border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/50"
+                            >
+                                Xem chi tiết
+                            </button>
+                        </div>
+                    ))}
+                    {filteredPersonnel.length === 0 && (
+                        <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-medium">
+                            Không tìm thấy nhân viên nào
+                        </div>
+                    )}
+                </div>
+            )}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
@@ -672,7 +808,6 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         </div>
                     </div>
                 )}
-            </div>
 
             {/* Delete Confirmation Modal */}
             {deleteConfirmId && (
@@ -707,6 +842,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                     </div>
                 </div>
             )}
+
         </div>
     );
 };

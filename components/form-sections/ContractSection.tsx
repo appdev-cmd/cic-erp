@@ -51,7 +51,7 @@ const ContractSection: React.FC<FormSectionProps> = ({ formData, setFormData, re
                 <Building size={18} className="text-purple-500" />
                 Hợp đồng lao động
             </h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">Loại hợp đồng</label>
                     <select

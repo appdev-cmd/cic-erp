@@ -5,6 +5,15 @@ import { EmployeeService, UnitService } from '../services';
 import { Employee, Unit } from '../types';
 import { supabase } from '../lib/supabase';
 import { dataClient } from '../lib/dataClient';
+import {
+    AvatarSection,
+    BasicInfoSection,
+    PersonalSection,
+    EmergencyContactSection,
+    EducationSection,
+    ContractSection,
+    FormData
+} from './form-sections';
 
 /**
  * Normalize date string to YYYY-MM-DD for native date input.
@@ -23,15 +32,6 @@ const normalizeDate = (d?: string | null): string => {
     }
     return d;
 };
-import {
-    AvatarSection,
-    BasicInfoSection,
-    PersonalSection,
-    EmergencyContactSection,
-    EducationSection,
-    ContractSection,
-    FormData
-} from './form-sections';
 
 interface PersonnelFormProps {
     isOpen: boolean;
@@ -262,8 +262,8 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+            <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
                     <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -275,7 +275,7 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-6 flex-1 overflow-y-auto">
                     {/* Validation Errors Summary */}
                     {Object.keys(errors).length > 0 && (
                         <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
@@ -289,7 +289,7 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
                     )}
 
                     {/* Avatar & Basic Info */}
-                    <div className="flex gap-6">
+                    <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                         <AvatarSection previewUrl={previewUrl} onFileChange={handleFileChange} />
                         <BasicInfoSection formData={formData} setFormData={setFormData} units={units} />
                     </div>
@@ -306,19 +306,19 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
                     {/* Contract */}
                     <ContractSection formData={formData} setFormData={setFormData} />
 
-                    {/* Actions */}
-                    <div className="flex justify-end gap-3 pt-4 border-t dark:border-slate-800">
+                    {/* Actions - Sticky Footer */}
+                    <div className="sticky bottom-0 flex justify-end gap-3 pt-4 border-t dark:border-slate-800 bg-white dark:bg-slate-900 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-4">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg dark:text-slate-300 dark:hover:bg-slate-800"
+                            className="px-4 py-2.5 text-slate-700 hover:bg-slate-100 rounded-lg dark:text-slate-300 dark:hover:bg-slate-800 text-sm font-medium"
                         >
                             Hủy
                         </button>
                         <button
                             type="submit"
                             disabled={isSubmitting || isUploading}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50"
+                            className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 text-sm font-medium"
                         >
                             {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                             {initialData ? 'Cập nhật' : 'Thêm mới'}
