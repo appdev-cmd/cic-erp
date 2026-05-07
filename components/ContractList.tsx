@@ -29,9 +29,7 @@ import {
   TABLE_HEADERS 
 } from './ContractListSubComponents';
 import { ContractListTableRow } from './ContractListTableRow';
-
-// Inline debounce hook if not exists, but better to check. 
-// For now, I'll use a simple useEffect debounce logic.
+import { GLOBAL_VIEW_ROLES } from '../lib/permissions';
 
 interface ContractListProps {
   selectedUnit: Unit;
@@ -364,8 +362,6 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
   // Compute effective unit ID for fetching
   const effectiveUnitId = useMemo(() => {
-    const GLOBAL_VIEW_ROLES: UserRole[] = ['Legal', 'Accountant', 'ChiefAccountant', 'Leadership', 'Admin'];
-
     // Helper: check if current visibility allows a specific unit
     const isUnitAllowed = (unitId: string) => {
       if (canSeeAll) return true;
@@ -633,7 +629,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
               🔒 Đang xem với quyền: {impersonatedUser.fullName}
             </p>
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              {(['Legal', 'Accountant', 'ChiefAccountant', 'Leadership', 'Admin'] as UserRole[]).includes(impersonatedUser.role)
+              {GLOBAL_VIEW_ROLES.includes(impersonatedUser.role as any)
                 ? 'Hiển thị TẤT CẢ hợp đồng của toàn công ty'
                 : 'Hiển thị hợp đồng thuộc đơn vị của nhân viên này và đơn vị được cấp quyền xem'
               }

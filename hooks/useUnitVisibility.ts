@@ -4,9 +4,7 @@ import { UnitVisibilityService } from '../services/unitVisibilityService';
 import { useAuth } from '../contexts/AuthContext';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import { UserRole } from '../types';
-
-// Roles that always see all units
-const GLOBAL_VIEW_ROLES: UserRole[] = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant'];
+import { GLOBAL_VIEW_ROLES } from '../lib/permissions';
 
 const visibilityKeys = {
     all: ['unitVisibility'] as const,
