@@ -451,8 +451,8 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-xs uppercase font-bold sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 rounded-tl-xl w-[250px] min-w-[250px]">Tên & Mã dự án</th>
-                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[200px] min-w-[200px]">Địa điểm / CĐT</th>
+                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 rounded-tl-xl w-[380px] min-w-[380px]">Tên & Mã dự án</th>
+                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[180px] min-w-[180px]">Địa điểm / CĐT</th>
                   <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[150px] min-w-[150px]">Giá trị</th>
                   <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[180px] min-w-[180px]">Tiến độ</th>
                   <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Trạng thái</th>
@@ -471,7 +471,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
                       className="hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 cursor-pointer transition-colors group"
                     >
                       {/* Name & Code */}
-                      <td className="px-6 py-4 whitespace-normal min-w-[250px]">
+                      <td className="px-6 py-4 whitespace-normal min-w-[380px]">
                         <div className="flex items-start gap-4">
                           <img
                             src={p.thumbnailUrl || getPlaceholder(idx)}

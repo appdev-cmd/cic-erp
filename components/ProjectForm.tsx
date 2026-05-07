@@ -71,7 +71,15 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   const [constructionGrade, setConstructionGrade] = useState(project?.constructionGrade || '');
   const [area, setArea] = useState(project?.area || 0);
   const [buildingArea, setBuildingArea] = useState(project?.buildingArea || 0);
+  const PROJECT_PHASES = ['Thiết kế cơ sở', 'Thiết kế triển khai sau thiết kế cơ sở', 'Thi công', 'Vận hành'];
   const [projectPhase, setProjectPhase] = useState(project?.projectPhase || '');
+  const [projectPhaseCustom, setProjectPhaseCustom] = useState(
+    project?.projectPhase && !['Thiết kế cơ sở', 'Thiết kế triển khai sau thiết kế cơ sở', 'Thi công', 'Vận hành'].includes(project.projectPhase)
+      ? project.projectPhase : ''
+  );
+  const [showPhaseCustom, setShowPhaseCustom] = useState(
+    !!project?.projectPhase && !['Thiết kế cơ sở', 'Thiết kế triển khai sau thiết kế cơ sở', 'Thi công', 'Vận hành'].includes(project.projectPhase)
+  );
   // serviceType lưu dạng mảng trong UI, serialize thành chuỗi phân cách "|" khi lưu DB
   const [serviceTypes, setServiceTypes] = useState<string[]>(() => {
     const raw = project?.serviceType || '';
@@ -548,8 +556,36 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
                       </div>
                       <div className="col-span-2">
                         <label className={labelCls}>Giai đoạn thực hiện</label>
-                        <input type="text" value={projectPhase} onChange={e => setProjectPhase(e.target.value)}
-                          placeholder="VD: Thiết kế cơ sở, Thiết kế kỹ thuật..." className={inputCls} />
+                        <select
+                          value={showPhaseCustom ? '__other__' : projectPhase}
+                          onChange={e => {
+                            if (e.target.value === '__other__') {
+                              setShowPhaseCustom(true);
+                              setProjectPhase(projectPhaseCustom);
+                            } else {
+                              setShowPhaseCustom(false);
+                              setProjectPhaseCustom('');
+                              setProjectPhase(e.target.value);
+                            }
+                          }}
+                          className={inputCls}
+                        >
+                          <option value="">-- Chọn giai đoạn --</option>
+                          {PROJECT_PHASES.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                          <option value="__other__">+ Loại khác...</option>
+                        </select>
+                        {showPhaseCustom && (
+                          <input
+                            type="text"
+                            value={projectPhaseCustom}
+                            onChange={e => { setProjectPhaseCustom(e.target.value); setProjectPhase(e.target.value); }}
+                            placeholder="Nhập giai đoạn thực hiện..."
+                            className={`${inputCls} mt-2`}
+                            autoFocus
+                          />
+                        )}
                       </div>
                       <div className="col-span-2">
                         <label className={labelCls}>Nhóm dự án</label>
