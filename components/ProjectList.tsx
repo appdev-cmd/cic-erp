@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, MapPin, TrendingUp, Calendar, Building2, Filter, X, Globe, EyeOff, Star, ArrowUpDown, LayoutGrid, List } from 'lucide-react';
+import { Search, Plus, MapPin, Calendar, Building2, Filter, X, Globe, EyeOff, Star, LayoutGrid, List, Download, Upload, Copy, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { ProjectService } from '../services';
 import { BIMProject, BIMProjectStatus, BIM_PROJECT_STATUS_LABELS } from '../types';
 import { toast } from 'sonner';
 import { formatDate } from '../utils/formatters';
+import { exportProjectsToExcel } from '../services/projectExportService';
+import ImportProjectModal from './ImportProjectModal';
 
 interface ProjectListProps {
   onSelectProject: (id: string) => void;
@@ -200,6 +202,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
   const [statusFilter, setStatusFilter] = useState<BIMProjectStatus | 'All'>('All');
   const [showFilters, setShowFilters] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('newest');
+  const [showImport, setShowImport] = useState(false);
 
   type ViewMode = 'grid' | 'table';
   const [viewMode, setViewModeState] = useState<ViewMode>(() => {
@@ -320,15 +323,33 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
             Quản lý dự án tư vấn BIM • <span className="font-bold text-indigo-600 dark:text-indigo-400">{projects.length}</span> dự án
           </p>
         </div>
-        {onCreateProject && (
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={onCreateProject}
-            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-indigo-200 dark:shadow-none hover:scale-[1.02] active:scale-95"
+            onClick={() => exportProjectsToExcel(filteredProjects)}
+            title="Xuất danh sách dự án ra Excel"
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-emerald-200 dark:shadow-none hover:scale-[1.02] active:scale-95"
           >
-            <Plus size={18} />
-            Thêm dự án
+            <Download size={16} />
+            Xuất Excel
           </button>
-        )}
+          <button
+            onClick={() => setShowImport(true)}
+            title="Nhập dự án từ file Excel"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-bold rounded-lg transition-all hover:bg-slate-50 dark:hover:bg-slate-700 hover:scale-[1.02] active:scale-95"
+          >
+            <Upload size={16} />
+            Nhập Excel
+          </button>
+          {onCreateProject && (
+            <button
+              onClick={onCreateProject}
+              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-indigo-200 dark:shadow-none hover:scale-[1.02] active:scale-95"
+            >
+              <Plus size={18} />
+              Thêm dự án
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search + Filter Bar */}
@@ -448,144 +469,266 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
       ) : viewMode === 'table' ? (
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in duration-300">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-xs uppercase font-bold sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
+            <table className="w-full text-left whitespace-nowrap">
+              <thead>
                 <tr>
-                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 rounded-tl-xl w-[380px] min-w-[380px]">Tên & Mã dự án</th>
-                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[180px] min-w-[180px]">Địa điểm / CĐT</th>
-                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[150px] min-w-[150px]">Giá trị</th>
-                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 w-[180px] min-w-[180px]">Tiến độ</th>
-                  <th className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">Trạng thái</th>
-                  <th className="px-4 py-4 border-b border-slate-200 dark:border-slate-800 text-right rounded-tr-xl">Nổi bật</th>
+                  {/* STT */}
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-1.5 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-center w-9">
+                    STT
+                  </th>
+                  {/* Mã dự án */}
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 min-w-[140px]">
+                    Mã dự án
+                  </th>
+                  {/* Tên dự án */}
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 min-w-[320px]">
+                    Tên dự án / Chủ đầu tư
+                  </th>
+                  {/* Địa điểm */}
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 min-w-[130px]">
+                    Địa điểm
+                  </th>
+                  {/* Giá trị */}
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-right min-w-[120px]">
+                    Giá trị HĐ
+                  </th>
+                  {/* Tiến độ */}
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-indigo-700 dark:text-indigo-400 text-center min-w-[130px]">
+                    Tiến độ
+                  </th>
+                  {/* Thời gian */}
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 min-w-[130px]">
+                    Thời gian
+                  </th>
+                  {/* Trạng thái */}
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-center min-w-[130px]">
+                    Trạng thái
+                  </th>
+                  {/* Web actions */}
+                  <th className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-800 px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-center w-[72px]">
+                    Web
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 bg-white dark:bg-slate-900">
+              <tbody className="bg-white dark:bg-slate-900">
                 {filteredProjects.map((p, idx) => {
                   const cfg = STATUS_CONFIG[p.status] || STATUS_CONFIG['new'];
                   const tp = calcTimeProgress(p.startDate, p.endDate);
                   const isDelayed = tp !== null && tp > p.progress;
+
+                  // Badge label from code prefix (e.g. "DA", "BIM", etc.)
+                  const badgeLabel = p.code
+                    ? p.code.replace(/[^A-Za-z]/g, '').substring(0, 3).toUpperCase() || 'DA'
+                    : (p.serviceType ? p.serviceType.substring(0, 3).toUpperCase() : 'DA');
+
+                  const badgeColor = p.status === 'active'
+                    ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
+                    : p.status === 'done'
+                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                    : p.status === 'paused'
+                    ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                    : p.status === 'cancelled'
+                    ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+
                   return (
                     <tr
                       key={p.id}
                       onClick={() => onSelectProject(p.id)}
-                      className="hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 cursor-pointer transition-colors group"
+                      className={`group transition-all cursor-pointer hover:bg-orange-50/30 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800 last:border-b-0 ${idx % 2 !== 0 ? 'bg-slate-50/60 dark:bg-slate-900' : 'bg-white dark:bg-slate-900'}`}
                     >
-                      {/* Name & Code */}
-                      <td className="px-6 py-4 whitespace-normal min-w-[380px]">
-                        <div className="flex items-start gap-4">
+                      {/* STT */}
+                      <td className="px-1.5 py-2 text-center text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                        {(idx + 1).toString().padStart(2, '0')}
+                      </td>
+
+                      {/* Mã dự án */}
+                      <td className="px-2 py-2 overflow-hidden">
+                        <div className="flex items-start gap-1.5">
+                          <div className={`w-7 h-7 rounded-md flex items-center justify-center text-[9px] font-black flex-shrink-0 border ${badgeColor}`}>
+                            {badgeLabel}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-slate-900 dark:text-slate-100 leading-none flex items-center gap-1">
+                              <span className="truncate max-w-[90px]">{p.code || '—'}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(p.code || p.id);
+                                  toast.success(`Đã copy: ${p.code}`);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer flex-shrink-0"
+                                title="Copy mã dự án"
+                              >
+                                <Copy size={10} />
+                              </button>
+                            </p>
+                            {p.startDate && (
+                              <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase tracking-tighter">
+                                {formatDate(p.startDate)}
+                              </p>
+                            )}
+                            {p.contactName && (
+                              <p className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 mt-0.5 truncate max-w-[100px]">
+                                {p.contactName}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Tên dự án + CĐT */}
+                      <td className="px-3 py-2 overflow-hidden">
+                        <div className="flex items-start gap-2.5">
                           <img
                             src={p.thumbnailUrl || getPlaceholder(idx)}
-                            alt={p.name}
-                            className="w-12 h-12 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-slate-700"
+                            alt=""
+                            className="w-8 h-8 rounded-md object-cover flex-shrink-0 border border-slate-200 dark:border-slate-700 mt-0.5"
                             onError={(e) => { (e.target as HTMLImageElement).src = getPlaceholder(idx); }}
                           />
-                          <div>
-                            <p className="font-bold text-[14px] text-slate-800 dark:text-slate-100 leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                               {p.name}
                             </p>
-                            <p className="text-[11px] font-mono text-slate-400 font-semibold mt-0.5 uppercase">
-                              {p.code}
-                            </p>
+                            {p.clientName ? (
+                              <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 truncate max-w-[260px]">
+                                {p.clientName}
+                              </p>
+                            ) : (
+                              <p className="text-[10px] text-slate-300 dark:text-slate-600 mt-0.5 italic">Chưa xác định CĐT</p>
+                            )}
+                            {p.endUserName && (
+                              <p className="text-[9px] font-bold text-teal-600 dark:text-teal-400 mt-0.5 truncate max-w-[260px]">
+                                👤 {p.endUserName}
+                              </p>
+                            )}
+                            {(p.serviceType || p.constructionType) && (
+                              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                                {p.serviceType && (
+                                  <span className="inline-flex px-1.5 py-0 rounded text-[8px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                                    {p.serviceType}
+                                  </span>
+                                )}
+                                {p.constructionType && (
+                                  <span className="inline-flex px-1.5 py-0 rounded text-[8px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                                    {p.constructionType}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
 
-                      {/* Location & Client */}
-                      <td className="px-6 py-4">
-                        <div className="space-y-1 w-[200px] whitespace-normal">
-                          {p.clientName ? (
-                            <div className="flex items-start gap-1.5" title={p.clientName}>
-                              <Building2 size={13} className="text-slate-400 shrink-0 mt-0.5" />
-                              <span className="text-[13px] text-slate-700 dark:text-slate-300 font-medium line-clamp-2 break-words">{p.clientName}</span>
-                            </div>
-                          ) : (
-                            <span className="text-slate-300 dark:text-slate-600 text-xs italic">Chưa xác định CĐT</span>
-                          )}
-                          {p.location && (
-                            <div className="flex items-center gap-1.5">
-                              <MapPin size={12} className="text-slate-400 shrink-0" />
-                              <span className="text-[12px] text-slate-500 dark:text-slate-400 truncate max-w-[170px]">{p.location}</span>
-                            </div>
-                          )}
-                        </div>
+                      {/* Địa điểm */}
+                      <td className="px-2 py-2 overflow-hidden">
+                        {p.location ? (
+                          <div className="flex items-start gap-1 text-[10px] text-slate-600 dark:text-slate-400">
+                            <MapPin size={11} className="shrink-0 mt-0.5 text-slate-400" />
+                            <span className="line-clamp-2 max-w-[120px]">{p.location}</span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-300 dark:text-slate-600 italic">—</span>
+                        )}
                       </td>
 
-                      {/* Value and Dates */}
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          {p.contractValue > 0 ? (
-                            <p className="font-black text-indigo-600 dark:text-indigo-400">
-                              {p.contractValue >= 1_000_000_000
-                                ? <>{(p.contractValue / 1_000_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} <span className="text-[11px] font-bold">Tỷ</span></>
-                                : <>{(p.contractValue / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 0 })} <span className="text-[11px] font-bold">Tr</span></>
-                              }
-                            </p>
-                          ) : (
-                            <span className="text-slate-300 dark:text-slate-600 text-xs italic">Chưa có HĐ</span>
-                          )}
-                          {p.startDate && (
-                            <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                              <Calendar size={12} className="shrink-0" />
-                              <span>{formatDate(p.startDate)}</span>
-                              {p.endDate && <span>→ {formatDate(p.endDate)}</span>}
-                            </div>
-                          )}
-                        </div>
+                      {/* Giá trị HĐ */}
+                      <td className="px-2 py-2 text-right overflow-hidden">
+                        {p.contractValue > 0 ? (
+                          <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">
+                            {p.contractValue >= 1_000_000_000
+                              ? `${(p.contractValue / 1_000_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} tỷ`
+                              : `${(p.contractValue / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 0 })} tr`}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300 dark:text-slate-600 italic">Chưa có HĐ</span>
+                        )}
                       </td>
 
-                      {/* Progress */}
-                      <td className="px-6 py-4 w-[180px]">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold text-slate-500 w-12">Thực tế</span>
-                            <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                              <div className="h-full bg-indigo-500 dark:bg-indigo-400 rounded-full transition-all" style={{ width: `${Math.min(p.progress, 100)}%` }} />
+                      {/* Tiến độ */}
+                      <td className="px-2 py-2">
+                        <div className="space-y-1.5 min-w-[120px]">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase w-10 shrink-0">Thực tế</span>
+                            <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-indigo-500 dark:bg-indigo-400 rounded-full transition-all"
+                                style={{ width: `${Math.min(p.progress, 100)}%` }}
+                              />
                             </div>
-                            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 w-8 text-right">{p.progress}%</span>
+                            <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 w-7 text-right shrink-0">
+                              {p.progress}%
+                            </span>
                           </div>
                           {tp !== null && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-semibold text-slate-500 w-12">Hợp đồng</span>
-                              <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full transition-all ${isDelayed ? 'bg-rose-400 dark:bg-rose-500' : 'bg-slate-400 dark:bg-slate-500'}`} style={{ width: `${Math.min(tp, 100)}%` }} />
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase w-10 shrink-0">HĐ</span>
+                              <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all ${isDelayed ? 'bg-rose-400 dark:bg-rose-500' : 'bg-slate-300 dark:bg-slate-500'}`}
+                                  style={{ width: `${Math.min(tp, 100)}%` }}
+                                />
                               </div>
-                              <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 w-8 text-right">{tp}%</span>
+                              <span className={`text-[10px] font-black w-7 text-right shrink-0 ${isDelayed ? 'text-rose-500 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                                {tp}%
+                              </span>
                             </div>
                           )}
                         </div>
                       </td>
 
-                      {/* Status */}
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${cfg.bg} ${cfg.text} border border-white/20 dark:border-slate-700/50`}>
-                          <span className={`w-1.5 h-1.5 rounded-full mr-2 ${cfg.dot}`} />
+                      {/* Thời gian */}
+                      <td className="px-2 py-2 overflow-hidden">
+                        {p.startDate || p.endDate ? (
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5">
+                            {p.startDate && (
+                              <div className="flex items-center gap-1">
+                                <span className="font-bold text-slate-400 dark:text-slate-500 w-5 shrink-0">BĐ</span>
+                                <span>{formatDate(p.startDate)}</span>
+                              </div>
+                            )}
+                            {p.endDate && (
+                              <div className="flex items-center gap-1">
+                                <span className={`font-bold w-5 shrink-0 ${isDelayed ? 'text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>KT</span>
+                                <span className={isDelayed ? 'text-rose-500 dark:text-rose-400 font-bold' : ''}>{formatDate(p.endDate)}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-300 dark:text-slate-600 italic">—</span>
+                        )}
+                      </td>
+
+                      {/* Trạng thái */}
+                      <td className="px-2 py-2 text-center">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${cfg.bg} ${cfg.text}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
                           {BIM_PROJECT_STATUS_LABELS[p.status]}
                         </span>
                       </td>
 
-                      {/* Actions (Pils) */}
-                      <td className="px-4 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      {/* Web toggles */}
+                      <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={(e) => toggleWeb(e, p)}
-                            title={p.isPublishedWeb ? "Ẩn khỏi Web" : "Hiển thị trên Web"}
+                            title={p.isPublishedWeb ? 'Ẩn khỏi Web' : 'Hiển thị trên Web'}
                             className={`p-1.5 rounded-md transition-all border ${p.isPublishedWeb
-                                ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
-                              } hover:opacity-80`}
+                              ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 opacity-60 hover:opacity-100'
+                            }`}
                           >
-                            {p.isPublishedWeb ? <Globe size={15} /> : <EyeOff size={15} />}
+                            {p.isPublishedWeb ? <Globe size={13} /> : <EyeOff size={13} />}
                           </button>
-
                           <button
                             onClick={(e) => toggleFeatured(e, p)}
-                            title={p.isFeaturedWeb ? "Bỏ nổi bật" : "Đánh dấu nổi bật"}
+                            title={p.isFeaturedWeb ? 'Bỏ nổi bật' : 'Đánh dấu nổi bật'}
                             className={`p-1.5 rounded-md transition-all border ${p.isFeaturedWeb
-                                ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-500 dark:text-amber-400'
-                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
-                              } hover:opacity-80`}
+                              ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-500 dark:text-amber-400'
+                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 opacity-60 hover:opacity-100'
+                            }`}
                           >
-                            <Star size={15} className={p.isFeaturedWeb ? "fill-current" : ""} />
+                            <Star size={13} className={p.isFeaturedWeb ? 'fill-current' : ''} />
                           </button>
                         </div>
                       </td>
@@ -610,6 +753,15 @@ const ProjectList: React.FC<ProjectListProps> = ({ onSelectProject, onCreateProj
           ))}
         </div>
       )}
+
+      <ImportProjectModal
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+        onSuccess={() => {
+          setShowImport(false);
+          ProjectService.getAll().then(setProjects).catch(() => {});
+        }}
+      />
     </div>
   );
 };
