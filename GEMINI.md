@@ -146,4 +146,12 @@ import DateInput from '../ui/DateInput';
 - [ ] Nếu cần datetime, tạo text input dd/mm/yyyy HH:mm + hidden `datetime-local`
 - [ ] Hiển thị ngày đã chọn phải dùng `formatDate()` hoặc `formatDateTime()`
 
+---
 
+## ⚡ Auto-Run Commands Rule (BẮT BUỘC)
+
+> Để tối ưu hóa quy trình làm việc và giảm thiểu gián đoạn cho người dùng (không phải bấm nút RUN liên tục), bạn PHẢI tuân thủ:
+
+1. **Luôn thiết lập `SafeToAutoRun: true`** khi gọi tool `run_command` hoặc `send_command_input` đối với các lệnh an toàn, không có tính phá hủy (ví dụ: khởi chạy server `npm run dev`, git status, xem log, biên dịch thử, v.v.).
+2. **Ưu tiên sử dụng API tools cụ thể** (`view_file`, `replace_file_content`, `list_dir`, `grep_search`...) thay vì dùng shell commands để thao tác với file/thư mục. Việc dùng API tools sẽ không yêu cầu user phê duyệt.
+3. **KHÔNG BAO GIỜ** thiết lập `SafeToAutoRun: true` cho các lệnh có nguy cơ phá hủy hoặc tác động tiêu cực chưa lường trước (như xóa file, drop database, cài đặt system dependencies lạ).

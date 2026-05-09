@@ -39,6 +39,19 @@ const MainLayout: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+    // Sidebar resize state
+    const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+        const saved = localStorage.getItem('cic-erp-sidebar-width');
+        return saved ? parseInt(saved, 10) : 208; // default w-52
+    });
+    const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+
+    useEffect(() => {
+        if (!isResizingSidebar) {
+            localStorage.setItem('cic-erp-sidebar-width', sidebarWidth.toString());
+        }
+    }, [isResizingSidebar, sidebarWidth]);
+
     // Unit selection (shared across dashboard/analytics)
     const ALL_UNIT: Unit = {
         id: 'all',
@@ -182,7 +195,6 @@ const MainLayout: React.FC = () => {
         );
     }
 
-    const mainMarginClass = isSidebarCollapsed ? 'md:ml-20' : 'md:ml-52';
     const contentMaxWidthClass = isSidebarCollapsed ? 'max-w-[1920px]' : 'max-w-[1600px]';
 
     return (
@@ -190,6 +202,28 @@ const MainLayout: React.FC = () => {
             <SlidePanelProvider>
                 <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 antialiased">
                     <Toaster position="top-center" richColors closeButton />
+
+                    <style>{`
+                        :root {
+                            --sidebar-width: ${isSidebarCollapsed ? 80 : sidebarWidth}px;
+                        }
+                        @media (min-width: 768px) {
+                            .dynamic-sidebar {
+                                width: var(--sidebar-width) !important;
+                            }
+                            .dynamic-main {
+                                margin-left: var(--sidebar-width) !important;
+                            }
+                            .dynamic-header {
+                                margin-left: var(--sidebar-width) !important;
+                            }
+                            ${isResizingSidebar ? `
+                            .dynamic-sidebar, .dynamic-main, .dynamic-header {
+                                transition: none !important;
+                            }
+                            ` : ''}
+                        }
+                    `}</style>
 
                     {/* Sidebar */}
                     <Sidebar
@@ -199,10 +233,14 @@ const MainLayout: React.FC = () => {
                         isCollapsed={isSidebarCollapsed}
                         setIsCollapsed={setIsSidebarCollapsed}
                         onClose={() => setIsSidebarOpen(false)}
+                        sidebarWidth={sidebarWidth}
+                        setSidebarWidth={setSidebarWidth}
+                        isResizing={isResizingSidebar}
+                        setIsResizing={setIsResizingSidebar}
                     />
 
                     {/* Main Content */}
-                    <div className={`transition-all duration-300 ${mainMarginClass}`}>
+                    <div className={`transition-all duration-300 dynamic-main`}>
                         {/* Header */}
                         <Header
                             onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}

@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { NAV_ITEMS } from '../constants';
 import { X, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import CICLogo, { CICLogoIcon } from './CICLogo';
@@ -15,6 +15,10 @@ interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
   onClose: () => void;
+  sidebarWidth?: number;
+  setSidebarWidth?: (width: number) => void;
+  isResizing?: boolean;
+  setIsResizing?: (resizing: boolean) => void;
 }
 
 interface NavItemProps {
@@ -53,10 +57,37 @@ const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed,
   setIsCollapsed,
   onClose,
+  sidebarWidth,
+  setSidebarWidth,
+  isResizing,
+  setIsResizing,
 }) => {
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
   const { permissions } = usePermissionCheck();
+
+  useEffect(() => {
+    if (!isResizing || !setIsResizing || !setSidebarWidth) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      let newWidth = e.clientX;
+      if (newWidth < 200) newWidth = 200; // min width
+      if (newWidth > 600) newWidth = 600; // max width
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, setIsResizing, setSidebarWidth]);
 
   const [isCategoryExpanded, setIsCategoryExpanded] = useState(() => {
     const saved = localStorage.getItem('sidebar_category_expanded');
@@ -103,10 +134,20 @@ const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <div className={`
-        fixed left-0 top-0 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col z-50 transition-all duration-300 ease-in-out
-        ${isCollapsed ? 'md:w-20' : 'md:w-52'} 
+        fixed left-0 top-0 h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col z-50 ease-in-out dynamic-sidebar
+        ${isResizing ? 'transition-none' : 'transition-all duration-300'}
         ${isOpen ? 'translate-x-0 w-52' : '-translate-x-full md:translate-x-0'}
       `}>
+        {/* Resizer Handle */}
+        {!isCollapsed && !isOpen && setIsResizing && (
+          <div 
+            className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-orange-500/50 active:bg-orange-500 z-50 transition-colors"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsResizing(true);
+            }}
+          />
+        )}
         {/* Header & Logo - Modern Professional Style */}
         <div className={`relative p-4 flex items-center justify-between ${isCollapsed ? 'md:px-3 md:justify-center' : ''}`}>
           {/* Subtle gradient accent line at bottom */}

@@ -26,7 +26,6 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, selectedUnit, onSelectUnit, yearFilter, onYearChange, periodFilter, onPeriodChange, allUnits = [], onNavigateToContract, theme, setTheme, accent, setAccent }) => {
-  const marginClass = isSidebarCollapsed ? 'md:ml-20' : 'md:ml-52';
   const { signOut, user, profile } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -93,7 +92,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
   const displayRole = profile?.role ? (roleLabels[profile.role] || profile.role) : '';
 
   return (
-    <header className={`fixed top-0 left-0 right-0 h-16 bg-white/95 dark:bg-slate-900 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 ${marginClass} z-30 flex items-center justify-between px-4 transition-all duration-300`}>
+    <header className={`fixed top-0 left-0 right-0 h-16 bg-white/95 dark:bg-slate-900 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-30 flex items-center justify-between px-4 transition-all duration-300 dynamic-header`}>
       <div className="flex items-center gap-2 sm:gap-4">
         <button
           onClick={onMenuClick}
