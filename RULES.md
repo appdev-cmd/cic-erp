@@ -122,3 +122,12 @@ Trước khi thêm component/section mới, **đọc code xung quanh** để dù
 - [ ] Element có `sticky`/`fixed` → dùng nền full opacity (`dark:bg-slate-900`)
 - [ ] Badge nhỏ có thể dùng `/20`–`/30`; Card/Panel thì không
 
+---
+
+## 5. ⚡ Auto-Run Commands Rule (BẮT BUỘC)
+
+> Để tối ưu hóa quy trình làm việc và giảm thiểu gián đoạn cho người dùng (không phải bấm nút RUN liên tục), bạn PHẢI tuân thủ:
+
+1. **Luôn thiết lập `SafeToAutoRun: true` (hoặc cờ tương đương)** khi gọi tool chạy lệnh Terminal đối với các lệnh an toàn, không có tính phá hủy (ví dụ: khởi chạy server `npm run dev`, git status, xem log, biên dịch thử, v.v.).
+2. **Ưu tiên sử dụng API tools cụ thể** (`view_file`, `replace_file_content`, `list_dir`, `grep_search`...) thay vì dùng shell commands (như `cat`, `ls`, `grep`) để thao tác với file/thư mục. Việc dùng API tools sẽ không yêu cầu user phê duyệt qua Terminal.
+3. **KHÔNG BAO GIỜ** tự động chạy các lệnh có nguy cơ phá hủy hoặc tác động tiêu cực chưa lường trước (như xóa file, drop database, cài đặt system dependencies lạ).

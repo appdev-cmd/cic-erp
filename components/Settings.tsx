@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette,
     HardDrive, BarChart3, Bot, Crown, ScanLine, Sparkles, History,
-    ChevronRight, AlertTriangle, CheckCircle2, RefreshCw, Loader2, Database
+    ChevronRight, AlertTriangle, CheckCircle2, RefreshCw, Loader2, Database, TrendingUp
 } from 'lucide-react';
 import PilotRunner from './admin/PilotRunner';
 import PermissionManager from './settings/PermissionManager';
@@ -12,6 +12,7 @@ import DriveSettings from './settings/DriveSettings';
 import AIPermissionManager from './settings/AIPermissionManager';
 import ManagementRankManager from './settings/ManagementRankManager';
 import HistoricalProductionManager from './settings/HistoricalProductionManager';
+import CompanyTargetManager from './settings/CompanyTargetManager';
 import RouteAuditPanel from './settings/RouteAuditPanel';
 import EmbeddingSettings from './settings/EmbeddingSettings';
 import PermissionAuditLog from './settings/PermissionAuditLog';
@@ -26,7 +27,7 @@ type SettingsTab =
     | 'system'
     | 'permissions' | 'role-defaults' | 'task-mgmt' | 'route-audit' | 'perm-audit'
     | 'ai-api' | 'ai-embedding' | 'drive'
-    | 'historical'
+    | 'historical' | 'company-target'
     | 'testing';
 
 interface SectionGroup {
@@ -283,6 +284,7 @@ const Settings: React.FC = () => {
             adminOnly: true,
             items: [
                 { id: 'historical', label: 'Sản lượng lịch sử', icon: <BarChart3 size={15} />, adminOnly: true },
+                { id: 'company-target', label: 'Chỉ tiêu ĐHCĐ', icon: <TrendingUp size={15} />, adminOnly: true },
             ],
         },
         {
@@ -515,6 +517,19 @@ const Settings: React.FC = () => {
                     {/* HISTORICAL PRODUCTION */}
                     {activeTab === 'historical' && isAdmin && (
                         <HistoricalProductionManager />
+                    )}
+
+                    {/* COMPANY TARGET (ĐHCĐ) */}
+                    {activeTab === 'company-target' && isAdmin && (
+                        <div>
+                            <SectionHeader
+                                icon={<TrendingUp size={20} className="text-white" />}
+                                title="Chỉ tiêu ĐHCĐ"
+                                desc="Chỉ tiêu Đại hội cổ đông giao theo năm (Ký kết, Doanh thu, Lợi nhuận)"
+                                gradient="from-orange-500 to-amber-600"
+                            />
+                            <CompanyTargetManager />
+                        </div>
                     )}
 
                     {/* TESTING */}

@@ -15,6 +15,7 @@ export * from './driveInitService';
 export * from './brandService';
 export * from './employeeTargetService';
 export * from './historicalProductionService';
+export * from './companyTargetService';
 
 export * from './productLineService';
 export * from './productEditionService';

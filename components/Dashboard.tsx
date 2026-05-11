@@ -42,6 +42,7 @@ import {
 import { Skeleton } from './ui/Skeleton';
 import ErrorBoundary from './ErrorBoundary';
 import { ContractService, UnitService, EmployeeService, HistoricalProductionService } from '../services';
+import { CompanyTargetService, CompanyTarget } from '../services/companyTargetService';
 import { Unit, KPIPlan, Contract, HistoricalProduction } from '../types';
 import { getSmartInsights as getSmartInsightsWithDeepSeek } from '../services/ai';
 import { getChartColors, getAccentColor, getAccentColorLight, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill, isDarkTheme } from '../lib/themeColors';
@@ -117,6 +118,9 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
     actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
     statusCounts: { processing: 0, suspended: 0, handover: 0, acceptance: 0, completed: 0 }
   });
+
+  // Chỉ tiêu ĐHCĐ cấp công ty
+  const [companyTarget, setCompanyTarget] = useState<CompanyTarget | null>(null);
 
   // Chart Data
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
@@ -334,6 +338,19 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
       } catch (error) {
         console.warn("[Dashboard] Step 6 Recent Contracts Fetch Error:", error);
         if (!isCancelled) setRecentContracts([]);
+      }
+
+      // STEP 7: Fetch Company Target (ĐHCĐ) — only when viewing whole company
+      if (unitId === 'all' && year !== 'All') {
+        try {
+          const ct = await CompanyTargetService.getByYear(parseInt(year));
+          if (!isCancelled) setCompanyTarget(ct);
+        } catch (error) {
+          console.warn('[Dashboard] Step 7 Company Target Fetch Error:', error);
+          if (!isCancelled) setCompanyTarget(null);
+        }
+      } else {
+        if (!isCancelled) setCompanyTarget(null);
       }
 
       console.log('[Dashboard] All data loaded successfully!');
@@ -593,6 +610,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
     ? { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
     : displayTarget;
 
+  // Chỉ tiêu ĐHCĐ: chỉ hiện khi xem toàn công ty + cả năm (không lọc tháng/quý)
+  const effectiveCompanyTarget = (!isFilteringByPeriod && safeUnit.id === 'all' && companyTarget)
+    ? CompanyTargetService.toKPIPlan(companyTarget)
+    : null;
+
   if (loadingConfig || !selectedUnit) {
     return <DashboardSkeleton />;
   }
@@ -619,11 +641,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
         {/* Main KPI Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          <KPIItem title="Ký kết" metric="signing" stats={stats.actual} target={effectiveTarget} yoy={getYoY('signing')} color="indigo" icon={<FileText size={20} />} />
-          <KPIItem title="Doanh thu" metric="revenue" stats={stats.actual} target={effectiveTarget} yoy={getYoY('revenue')} color="emerald" icon={<CreditCard size={20} />} />
-          <KPIItem title="LNG Quản trị" metric="adminProfit" stats={stats.actual} target={effectiveTarget} yoy={getYoY('adminProfit')} color="purple" icon={<TrendingUp size={20} />} />
-          <KPIItem title="LNG Doanh thu" metric="revProfit" stats={stats.actual} target={effectiveTarget} yoy={getYoY('revProfit')} color="amber" icon={<Target size={20} />} />
-          <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={effectiveTarget} yoy={{ value: '0', isUp: true, lastYearTotal: 0 }} color="cyan" icon={<Wallet size={20} />} />
+          <KPIItem title="Ký kết" metric="signing" stats={stats.actual} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('signing')} color="indigo" icon={<FileText size={20} />} />
+          <KPIItem title="Doanh thu" metric="revenue" stats={stats.actual} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('revenue')} color="emerald" icon={<CreditCard size={20} />} />
+          <KPIItem title="LNG Quản trị" metric="adminProfit" stats={stats.actual} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('adminProfit')} color="purple" icon={<TrendingUp size={20} />} />
+          <KPIItem title="LNG Doanh thu" metric="revProfit" stats={stats.actual} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('revProfit')} color="amber" icon={<Target size={20} />} />
+          <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={effectiveTarget} companyTarget={null} yoy={{ value: '0', isUp: true, lastYearTotal: 0 }} color="cyan" icon={<Wallet size={20} />} />
         </div>
 
         {/* Status Highlights — 5 contract statuses */}
@@ -866,10 +888,14 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 };
 
 // Reusable Components (Keep same as before or updated)
-const KPIItem = ({ title, metric, stats, target, yoy, color, icon }: any) => {
+const KPIItem = ({ title, metric, stats, target, companyTarget, yoy, color, icon }: any) => {
   const actual = stats[metric] || 0;
   const plan = target[metric] || 0;
   const progress = plan > 0 ? Math.round((actual / plan) * 100) : 0;
+
+  // Chỉ tiêu ĐHCĐ
+  const dhcdPlan = companyTarget ? (companyTarget[metric] || 0) : 0;
+  const dhcdProgress = dhcdPlan > 0 ? Math.round((actual / dhcdPlan) * 100) : 0;
 
   const colors: any = {
     indigo: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/30',
@@ -887,6 +913,8 @@ const KPIItem = ({ title, metric, stats, target, yoy, color, icon }: any) => {
     if (abs >= 1e3) return `${sign}${Math.round(abs / 1e3)}K`;
     return Math.round(val).toString();
   };
+
+  const barColor = color === 'emerald' ? 'bg-emerald-500' : color === 'amber' ? 'bg-amber-500' : color === 'purple' ? 'bg-purple-500' : 'bg-indigo-600';
 
   return (
     <div className="bg-white dark:bg-slate-900 p-6 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-lg group relative overflow-hidden dark-card-glow">
@@ -907,19 +935,41 @@ const KPIItem = ({ title, metric, stats, target, yoy, color, icon }: any) => {
         </div>
       </div>
       <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">{title}</p>
-      <div className="flex items-baseline gap-2 mb-4">
+      <div className="mb-4">
         <h4 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{formatValue(actual)}</h4>
-        {plan > 0 && <span className="text-xs font-bold text-slate-400">/ {formatValue(plan)}</span>}
       </div>
-      {plan > 0 ? (
+      {plan > 0 || dhcdPlan > 0 ? (
         <div className="space-y-2">
-          <div className="flex justify-between text-xs font-black uppercase tracking-tighter">
-            <span className="text-slate-400">Hoàn thành KH</span>
-            <span className={yoy.isUp ? 'text-indigo-600 dark:text-indigo-400' : 'text-amber-600 dark:text-amber-400'}>{progress.toFixed(1)}%</span>
-          </div>
-          <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all duration-1000 ${color === 'emerald' ? 'bg-emerald-500' : color === 'amber' ? 'bg-amber-500' : 'bg-indigo-600'}`} style={{ width: `${Math.min(100, progress)}%` }}></div>
-          </div>
+          {/* Chỉ tiêu Nội bộ */}
+          {plan > 0 && (
+            <>
+              <div className="flex justify-between items-center text-xs font-black uppercase tracking-tighter">
+                <span className="text-slate-400">{dhcdPlan > 0 ? 'KH Nội bộ' : 'Hoàn thành KH'}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 normal-case tracking-normal">/ {formatValue(plan)}</span>
+                  <span className={progress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'}>{progress.toFixed(1)}%</span>
+                </div>
+              </div>
+              <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-1000 ${barColor}`} style={{ width: `${Math.min(100, progress)}%` }}></div>
+              </div>
+            </>
+          )}
+          {/* Chỉ tiêu ĐHCĐ */}
+          {dhcdPlan > 0 && (
+            <>
+              <div className="flex justify-between items-center text-xs font-black uppercase tracking-tighter mt-1">
+                <span className="text-orange-500 dark:text-orange-400">KH ĐHCĐ</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 normal-case tracking-normal">/ {formatValue(dhcdPlan)}</span>
+                  <span className={dhcdProgress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}>{dhcdProgress.toFixed(1)}%</span>
+                </div>
+              </div>
+              <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-1000 bg-orange-500" style={{ width: `${Math.min(100, dhcdProgress)}%` }}></div>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="h-2" />

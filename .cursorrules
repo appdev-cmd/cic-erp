@@ -30,3 +30,12 @@ Giữ lại các lệnh tắt này để Agent làm việc chuyên nghiệp hơn
 - **Knowledge:** `~/.gemini/antigravity/knowledge/`
 
 (Mỗi khi user dùng lệnh có dấu `/`, hãy đọc file workflow tương ứng trong folder trên)
+
+---
+
+## 3. Auto-Run Commands Rule (BẮT BUỘC)
+> Để tối ưu hóa quy trình làm việc và giảm thiểu gián đoạn cho người dùng (không phải bấm nút RUN liên tục), bạn PHẢI tuân thủ:
+
+1. **Luôn thiết lập cờ tự động chạy (nếu có hỗ trợ)** hoặc chủ động chạy các lệnh an toàn, không có tính phá hủy (ví dụ: khởi chạy server `npm run dev`, git status, xem log, biên dịch thử, v.v.).
+2. **Ưu tiên sử dụng API tools cụ thể** (như `view_file`, `replace_file_content`, `list_dir`, `grep_search`...) thay vì dùng shell commands để thao tác với file/thư mục, nhằm tránh việc IDE yêu cầu người dùng phê duyệt lệnh ở Terminal.
+3. **KHÔNG BAO GIỜ** tự động chạy các lệnh có nguy cơ phá hủy hoặc tác động tiêu cực chưa lường trước (như xóa file, drop database, cài đặt system dependencies lạ).
