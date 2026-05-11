@@ -196,32 +196,32 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
 
                             <div className="space-y-6">
                                 {/* Row 1: Plan */}
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Giá trị Ký kết</p>
-                                        <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                                            {formatVND(financials.totalOutput || contract.value)} <span className="text-xs font-medium text-slate-400">đ</span>
+                                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+                                    <div className="space-y-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" title="Giá trị Ký kết">Giá trị Ký kết</p>
+                                        <p className="text-lg xl:text-xl font-black tracking-tight text-slate-900 dark:text-slate-100 truncate" title={formatVND(financials.totalOutput || contract.value)}>
+                                            {formatVND(financials.totalOutput || contract.value)} <span className="text-[10px] font-medium text-slate-400">đ</span>
                                         </p>
                                     </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Doanh thu (-VAT)</p>
-                                        <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
-                                            {formatVND(financials.totalRevenue || contract.value)} <span className="text-xs font-medium text-slate-400">đ</span>
+                                    <div className="space-y-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" title="Doanh thu (-VAT)">Doanh thu (-VAT)</p>
+                                        <p className="text-lg xl:text-xl font-black tracking-tight text-blue-600 dark:text-blue-400 truncate" title={formatVND(financials.totalRevenue || contract.value)}>
+                                            {formatVND(financials.totalRevenue || contract.value)} <span className="text-[10px] font-medium text-slate-400">đ</span>
                                         </p>
                                     </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tổng chi phí dự kiến</p>
-                                        <p className="text-2xl font-black text-rose-600 dark:text-rose-400">
+                                    <div className="space-y-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" title="Tổng chi phí dự kiến">Tổng chi phí dự kiến</p>
+                                        <p className="text-lg xl:text-xl font-black tracking-tight text-rose-600 dark:text-rose-400 truncate" title={formatVND(financials.totalCosts)}>
                                             {formatVND(financials.totalCosts)}
                                         </p>
                                     </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lợi nhuận gộp</p>
-                                        <div className="flex items-center gap-2">
-                                            <p className={`text-2xl font-black ${financials.grossProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                    <div className="space-y-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate" title="Lợi nhuận gộp">Lợi nhuận gộp</p>
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <p className={`text-lg xl:text-xl font-black tracking-tight truncate max-w-full ${financials.grossProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`} title={formatVND(financials.grossProfit)}>
                                                 {formatVND(financials.grossProfit)}
                                             </p>
-                                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${financials.grossProfit >= 0 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'}`}>
+                                            <span className={`text-[10px] flex-shrink-0 font-bold px-1.5 py-0.5 rounded ${financials.grossProfit >= 0 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'}`}>
                                                 {financials.margin.toFixed(1)}%
                                             </span>
                                         </div>
@@ -254,69 +254,69 @@ const ContractOverviewTab: React.FC<ContractOverviewTabProps> = ({
                                     // Công nợ = Đã xuất HĐ (sau VAT) - Tiền về
                                     const totalReceivable = totalInvoiced - totalCashReceived;
                                     return (
-                                        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+                                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6">
                                             {(contract.advanceAmount || 0) > 0 && (
-                                                <div className="space-y-1">
-                                                    <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
-                                                        <Wallet size={12} /> Tạm ứng
+                                                <div className="space-y-1 min-w-0">
+                                                    <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1 truncate" title="Tạm ứng">
+                                                        <Wallet size={12} className="flex-shrink-0" /> Tạm ứng
                                                     </p>
-                                                    <p className="text-xl font-black text-amber-600 dark:text-amber-400">
+                                                    <p className="text-lg xl:text-xl font-black tracking-tight truncate text-amber-600 dark:text-amber-400" title={formatVND(contract.advanceAmount || 0)}>
                                                         {formatVND(contract.advanceAmount || 0)}
                                                     </p>
-                                                    <p className="text-[10px] text-slate-400">Chưa xuất HĐ</p>
+                                                    <p className="text-[10px] text-slate-400 truncate">Chưa xuất HĐ</p>
                                                 </div>
                                             )}
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1">
-                                                    <FileText size={12} /> Đã xuất Hóa đơn
+                                            <div className="space-y-1 min-w-0">
+                                                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1 truncate" title="Đã xuất Hóa đơn">
+                                                    <FileText size={12} className="flex-shrink-0" /> Đã xuất Hóa đơn
                                                 </p>
-                                                <p className={`text-xl font-black ${totalInvoicedAll > contractLimit ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                                                <p className={`text-lg xl:text-xl font-black tracking-tight truncate ${totalInvoicedAll > contractLimit ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`} title={formatVND(totalInvoiced)}>
                                                     {formatVND(totalInvoiced)}
                                                 </p>
-                                                <p className="text-[10px] text-slate-400">
+                                                <p className="text-[10px] text-slate-400 truncate">
                                                     {(() => {
                                                         const pct = totalInvoiced > 0 ? (totalInvoiced / (contract.value || 1) * 100).toFixed(1) : null;
                                                         if (!pct) return 'Chưa xuất';
                                                         return totalInvoicedAll > contractLimit
-                                                            ? <span className="text-red-500 font-bold">⚠ {pct}% giá trị HĐ — Vượt giới hạn!</span>
+                                                            ? <span className="text-red-500 font-bold" title={`⚠ ${pct}% giá trị HĐ — Vượt giới hạn!`}>⚠ {pct}% giá trị HĐ</span>
                                                             : `${pct}% giá trị HĐ`;
                                                     })()}
                                                 </p>
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1">
-                                                    <TrendingUp size={12} /> Doanh thu (−VAT)
+                                            <div className="space-y-1 min-w-0">
+                                                <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest flex items-center gap-1 truncate" title="Doanh thu (−VAT)">
+                                                    <TrendingUp size={12} className="flex-shrink-0" /> Doanh thu (−VAT)
                                                 </p>
-                                                <p className="text-xl font-black text-indigo-600 dark:text-indigo-400">
+                                                <p className="text-lg xl:text-xl font-black tracking-tight truncate text-indigo-600 dark:text-indigo-400" title={formatVND(totalRevenuePreVAT)}>
                                                     {formatVND(totalRevenuePreVAT)}
                                                 </p>
-                                                <p className="text-[10px] text-slate-400">
+                                                <p className="text-[10px] text-slate-400 truncate">
                                                     {totalRevenuePreVAT > 0 ? 'Tổng trước thuế' : 'Chưa có'}
                                                 </p>
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1">
-                                                    <DollarSign size={12} /> Tiền về (Đã thu)
+                                            <div className="space-y-1 min-w-0">
+                                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1 truncate" title="Tiền về (Đã thu)">
+                                                    <DollarSign size={12} className="flex-shrink-0" /> Tiền về (Đã thu)
                                                 </p>
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <p className={`text-xl font-black ${totalCashReceived > contractLimit ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                    <p className={`text-lg xl:text-xl font-black tracking-tight truncate max-w-full ${totalCashReceived > contractLimit ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`} title={formatVND(totalCashReceived)}>
                                                         {formatVND(totalCashReceived)}
                                                     </p>
                                                     {totalCashReceived > 0 && (
-                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${totalCashReceived > contractLimit ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>
+                                                        <span className={`text-[10px] flex-shrink-0 px-1.5 py-0.5 rounded font-bold ${totalCashReceived > contractLimit ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>
                                                             {(totalCashReceived / (contract.value || 1) * 100).toFixed(1)}%
                                                         </span>
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-1">
-                                                    <AlertCircle size={12} /> Công nợ phải thu
+                                            <div className="space-y-1 min-w-0">
+                                                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest flex items-center gap-1 truncate" title="Công nợ phải thu">
+                                                    <AlertCircle size={12} className="flex-shrink-0" /> Công nợ phải thu
                                                 </p>
-                                                <p className="text-xl font-black text-rose-600 dark:text-rose-400">
+                                                <p className="text-lg xl:text-xl font-black tracking-tight truncate text-rose-600 dark:text-rose-400" title={formatVND(totalReceivable > 0 ? totalReceivable : 0)}>
                                                     {formatVND(totalReceivable > 0 ? totalReceivable : 0)}
                                                 </p>
-                                                <p className="text-[10px] text-slate-400">
+                                                <p className="text-[10px] text-slate-400 truncate">
                                                     {totalInvoiced > 0 ? 'HĐ VAT - Tiền về' : 'Chưa xuất HĐ'}
                                                 </p>
                                             </div>

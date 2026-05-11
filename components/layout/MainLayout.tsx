@@ -39,6 +39,23 @@ const MainLayout: React.FC = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+    // Initialize per-user sidebar state when profile loads
+    useEffect(() => {
+        if (profile?.id) {
+            const saved = localStorage.getItem(`cic-erp-sidebar-collapsed-${profile.id}`);
+            if (saved !== null) {
+                setIsSidebarCollapsed(saved === 'true');
+            }
+        }
+    }, [profile?.id]);
+
+    const handleSetIsSidebarCollapsed = (collapsed: boolean) => {
+        setIsSidebarCollapsed(collapsed);
+        if (profile?.id) {
+            localStorage.setItem(`cic-erp-sidebar-collapsed-${profile.id}`, String(collapsed));
+        }
+    };
+
     // Sidebar resize state
     const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
         const saved = localStorage.getItem('cic-erp-sidebar-width');
@@ -231,7 +248,7 @@ const MainLayout: React.FC = () => {
                         setActiveTab={(tab) => navigate(`/${tab === 'dashboard' ? '' : tab}`)}
                         isOpen={isSidebarOpen}
                         isCollapsed={isSidebarCollapsed}
-                        setIsCollapsed={setIsSidebarCollapsed}
+                        setIsCollapsed={handleSetIsSidebarCollapsed}
                         onClose={() => setIsSidebarOpen(false)}
                         sidebarWidth={sidebarWidth}
                         setSidebarWidth={setSidebarWidth}
