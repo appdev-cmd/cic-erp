@@ -154,18 +154,18 @@ const RecruitmentPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto flex flex-col h-[calc(100vh-110px)] animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
-            <Briefcase className="text-indigo-600 dark:text-indigo-400" size={24} />
+          <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
+            <Briefcase className="text-indigo-600 dark:text-indigo-400" size={20} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
               Quản lý Tuyển dụng
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Pipeline ứng viên, thẻ yêu cầu tuyển dụng và ngân hàng CV
             </p>
           </div>
@@ -187,9 +187,9 @@ const RecruitmentPage: React.FC = () => {
                   )
                 });
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
             >
-              <Plus size={18} />
+              <Plus size={16} />
               <span>Tạo Yêu cầu</span>
             </button>
           )}
@@ -213,9 +213,9 @@ const RecruitmentPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowCandidateForm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
               >
-                <Plus size={18} />
+                <Plus size={16} />
                 <span>Thêm Ứng Viên</span>
               </button>
             </div>
@@ -224,7 +224,7 @@ const RecruitmentPage: React.FC = () => {
       </div>
 
       {/* Global Search and Filter Bar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+      <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row gap-3 items-center justify-between shadow-sm shrink-0 mt-3">
         <div className="relative w-full md:w-96">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-4 w-4 text-slate-400" />
@@ -262,8 +262,8 @@ const RecruitmentPage: React.FC = () => {
       </div>
       
       {/* Expanded Filters for Candidates */}
-      {activeTab === 'candidates' && showFilters && (
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in flex flex-wrap gap-4 items-end">
+      <div className={`transition-all overflow-hidden shrink-0 ${showFilters && activeTab === 'candidates' ? 'max-h-96 opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[200px]">
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Kinh nghiệm</label>
             <select 
@@ -304,30 +304,30 @@ const RecruitmentPage: React.FC = () => {
             </button>
           )}
         </div>
-      )}
+      </div>
 
       {/* Tabs */}
-      <div className="flex items-center border-b border-slate-200 dark:border-slate-800">
+      <div className="flex items-center border-b border-slate-200 dark:border-slate-800 shrink-0 mt-3">
         <button
           onClick={() => setActiveTab('dashboard')}
-          className={`flex items-center gap-2 px-6 py-3 border-b-2 font-medium text-sm transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
             activeTab === 'dashboard'
               ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
-          <BarChart3 size={18} />
+          <BarChart3 size={16} />
           Tổng quan
         </button>
         <button
           onClick={() => setActiveTab('candidates')}
-          className={`flex items-center gap-2 px-6 py-3 border-b-2 font-medium text-sm transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
             activeTab === 'candidates'
               ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
-          <Users size={18} />
+          <Users size={16} />
           Ứng viên
           <span className="ml-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-300">
             {filteredCandidates.length}
@@ -335,13 +335,13 @@ const RecruitmentPage: React.FC = () => {
         </button>
         <button
           onClick={() => setActiveTab('jobs')}
-          className={`flex items-center gap-2 px-6 py-3 border-b-2 font-medium text-sm transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
             activeTab === 'jobs'
               ? 'border-indigo-600 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
-          <Briefcase size={18} />
+          <Briefcase size={16} />
           Vị trí tuyển
           <span className="ml-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-300">
             {filteredJobs.length}
@@ -350,7 +350,7 @@ const RecruitmentPage: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="mt-6">
+      <div className="flex-1 overflow-y-auto mt-3 pb-6">
         {isLoading && activeTab !== 'dashboard' ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 dark:border-indigo-400 truncate"></div>

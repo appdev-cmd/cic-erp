@@ -87,18 +87,18 @@ const LeavePage: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto flex flex-col h-[calc(100vh-110px)] animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
-            <PlaneTakeoff className="text-emerald-600 dark:text-emerald-400" size={24} />
+          <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+            <PlaneTakeoff className="text-emerald-600 dark:text-emerald-400" size={20} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
               Quản lý Nghỉ phép
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Tra cứu quỹ phép, nộp đơn và theo dõi lịch nghỉ của đơn vị
             </p>
           </div>
@@ -108,9 +108,9 @@ const LeavePage: React.FC = () => {
           {activeTab === 'my-leave' && (
             <button
               onClick={() => { setEditRequest(null); setShowForm(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm hover:shadow"
             >
-              <Plus size={18} />
+              <Plus size={16} />
               <span>Tạo Đơn Nghỉ Phép</span>
             </button>
           )}
@@ -118,33 +118,33 @@ const LeavePage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center border-b border-slate-200 dark:border-slate-800">
+      <div className="flex items-center border-b border-slate-200 dark:border-slate-800 shrink-0 mt-2">
         <button
           onClick={() => setActiveTab('my-leave')}
-          className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
             activeTab === 'my-leave'
               ? 'border-emerald-600 dark:border-emerald-400 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
-          <History size={18} />
+          <History size={16} />
           Phép của tôi
         </button>
         <button
           onClick={() => setActiveTab('team-calendar')}
-          className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
             activeTab === 'team-calendar'
               ? 'border-emerald-600 dark:border-emerald-400 text-emerald-600 dark:text-emerald-400'
               : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
-          <CalendarDays size={18} />
+          <CalendarDays size={16} />
           Lịch Đơn Vị
         </button>
       </div>
 
       {/* Content */}
-      <div className="mt-6">
+      <div className="flex-1 overflow-y-auto mt-3 pb-6">
         {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400 truncate"></div>

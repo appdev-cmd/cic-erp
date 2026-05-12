@@ -19,9 +19,17 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
   const [bookings, setBookings] = useState<InternalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     loadData();
   }, [currentDate, viewMode, filterType]);
+
+  useEffect(() => {
+    if (viewMode === 'timeline' && scrollRef.current) {
+      scrollRef.current.scrollTop = 8 * 60; // scroll to 8 AM
+    }
+  }, [viewMode, currentDate, facilities]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -106,48 +114,79 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
     });
   };
 
-  const workingHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+  const workingHours = Array.from({ length: 25 }, (_, i) => i);
 
-  const getBookingsForFacilityAndDay = (facilityId: string, day: Date) => {
-    return bookings.filter(b => {
-      if (b.facility_id !== facilityId || !b.details?.start_time || !b.details?.end_time) return false;
+  const getLayoutBookingsForDay = (day: Date) => {
+    const dayBookings = bookings.filter(b => {
+      if (!b.details?.start_time || !b.details?.end_time) return false;
       const bStart = new Date(b.details.start_time);
       const bEnd = new Date(b.details.end_time);
-      
-      const dayStart = new Date(day);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(day);
-      dayEnd.setHours(23, 59, 59, 999);
-
+      const dayStart = new Date(day); dayStart.setHours(0,0,0,0);
+      const dayEnd = new Date(day); dayEnd.setHours(23,59,59,999);
       return bStart < dayEnd && bEnd > dayStart;
+    });
+
+    // sort by start time
+    dayBookings.sort((a, b) => new Date(a.details!.start_time).getTime() - new Date(b.details!.start_time).getTime());
+
+    let columns: InternalRequest[][] = [];
+    const layoutMap = new Map();
+
+    dayBookings.forEach(b => {
+      let placed = false;
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
+        const lastBooking = col[col.length - 1];
+        if (new Date(lastBooking.details!.end_time).getTime() <= new Date(b.details!.start_time).getTime()) {
+          col.push(b);
+          layoutMap.set(b.id, { colIndex: i });
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        layoutMap.set(b.id, { colIndex: columns.length });
+        columns.push([b]);
+      }
+    });
+
+    const maxCols = columns.length || 1;
+    return dayBookings.map(b => {
+      const layout = layoutMap.get(b.id);
+      return {
+        booking: b,
+        left: (layout.colIndex / maxCols) * 100,
+        width: 100 / maxCols
+      };
     });
   };
 
-  const calculateBookingStyle = (b: InternalRequest, day: Date) => {
+  const calculateVerticalBookingStyle = (b: InternalRequest, day: Date, left: number, width: number) => {
     if (!b.details?.start_time || !b.details?.end_time) return {};
     const start = new Date(b.details.start_time);
     const end = new Date(b.details.end_time);
 
-    // Limit to working hours (8 to 18)
-    let sHour = start.getDate() < day.getDate() ? 8 : start.getHours() + start.getMinutes() / 60;
-    let eHour = end.getDate() > day.getDate() ? 18 : end.getHours() + end.getMinutes() / 60;
+    let sHour = start.getHours() + start.getMinutes() / 60;
+    let eHour = end.getHours() + end.getMinutes() / 60;
 
-    if (sHour < 8) sHour = 8;
-    if (eHour > 18) eHour = 18;
+    const totalHours = 24;
+    const topPercent = (sHour / totalHours) * 100;
+    const heightPercent = ((eHour - sHour) / totalHours) * 100;
 
-    const totalHours = 18 - 8;
-    const leftPercent = ((sHour - 8) / totalHours) * 100;
-    const widthPercent = ((eHour - sHour) / totalHours) * 100;
-
-    let colorCls = 'bg-slate-200 border-slate-300 text-slate-800 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200';
+    let colorCls = 'bg-slate-200/90 border-slate-300 text-slate-800 dark:bg-slate-700/90 dark:border-slate-600 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600';
     if (b.status === 'approved') {
-      colorCls = 'bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/40 dark:border-emerald-700 dark:text-emerald-300';
+      colorCls = 'bg-emerald-100/90 border-emerald-300 text-emerald-800 dark:bg-emerald-900/80 dark:border-emerald-700/50 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-800';
     } else if (b.status === 'pending_unit' || b.status === 'pending_admin') {
-      colorCls = 'bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/40 dark:border-amber-700 dark:text-amber-300';
+      colorCls = 'bg-amber-100/90 border-amber-300 text-amber-800 dark:bg-amber-900/80 dark:border-amber-700/50 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-800';
     }
 
     return {
-      style: { left: `${Math.max(0, leftPercent)}%`, width: `${Math.min(100, widthPercent)}%` },
+      style: { 
+        top: `${Math.max(0, topPercent)}%`, 
+        height: `${Math.min(100, heightPercent)}%`,
+        left: `${left}%`,
+        width: `calc(${width}% - 2px)`
+      },
       className: colorCls
     };
   };
@@ -173,7 +212,7 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col min-h-[700px] animate-fade-in">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col h-full animate-fade-in">
       {/* Header */}
       <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
@@ -224,7 +263,7 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto relative p-0 bg-slate-50/50 dark:bg-slate-900/50">
+      <div className="flex-1 overflow-hidden relative p-0 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col">
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-50">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400"></div>
@@ -232,11 +271,11 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
         )}
 
         {viewMode === 'timeline' && (
-          <div className="min-w-[800px]">
+          <div className="flex-1 flex flex-col min-w-[800px] overflow-hidden">
             {/* Timeline Header - Days */}
             <div className="sticky top-0 z-30 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex">
-              <div className="w-48 shrink-0 border-r border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-800/50 flex items-center">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cơ sở vật chất</span>
+              <div className="w-16 shrink-0 border-r border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-800/50 flex flex-col justify-end text-xs text-slate-400">
+                GMT+07
               </div>
               <div className="flex-1 grid grid-cols-7 divide-x divide-slate-200 dark:divide-slate-800">
                 {getDaysOfWeek().map((d, i) => {
@@ -256,73 +295,78 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
             </div>
 
             {/* Timeline Body */}
-            <div className="divide-y divide-slate-200 dark:divide-slate-800">
-              {facilities.map(fac => (
-                <div key={fac.id} className="flex group bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                  <div className="w-48 shrink-0 border-r border-slate-200 dark:border-slate-800 p-3 flex flex-col justify-center relative">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: fac.color || '#3b82f6' }} />
-                      <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate" title={fac.name}>{fac.name}</span>
+            <div className="flex-1 overflow-y-auto bg-white dark:bg-slate-900 scroll-smooth" ref={scrollRef}>
+              <div className="flex h-[1440px]">
+                {/* Hour Labels */}
+                <div className="w-16 shrink-0 flex flex-col border-r border-slate-200 dark:border-slate-800 relative z-20 bg-white dark:bg-slate-900">
+                  {workingHours.slice(0, -1).map(h => (
+                    <div key={h} className="flex-1 h-[60px] text-right pr-2 text-[10px] text-slate-400 font-medium relative">
+                      <span className="absolute -top-2 right-2">{String(h).padStart(2, '0')}:00</span>
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      {fac.type === 'meeting_room' ? <AlignLeft size={12} /> : <MapPin size={12} />}
-                      <span className="truncate">{fac.capacity ? `Sức chứa: ${fac.capacity}` : (fac.type === 'meeting_room' ? 'Phòng họp' : 'Xe công tác')}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 grid grid-cols-7 divide-x divide-slate-200 dark:divide-slate-800">
-                    {getDaysOfWeek().map((d, i) => {
-                      const dayBookings = getBookingsForFacilityAndDay(fac.id, d);
-                      const isToday = new Date().toDateString() === d.toDateString();
-                      
-                      return (
-                        <div 
-                          key={i} 
-                          className={`relative p-1 min-h-[60px] ${isToday ? 'bg-blue-50/20 dark:bg-blue-900/5' : ''}`}
-                          onClick={() => {
-                            if (onCreateRequest) {
-                              const dStr = new Date(d);
-                              dStr.setHours(8,0,0,0);
-                              onCreateRequest(fac.id, dStr.toISOString());
-                            }
-                          }}
-                        >
-                          {/* Hour lines background */}
-                          <div className="absolute inset-0 opacity-20 pointer-events-none flex">
-                            {workingHours.slice(0, -1).map(h => (
-                              <div key={h} className="flex-1 border-r border-slate-300 dark:border-slate-600 border-dashed" />
-                            ))}
-                          </div>
-                          
-                          {/* Bookings */}
-                          <div className="relative h-full w-full mt-1">
-                            {dayBookings.map((b, idx) => {
-                              const { style, className } = calculateBookingStyle(b, d);
-                              return (
-                                <div 
-                                  key={b.id}
-                                  className={`absolute top-0 h-6 rounded border text-[10px] px-1 flex items-center truncate shadow-sm cursor-help hover:z-10 hover:ring-2 hover:ring-amber-400 transition-all ${className}`}
-                                  style={{ ...style, top: `${idx * 28}px` }}
-                                  title={`Người đặt: ${b.employee_name}\nĐơn vị: ${b.unit_name}\nTừ: ${b.details?.start_time ? new Date(b.details.start_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : ''} Đến: ${b.details?.end_time ? new Date(b.details.end_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : ''}\nMục đích: ${b.title}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <span className="font-semibold truncate">{b.employee_name?.split(' ').pop()}</span>
-                                  {b.status === 'pending_unit' && <span className="ml-1 opacity-70">(Chờ)</span>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  ))}
                 </div>
-              ))}
-              {facilities.length === 0 && !isLoading && (
-                <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm">
-                  Không có dữ liệu cơ sở vật chất.
+
+              {/* Grid & Bookings */}
+              <div className="flex-1 relative flex">
+                {/* Horizontal Grid Lines */}
+                <div className="absolute inset-0 pointer-events-none flex flex-col z-0">
+                  {workingHours.slice(0, -1).map(h => (
+                    <div key={h} className="h-[60px] border-t border-slate-100 dark:border-slate-800 shrink-0" />
+                  ))}
+                  <div className="border-t border-slate-100 dark:border-slate-800" />
                 </div>
-              )}
+
+                {/* Day Columns */}
+                <div className="flex-1 grid grid-cols-7 divide-x divide-slate-200 dark:divide-slate-800 relative z-10">
+                  {getDaysOfWeek().map((d, i) => {
+                    const isToday = new Date().toDateString() === d.toDateString();
+                    const layoutBookings = getLayoutBookingsForDay(d);
+
+                    return (
+                      <div 
+                        key={i} 
+                        className={`relative group ${isToday ? 'bg-blue-50/10 dark:bg-blue-900/5' : ''}`}
+                        onClick={(e) => {
+                          // Determine clicked hour
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const y = e.clientY - rect.top;
+                          const clickedHour = Math.floor(y / 60);
+                          if (onCreateRequest) {
+                            const dStr = new Date(d);
+                            dStr.setHours(clickedHour, 0, 0, 0);
+                            onCreateRequest('', dStr.toISOString());
+                          }
+                        }}
+                      >
+                        {layoutBookings.map(({ booking: b, left, width }) => {
+                          const { style, className } = calculateVerticalBookingStyle(b, d, left, width);
+                          return (
+                            <div
+                              key={b.id}
+                              className={`absolute border rounded-md p-1.5 flex flex-col overflow-hidden shadow-sm transition-all cursor-help hover:z-20 hover:shadow-md ${className}`}
+                              style={{ ...style, borderLeftWidth: '4px', borderLeftColor: b.facility?.color || 'currentColor' }}
+                              title={`Phòng/Xe: ${b.facility?.name || 'N/A'}\nNgười đặt: ${b.employee_name}\nĐơn vị: ${b.unit_name}\nTừ: ${b.details?.start_time ? new Date(b.details.start_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : ''} Đến: ${b.details?.end_time ? new Date(b.details.end_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : ''}\nMục đích: ${b.title}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="text-[10px] font-bold leading-tight truncate text-slate-800 dark:text-slate-100 flex items-center gap-1">
+                                {b.facility?.name}
+                              </div>
+                              <div className="text-[10px] truncate opacity-90 font-medium">
+                                {b.title}
+                              </div>
+                              <div className="text-[9px] truncate opacity-75 mt-auto pt-1">
+                                {b.employee_name?.split(' ').pop()}
+                                {b.status === 'pending_unit' && ' (Chờ)'}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              </div>
             </div>
           </div>
         )}

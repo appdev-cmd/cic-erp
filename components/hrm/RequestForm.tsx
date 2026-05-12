@@ -21,8 +21,22 @@ const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, un
   const [description, setDescription] = useState('');
   
   // Dynamic fields
-  const [startTime, setStartTime] = useState(initialStartTime ? initialStartTime.slice(0, 16) : '');
-  const [endTime, setEndTime] = useState('');
+  const [startTime, setStartTime] = useState(() => {
+    if (!initialStartTime) return '';
+    const d = new Date(initialStartTime);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
+  
+  const [endTime, setEndTime] = useState(() => {
+    if (!initialStartTime) return '';
+    const d = new Date(initialStartTime);
+    if (isNaN(d.getTime())) return '';
+    d.setHours(d.getHours() + 1); // Auto default to 1 hour later
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
   const [location, setLocation] = useState(''); // Used as generic location for other types
   const [facilityId, setFacilityId] = useState(initialFacilityId || '');
   
@@ -82,15 +96,19 @@ const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, un
         details['destination'] = location;
       }
 
-      const req = await RequestService.create({
+      const payload: any = {
         employee_id: employeeId,
         unit_id: unitId,
         type,
         title,
         description,
         details,
-        facility_id: facilityId || undefined,
-      });
+      };
+      if (facilityId) {
+        payload.facility_id = facilityId;
+      }
+
+      const req = await RequestService.create(payload);
 
       if (!asDraft) {
         await RequestService.submit(req.id);
@@ -98,9 +116,9 @@ const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, un
 
       onSaved();
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('Có lỗi xảy ra');
+      alert('Lỗi lưu: ' + (e.message || JSON.stringify(e)));
     } finally {
       setLoading(false);
     }
@@ -184,7 +202,7 @@ const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, un
                   </div>
                 )}
                 {conflictWarning && (
-                  <div className="col-span-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400">
+                  <div className="col-span-2 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400">
                     <AlertCircle size={16} className="inline mr-1.5 -mt-0.5" />
                     {conflictWarning}
                   </div>
@@ -212,10 +230,10 @@ const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, un
           </div>
         </div>
 
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3 rounded-b-2xl">
-          <button onClick={onClose} className="px-4 py-2 font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">Hủy</button>
-          <button onClick={() => handleSubmit(true)} disabled={loading || !title} className="px-4 py-2 font-medium text-amber-700 dark:text-amber-400 bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800 hover:bg-amber-100 rounded-lg">Lưu nháp</button>
-          <button onClick={() => handleSubmit(false)} disabled={loading || !title} className="px-5 py-2 font-medium text-white bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 rounded-lg">Gửi duyệt</button>
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 flex justify-end gap-3 rounded-b-2xl">
+          <button onClick={onClose} className="px-4 py-2 font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">Hủy</button>
+          <button onClick={() => handleSubmit(true)} disabled={loading || !title} className="px-4 py-2 font-medium text-amber-700 dark:text-amber-400 bg-amber-50 border border-amber-200 dark:bg-amber-900/30 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded-lg">Lưu nháp</button>
+          <button onClick={() => handleSubmit(false)} disabled={loading || !title} className="px-5 py-2 font-medium text-white bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 rounded-lg">Gửi duyệt</button>
         </div>
       </div>
     </div>

@@ -48,7 +48,8 @@ const RequestsPage: React.FC = () => {
     setIsLoading(true);
     try {
       if (activeTab === 'my_requests') {
-        const reqs = await RequestService.getByEmployee(currentEmployee.id);
+        const empId = currentEmployee.employeeId || currentEmployee.id;
+        const reqs = await RequestService.getByEmployee(empId);
         setRequests(reqs);
       } else if (activeTab === 'need_approval') {
         if (isAdmin) {
@@ -69,10 +70,11 @@ const RequestsPage: React.FC = () => {
   const handleApprove = async (id: string, currentStatus: string) => {
     if (!currentEmployee) return;
     try {
+      const empId = currentEmployee.employeeId || currentEmployee.id;
       if (currentStatus === 'pending_unit') {
-        await RequestService.approveUnit(id, currentEmployee.id);
+        await RequestService.approveUnit(id, empId);
       } else {
-        await RequestService.approveAdmin(id, currentEmployee.id);
+        await RequestService.approveAdmin(id, empId);
       }
       loadData();
     } catch (e) {
@@ -85,7 +87,8 @@ const RequestsPage: React.FC = () => {
     const reason = prompt('Nhập lý do từ chối:');
     if (reason === null) return;
     try {
-      await RequestService.reject(id, currentEmployee.id, reason);
+      const empId = currentEmployee.employeeId || currentEmployee.id;
+      await RequestService.reject(id, empId, reason);
       loadData();
     } catch (e) {
       alert('Có lỗi xảy ra');
@@ -93,69 +96,84 @@ const RequestsPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto flex flex-col h-[calc(100vh-110px)] animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
-            <FileEdit className="text-amber-600 dark:text-amber-400" size={24} />
+          <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+            <FileEdit className="text-amber-600 dark:text-amber-400" size={20} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
               Quản lý Đề xuất Nội bộ
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Đặt phòng họp, điều xe công tác, mua sắm văn phòng phẩm...
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Quản lý, phê duyệt các đề xuất và lịch sử dụng thiết bị
             </p>
           </div>
         </div>
         
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm"
-        >
-          <Plus size={18} /> Tạo Đề xuất Mới
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm font-medium shadow-sm"
+          >
+            <Plus size={16} /> Tạo Đề xuất Mới
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex items-center border-b border-slate-200 dark:border-slate-800 shrink-0 mt-2">
         <button
           onClick={() => setActiveTab('my_requests')}
-          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'my_requests' ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+            activeTab === 'my_requests'
+              ? 'border-amber-600 dark:border-amber-400 text-amber-600 dark:text-amber-400'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
+          }`}
         >
           Đề xuất của tôi
         </button>
         {(isManager || isAdmin) && (
           <button
             onClick={() => setActiveTab('need_approval')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'need_approval' ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'need_approval'
+                ? 'border-amber-600 dark:border-amber-400 text-amber-600 dark:text-amber-400'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
+            }`}
           >
             Cần tôi duyệt
           </button>
         )}
         <button
           onClick={() => setActiveTab('calendar')}
-          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'calendar' ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+          className={`flex items-center gap-2 px-4 py-2 border-b-2 font-medium text-sm transition-colors ${
+            activeTab === 'calendar'
+              ? 'border-amber-600 dark:border-amber-400 text-amber-600 dark:text-amber-400'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
+          }`}
         >
           📅 Lịch Cơ sở Vật chất
         </button>
       </div>
 
       {/* Grid */}
-      {activeTab === 'calendar' ? (
-        <FacilityCalendar 
-          onCreateRequest={(facilityId, startTime) => {
-            setPrefillFacility(facilityId);
-            setPrefillStartTime(startTime);
-            setShowForm(true);
-          }}
-        />
-      ) : isLoading ? (
-        <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div></div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {requests.map(req => (
+      <div className="flex-1 overflow-hidden flex flex-col mt-3">
+        {activeTab === 'calendar' ? (
+          <FacilityCalendar 
+            onCreateRequest={(facilityId, startTime) => {
+              setPrefillFacility(facilityId);
+              setPrefillStartTime(startTime);
+              setShowForm(true);
+            }}
+          />
+        ) : isLoading ? (
+          <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div></div>
+        ) : (
+          <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 content-start pb-6">
+            {requests.map(req => (
             <div key={req.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm flex flex-col hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between mb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded">
@@ -208,13 +226,14 @@ const RequestsPage: React.FC = () => {
           )}
         </div>
       )}
+      </div>
 
       {showForm && currentEmployee && (
         <RequestForm
           isOpen={showForm}
           onClose={() => setShowForm(false)}
           onSaved={loadData}
-          employeeId={currentEmployee.id}
+          employeeId={currentEmployee.employeeId || currentEmployee.id}
           unitId={currentEmployee.unitId || undefined}
           initialFacilityId={prefillFacility}
           initialStartTime={prefillStartTime}

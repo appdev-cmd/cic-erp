@@ -30,30 +30,33 @@ ALTER TABLE public.facilities ENABLE ROW LEVEL SECURITY;
 -- RLS Policies
 -- Mọi người có thể xem danh sách CSVC đang active
 CREATE POLICY "Users can read active facilities" ON public.facilities
-    FOR SELECT USING (is_active = true OR auth.jwt()->>'role' = 'Admin');
+    FOR SELECT USING (is_active = true OR EXISTS (
+        SELECT 1 FROM public.profiles 
+        WHERE id = auth.uid() AND role IN ('Admin', 'AdminUnit')
+    ));
 
 -- Chỉ Admin mới có quyền thêm/sửa/xóa CSVC
 CREATE POLICY "Admins can insert facilities" ON public.facilities
     FOR INSERT WITH CHECK (
         EXISTS (
-            SELECT 1 FROM public.employees 
-            WHERE email = auth.jwt()->>'email' AND role = 'Admin'
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() AND role IN ('Admin', 'AdminUnit')
         )
     );
 
 CREATE POLICY "Admins can update facilities" ON public.facilities
     FOR UPDATE USING (
         EXISTS (
-            SELECT 1 FROM public.employees 
-            WHERE email = auth.jwt()->>'email' AND role = 'Admin'
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() AND role IN ('Admin', 'AdminUnit')
         )
     );
 
 CREATE POLICY "Admins can delete facilities" ON public.facilities
     FOR DELETE USING (
         EXISTS (
-            SELECT 1 FROM public.employees 
-            WHERE email = auth.jwt()->>'email' AND role = 'Admin'
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() AND role IN ('Admin', 'AdminUnit')
         )
     );
 
