@@ -628,7 +628,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                     </div>
                 ) : (
                     <div className={`overflow-x-auto overflow-y-auto max-h-[calc(100vh-340px)] ${isResizing ? 'select-none' : ''}`}>
-                        <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
+                        <table className="hidden md:table text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
                             <colgroup>
                                 {PRODUCT_TABLE_COLUMNS.map(c => (
                                     <col key={c.key} style={{ width: columnWidths[c.key] }} />
@@ -842,6 +842,108 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                 })}
                             </tbody>
                         </table>
+
+                        {/* MOBILE CARDS */}
+                        <div className="md:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800">
+                            {filteredProducts.map((product) => {
+                                const margin = product.basePrice > 0 && product.costPrice
+                                    ? ((product.basePrice - product.costPrice) / product.basePrice) * 100
+                                    : 0;
+                                return (
+                                    <div
+                                        key={product.id}
+                                        onClick={() => onSelectProduct?.(product.id)}
+                                        className="p-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer flex flex-col gap-3 relative group"
+                                    >
+                                        {/* Header: Name, Code, Brand */}
+                                        <div className="flex items-start justify-between gap-3 pr-8">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-mono font-bold text-slate-500 dark:text-slate-400 text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                                                        {product.code}
+                                                    </span>
+                                                    {product.brandName && (
+                                                        <span className="inline-flex items-center px-1.5 py-0.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 rounded text-[10px] font-bold">
+                                                            {product.brandName}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight">
+                                                    {product.name}
+                                                </h3>
+                                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${getCategoryColor(product.category)}`}>
+                                                        {product.category}
+                                                    </span>
+                                                    {product.isActive ? (
+                                                        <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                                                            <CheckCircle size={10} /> Đang bán
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400 text-[10px] font-bold">
+                                                            <XCircle size={10} /> Ngừng bán
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Menu */}
+                                        <div className="absolute top-4 right-4">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setActionMenuId(actionMenuId === product.id ? null : product.id); }}
+                                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all"
+                                            >
+                                                <MoreVertical size={16} />
+                                            </button>
+                                            {actionMenuId === product.id && (
+                                                <>
+                                                    <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setActionMenuId(null); }} />
+                                                    <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden">
+                                                        {allowUpdate && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleEdit(product); }}
+                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                            >
+                                                                <Pencil size={14} /> Chỉnh sửa
+                                                            </button>
+                                                        )}
+                                                        {allowDelete && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); handleDelete(product.id); }}
+                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                                                            >
+                                                                <Trash2 size={14} /> Xóa
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {/* Financials & Additional Info */}
+                                        <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800 mt-1">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Đơn giá ({product.unit})</span>
+                                                <span className="text-sm font-black text-slate-900 dark:text-slate-100">{formatCurrency(product.basePrice)}</span>
+                                                {product.costPrice && (
+                                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Giá vốn: {formatCurrency(product.costPrice)}</span>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Hiệu quả</span>
+                                                <span className={`text-sm font-bold ${margin >= 50 ? 'text-emerald-600 dark:text-emerald-400' : margin >= 30 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                                    BLN: {margin.toFixed(0)}%
+                                                </span>
+                                                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mt-0.5">
+                                                    DT: {formatCurrency(product.totalRevenue || 0)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
 
                         {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
                         <div className="flex flex-col items-center justify-center p-4">

@@ -517,7 +517,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
             ) : viewMode === 'table' ? (
                 <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <div className={`overflow-x-auto ${isResizing ? 'select-none' : ''}`}>
-                        <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
+                        <table className="hidden md:table text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
                             <colgroup>
                                 {PERSONNEL_TABLE_COLUMNS.map(c => (
                                     <col key={c.key} style={{ width: columnWidths[c.key] }} />
@@ -665,6 +665,120 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                 )}
                             </tbody>
                         </table>
+
+                        {/* MOBILE CARDS */}
+                        <div className="md:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800">
+                            {filteredPersonnel.length === 0 ? (
+                                <div className="py-16 text-center text-slate-500 dark:text-slate-400">
+                                    Không tìm thấy nhân viên nào
+                                </div>
+                            ) : (
+                                filteredPersonnel.map((person) => (
+                                    <div
+                                        key={person.id}
+                                        onClick={() => onSelectPersonnel(person.slug || person.id)}
+                                        className="p-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer flex flex-col gap-3 relative group"
+                                    >
+                                        {/* Header: Name, Position, Action */}
+                                        <div className="flex items-start justify-between gap-3 pr-8">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-sm shadow-sm flex-shrink-0 overflow-hidden">
+                                                    {person.avatar ? (
+                                                        <img src={person.avatar} alt={person.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        person.name.split(' ').pop()?.charAt(0) || '?'
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight mb-1">
+                                                        {person.name}
+                                                    </h3>
+                                                    <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                                                        {person.position || person.roleCode || 'Nhân viên'}
+                                                    </p>
+                                                    <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[10px] font-black text-slate-500 dark:text-slate-400">
+                                                        <Building size={10} />
+                                                        {units.find(u => u.id === person.unitId)?.code || 'N/A'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Menu */}
+                                        {(() => {
+                                            const showEdit = can('employees', 'update');
+                                            const showDelete = can('employees', 'delete');
+
+                                            if (!showEdit && !showDelete) return null;
+
+                                            return (
+                                                <div className="absolute top-4 right-4">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setActionMenuId(actionMenuId === person.id ? null : person.id); }}
+                                                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all"
+                                                    >
+                                                        <MoreVertical size={16} />
+                                                    </button>
+                                                    {actionMenuId === person.id && (
+                                                        <>
+                                                            <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
+                                                            <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden">
+                                                                {showEdit && (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setEditingPerson(person); setIsFormOpen(true); setActionMenuId(null); }}
+                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                                                    >
+                                                                        <Pencil size={14} /> Chỉnh sửa
+                                                                    </button>
+                                                                )}
+                                                                {showDelete && (
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); handleDelete(person.id); }}
+                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                    >
+                                                                        <Trash2 size={14} /> Xóa
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+
+                                        {/* Contact & Info */}
+                                        <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800 mt-1">
+                                            {(person.phone || person.email) && (
+                                                <div className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
+                                                    {person.phone && (
+                                                        <div className="flex items-center gap-2">
+                                                            <Phone size={12} className="text-slate-400" />
+                                                            <span>{person.phone}</span>
+                                                        </div>
+                                                    )}
+                                                    {person.email && (
+                                                        <div className="flex items-center gap-2">
+                                                            <Mail size={12} className="text-slate-400" />
+                                                            <span className="truncate">{person.email}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <div className="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400 mt-1 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-medium text-slate-400">NS:</span>
+                                                    <span>{formatDate(person.dateOfBirth)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-medium text-slate-400">Vào làm:</span>
+                                                    <span>{formatDate(person.dateJoined)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
             ) : (

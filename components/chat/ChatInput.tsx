@@ -313,7 +313,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                         placeholder={placeholder || 'Nhập tin nhắn... (@ để tag, Shift+Enter xuống dòng)'}
                         disabled={disabled}
                         rows={1}
-                        className="w-full resize-none rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/30 focus:outline-none transition-all"
+                        className="w-full resize-none rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/30 focus:outline-none max-h-[120px] overflow-y-auto transition-all"
                     />
                 </div>
 

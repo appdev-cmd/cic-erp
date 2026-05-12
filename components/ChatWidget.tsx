@@ -186,7 +186,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
     };
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none font-sans">
+        <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end pointer-events-none font-sans">
             {/* Chat Window */}
             {isOpen && (
                 <div className="mb-4 w-80 md:w-[400px] h-[550px] bg-white/95 backdrop-blur-xl dark:bg-slate-900 rounded-2xl shadow-2xl shadow-indigo-500/10 dark:shadow-none border border-slate-200/50 dark:border-slate-800 flex flex-col overflow-hidden pointer-events-auto animate-slide-up transform origin-bottom-right transition-all">
@@ -350,14 +350,14 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
             {/* Premium Toggle Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`relative group p-4 rounded-full shadow-2xl transition-all duration-300 pointer-events-auto hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer ${isOpen
+                className={`relative group p-3 rounded-full shadow-2xl transition-all duration-300 pointer-events-auto hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer ${isOpen
                     ? 'bg-slate-800 text-white rotate-90 scale-0 opacity-0 absolute'
                     : 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white hover:shadow-indigo-500/40'
                     }`}
             >
                 {/* Glow effect under button */}
                 <div className="absolute inset-0 rounded-full bg-indigo-500 blur opacity-40 group-hover:opacity-60 transition-opacity"></div>
-                <MessageCircle size={28} className="relative z-10" />
+                <MessageCircle size={24} className="relative z-10" />
                 
                 {/* Notification Badge */}
                 {!isOpen && (

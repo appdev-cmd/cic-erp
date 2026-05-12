@@ -91,8 +91,105 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
   };
   const displayRole = profile?.role ? (roleLabels[profile.role] || profile.role) : '';
 
+  const renderFilters = () => {
+    if (!selectedUnit || !onSelectUnit) return null;
+    return (
+      <>
+        {/* Unit Filter */}
+        <div className="relative flex-shrink-0">
+          <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-orange-300 dark:hover:border-orange-700/50 rounded-lg transition-all group cursor-pointer relative">
+            <Building2 size={15} className="text-slate-400 group-hover:text-orange-500 transition-colors" />
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
+              {selectedUnit.name}
+            </span>
+            <ChevronDown size={13} className="text-slate-400" />
+            <select
+              value={selectedUnit.id}
+              onChange={(e) => {
+                const sel = e.target.value === 'all'
+                  ? { id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit
+                  : allUnits.find(u => u.id === e.target.value);
+                if (sel) onSelectUnit(sel);
+              }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            >
+              <option value="all">Toàn công ty</option>
+              {filteredUnits
+                .filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch'))
+                .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+                .map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Period Filter (Tháng/Quý) */}
+        {periodFilter !== undefined && onPeriodChange && (
+          <div className="relative flex-shrink-0">
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-orange-300 dark:hover:border-orange-700/50 rounded-lg transition-all group cursor-pointer relative">
+              <Calendar size={15} className="text-slate-400 group-hover:text-orange-500 transition-colors" />
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                {periodFilter === '' ? 'Cả năm' :
+                 periodFilter.startsWith('M') ? `Tháng ${periodFilter.substring(1)}` :
+                 periodFilter.startsWith('Q') ? `Quý ${periodFilter.substring(1)}` :
+                 'Cả năm'}
+              </span>
+              <ChevronDown size={13} className="text-slate-400" />
+              <select
+                value={periodFilter}
+                onChange={(e) => {
+                  const newPeriod = e.target.value;
+                  onPeriodChange(newPeriod);
+                  if (newPeriod && newPeriod !== '' && onYearChange && yearFilter === 'All') {
+                    onYearChange(String(new Date().getFullYear()));
+                  }
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              >
+                <option value="">Cả năm</option>
+                <optgroup label="Theo tháng">
+                  {Array.from({length: 12}, (_, i) => <option key={`M${i+1}`} value={`M${i+1}`}>Tháng {i+1}</option>)}
+                </optgroup>
+                <optgroup label="Theo quý">
+                  {Array.from({length: 4}, (_, i) => <option key={`Q${i+1}`} value={`Q${i+1}`}>Quý {i+1}</option>)}
+                </optgroup>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Year Filter */}
+        {yearFilter && onYearChange && (
+          <div className="relative flex-shrink-0">
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-orange-300 dark:hover:border-orange-700/50 rounded-lg transition-all group cursor-pointer relative">
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                {yearFilter === 'All' ? 'Tất cả' : yearFilter}
+              </span>
+              <ChevronDown size={13} className="text-slate-400" />
+              <select
+                value={yearFilter}
+                onChange={(e) => onYearChange(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              >
+                {(!periodFilter || periodFilter === '') && (
+                  <option value="All">Tất cả các năm</option>
+                )}
+                {Array.from({ length: new Date().getFullYear() - 2023 + 1 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
   return (
-    <header className={`fixed top-0 left-0 right-0 h-16 bg-white/95 dark:bg-slate-900 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-30 flex items-center justify-between px-4 transition-all duration-300 dynamic-header`}>
+    <header className={`fixed top-0 left-0 right-0 bg-white/95 dark:bg-slate-900 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-30 flex flex-col transition-all duration-300 dynamic-header`}>
+      {/* Top Main Row */}
+      <div className="h-16 flex items-center justify-between px-4 w-full">
       <div className="flex items-center gap-2 sm:gap-4">
         <button
           onClick={onMenuClick}
@@ -118,118 +215,14 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
         */}
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3 ml-2">
-        {/* Filter Buttons (visible on lg+) */}
-        {selectedUnit && onSelectUnit && (
-          <>
-            {/* Unit Filter */}
-            <div className="hidden lg:block relative">
-              <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-orange-300 dark:hover:border-orange-700/50 rounded-lg transition-all group cursor-pointer relative">
-                <Building2 size={15} className="text-slate-400 group-hover:text-orange-500 transition-colors" />
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
-                  {selectedUnit.name}
-                </span>
-                <ChevronDown size={13} className="text-slate-400" />
-                <select
-                  value={selectedUnit.id}
-                  onChange={(e) => {
-                    const sel = e.target.value === 'all'
-                      ? { id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit
-                      : allUnits.find(u => u.id === e.target.value);
-                    if (sel) onSelectUnit(sel);
-                  }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                >
-                  <option value="all">Toàn công ty</option>
-                  {filteredUnits
-                    .filter(u => u.name !== 'Toàn công ty' && (u.type === 'Center' || u.type === 'Branch'))
-                    .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
-                    .map(u => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Period Filter (Tháng/Quý) — ĐI TRƯỚC Năm */}
-            {periodFilter !== undefined && onPeriodChange && (
-              <div className="hidden lg:block relative">
-                <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-orange-300 dark:hover:border-orange-700/50 rounded-lg transition-all group cursor-pointer relative">
-                  <Calendar size={15} className="text-slate-400 group-hover:text-orange-500 transition-colors" />
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                    {periodFilter === '' ? 'Cả năm' :
-                     periodFilter.startsWith('M') ? `Tháng ${periodFilter.substring(1)}` :
-                     periodFilter.startsWith('Q') ? `Quý ${periodFilter.substring(1)}` :
-                     'Cả năm'}
-                  </span>
-                  <ChevronDown size={13} className="text-slate-400" />
-                  <select
-                    value={periodFilter}
-                    onChange={(e) => {
-                      const newPeriod = e.target.value;
-                      onPeriodChange(newPeriod);
-                      // Khi chọn Tháng/Quý, bắt buộc chọn năm cụ thể
-                      if (newPeriod && newPeriod !== '' && onYearChange && yearFilter === 'All') {
-                        onYearChange(String(new Date().getFullYear()));
-                      }
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  >
-                    <option value="">Cả năm</option>
-                    <optgroup label="Theo tháng">
-                      <option value="M1">Tháng 1</option>
-                      <option value="M2">Tháng 2</option>
-                      <option value="M3">Tháng 3</option>
-                      <option value="M4">Tháng 4</option>
-                      <option value="M5">Tháng 5</option>
-                      <option value="M6">Tháng 6</option>
-                      <option value="M7">Tháng 7</option>
-                      <option value="M8">Tháng 8</option>
-                      <option value="M9">Tháng 9</option>
-                      <option value="M10">Tháng 10</option>
-                      <option value="M11">Tháng 11</option>
-                      <option value="M12">Tháng 12</option>
-                    </optgroup>
-                    <optgroup label="Theo quý">
-                      <option value="Q1">Quý 1</option>
-                      <option value="Q2">Quý 2</option>
-                      <option value="Q3">Quý 3</option>
-                      <option value="Q4">Quý 4</option>
-                    </optgroup>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Year Filter — SAU Period */}
-            {yearFilter && onYearChange && (
-              <div className="hidden lg:block relative">
-                <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-orange-300 dark:hover:border-orange-700/50 rounded-lg transition-all group cursor-pointer relative">
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                    {yearFilter === 'All' ? 'Tất cả' : yearFilter}
-                  </span>
-                  <ChevronDown size={13} className="text-slate-400" />
-                  <select
-                    value={yearFilter}
-                    onChange={(e) => onYearChange(e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  >
-                    {/* Hiện "Tất cả các năm" chỉ khi Period = "Cả năm" */}
-                    {(!periodFilter || periodFilter === '') && (
-                      <option value="All">Tất cả các năm</option>
-                    )}
-                    {Array.from({ length: new Date().getFullYear() - 2023 + 1 }, (_, i) => new Date().getFullYear() - i).map(y => (
-                      <option key={y} value={String(y)}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+      <div className="flex items-center gap-2 sm:gap-3 ml-2 min-w-0 flex-1 justify-end">
+        {/* Filter Buttons Desktop */}
+        <div className="hidden lg:flex items-center gap-2 overflow-x-auto no-scrollbar flex-1 min-w-0 justify-end">
+          {renderFilters()}
+        </div>
 
         {/* Divider */}
-        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 hidden lg:block"></div>
+        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-700 hidden lg:block flex-shrink-0"></div>
 
         {/* Notification Bell */}
         <div className="relative" ref={notifRef}>
@@ -330,6 +323,14 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isSidebarCollapsed, select
           )}
         </div>
       </div>
+      </div>
+
+      {/* Mobile Toolbar Row */}
+      {selectedUnit && onSelectUnit && (
+        <div className="lg:hidden flex items-center gap-2 overflow-x-auto no-scrollbar px-4 py-2 border-t border-slate-100 dark:border-slate-800/50 bg-white/95 dark:bg-slate-900 w-full">
+          {renderFilters()}
+        </div>
+      )}
       {/* Personal Settings Dialog */}
       <PersonalSettingsDialog
         isOpen={showSettings}

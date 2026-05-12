@@ -418,3 +418,169 @@ export const ContractListTableRow: React.FC<ContractListTableRowProps> = ({
     </tr>
   );
 };
+
+export const ContractListMobileCard: React.FC<ContractListTableRowProps> = ({
+  contract, index, onSelectContract, units, salespeople, customersData, contractTagsMap, invoiceMap,
+  statusDropdownId, setStatusDropdownId, statusDropdownRef, changingStatusId, handleQuickStatusChange, onClone, isGlobalScope, profile
+}) => {
+  const allocationRole = (contract as any)._allocationRole as 'lead' | 'support' | undefined;
+  const allocationPct = (contract as any)._allocationPct as number | undefined;
+  const employeePct = (contract as any)._employeePct as number | undefined;
+  const isCollaborative = allocationRole === 'support';
+  const hasAllocation = allocationPct !== undefined && allocationPct < 100;
+  const hasEmployeeAllocation = employeePct !== undefined && employeePct < 100;
+  
+  let allocFraction = 1;
+  if (hasAllocation && hasEmployeeAllocation) {
+    allocFraction = (allocationPct / 100) * (employeePct / 100);
+  } else if (hasAllocation) {
+    allocFraction = allocationPct / 100;
+  } else if (hasEmployeeAllocation) {
+    allocFraction = employeePct / 100;
+  }
+  
+  const adminProfit = Math.round((contract.adminProfit || 0) * allocFraction);
+  const revenue = Math.round((contract.actualRevenue || 0) * allocFraction);
+  const cashReceived = Math.round((contract.cashReceived || 0) * allocFraction);
+  const advanceAmount = Math.round((contract.advanceAmount || 0) * allocFraction);
+  const revProfit = Math.round((contract.revProfit || 0) * allocFraction);
+  const expectedRevenue = (contract.lineItems || []).reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0) * allocFraction;
+  const margin = expectedRevenue > 0 ? (adminProfit / expectedRevenue) * 100 : 0;
+  
+  const leadAllocEmp = contract.employeeAllocations?.find((a: any) => a.role === 'lead') || contract.employeeAllocations?.[0];
+  const picEmployeeId = leadAllocEmp?.employeeId || contract.salespersonId;
+  const salesperson = salespeople.find(s => s.id === picEmployeeId);
+  
+  const customerInfo = contract.customerId ? customersData.get(contract.customerId) : null;
+  const displayCustomerName = customerInfo ? customerInfo.name : contract.partyA;
+  const displayShortName = customerInfo?.shortName;
+  const stt = index + 1;
+
+  return (
+    <div 
+      onClick={() => onSelectContract(contract.id)}
+      className={`rounded-lg p-3 shadow-sm border relative cursor-pointer hover:shadow-md transition-shadow ${isCollaborative ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'}`}
+    >
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex gap-2 items-center">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${contract.contractType === 'HĐ' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400'}`}>
+            {contract.contractType}
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+              {contract.contractCode}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(contract.contractCode || contract.id);
+                  toast.success(`Đã copy: ${contract.contractCode}`);
+                }}
+                className="p-1 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+              >
+                <Copy size={12} />
+              </button>
+            </p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+              {contract.signedDate ? formatDate(contract.signedDate) : 'Chưa ký'}
+            </p>
+          </div>
+        </div>
+        <span className="text-[10px] font-bold text-slate-400">#{stt}</span>
+      </div>
+      
+      <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-2 line-clamp-2">{contract.title}</p>
+      
+      <div className="flex justify-between text-[11px] mb-3">
+        <div className="text-slate-600 dark:text-slate-400 font-medium truncate pr-2 max-w-[65%]">
+          🏢 {displayCustomerName} {displayShortName ? `(${displayShortName})` : ''}
+        </div>
+        <div className="text-indigo-600 dark:text-indigo-400 font-bold truncate max-w-[35%]">
+          👤 {salesperson?.name || 'Chưa gán'}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 mb-3 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+        <div>
+          <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase">Ký kết</p>
+          <p className="text-xs font-black text-slate-900 dark:text-slate-100">{formatCurrency(Math.round((contract.value || 0) * allocFraction))}</p>
+        </div>
+        <div>
+          <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase">Doanh thu</p>
+          <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">{formatCurrency(revenue)}</p>
+        </div>
+        <div>
+          <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase">Tiền về</p>
+          <p className="text-xs font-black text-blue-600 dark:text-blue-400">{formatCurrency(cashReceived)}</p>
+        </div>
+        <div>
+          <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase">LNG / Tỷ suất</p>
+          <p className="text-xs font-black text-amber-600 dark:text-amber-400">{formatCurrency(adminProfit)} <span className="text-[9px] opacity-70">({margin.toFixed(0)}%)</span></p>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mt-2">
+        <div className="relative inline-block" ref={statusDropdownId === contract.id ? statusDropdownRef : undefined}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setStatusDropdownId(statusDropdownId === contract.id ? null : contract.id);
+            }}
+            disabled={changingStatusId === contract.id}
+            className={`group/status flex items-center justify-start gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition-all focus:ring-2 focus:ring-orange-500 cursor-pointer whitespace-nowrap ${contract.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400' :
+              contract.status === 'Processing' ? 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400' :
+                contract.status === 'Suspended' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400' :
+                  contract.status === 'Handover' ? 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400' :
+                    contract.status === 'Acceptance' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400' :
+                      'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+              }`}
+          >
+            {changingStatusId === contract.id ? (
+              <Loader2 size={12} className="animate-spin shrink-0" />
+            ) : (
+              <>
+                <span className="truncate">{CONTRACT_STATUS_LABELS[contract.status as keyof typeof CONTRACT_STATUS_LABELS] || contract.status}</span>
+                <ChevronDown size={12} className="opacity-50 shrink-0" />
+              </>
+            )}
+          </button>
+          {statusDropdownId === contract.id && (
+            <div className="absolute z-50 bottom-full mb-1 left-0 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 animate-in fade-in">
+              <div className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Chuyển trạng thái</div>
+              {ACTIVE_STATUSES.map(s => (
+                <button
+                  key={s.value}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuickStatusChange(contract.id, s.value, contract.status);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${contract.status === s.value
+                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${s.value === 'Processing' ? 'bg-orange-500' :
+                    s.value === 'Suspended' ? 'bg-rose-500' :
+                      s.value === 'Handover' ? 'bg-cyan-500' :
+                        s.value === 'Acceptance' ? 'bg-blue-500' : 'bg-emerald-500'
+                    }`} />
+                  {s.label}
+                  {contract.status === s.value && <Check size={14} className="ml-auto text-indigo-500" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {getWarningBadges(contract.warnings).length > 0 && (
+          <div className="flex gap-1">
+            {getWarningBadges(contract.warnings).map((badge, i) => (
+              <span key={i} className={`flex items-center justify-center w-6 h-6 rounded-full ${badge.color}`} title={badge.label}>
+                {badge.icon}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

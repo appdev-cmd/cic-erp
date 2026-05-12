@@ -213,6 +213,7 @@ const MainLayout: React.FC = () => {
     }
 
     const contentMaxWidthClass = isSidebarCollapsed ? 'max-w-[1920px]' : 'max-w-[1600px]';
+    const isAIAssistant = location.pathname.startsWith('/ai-assistant');
 
     return (
         <ErrorBoundary>
@@ -277,14 +278,14 @@ const MainLayout: React.FC = () => {
                         />
 
                         {/* Page Content */}
-                        <main className={`mt-16 p-4 md:p-6 lg:p-8 ${isImpersonating ? 'pb-20' : ''}`}>
-                            <div className={`${contentMaxWidthClass} mx-auto`}>
+                        <main className={`${isAIAssistant ? 'px-0 pb-0 pt-[120px] lg:pt-16 h-screen overflow-hidden' : 'mt-[120px] lg:mt-16 p-4 md:p-6 lg:p-8'} ${isImpersonating ? 'pb-20' : ''}`}>
+                            <div className={`${isAIAssistant ? 'w-full h-full' : `${contentMaxWidthClass} mx-auto`}`}>
                                 {/* Pass context to child routes via Outlet — wrapped by RouteGuard for deny-by-default protection */}
                                 <RouteGuard>
-                                    <div style={{ display: location.pathname.startsWith('/ai-assistant') ? 'none' : 'block' }}>
+                                    <div style={{ display: isAIAssistant ? 'none' : 'block' }}>
                                         <Outlet context={{ selectedUnit, setSelectedUnit, yearFilter, setYearFilter, periodFilter, setPeriodFilter, theme, setTheme, accent, setAccent }} />
                                     </div>
-                                    <div style={{ display: location.pathname.startsWith('/ai-assistant') ? 'block' : 'none' }}>
+                                    <div style={{ display: isAIAssistant ? 'block' : 'none', height: '100%' }}>
                                         <AIAssistantPage />
                                     </div>
                                 </RouteGuard>

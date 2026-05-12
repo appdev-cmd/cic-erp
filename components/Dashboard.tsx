@@ -38,9 +38,11 @@ import {
   Loader2,
   Building2,
   PackageCheck,
+  Download
 } from 'lucide-react';
 import { Skeleton } from './ui/Skeleton';
 import ErrorBoundary from './ErrorBoundary';
+import { exportDashboardReport } from '../utils/dashboardExport';
 import { ContractService, UnitService, EmployeeService, HistoricalProductionService } from '../services';
 import { CompanyTargetService, CompanyTarget } from '../services/companyTargetService';
 import { Unit, KPIPlan, Contract, HistoricalProduction } from '../types';
@@ -109,6 +111,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
   const [aiInsights, setAiInsights] = useState<any[]>([]);
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Data State for RPCs
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -521,6 +524,19 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
     return Math.round(val).toString();
   };
 
+  const handleExportReport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      await exportDashboardReport(activeMetric, yearFilter);
+      toast.success('Đã tải xuống báo cáo thành công!');
+    } catch (error) {
+      toast.error('Lỗi khi tải xuống báo cáo. Vui lòng thử lại.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const getYoY = (metric: keyof KPIPlan) => {
     const curr = stats.actual[metric] || 0;
     if (yearFilter === 'All') return { value: '0.0', isUp: true, lastYearTotal: 0 };
@@ -640,7 +656,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         </div>
 
         {/* Main KPI Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6">
           <KPIItem title="Ký kết" metric="signing" stats={stats.actual} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('signing')} color="indigo" icon={<FileText size={20} />} />
           <KPIItem title="Doanh thu" metric="revenue" stats={stats.actual} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('revenue')} color="emerald" icon={<CreditCard size={20} />} />
           <KPIItem title="LNG Quản trị" metric="adminProfit" stats={stats.actual} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('adminProfit')} color="purple" icon={<TrendingUp size={20} />} />
@@ -659,8 +675,8 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
         {/* STICKY FILTER BAR - Metric Tabs */}
         <div className="sticky top-16 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-4 border-b border-slate-200/50 dark:border-slate-800">
-          <div className="flex items-center">
-            <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto no-scrollbar">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto no-scrollbar min-w-0 max-w-full">
               {metricTabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -674,6 +690,18 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                 </button>
               ))}
             </div>
+            
+            {/* EXPORT BUTTON */}
+            {['Admin', 'Leadership', 'Accountant', 'ChiefAccountant'].includes(effectiveProfile?.role || '') && selectedUnit?.id === 'all' && (
+              <button
+                onClick={handleExportReport}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm transition-all shadow-sm shadow-emerald-600/20 disabled:opacity-50"
+              >
+                {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                Xuất Excel
+              </button>
+            )}
           </div>
         </div>
 
@@ -697,7 +725,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                 </div>
               </div>
             </div>
-            <div className="h-[350px]">
+            <div className="h-[300px] md:h-[350px]">
               {/* Chart Component - Same as before */}
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={monthlyData} barGap={0}>

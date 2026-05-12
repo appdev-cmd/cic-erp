@@ -510,7 +510,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                     {/* Customer List */}
                     <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
                         <div className={`overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)] ${isResizing ? 'select-none' : ''}`}>
-                            <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
+                            <table className="hidden md:table text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
                                 <colgroup>
                                     {CUSTOMER_TABLE_COLUMNS.map(c => (
                                         <col key={c.key} style={{ width: columnWidths[c.key] }} />
@@ -674,6 +674,137 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                                     )}
                                 </tbody>
                             </table>
+
+                            {/* MOBILE CARDS */}
+                            <div className="md:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800">
+                                {isLoading ? (
+                                    <div className="py-12 text-center text-slate-500 dark:text-slate-400">Đang tải dữ liệu...</div>
+                                ) : customers.length === 0 ? (
+                                    <div className="py-12 text-center text-slate-500">
+                                        <div className="flex flex-col items-center">
+                                            <Building2 size={32} className="text-slate-300 mb-2" />
+                                            <p>Không tìm thấy đối tác nào</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    customers.map(customer => {
+                                        const stats = customer.stats || { contractCount: 0, totalValue: 0, totalRevenue: 0, activeContracts: 0 };
+                                        return (
+                                            <div
+                                                key={customer.id}
+                                                className="p-4 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer flex flex-col gap-3 relative"
+                                                onClick={() => onSelectCustomer?.(customer.id)}
+                                            >
+                                                {/* Header: Name, shortName, rating, action menu */}
+                                                <div className="flex items-start justify-between gap-3 pr-8">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 flex items-center justify-center font-black text-slate-600 dark:text-slate-300 text-sm shrink-0">
+                                                            {customer.shortName ? customer.shortName.substring(0, 3) : 'KH'}
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight mb-1">
+                                                                {customer.name}
+                                                            </h3>
+                                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                                {customer.shortName && (
+                                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/30 font-semibold text-indigo-600 dark:text-indigo-400">
+                                                                        {customer.shortName}
+                                                                    </span>
+                                                                )}
+                                                                {getRatingBadge(customer.rating)}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActionMenuId(actionMenuId === customer.id ? null : customer.id);
+                                                    }}
+                                                    className="absolute top-4 right-4 p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all"
+                                                >
+                                                    <MoreVertical size={16} />
+                                                </button>
+
+                                                {actionMenuId === customer.id && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
+                                                        <div className="absolute right-4 top-12 mt-1 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleEdit(customer);
+                                                                }}
+                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                            >
+                                                                <Pencil size={14} />
+                                                                Chỉnh sửa
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActionMenuId(null);
+                                                                    setMergingCustomer(customer);
+                                                                }}
+                                                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                            >
+                                                                <GitMerge size={14} />
+                                                                Gộp đối tác...
+                                                            </button>
+                                                            {allowDelete && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDelete(customer.id);
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                    Xóa
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                {/* Contact Info */}
+                                                <div className="flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{customer.contactPerson || 'Chưa có liên hệ'}</p>
+                                                    {(customer.phone || customer.email) && (
+                                                        <div className="flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400">
+                                                            {customer.phone && <span className="flex items-center gap-1.5"><Phone size={11} />{customer.phone}</span>}
+                                                            {customer.email && <span className="flex items-center gap-1.5 truncate"><Mail size={11} />{customer.email}</span>}
+                                                        </div>
+                                                    )}
+                                                    {customer.address && (
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-start gap-1.5 mt-0.5">
+                                                            <MapPin size={12} className="shrink-0 mt-0.5" />
+                                                            <span className="line-clamp-2">{customer.address}</span>
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                {/* Financials / Stats */}
+                                                <div className="grid grid-cols-2 gap-2 mt-1">
+                                                    <div className="flex flex-col p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-1">Hợp đồng</span>
+                                                        <span className="text-sm font-black text-slate-900 dark:text-slate-100">{stats.contractCount} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">HĐ</span></span>
+                                                        {stats.activeContracts > 0 && (
+                                                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">{stats.activeContracts} đang thực hiện</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                                                        <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-1">Doanh thu</span>
+                                                        <span className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{formatCurrency(stats.totalValue)}</span>
+                                                        <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">DT: {formatCurrency(stats.totalRevenue)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
 
                             {/* INFINITE SCROLL SENTINEL INSIDE SCROLL AREA */}
                             <div className="p-4 flex flex-col items-center justify-center">

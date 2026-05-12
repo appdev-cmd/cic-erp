@@ -370,6 +370,8 @@ const AIAssistant: React.FC = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showAgentMenu, setShowAgentMenu] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>('chat');
+  const [promptHeight, setPromptHeight] = useState(() => localStorage.getItem('cic_ai_prompt_height') || '44px');
+  const [isMultiLineMode, setIsMultiLineMode] = useState(() => localStorage.getItem('cic_ai_multi_line') === 'true');
 
   // ─── Chat History State ─────────────────────────────────
   const [conversations, setConversations] = useState<AiConversation[]>([]);
@@ -385,73 +387,7 @@ const AIAssistant: React.FC = () => {
     }
   }, [_profile?.id]);
 
-  // ─── Proactive Alerts State ────────────────────────────
-  const [proactiveAlerts, setProactiveAlerts] = useState<{ icon: string; text: string; action: string; severity: 'danger' | 'warning' | 'info' }[]>([]);
-  const [alertsDismissed, setAlertsDismissed] = useState(false);
 
-  // Fetch proactive alerts on mount (only for Leadership/Admin roles)
-  useEffect(() => {
-    if (!_profile?.id || !['Admin', 'Leadership', 'UnitLeader'].includes(_profile?.role || '')) return;
-    const fetchAlerts = async () => {
-      try {
-        const alerts: typeof proactiveAlerts = [];
-        const today = new Date().toISOString().split('T')[0];
-
-        // 1. HĐ quá hạn (endDate < today, status is active)
-        const { data: overdueContracts, count: overdueCount } = await dataClient
-          .from('contracts')
-          .select('id', { count: 'exact', head: true })
-          .lt('end_date', today)
-          .in('status', ['Đang thực hiện', 'Tạm dừng']);
-        if (overdueCount && overdueCount > 0) {
-          alerts.push({
-            icon: '🔴',
-            text: `${overdueCount} hợp đồng đã quá hạn hoàn thành`,
-            action: 'Cho tôi xem danh sách hợp đồng quá hạn',
-            severity: 'danger'
-          });
-        }
-
-        // 2. HĐ sắp hết hạn (trong 30 ngày tới)
-        const futureDate = new Date();
-        futureDate.setDate(futureDate.getDate() + 30);
-        const { count: expiringCount } = await dataClient
-          .from('contracts')
-          .select('id', { count: 'exact', head: true })
-          .gte('end_date', today)
-          .lte('end_date', futureDate.toISOString().split('T')[0])
-          .in('status', ['Đang thực hiện']);
-        if (expiringCount && expiringCount > 0) {
-          alerts.push({
-            icon: '🟡',
-            text: `${expiringCount} hợp đồng sắp hết hạn (30 ngày)`,
-            action: 'Cho tôi xem các hợp đồng sắp hết hạn trong 30 ngày tới',
-            severity: 'warning'
-          });
-        }
-
-        // 3. Phiếu thu quá hạn
-        const { count: overduePayments } = await dataClient
-          .from('payments')
-          .select('id', { count: 'exact', head: true })
-          .lt('due_date', today)
-          .in('status', ['Đã xuất HĐ', 'Tạm ứng']);
-        if (overduePayments && overduePayments > 0) {
-          alerts.push({
-            icon: '💰',
-            text: `${overduePayments} phiếu thu/chi quá hạn thanh toán`,
-            action: 'Báo cáo công nợ chi tiết',
-            severity: 'danger'
-          });
-        }
-
-        setProactiveAlerts(alerts);
-      } catch (err) {
-        console.warn('Proactive alerts fetch failed:', err);
-      }
-    };
-    fetchAlerts();
-  }, [_profile?.id, _profile?.role]);
 
   // Load a specific conversation
   const loadConversation = useCallback(async (conv: AiConversation) => {
@@ -708,15 +644,7 @@ const AIAssistant: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // ─── Auto-resize textarea ──────────────────────────────
-  const autoResize = useCallback(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
-  }, []);
-
-  useEffect(() => { autoResize(); }, [input, autoResize]);
+  // ─── Auto-resize removed for manual resize support ─────
 
   // ─── Send message ──────────────────────────────────────
   const handleSend = async (overrideInput?: string) => {
@@ -776,8 +704,7 @@ const AIAssistant: React.FC = () => {
     setSelectedMentions([]);
     setIsTyping(true);
 
-    // Reset textarea height
-    if (inputRef.current) inputRef.current.style.height = 'auto';
+    // Reset textarea height removed for manual resize support
 
     const botMsgId = (Date.now() + 1).toString();
     const botMsg: Message = {
@@ -943,9 +870,18 @@ const AIAssistant: React.FC = () => {
       }
     }
 
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+    if (e.key === 'Enter') {
+      if (isMultiLineMode) {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          handleSend();
+        }
+      } else {
+        if (!e.shiftKey) {
+          e.preventDefault();
+          handleSend();
+        }
+      }
     }
   };
 
@@ -989,13 +925,36 @@ const AIAssistant: React.FC = () => {
   const lastMsg = messages[messages.length - 1];
   const showSuggestions = lastMsg && lastMsg.role === 'model' && !lastMsg.isStreaming && !isTyping;
 
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = inputRef.current?.getBoundingClientRect().height || 44;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = startY - moveEvent.clientY;
+      const newHeight = Math.max(44, Math.min(window.innerHeight * 0.5, startHeight + deltaY));
+      if (inputRef.current) inputRef.current.style.height = `${newHeight}px`;
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      const finalHeight = inputRef.current?.style.height || '44px';
+      setPromptHeight(finalHeight);
+      localStorage.setItem('cic_ai_prompt_height', finalHeight);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   return (
     <div className={cn(
-      "flex flex-col bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden transition-all duration-300",
-      isFullScreen ? "fixed inset-0 z-50 rounded-none m-0" : "rounded-[24px] h-[calc(100vh-6rem)] md:h-[calc(100vh-7rem)] lg:h-[calc(100vh-8.5rem)] min-h-[500px] w-full max-w-7xl mx-auto relative"
+      "flex flex-col bg-white dark:bg-slate-950 overflow-hidden transition-all duration-300",
+      isFullScreen ? "fixed inset-0 z-50 m-0" : "h-full w-full relative"
     )}>
       {/* ═══ Header ═══════════════════════════════════════ */}
-      <div className="flex items-center justify-between px-3 md:px-5 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 z-10 relative">
+      <div className="flex items-center justify-between px-3 md:px-5 py-1.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 z-10 relative shadow-sm">
         {/* Left: Agent Identity */}
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={cn(
@@ -1021,6 +980,36 @@ const AIAssistant: React.FC = () => {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1">
+          {/* Model Selector */}
+          <div className="hidden md:block mr-1">
+            {['Admin', 'Leadership', 'Dev'].includes(_profile?.role || '') ? (
+              <select
+                value={currentModel}
+                onChange={(e) => setCurrentModel(e.target.value)}
+                className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[10px] font-bold text-slate-600 dark:text-slate-300 py-1.5 px-2 rounded-lg cursor-pointer focus:outline-none border border-transparent transition-all"
+                title="Chọn Model AI"
+              >
+                <optgroup label="🖥️ Local AI (Bảo mật 100%)">
+                  <option value="gemma-4-26b">💎 Gemma 4 26B</option>
+                  <option value="qwen2.5-vl-7b">👁️ Qwen-VL 7B</option>
+                </optgroup>
+                <optgroup label="🔑 Cloud AI">
+                  <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash</option>
+                  <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro</option>
+                  <option value="gpt-4o">🤖 GPT-4o</option>
+                  <option value="deepseek-chat">💬 DeepSeek V3</option>
+                  <option value="deepseek-r1">🤔 DeepSeek R1</option>
+                </optgroup>
+              </select>
+            ) : (
+              <div className="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 py-1.5 px-2 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                <Database size={12} />
+                <span>Qwen 2.5 7B</span>
+              </div>
+            )}
+          </div>
+          <div className="hidden md:block w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5"></div>
+
           {/* Agent Selector Dropdown */}
           <div ref={agentMenuRef} className="relative">
             <button
@@ -1230,37 +1219,7 @@ const AIAssistant: React.FC = () => {
               <button onClick={dismissWidgetHistory} className="p-1 text-indigo-400 hover:text-indigo-600 cursor-pointer"><X size={14} /></button>
             </div>
           )}
-          {/* ═══ Proactive Alerts Banner ════════════════════ */}
-          {proactiveAlerts.length > 0 && !alertsDismissed && messages.length <= 1 && (
-            <div className="mx-4 md:mx-6 mt-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                  <AlertTriangle size={11} /> Cảnh báo ({proactiveAlerts.length})
-                </p>
-                <button onClick={() => setAlertsDismissed(true)} className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
-                  <X size={12} />
-                </button>
-              </div>
-              {proactiveAlerts.map((alert, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSuggestionClick(alert.action)}
-                  className={cn(
-                    "w-full text-left px-3 py-2.5 rounded-xl border text-xs font-medium flex items-center gap-2.5 transition-all cursor-pointer hover:-translate-y-0.5 hover:shadow-md",
-                    alert.severity === 'danger'
-                      ? "bg-rose-50 dark:bg-rose-900/15 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/25"
-                      : alert.severity === 'warning'
-                        ? "bg-amber-50 dark:bg-amber-900/15 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/25"
-                        : "bg-sky-50 dark:bg-sky-900/15 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/25"
-                  )}
-                >
-                  <span className="text-base">{alert.icon}</span>
-                  <span className="flex-1">{alert.text}</span>
-                  <ChevronRight size={12} className="opacity-50" />
-                </button>
-              ))}
-            </div>
-          )}
+
           {/* ═══ Messages Area ════════════════════════════════ */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth">
             {messages.map((msg) => (
@@ -1425,40 +1384,17 @@ const AIAssistant: React.FC = () => {
           </div>
 
           {/* ═══ Input Area ═══════════════════════════════════ */}
-          <div className="p-3 md:p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
-            <div className="max-w-4xl mx-auto">
-              {/* Model Selector — above input on mobile, inline on desktop */}
-              <div className="flex items-center gap-2 mb-2">
-
-
-                {['Admin', 'Leadership', 'Dev'].includes(_profile?.role || '') ? (
-                  <select
-                    value={currentModel}
-                    onChange={(e) => setCurrentModel(e.target.value)}
-                    className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-[10px] font-bold text-slate-600 dark:text-slate-300 py-1.5 px-2 rounded-lg cursor-pointer focus:outline-none border border-transparent hover:border-indigo-200 dark:hover:border-indigo-700 transition-all"
-                    title="Chọn Model AI"
-                  >
-                    <optgroup label="🖥️ Local AI (Bảo mật 100%)">
-                      <option value="gemma-4-26b">💎 Gemma 4 26B (Siêu Trí Tuệ & Code)</option>
-                      <option value="qwen2.5-vl-7b">👁️ Qwen-VL 7B (Đọc ảnh & Hoá đơn)</option>
-                    </optgroup>
-                    <optgroup label="🔑 Cloud AI (Hệ thống)">
-                      <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash (Tốc độ, Mặc định)</option>
-                      <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro (Phân tích sâu)</option>
-                    </optgroup>
-                    <optgroup label="🔐 Cloud AI (Yêu cầu API Key)">
-                      <option value="gpt-4o">🤖 GPT-4o (Xịn nhất chung)</option>
-                      <option value="deepseek-chat">💬 DeepSeek Chat V3 (Giá rẻ)</option>
-                      <option value="deepseek-r1">🤔 DeepSeek R1 (Suy luận đỉnh cao)</option>
-                    </optgroup>
-                  </select>
-                ) : (
-                  <div className="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
-                    <Database size={12} />
-                    <span>Qwen 2.5 7B (Bảo mật & Tốc độ)</span>
-                  </div>
-                )}
-              </div>
+          <div className="p-2 md:p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shrink-0 z-10 relative group/input-area">
+            {/* Custom Top Resizer Handle */}
+            <div 
+              onMouseDown={startResize}
+              className="absolute top-0 left-0 right-0 h-2 -translate-y-1/2 cursor-ns-resize z-20 flex justify-center items-center opacity-0 group-hover/input-area:opacity-100 transition-opacity"
+              title="Kéo để thay đổi chiều cao"
+            >
+              <div className="w-12 h-1 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+            </div>
+            
+            <div className="max-w-5xl mx-auto w-full">
 
               {attachedFiles.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -1525,6 +1461,7 @@ const AIAssistant: React.FC = () => {
                 <textarea
                   ref={inputRef}
                   value={input}
+                  style={{ height: promptHeight }}
                   onPaste={(e) => {
                     const items = e.clipboardData.items;
                     const filesToAttach: File[] = [];
@@ -1555,7 +1492,7 @@ const AIAssistant: React.FC = () => {
                   }}
                   onKeyDown={handleKeyDown}
                   placeholder="Hỏi AI hoặc đính kèm hợp đồng để phân tích..."
-                  className="w-full pl-12 pr-14 py-4 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-indigo-500 dark:focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 rounded-[20px] resize-none max-h-40 min-h-[56px] shadow-sm text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all"
+                  className="w-full pl-12 pr-14 py-3 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-indigo-500 dark:focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 rounded-[20px] resize-none max-h-[50vh] min-h-[44px] overflow-y-auto shadow-sm text-sm font-medium text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-colors"
                   rows={1}
                   disabled={isTyping}
                 />
@@ -1577,9 +1514,24 @@ const AIAssistant: React.FC = () => {
                 </button>
               </div>
             </div>
-            <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium">
-              AI có thể mắc lỗi. Vui lòng kiểm tra lại các thông tin quan trọng.
-            </p>
+            
+            <div className="flex flex-col sm:flex-row justify-between items-center mt-2 px-1 gap-2 max-w-5xl mx-auto w-full">
+              <label className="flex items-center gap-1.5 text-[10px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={isMultiLineMode} 
+                  onChange={e => {
+                    setIsMultiLineMode(e.target.checked);
+                    localStorage.setItem('cic_ai_multi_line', e.target.checked.toString());
+                  }} 
+                  className="rounded border-slate-300 text-indigo-500 focus:ring-indigo-500/20 w-3 h-3 cursor-pointer" 
+                />
+                Chế độ gõ nhiều dòng (Enter để xuống dòng, Ctrl+Enter để gửi)
+              </label>
+              <p className="text-center text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                AI có thể mắc lỗi. Vui lòng kiểm tra lại các thông tin quan trọng.
+              </p>
+            </div>
           </div>
         </>
       )}

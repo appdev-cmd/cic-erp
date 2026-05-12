@@ -28,7 +28,7 @@ import {
   ContractListWarningChips,
   TABLE_HEADERS 
 } from './ContractListSubComponents';
-import { ContractListTableRow } from './ContractListTableRow';
+import { ContractListTableRow, ContractListMobileCard } from './ContractListTableRow';
 import { GLOBAL_VIEW_ROLES } from '../lib/permissions';
 
 interface ContractListProps {
@@ -860,8 +860,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         setWarningFilter={setWarningFilter}
       />
 
-      {/* TABLE */}
-      <div className={`bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)] ${isResizing ? 'select-none' : ''}`}>
+      {/* TABLE (Desktop) */}
+      <div className={`hidden md:block bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)] ${isResizing ? 'select-none' : ''}`}>
         <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
           {/* Colgroup: dynamic widths from useColumnResize */}
           <colgroup>
@@ -973,21 +973,58 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </tbody>
         </table>
 
-        {/* INFINITE SCROLL SENTINEL — must be INSIDE scroll container */}
-        <div className="p-4 flex flex-col items-center justify-center">
-          <div ref={sentinelRef} className="h-4 w-full" />
-          {isLoadingMore && (
-            <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
-              <Loader2 size={20} className="animate-spin" />
-              <span className="text-sm font-medium">Đang tải thêm...</span>
-            </div>
-          )}
-          {!hasMore && contracts.length > 0 && !loading && (
-            <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
-              Đã hiển thị tất cả {totalCount} kết quả
-            </div>
-          )}
-        </div>
+      </div>
+
+      {/* MOBILE CARDS */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-white dark:bg-slate-900 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-800 animate-pulse h-[200px]"></div>
+          ))
+        ) : contracts.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-lg p-8 text-center text-slate-500 border border-slate-200 dark:border-slate-800 shadow-sm">
+            Không tìm thấy hợp đồng nào
+          </div>
+        ) : (
+          displayContracts.map((contract, index) => (
+            <ContractListMobileCard
+              key={contract.id}
+              contract={contract}
+              index={index}
+              onSelectContract={onSelectContract}
+              units={units}
+              salespeople={salespeople}
+              customersData={customersData}
+              contractTagsMap={contractTagsMap}
+              invoiceMap={invoiceMap}
+              statusDropdownId={statusDropdownId}
+              setStatusDropdownId={setStatusDropdownId}
+              statusDropdownRef={statusDropdownRef}
+              changingStatusId={changingStatusId}
+              handleQuickStatusChange={handleQuickStatusChange}
+              onClone={onClone}
+              isGlobalScope={isGlobalScope}
+              profile={profile}
+            />
+          ))
+        )}
+        
+      </div>
+
+      {/* INFINITE SCROLL SENTINEL (Common for Desktop & Mobile) */}
+      <div className="p-4 flex flex-col items-center justify-center">
+        <div ref={sentinelRef} className="h-4 w-full" />
+        {isLoadingMore && (
+          <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
+            <Loader2 size={20} className="animate-spin" />
+            <span className="text-sm font-medium">Đang tải thêm...</span>
+          </div>
+        )}
+        {!hasMore && contracts.length > 0 && !loading && (
+          <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+            Đã hiển thị tất cả {totalCount} kết quả
+          </div>
+        )}
       </div>
 
       {/* STATUS BAR */}
