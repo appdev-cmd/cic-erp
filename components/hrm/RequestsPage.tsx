@@ -5,6 +5,7 @@ import { InternalRequest } from '../../types/hrmTypes';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDateShort } from '../../utils/formatters';
 import RequestForm from './RequestForm';
+import FacilityCalendar from './FacilityCalendar';
 
 const TYPE_LABELS: Record<string, string> = {
   meeting_room: 'Phòng họp',
@@ -27,7 +28,11 @@ const RequestsPage: React.FC = () => {
   const [requests, setRequests] = useState<InternalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'my_requests' | 'need_approval'>('my_requests');
+  const [activeTab, setActiveTab] = useState<'my_requests' | 'need_approval' | 'calendar'>('my_requests');
+  
+  // States for pre-filling form from calendar
+  const [prefillFacility, setPrefillFacility] = useState('');
+  const [prefillStartTime, setPrefillStartTime] = useState('');
 
   const isManager = currentEmployee?.role === 'UnitLeader' || currentEmployee?.role === 'AdminUnit';
   const isAdmin = currentEmployee?.role === 'Admin'; // Adjust based on who HCNS is
@@ -45,7 +50,7 @@ const RequestsPage: React.FC = () => {
       if (activeTab === 'my_requests') {
         const reqs = await RequestService.getByEmployee(currentEmployee.id);
         setRequests(reqs);
-      } else {
+      } else if (activeTab === 'need_approval') {
         if (isAdmin) {
           const reqs = await RequestService.getPendingForAdmin();
           setRequests(reqs);
@@ -129,10 +134,24 @@ const RequestsPage: React.FC = () => {
             Cần tôi duyệt
           </button>
         )}
+        <button
+          onClick={() => setActiveTab('calendar')}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'calendar' ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
+        >
+          📅 Lịch Cơ sở Vật chất
+        </button>
       </div>
 
       {/* Grid */}
-      {isLoading ? (
+      {activeTab === 'calendar' ? (
+        <FacilityCalendar 
+          onCreateRequest={(facilityId, startTime) => {
+            setPrefillFacility(facilityId);
+            setPrefillStartTime(startTime);
+            setShowForm(true);
+          }}
+        />
+      ) : isLoading ? (
         <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div></div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -161,8 +180,10 @@ const RequestsPage: React.FC = () => {
                 {(req.type === 'meeting_room' || req.type === 'vehicle') && req.details?.start_time && (
                   <p>TG: {formatDateShort(req.details.start_time)} - {formatDateShort(req.details.end_time)}</p>
                 )}
-                {req.type === 'meeting_room' && req.details?.room_name && <p>Phòng: {req.details.room_name}</p>}
-                {req.type === 'vehicle' && req.details?.destination && <p>Điểm đến: {req.details.destination}</p>}
+                {req.type === 'meeting_room' && req.facility?.name && <p>Phòng: {req.facility.name}</p>}
+                {req.type === 'vehicle' && req.facility?.name && <p>Xe: {req.facility.name}</p>}
+                {req.type === 'meeting_room' && !req.facility && req.details?.room_name && <p>Phòng: {req.details.room_name}</p>}
+                {req.type === 'vehicle' && req.details?.destination && <p>Lộ trình: {req.details.destination}</p>}
                 {req.description && <p className="line-clamp-2 mt-2 text-xs italic">"{req.description}"</p>}
                 {req.rejection_reason && <p className="text-red-500 mt-2 text-xs">Lý do từ chối: {req.rejection_reason}</p>}
               </div>
@@ -195,6 +216,8 @@ const RequestsPage: React.FC = () => {
           onSaved={loadData}
           employeeId={currentEmployee.id}
           unitId={currentEmployee.unitId || undefined}
+          initialFacilityId={prefillFacility}
+          initialStartTime={prefillStartTime}
         />
       )}
     </div>

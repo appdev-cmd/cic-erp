@@ -91,6 +91,22 @@ export interface LeaveBalanceSummary {
 // HRM - Đề xuất nội bộ (Internal Requests)
 // ══════════════════════════════════════════
 
+export type FacilityType = 'meeting_room' | 'vehicle';
+
+export interface Facility {
+  id: string;
+  name: string;
+  type: FacilityType;
+  description?: string;
+  capacity?: number;
+  location?: string;
+  metadata?: Record<string, any>;
+  is_active: boolean;
+  color?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type InternalRequestType = 'meeting_room' | 'vehicle' | 'stationery' | 'other';
 export type InternalRequestStatus = 'draft' | 'pending_unit' | 'pending_admin' | 'approved' | 'rejected' | 'cancelled';
 
@@ -113,6 +129,8 @@ export interface InternalRequest {
   employee_name?: string;
   employee_avatar?: string;
   unit_name?: string;
+  facility_id?: string;
+  facility?: Facility;
 }
 
 export interface CreateInternalRequestInput {
@@ -122,6 +140,7 @@ export interface CreateInternalRequestInput {
   title: string;
   description?: string;
   details?: Record<string, any>;
+  facility_id?: string;
 }
 
 // ── Recruitment (Phase 1) ──
@@ -237,6 +256,34 @@ export interface ApplicationEvaluation {
     avatar?: string;
     position?: string;
   };
+}
+
+// ── Recruitment Email Logs ──
+
+export type EmailLogStatus = 'pending' | 'sent' | 'failed';
+
+export interface RecruitmentEmailLog {
+  id: string;
+  application_id: string;
+  candidate_id: string;
+  stage: string;
+  email_to: string;
+  email_subject: string;
+  email_html?: string;
+  status: EmailLogStatus;
+  error_message?: string;
+  sent_at?: string;
+  sent_by?: string;
+  created_at: string;
+}
+
+export interface UserEmailSignature {
+  id: string;
+  user_id: string;
+  name: string;
+  html_content: string;
+  is_default: boolean;
+  created_at: string;
 }
 
 // ── Requests (Phase 3 — placeholder types) ──

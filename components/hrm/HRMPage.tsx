@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   CalendarDays,
   UserSearch,
@@ -157,10 +158,22 @@ const modules: ModuleCard[] = [
     path: '/hrm/analytics',
     status: 'active',
   },
+  {
+    id: 'facilities',
+    title: 'Cơ sở vật chất',
+    description: 'Danh mục tài sản, cấu hình phòng họp, xe công tác và trang thiết bị (Admin).',
+    icon: <Settings size={28} />,
+    color: 'text-slate-600 dark:text-slate-400',
+    bgColor: 'bg-slate-100',
+    darkBgColor: 'dark:bg-slate-800',
+    path: '/hrm/facilities',
+    status: 'active',
+  },
 ];
 
 const HRMPage: React.FC = () => {
   const navigate = useNavigate();
+  const { profile: currentEmployee } = useAuth();
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -183,10 +196,15 @@ const HRMPage: React.FC = () => {
 
       {/* Module Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {modules.map(mod => (
-          <button
-            key={mod.id}
-            onClick={() => mod.status === 'active' && navigate(mod.path)}
+        {modules.map(mod => {
+          // Hide facilities card if not Admin/AdminUnit
+          if (mod.id === 'facilities' && currentEmployee?.role !== 'Admin' && currentEmployee?.role !== 'AdminUnit') {
+            return null;
+          }
+          return (
+            <button
+              key={mod.id}
+              onClick={() => mod.status === 'active' && navigate(mod.path)}
             disabled={mod.status === 'coming_soon'}
             className={`
               group relative text-left p-6 rounded-2xl border transition-all duration-200
@@ -223,7 +241,8 @@ const HRMPage: React.FC = () => {
               </div>
             )}
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {/* Quick Stats Row */}

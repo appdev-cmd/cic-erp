@@ -5,6 +5,8 @@ import { recruitmentService } from '../../services/recruitmentService';
 import { formatDateShort } from '../../utils/formatters';
 import { Briefcase, ChevronRight, User, MousePointerClick } from 'lucide-react';
 import CandidateDetailPanel from './CandidateDetailPanel';
+import { isEmailSupportedStage } from '../../lib/recruitmentEmailTemplates';
+import { toast } from 'sonner';
 
 interface Props {
   jobOpenings: JobOpening[];
@@ -87,6 +89,9 @@ const RecruitmentKanban: React.FC<Props> = ({ jobOpenings, initialJobId, refresh
 
     try {
       await recruitmentService.moveStage(draggedAppId, newStage);
+      if (isEmailSupportedStage(newStage)) {
+        toast.info('✉️ Mở chi tiết ứng viên để gửi email thông báo', { duration: 4000 });
+      }
     } catch (error) {
       console.error('Error moving stage:', error);
       // Revert on error

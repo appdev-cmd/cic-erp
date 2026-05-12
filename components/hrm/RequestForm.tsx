@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { X, Upload, FileEdit } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Upload, FileEdit, AlertCircle } from 'lucide-react';
 import DateInput from '../ui/DateInput';
 import { RequestService } from '../../services/requestService';
-import { InternalRequestType } from '../../types/hrmTypes';
+import { InternalRequestType, Facility } from '../../types/hrmTypes';
+import { FacilityService } from '../../services/facilityService';
 
 interface Props {
   isOpen: boolean;
@@ -10,19 +11,59 @@ interface Props {
   onSaved: () => void;
   employeeId: string;
   unitId?: string;
+  initialFacilityId?: string;
+  initialStartTime?: string;
 }
 
-const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, unitId }) => {
+const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, unitId, initialFacilityId, initialStartTime }) => {
   const [type, setType] = useState<InternalRequestType>('meeting_room');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   
   // Dynamic fields
-  const [startTime, setStartTime] = useState('');
+  const [startTime, setStartTime] = useState(initialStartTime ? initialStartTime.slice(0, 16) : '');
   const [endTime, setEndTime] = useState('');
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState(''); // Used as generic location for other types
+  const [facilityId, setFacilityId] = useState(initialFacilityId || '');
   
   const [loading, setLoading] = useState(false);
+  
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+
+  // Load facilities when type changes
+  useEffect(() => {
+    if (type === 'meeting_room' || type === 'vehicle') {
+      FacilityService.getActive(type).then(data => {
+        setFacilities(data);
+        if (data.length > 0 && !facilityId) {
+          setFacilityId(data[0].id);
+        } else if (data.length === 0) {
+          setFacilityId('');
+        }
+      }).catch(console.error);
+    } else {
+      setFacilityId('');
+      setConflictWarning(null);
+    }
+  }, [type]);
+
+  // Check conflicts
+  useEffect(() => {
+    if ((type === 'meeting_room' || type === 'vehicle') && facilityId && startTime && endTime) {
+      FacilityService.checkConflict(facilityId, startTime, endTime)
+        .then(conflicts => {
+          if (conflicts.length > 0) {
+            setConflictWarning(`Cảnh báo: Đã có ${conflicts.length} lịch đặt trùng thời gian. Vẫn có thể gửi đề xuất để chờ duyệt.`);
+          } else {
+            setConflictWarning(null);
+          }
+        })
+        .catch(console.error);
+    } else {
+      setConflictWarning(null);
+    }
+  }, [facilityId, startTime, endTime, type]);
 
   const handleSubmit = async (asDraft: boolean) => {
     if (!title || !unitId) return;
@@ -48,6 +89,7 @@ const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, un
         title,
         description,
         details,
+        facility_id: facilityId || undefined,
       });
 
       if (!asDraft) {
@@ -122,11 +164,39 @@ const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, un
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                    {type === 'meeting_room' ? 'Tên phòng họp' : 'Điểm đến / Lộ trình'}
+                    {type === 'meeting_room' ? 'Chọn Phòng họp' : 'Chọn Xe'}
                   </label>
-                  <input type="text" value={location} onChange={e => setLocation(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                  <select
+                    value={facilityId}
+                    onChange={e => setFacilityId(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  >
+                    {facilities.map(fac => (
+                      <option key={fac.id} value={fac.id}>{fac.name} {fac.capacity ? `(Sức chứa: ${fac.capacity})` : ''}</option>
+                    ))}
+                    {facilities.length === 0 && <option value="">Không có dữ liệu</option>}
+                  </select>
                 </div>
+                {type === 'vehicle' && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Điểm đến / Lộ trình</label>
+                    <input type="text" value={location} onChange={e => setLocation(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+                  </div>
+                )}
+                {conflictWarning && (
+                  <div className="col-span-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400">
+                    <AlertCircle size={16} className="inline mr-1.5 -mt-0.5" />
+                    {conflictWarning}
+                  </div>
+                )}
               </>
+            )}
+
+            {type !== 'meeting_room' && type !== 'vehicle' && (
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Vị trí / Nơi yêu cầu</label>
+                <input type="text" value={location} onChange={e => setLocation(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+              </div>
             )}
 
             <div className="col-span-2">

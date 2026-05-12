@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { JobOpening, Candidate, CandidateApplication, ApplicationStage, ApplicationEvaluation } from '../types/hrmTypes';
+import { JobOpening, Candidate, CandidateApplication, ApplicationStage, ApplicationEvaluation, RecruitmentEmailLog, UserEmailSignature } from '../types/hrmTypes';
 import { OnboardingService } from './onboardingService';
 
 export const recruitmentService = {
@@ -196,6 +196,21 @@ export const recruitmentService = {
     return data as CandidateApplication;
   },
 
+  async updateApplication(id: string, updates: Partial<CandidateApplication>): Promise<CandidateApplication> {
+    const { data, error } = await supabase
+      .from('applications')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select(`*, candidate:candidates(*)`)
+      .single();
+
+    if (error) throw error;
+    return data as CandidateApplication;
+  },
+
   async updateApplicationNotes(id: string, notes: string | null, rating: number | null): Promise<CandidateApplication> {
     const { data, error } = await supabase
       .from('applications')
@@ -308,5 +323,114 @@ export const recruitmentService = {
 
     if (error) throw error;
     return data as ApplicationEvaluation;
+  },
+
+  // ── Email ──
+  async sendStageEmail(params: {
+    application_id: string;
+    candidate_id: string;
+    stage: string;
+    to: string;
+    subject: string;
+    html: string;
+    sent_by?: string;
+    attachments?: { filename: string; content: string }[];
+  }): Promise<{ success: boolean; mock?: boolean; error?: string }> {
+    try {
+      // Get auth token for API call
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch('/api/recruitment-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(params)
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Gửi email thất bại' };
+      }
+      return { success: true, mock: data.mock };
+    } catch (error: any) {
+      console.error('[recruitmentService] sendStageEmail error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getEmailLogs(applicationId: string): Promise<RecruitmentEmailLog[]> {
+    const { data, error } = await supabase
+      .from('recruitment_email_logs')
+      .select('*')
+      .eq('application_id', applicationId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as RecruitmentEmailLog[];
+  },
+
+  async getEmailLogsByCandidate(candidateId: string): Promise<RecruitmentEmailLog[]> {
+    const { data, error } = await supabase
+      .from('recruitment_email_logs')
+      .select('*')
+      .eq('candidate_id', candidateId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (error) throw error;
+    return data as RecruitmentEmailLog[];
+  },
+
+  // ── Email Signatures ──
+  async getUserSignatures(userId: string): Promise<UserEmailSignature[]> {
+    const { data, error } = await supabase
+      .from('user_email_signatures')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data as UserEmailSignature[];
+  },
+
+  async saveUserSignature(signature: Partial<UserEmailSignature>): Promise<UserEmailSignature> {
+    if (signature.id) {
+      const { data, error } = await supabase
+        .from('user_email_signatures')
+        .update({
+          name: signature.name,
+          html_content: signature.html_content,
+          is_default: signature.is_default
+        })
+        .eq('id', signature.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data as UserEmailSignature;
+    } else {
+      const { data, error } = await supabase
+        .from('user_email_signatures')
+        .insert({
+          user_id: signature.user_id,
+          name: signature.name,
+          html_content: signature.html_content,
+          is_default: signature.is_default
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data as UserEmailSignature;
+    }
+  },
+
+  async deleteUserSignature(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('user_email_signatures')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
   }
 };

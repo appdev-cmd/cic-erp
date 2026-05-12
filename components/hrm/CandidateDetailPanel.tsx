@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Phone, Mail, MapPin, GraduationCap, Briefcase, Calendar, Star, FileText, Download, Trash2, Edit } from 'lucide-react';
-import { Candidate, CandidateApplication, ApplicationStage, ApplicationEvaluation, JobOpening } from '../../types/hrmTypes';
+import { X, User, Phone, Mail, MapPin, GraduationCap, Briefcase, Calendar, Star, FileText, Download, Trash2, Edit, Send, Eye, CheckCircle, AlertCircle, RefreshCw, MailOpen } from 'lucide-react';
+import { Candidate, CandidateApplication, ApplicationStage, ApplicationEvaluation, JobOpening, RecruitmentEmailLog } from '../../types/hrmTypes';
 import { recruitmentService } from '../../services/recruitmentService';
 import { formatDate, formatDateTime } from '../../utils/formatters';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import CandidateForm from './CandidateForm';
+import { getEmailTemplate, isEmailSupportedStage, emailWrapper } from '../../lib/recruitmentEmailTemplates';
+import { toast } from 'sonner';
+import RichTextEditor from '../ui/RichTextEditor';
+import { PenTool, Paperclip, ChevronDown, FileText as FileTextIcon, X as XIcon } from 'lucide-react';
+import SignatureManagerModal from './SignatureManagerModal';
+import { UserEmailSignature } from '../../types/hrmTypes';
+import DateInput from '../ui/DateInput';
 
 const calculateDays = (start: string, end: string) => {
   const diff = new Date(end).getTime() - new Date(start).getTime();
@@ -33,7 +40,7 @@ const STAGES: { id: ApplicationStage; label: string }[] = [
 ];
 
 const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose, onUpdate }) => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -59,6 +66,22 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
 
+  // Email composer state
+  const [showEmailComposer, setShowEmailComposer] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBodyHtml, setEmailBodyHtml] = useState('');
+  const [emailHeaderBg, setEmailHeaderBg] = useState('');
+  const [emailHeaderText, setEmailHeaderText] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailLogs, setEmailLogs] = useState<RecruitmentEmailLog[]>([]);
+  const [isLoadingEmailLogs, setIsLoadingEmailLogs] = useState(false);
+
+  // Signatures & Attachments
+  const [emailAttachments, setEmailAttachments] = useState<{ filename: string; content: string; size: number }[]>([]);
+  const [showSignatureManager, setShowSignatureManager] = useState(false);
+  const [userSignatures, setUserSignatures] = useState<UserEmailSignature[]>([]);
+  const [showSignatureDropdown, setShowSignatureDropdown] = useState(false);
+
   const cand = candidate || application?.candidate;
   const evaluatorId = profile?.employeeId;
 
@@ -67,6 +90,22 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
       loadHistory();
     }
   }, [cand]);
+
+  useEffect(() => {
+    if (profile?.id || user?.id) {
+      loadSignatures();
+    }
+  }, [profile?.id, user?.id]);
+
+  const loadSignatures = async () => {
+    if (!profile?.id && !user?.id) return;
+    try {
+      const data = await recruitmentService.getUserSignatures(user?.id || profile!.id);
+      setUserSignatures(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const getAttachments = () => {
     if (!cand?.resume_url) return [];
@@ -94,7 +133,7 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
     }
   };
 
-  const activeApp = application || historyApps.find(a => a.id === localAppId);
+  const activeApp = historyApps.find(a => a.id === (localAppId || application?.id)) || application;
   const isInterviewStage = ['interview_1', 'interview_2', 'technical_test'].includes(activeApp?.stage || '');
 
   const loadEvaluations = async (appId: string) => {
@@ -160,6 +199,121 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
       setIsSavingNotes(false);
     }
   };
+
+  // ── Email handlers ──
+  const openEmailComposer = () => {
+    if (!activeApp || !cand) return;
+    const jobTitle = activeApp.job_opening?.title || (activeApp as any).job_opening?.title;
+    const template = getEmailTemplate(activeApp.stage, cand.full_name, jobTitle, {
+      rejectionReason: activeApp.rejection_reason || undefined,
+      offerSalary: activeApp.offer_salary || undefined,
+      onboardDate: activeApp.onboard_date || undefined,
+    });
+    if (template) {
+      setEmailSubject(template.subject);
+      setEmailBodyHtml(template.bodyHtml);
+      setEmailHeaderBg(template.headerBg);
+      setEmailHeaderText(template.headerText);
+    } else {
+      setEmailSubject(`[CIC] Thông báo tuyển dụng`);
+      setEmailBodyHtml(`<p>Chào ${cand.full_name},</p><p>...</p>`);
+      setEmailHeaderBg('#2d3436');
+      setEmailHeaderText('Thông báo tuyển dụng');
+    }
+    
+    // Auto insert default signature
+    const defaultSig = userSignatures.find(s => s.is_default);
+    if (defaultSig) {
+      setEmailBodyHtml(prev => prev + defaultSig.html_content);
+    }
+    
+    setEmailAttachments([]);
+    setShowEmailComposer(true);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    Array.from(files).forEach(file => {
+      // Check total size
+      const currentTotal = emailAttachments.reduce((sum, a) => sum + a.size, 0);
+      if (currentTotal + file.size > 3 * 1024 * 1024) {
+        toast.error('Tổng dung lượng tệp đính kèm không được vượt quá 3MB');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64String = (event.target?.result as string).split(',')[1];
+        setEmailAttachments(prev => [...prev, {
+          filename: file.name,
+          content: base64String,
+          size: file.size
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    // Reset input
+    e.target.value = '';
+  };
+
+  const removeAttachment = (index: number) => {
+    setEmailAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const insertSignature = (sigHtml: string) => {
+    setEmailBodyHtml(prev => prev + sigHtml);
+    setShowSignatureDropdown(false);
+  };
+
+  const handleSendEmail = async () => {
+    if (!activeApp || !cand || !cand.email) return;
+    setIsSendingEmail(true);
+    try {
+      const finalHtml = emailWrapper(emailHeaderBg, emailHeaderText, emailBodyHtml);
+      const result = await recruitmentService.sendStageEmail({
+        application_id: activeApp.id,
+        candidate_id: cand.id,
+        stage: activeApp.stage,
+        to: cand.email,
+        subject: emailSubject,
+        html: finalHtml,
+        sent_by: evaluatorId || undefined,
+        attachments: emailAttachments.length > 0 ? emailAttachments.map(a => ({ filename: a.filename, content: a.content })) : undefined
+      });
+      if (result.success) {
+        toast.success(result.mock ? '📧 Email đã gửi (mock mode — chưa có API key)' : '✅ Email đã gửi thành công!');
+        setShowEmailComposer(false);
+        loadEmailLogs();
+      } else {
+        toast.error(`❌ Gửi thất bại: ${result.error}`);
+      }
+    } catch (e: any) {
+      toast.error('Lỗi khi gửi email');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const loadEmailLogs = async () => {
+    if (!activeApp) return;
+    setIsLoadingEmailLogs(true);
+    try {
+      const logs = await recruitmentService.getEmailLogs(activeApp.id);
+      setEmailLogs(logs);
+    } catch (e) {
+      console.error('Error loading email logs:', e);
+    } finally {
+      setIsLoadingEmailLogs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeApp) {
+      loadEmailLogs();
+    }
+  }, [activeApp?.id]);
 
   const handleDelete = async () => {
     if (!cand) return;
@@ -421,6 +575,68 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
                   </div>
                 </div>
               </div>
+
+              {/* Email Notification Button */}
+              {isEmailSupportedStage(activeApp.stage) && (
+                <div className="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-indigo-100 dark:border-indigo-800">
+                        <Mail size={18} className="text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Gửi Email thông báo</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {cand?.email ? `Đến: ${cand.email}` : 'Ứng viên chưa có email'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={openEmailComposer}
+                      disabled={!cand?.email}
+                      className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer ${
+                        cand?.email
+                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow active:scale-95'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <Send size={15} />
+                      Soạn Email
+                    </button>
+                  </div>
+                  {emailLogs.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-indigo-100 dark:border-indigo-800/50">
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Lịch sử gửi email</p>
+                      <div className="space-y-1.5 max-h-[120px] overflow-y-auto custom-scrollbar">
+                        {emailLogs.map(log => (
+                          <div key={log.id} className="flex items-center justify-between gap-2 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-xs">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {log.status === 'sent' ? (
+                                <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                              ) : (
+                                <AlertCircle size={14} className="text-rose-500 shrink-0" />
+                              )}
+                              <span className="text-slate-700 dark:text-slate-300 truncate" title={log.email_subject}>{log.email_subject}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-slate-400 dark:text-slate-500">{log.sent_at ? formatDateTime(log.sent_at) : formatDateTime(log.created_at)}</span>
+                              {log.status === 'failed' && (
+                                <button
+                                  onClick={openEmailComposer}
+                                  className="p-1 text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded transition-colors cursor-pointer"
+                                  title="Gửi lại"
+                                >
+                                  <RefreshCw size={12} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-4">
                 <div className="flex items-center justify-between pl-1">
@@ -689,6 +905,154 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
         </div>
       )}
 
+      {/* Email Composer Modal */}
+      {showEmailComposer && (
+        <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 shrink-0">
+              <div className="flex items-center gap-2">
+                <MailOpen size={20} className="text-indigo-600 dark:text-indigo-400" />
+                <h3 className="font-bold text-slate-800 dark:text-slate-200">Soạn Email cho Ứng viên</h3>
+              </div>
+              <button onClick={() => setShowEmailComposer(false)} className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer text-slate-400">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4 flex-1 overflow-y-auto">
+              {/* To */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Đến</label>
+                <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 font-medium">
+                  {cand?.email || 'Không có email'}
+                </div>
+              </div>
+
+              {/* Subject */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Tiêu đề</label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={e => setEmailSubject(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400"
+                  placeholder="Tiêu đề email..."
+                />
+              </div>
+
+              {/* Content */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5 relative">
+                  <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nội dung</label>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer">
+                      <Paperclip size={13} />
+                      Đính kèm
+                      <input type="file" multiple className="hidden" onChange={handleFileChange} />
+                    </label>
+
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowSignatureDropdown(!showSignatureDropdown)}
+                        className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <PenTool size={13} />
+                        Chèn chữ ký
+                        <ChevronDown size={12} />
+                      </button>
+
+                      {showSignatureDropdown && (
+                        <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 z-[110]">
+                          {userSignatures.length > 0 ? (
+                            userSignatures.map(sig => (
+                              <button
+                                key={sig.id}
+                                onClick={() => insertSignature(sig.html_content)}
+                                className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-between group"
+                              >
+                                <span className="truncate mr-2">{sig.name}</span>
+                                {sig.is_default && <CheckCircle size={12} className="text-emerald-500 shrink-0" />}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-4 py-2 text-xs text-slate-500 text-center">Chưa có mẫu nào</div>
+                          )}
+                          <div className="border-t border-slate-100 dark:border-slate-700 mt-1">
+                            <button
+                              onClick={() => {
+                                setShowSignatureDropdown(false);
+                                setShowSignatureManager(true);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                            >
+                              + Quản lý mẫu chữ ký
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <RichTextEditor
+                  value={emailBodyHtml}
+                  onChange={setEmailBodyHtml}
+                  minHeight="300px"
+                />
+
+                {/* Attachments List */}
+                {emailAttachments.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {emailAttachments.map((att, idx) => (
+                      <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-xs">
+                        <FileTextIcon size={12} className="text-slate-500" />
+                        <span className="text-slate-700 dark:text-slate-300 max-w-[150px] truncate">{att.filename}</span>
+                        <span className="text-slate-400">({(att.size / 1024).toFixed(0)}KB)</span>
+                        <button onClick={() => removeAttachment(idx)} className="text-slate-400 hover:text-red-500 p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                          <XIcon size={12} />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="flex items-center text-xs text-slate-500 ml-2 font-medium">
+                      Tổng: {(emailAttachments.reduce((s, a) => s + a.size, 0) / (1024 * 1024)).toFixed(2)} / 3.0 MB
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 flex items-center justify-between shrink-0">
+              <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                Gửi từ: thuongnth@cic.com.vn
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowEmailComposer(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={isSendingEmail || !emailSubject.trim() || !emailBodyHtml.trim()}
+                  className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95"
+                >
+                  {isSendingEmail ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Send size={15} />
+                  )}
+                  {isSendingEmail ? 'Đang gửi...' : 'Gửi Email'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Render form đè lên khi chọn Edit */}
       {showEditForm && (
         <React.Suspense fallback={<div>Loading...</div>}>
@@ -703,6 +1067,106 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
             }}
           />
         </React.Suspense>
+      )}
+      {/* Modals */}
+      {showSignatureManager && (
+        <SignatureManagerModal
+          onClose={() => setShowSignatureManager(false)}
+          onSignaturesChange={loadSignatures}
+        />
+      )}
+      
+      {/* Offer Modal */}
+      {showOfferModal && activeApp && (
+        <div className="fixed inset-0 z-[120] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity">
+          <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-md shadow-2xl flex flex-col animate-in zoom-in-95 duration-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                {offerData.targetStage === 'hired' ? 'Xác nhận Tuyển dụng' : 'Thông tin Gửi Offer'}
+              </h3>
+              <button onClick={() => setShowOfferModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                <XIcon size={18} />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Mức lương Offer (VNĐ)</label>
+                <input
+                  type="number"
+                  value={offerData.offer_salary || ''}
+                  onChange={e => setOfferData({ ...offerData, offer_salary: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                  placeholder="Ví dụ: 15000000"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Ngày gửi Offer</label>
+                  <DateInput
+                    value={offerData.offer_date}
+                    onChange={val => setOfferData({ ...offerData, offer_date: val })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Ngày nhận việc</label>
+                  <DateInput
+                    value={offerData.onboard_date}
+                    onChange={val => setOfferData({ ...offerData, onboard_date: val })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-2">
+              <button
+                onClick={() => setShowOfferModal(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={async () => {
+                  setIsUpdating(true);
+                  try {
+                    // Update application details
+                    await recruitmentService.updateApplication(activeApp.id, {
+                      offer_salary: offerData.offer_salary,
+                      offer_date: offerData.offer_date,
+                      onboard_date: offerData.onboard_date
+                    });
+                    // Change stage
+                    await recruitmentService.moveStage(activeApp.id, offerData.targetStage as ApplicationStage);
+                    
+                    if (onUpdate) onUpdate();
+                    setHistoryApps(prev => prev.map(a => a.id === activeApp.id ? { 
+                      ...a, 
+                      stage: offerData.targetStage as ApplicationStage,
+                      offer_salary: offerData.offer_salary,
+                      offer_date: offerData.offer_date,
+                      onboard_date: offerData.onboard_date
+                    } : a));
+                    setShowOfferModal(false);
+                    toast.success('Đã cập nhật trạng thái thành công');
+                  } catch (e) {
+                    console.error(e);
+                    toast.error('Có lỗi xảy ra khi cập nhật');
+                  } finally {
+                    setIsUpdating(false);
+                  }
+                }}
+                disabled={isUpdating}
+                className="px-5 py-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                {isUpdating ? 'Đang xử lý...' : 'Xác nhận & Cập nhật'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

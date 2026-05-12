@@ -79,6 +79,7 @@ const HRMPage = lazyWithRetry(() => import('./hrm/HRMPage'));
 const RecruitmentPage = lazyWithRetry(() => import('./hrm/RecruitmentPage'));
 const LeavePage = lazyWithRetry(() => import('./hrm/LeavePage'));
 const RequestsPage = lazyWithRetry(() => import('./hrm/RequestsPage'));
+const FacilityManager = lazyWithRetry(() => import('./hrm/FacilityManager'));
 const PublicApplicationForm = lazyWithRetry(() => import('./hrm/PublicApplicationForm'));
 const WebsiteManager = lazyWithRetry(() => import('./WebsiteManager'));
 const NewsList = lazyWithRetry(() => import('./NewsList'));
@@ -1014,6 +1015,7 @@ export const LazyHRMPage: React.FC = () => withSuspense(<HRMPage />);
 export const LazyRecruitmentPage: React.FC = () => withSuspense(<RecruitmentPage />);
 export const LazyLeavePage: React.FC = () => withSuspense(<LeavePage />);
 export const LazyRequestsPage: React.FC = () => withSuspense(<RequestsPage />);
+export const LazyFacilityManagerPage: React.FC = () => withSuspense(<FacilityManager />);
 
 export const LazyAttendanceSettingsPage: React.FC = () => {
     return withSuspense(

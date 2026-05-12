@@ -7,6 +7,7 @@ function mapRequest(row: any): InternalRequest {
     employee_name: row.employees?.name || row.employee_name,
     employee_avatar: row.employees?.avatar || row.employee_avatar,
     unit_name: row.units?.name || row.unit_name,
+    facility: row.facility,
   };
 }
 
@@ -118,7 +119,7 @@ export const RequestService = {
   async getByEmployee(employeeId: string): Promise<InternalRequest[]> {
     const { data, error } = await supabase
       .from('internal_requests')
-      .select('*, employees!internal_requests_employee_id_fkey(name, avatar), units!internal_requests_unit_id_fkey(name)')
+      .select('*, employees!internal_requests_employee_id_fkey(name, avatar), units!internal_requests_unit_id_fkey(name), facility:facilities(*)')
       .eq('employee_id', employeeId)
       .order('created_at', { ascending: false });
 
@@ -129,7 +130,7 @@ export const RequestService = {
   async getPendingForUnit(unitId: string): Promise<InternalRequest[]> {
     const { data, error } = await supabase
       .from('internal_requests')
-      .select('*, employees!internal_requests_employee_id_fkey(name, avatar), units!internal_requests_unit_id_fkey(name)')
+      .select('*, employees!internal_requests_employee_id_fkey(name, avatar), units!internal_requests_unit_id_fkey(name), facility:facilities(*)')
       .eq('unit_id', unitId)
       .eq('status', 'pending_unit')
       .order('created_at', { ascending: false });
@@ -141,7 +142,7 @@ export const RequestService = {
   async getPendingForAdmin(): Promise<InternalRequest[]> {
     const { data, error } = await supabase
       .from('internal_requests')
-      .select('*, employees!internal_requests_employee_id_fkey(name, avatar), units!internal_requests_unit_id_fkey(name)')
+      .select('*, employees!internal_requests_employee_id_fkey(name, avatar), units!internal_requests_unit_id_fkey(name), facility:facilities(*)')
       .eq('status', 'pending_admin')
       .order('created_at', { ascending: false });
 

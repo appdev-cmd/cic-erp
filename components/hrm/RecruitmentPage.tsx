@@ -14,6 +14,7 @@ import CandidateDetailPanel from './CandidateDetailPanel';
 import JobApplicationsPanel from './JobApplicationsPanel';
 import RecruitmentDashboard from './RecruitmentDashboard';
 import { toast } from 'sonner';
+import { isEmailSupportedStage } from '../../lib/recruitmentEmailTemplates';
 
 const APP_STAGES_MAP: Record<string, string> = {
   applied: 'Ứng tuyển',
@@ -520,6 +521,9 @@ const RecruitmentPage: React.FC = () => {
                                         try {
                                           await recruitmentService.moveStage(app.id, newStage);
                                           loadData();
+                                          if (isEmailSupportedStage(newStage)) {
+                                            toast.info('✉️ Mở chi tiết ứng viên để gửi email thông báo', { duration: 4000 });
+                                          }
                                         } catch (err) {
                                           alert('Lỗi chuyển trạng thái!');
                                         }
