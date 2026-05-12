@@ -134,6 +134,82 @@ function geminiExtractProxy(env: Record<string, string>): Plugin {
   };
 }
 
+// ─── Local Dev Proxy for /api/recruitment-email ────────────────
+// Xử lý route gửi email locally vì Vite không có Vercel Serverless
+function recruitmentEmailProxy(env: Record<string, string>): Plugin {
+  return {
+    name: 'recruitment-email-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/recruitment-email', async (req, res) => {
+        if (req.method === 'OPTIONS') {
+          res.writeHead(200, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' });
+          res.end();
+          return;
+        }
+        if (req.method !== 'POST') {
+          res.writeHead(405, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+          return;
+        }
+
+        // Read request body
+        let body = '';
+        for await (const chunk of req) body += chunk;
+        let parsed: any;
+        try { parsed = JSON.parse(body); } catch { res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid JSON' })); return; }
+
+        const { application_id, candidate_id, to, subject, html, attachments } = parsed;
+        if (!to || !subject || !html) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Thiếu thông tin bắt buộc' }));
+          return;
+        }
+
+        const resendKey = env.RESEND_API_KEY;
+        const fromEmail = env.RECRUITMENT_FROM_EMAIL || 'thuongnth@cic.com.vn';
+
+        if (!resendKey) {
+          // Mock mode
+          console.warn('[Vite Proxy] RESEND_API_KEY chưa cấu hình. Chạy mock mode.');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, mock: true, message: 'Mock mode: Email chưa thực sự gửi' }));
+          return;
+        }
+
+        try {
+          const resendRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${resendKey}`
+            },
+            body: JSON.stringify({
+              from: `"Phòng Tuyển Dụng - CIC" <${fromEmail}>`,
+              to: Array.isArray(to) ? to : [to],
+              subject: subject,
+              html: html,
+              ...(attachments && attachments.length > 0 ? { attachments } : {})
+            })
+          });
+
+          if (!resendRes.ok) {
+            const errText = await resendRes.text();
+            res.writeHead(resendRes.status, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: `Resend API: ${resendRes.status} - ${errText.substring(0, 200)}` }));
+            return;
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, mock: false, message: 'Đã gửi email' }));
+        } catch (e: any) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message || 'Unknown error' }));
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
@@ -183,6 +259,7 @@ export default defineConfig(({ mode }) => {
       sourceFileGuard(), // MUST be first — blocks requests before Vite processes them
       react(),
       geminiExtractProxy(env),
+      recruitmentEmailProxy(env),
     ],
     // SECURITY: API Key Gemini chạy qua Vercel Serverless Function (/api/gemini-extract).
     // Local dev dùng Vite plugin proxy ở trên → key không bao giờ lộ ra client bundle.

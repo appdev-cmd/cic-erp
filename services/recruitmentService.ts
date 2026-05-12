@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { dataClient as supabase } from '../lib/dataClient';
 import { JobOpening, Candidate, CandidateApplication, ApplicationStage, ApplicationEvaluation, RecruitmentEmailLog, UserEmailSignature } from '../types/hrmTypes';
 import { OnboardingService } from './onboardingService';
 

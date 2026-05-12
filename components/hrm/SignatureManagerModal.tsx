@@ -214,7 +214,7 @@ export default function SignatureManagerModal({ onClose, onSignaturesChange }: S
               ) : (
                 <div className="space-y-3">
                   {signatures.map(sig => (
-                    <div key={sig.id} className="p-4 border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-slate-800/50 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between group">
+                    <div key={sig.id} className="p-4 border border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50 dark:bg-slate-800 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between group">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="font-semibold text-slate-800 dark:text-slate-200 truncate">{sig.name}</h3>
@@ -225,7 +225,7 @@ export default function SignatureManagerModal({ onClose, onSignaturesChange }: S
                           )}
                         </div>
                         <div 
-                          className="text-sm text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-3 rounded border border-slate-100 dark:border-slate-800 max-h-24 overflow-hidden relative"
+                          className="prose prose-sm dark:prose-invert max-w-none bg-white dark:bg-slate-900 p-3 rounded border border-slate-100 dark:border-slate-800 max-h-24 overflow-hidden relative"
                         >
                           <div dangerouslySetInnerHTML={{ __html: sig.html_content }} />
                           <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
