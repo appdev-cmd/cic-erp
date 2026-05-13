@@ -80,10 +80,36 @@ const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, un
   }, [facilityId, startTime, endTime, type]);
 
   const handleSubmit = async (asDraft: boolean) => {
-    if (!title || !unitId) return;
+    if (!title) {
+      alert('Vui lòng nhập Tiêu đề đề xuất!');
+      return;
+    }
+    if (!unitId) {
+      alert('Lỗi: Không tìm thấy thông tin Đơn vị của bạn. Không thể tạo đề xuất.');
+      return;
+    }
 
     setLoading(true);
     try {
+      let finalUnitId = unitId;
+      if (unitId === 'all') {
+        // Handle Dev Admin / All Units case
+        const { data: units } = await RequestService.getUnits ? await RequestService.getUnits() : { data: null };
+        if (!units && (window as any).supabase) {
+            const { data } = await (window as any).supabase.from('units').select('id').limit(1);
+            if (data && data.length > 0) finalUnitId = data[0].id;
+        } else {
+             // fallback to direct supabase client if possible
+             const { dataClient } = await import('../../lib/dataClient');
+             const { data } = await dataClient.from('units').select('id').limit(1);
+             if (data && data.length > 0) finalUnitId = data[0].id;
+             else {
+                 alert('Không tìm thấy Đơn vị nào trong hệ thống để gán cho đề xuất này (Dành cho tài khoản Admin).');
+                 setLoading(false);
+                 return;
+             }
+        }
+      }
       const details: Record<string, string> = {};
       if (type === 'meeting_room' || type === 'vehicle') {
         details['start_time'] = startTime;
@@ -98,7 +124,7 @@ const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, un
 
       const payload: any = {
         employee_id: employeeId,
-        unit_id: unitId,
+        unit_id: finalUnitId,
         type,
         title,
         description,
