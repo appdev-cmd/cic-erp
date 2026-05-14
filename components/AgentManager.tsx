@@ -4,7 +4,7 @@ import {
   Bot, Crown, Shield, Box, Leaf, Download, Monitor, HardHat,
   Compass, Calculator, Users, MapPin, ToggleLeft, ToggleRight,
   Eye, Pencil, BarChart3, Sparkles, Activity, Search, RefreshCw,
-  ChevronRight, X
+  ChevronRight, X, Settings
 } from 'lucide-react';
 import { AgentConfigService, type AgentConfigRow } from '../services/ai/agentConfigService';
 import { getEnabledModels } from '../services/ai/models';
@@ -13,6 +13,8 @@ import { cn } from '../lib/utils';
 import { erpToolsRegistry } from '../services/ai/openclaw/tools/registry';
 import { marketingToolsRegistry } from '../services/ai/openclaw/tools/marketingTools';
 import { EmployeeService } from '../services/employeeService';
+import { ToolDetailModal } from './admin/ToolDetailModal';
+import type { OpenClawTool } from '../services/ai/openclaw/types';
 
 const ALL_ROLES = [
   { id: 'Admin', label: 'Quản trị hệ thống' },
@@ -32,8 +34,8 @@ const ALL_TOOLS = Array.from(new Set([
   ...marketingToolsRegistry.map(t => t.name)
 ])).sort();
 
-const TOOL_MAP = new Map(
-  [...erpToolsRegistry, ...marketingToolsRegistry].map(t => [t.name, t.description])
+const TOOL_MAP = new Map<string, OpenClawTool>(
+  [...erpToolsRegistry, ...marketingToolsRegistry].map(t => [t.name, t])
 );
 
 // Icon map để render dynamic
@@ -54,6 +56,7 @@ const AgentManager: React.FC = () => {
   const [editingForm, setEditingForm] = useState<Partial<AgentConfigRow>>({});
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [configuringTool, setConfiguringTool] = useState<OpenClawTool | null>(null);
 
   const fetchAgents = useCallback(async () => {
     setLoading(true);
@@ -406,38 +409,70 @@ const AgentManager: React.FC = () => {
                 <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Danh sách Tools ({(editingForm.allowed_tools || []).length})</h4>
                 {canManage ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-56 overflow-y-auto p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                    {ALL_TOOLS.map(tool => {
-                      const isSelected = (editingForm.allowed_tools || []).includes(tool);
+                    {ALL_TOOLS.map(toolName => {
+                      const isSelected = (editingForm.allowed_tools || []).includes(toolName);
+                      const toolObj = TOOL_MAP.get(toolName);
                       return (
-                        <label key={tool} title={`${tool}\n\n${TOOL_MAP.get(tool) || ''}`} className={cn("flex flex-col gap-1 p-2 border rounded-lg cursor-pointer transition-colors", isSelected ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500/50" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-300")}>
-                          <div className="flex items-center gap-2 min-w-0">
+                        <div key={toolName} title={`${toolName}\n\n${toolObj?.description || ''}`} className={cn("flex flex-col gap-1 p-2 border rounded-lg transition-colors group relative", isSelected ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-500/50" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-300")}>
+                          <div className="flex items-center gap-2 min-w-0 pr-6">
                             <input
                               type="checkbox"
-                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600 bg-white dark:bg-slate-800"
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600 bg-white dark:bg-slate-800 cursor-pointer"
                               checked={isSelected}
                               onChange={(e) => {
                                 const checked = e.target.checked;
                                 setEditingForm(prev => ({
                                   ...prev,
                                   allowed_tools: checked 
-                                    ? [...(prev.allowed_tools || []), tool] 
-                                    : (prev.allowed_tools || []).filter((t: string) => t !== tool)
+                                    ? [...(prev.allowed_tools || []), toolName] 
+                                    : (prev.allowed_tools || []).filter((t: string) => t !== toolName)
                                 }));
                               }}
                             />
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{tool}</span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate cursor-pointer" onClick={() => {
+                                // Toggle checkbox when clicking text
+                                const checked = !isSelected;
+                                setEditingForm(prev => ({
+                                  ...prev,
+                                  allowed_tools: checked 
+                                    ? [...(prev.allowed_tools || []), toolName] 
+                                    : (prev.allowed_tools || []).filter((t: string) => t !== toolName)
+                                }));
+                              }}>{toolName}</span>
                           </div>
-                        </label>
+                          
+                          {/* Setting Tool Button */}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setConfiguringTool(toolObj || null);
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Cấu hình Tool"
+                          >
+                            <Settings size={14} />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
-                    {(selectedAgent.allowed_tools || []).map(tool => (
-                      <span key={tool} title={`${tool}\n\n${TOOL_MAP.get(tool) || ''}`} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold cursor-help">
-                        {tool}
-                      </span>
-                    ))}
+                    {(selectedAgent.allowed_tools || []).map(toolName => {
+                      const toolObj = TOOL_MAP.get(toolName);
+                      return (
+                        <div key={toolName} className="flex items-center gap-1 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold group relative cursor-help">
+                          <span title={`${toolName}\n\n${toolObj?.description || ''}`}>{toolName}</span>
+                          <button
+                            onClick={() => setConfiguringTool(toolObj || null)}
+                            className="ml-1 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded"
+                          >
+                            <Settings size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -569,6 +604,16 @@ const AgentManager: React.FC = () => {
             )}
           </div>
         </>
+      )}
+      {/* Tool Config Modal */}
+      {configuringTool && (
+        <ToolDetailModal
+          tool={configuringTool}
+          onClose={() => setConfiguringTool(null)}
+          onSaved={() => {
+            // Option to refresh config here if needed
+          }}
+        />
       )}
     </div>
   );

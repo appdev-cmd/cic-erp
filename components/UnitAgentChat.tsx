@@ -112,6 +112,7 @@ const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode
     try {
       const { runReActLoop } = await import('../services/ai/openclaw/react-loop');
       const { erpToolsRegistry } = await import('../services/ai/openclaw/tools/registry');
+      const { AgentToolConfigService } = await import('../services/ai/agentToolConfigService');
 
       const userContext: UserContext = {
         userId: profile?.id || 'web',
@@ -130,11 +131,13 @@ const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode
       let toolContent = '';
       let streamContent = '';
 
+      const mergedTools = await AgentToolConfigService.getMergedTools(erpToolsRegistry);
+
       const result = await runReActLoop(
         text,
         userContext,
         agent,
-        erpToolsRegistry,
+        mergedTools,
         history,
         8,
         controller.signal,

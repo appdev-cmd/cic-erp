@@ -673,6 +673,16 @@ function extractGemmaToolCalls(content: string): { tool_calls: any[], cleaned_co
     let jsonStr = rawJson.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/gs, '$1"$2":');
     // Fix single quotes for values just in case
     jsonStr = jsonStr.replace(/:\s*'([^']*)'/g, ':"$1"');
+    // Fix unquoted string values (any sequence not starting with quote/brace/bracket, up to comma or closing brace)
+    jsonStr = jsonStr.replace(/:\s*([^"'{[\s][^,}]*?)\s*([,}])/g, (match, p1, p2) => {
+      // Keep numbers, booleans, and null as unquoted
+      if (/^-?\d+(\.\d+)?$/.test(p1) || ['true', 'false', 'null'].includes(p1)) {
+        return `:${p1}${p2}`;
+      }
+      // Otherwise, wrap in double quotes (and escape internal double quotes just in case)
+      const safeString = p1.replace(/"/g, '\\"');
+      return `:"${safeString}"${p2}`;
+    });
 
     try {
       const argsObj = JSON.parse(jsonStr);

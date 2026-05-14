@@ -21,14 +21,17 @@ import { fmtMoney, fmtMoneyWithRaw, calcChange, canViewAll, isBusinessUnit, getU
 
 export const searchContractsTool: OpenClawTool = {
   name: 'search_contracts',
-  description: 'Tìm kiếm hợp đồng theo từ khóa, thời gian, trạng thái, phòng ban. Trả về danh sách rút gọn.',
+  description: 'Tìm kiếm hợp đồng theo từ khóa, thời gian, trạng thái, phòng ban. Dùng để lấy danh sách hợp đồng cụ thể, hoặc tìm TOP N hợp đồng lớn nhất/nhỏ nhất (sử dụng sortBy="value" và sortDir="desc").',
   schema: {
     search: { type: 'string', description: 'Từ khóa tìm kiếm (tên, mã hợp đồng, khách hàng)' },
     status: { type: 'string', description: 'Trạng thái (Processing, Completed, Suspended, Cancelled)', enum: ['Processing', 'Completed', 'Suspended', 'Cancelled', 'All'] },
     unitId: { type: 'string', description: 'Mã phòng ban (nếu cần lọc theo phòng cụ thể)' },
     year: { type: 'string', description: 'Năm (vd: 2026, 2025)' },
     dateFrom: { type: 'string', description: 'Từ ngày (YYYY-MM-DD)' },
-    dateTo: { type: 'string', description: 'Đến ngày (YYYY-MM-DD)' }
+    dateTo: { type: 'string', description: 'Đến ngày (YYYY-MM-DD)' },
+    sortBy: { type: 'string', description: 'Trường để sắp xếp (vd: value, signedDate)' },
+    sortDir: { type: 'string', description: 'Chiều sắp xếp (asc hoặc desc)', enum: ['asc', 'desc'] },
+    limit: { type: 'number', description: 'Số lượng kết quả trả về (mặc định 10, tối đa 50)' }
   },
   execute: async (args, context: UserContext) => {
     // Phân quyền: nếu unit-scoped, tự filter theo đơn vị mình
@@ -37,14 +40,18 @@ export const searchContractsTool: OpenClawTool = {
       unitFilter = context.unitId;
     }
 
+    const limit = args.limit ? Math.min(Number(args.limit), 50) : 10;
+
     const res = await ContractService.list({
-      page: 1, limit: 10,
+      page: 1, limit,
       search: args.search,
       status: args.status,
       year: args.year,
       dateFrom: args.dateFrom,
       dateTo: args.dateTo,
-      unitId: unitFilter
+      unitId: unitFilter,
+      sortBy: args.sortBy,
+      sortDir: args.sortDir as 'asc' | 'desc' | undefined
     });
     return res.data.map(c => ({
       id: c.id,
@@ -110,6 +117,15 @@ export const getContractDetailTool: OpenClawTool = {
       loaiHD: data.category,
       ngayKy: data.signedDate || '—',
       ngayKetThuc: data.endDate || '—',
+      noiDungHopDong: data.content || '—',
+      chiPhiUocTinh: fmtMoney(data.estimatedCost || 0),
+      sanPhamDichVu: data.lineItems?.map((li: any) => ({
+        ten: li.name || '—',
+        soLuong: li.quantity || 1,
+        donGiaGoc: fmtMoney(li.inputPrice || 0),
+        donGiaBan: fmtMoney(li.outputPrice || 0),
+        loiNhuanDuKien: fmtMoney((li.outputPrice || 0) - (li.inputPrice || 0))
+      })),
       cacDotThanhToan: data.paymentPhases?.map((p: any) => ({
         soTien: fmtMoney(p.amount || 0),
         trangThai: p.status,

@@ -756,6 +756,10 @@ const AIAssistant: React.FC = () => {
         };
       });
 
+      // Lấy merged tools (áp dụng custom description từ database)
+      const { AgentToolConfigService } = await import('../services/ai/agentToolConfigService');
+      const mergedTools = await AgentToolConfigService.getMergedTools(erpToolsRegistry);
+
       // ─── THỰC THI RE-ACT LOOP TRỰC TIẾP TỪ BROWSER ────────────────────────
       let finalContent = '';
       let streamContent = '';
@@ -764,7 +768,7 @@ const AIAssistant: React.FC = () => {
         userMsg.content,
         _userContext,
         agentConf,
-        erpToolsRegistry.filter(t => agentConf.allowedTools?.includes(t.name)), // Lọc theo allowedTools
+        mergedTools.filter(t => agentConf.allowedTools?.includes(t.name)), // Lọc theo allowedTools
         history,
         8,
         controller.signal,
@@ -1222,7 +1226,7 @@ const AIAssistant: React.FC = () => {
 
           {/* ═══ Messages Area ════════════════════════════════ */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth">
-            {messages.map((msg) => (
+            {React.useMemo(() => messages.map((msg) => (
               <div
                 key={msg.id}
                 className={cn(
@@ -1313,7 +1317,7 @@ const AIAssistant: React.FC = () => {
                   )}
                 </div>
               </div>
-            ))}
+            )), [messages, currentAgent, dynamicAgents, copiedId])}
 
             {/* ═══ Suggestion Chips ═══════════════════════════ */}
             {showSuggestions && (() => {
