@@ -206,18 +206,16 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     setIsExporting(true);
     toast.info('Đang tạo file Excel...');
     try {
-      let effectiveUnitId = 'All';
-      if (selectedUnit && selectedUnit.id !== 'all') {
-        effectiveUnitId = selectedUnit.id;
-      } else if (unitFilter !== 'All') {
-        effectiveUnitId = unitFilter;
-      }
+      const isAdmin = realProfile?.role === 'Admin';
+      // Admin: xuất theo bộ lọc hiện tại (có thể toàn công ty)
+      // Non-admin: luôn chỉ xuất đơn vị của họ, bất kể bộ lọc đang chọn
+      const exportUnitId = isAdmin ? effectiveUnitId : (realProfile?.unitId || 'none');
       const { data } = await ContractService.list({
         page: 1,
         limit: 10000,
         search: debouncedSearch || undefined,
         status: statusFilter !== 'All' ? statusFilter : undefined,
-        unitId: effectiveUnitId,
+        unitId: exportUnitId,
         year: yearFilter,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,

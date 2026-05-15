@@ -402,7 +402,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
         onSave(paymentData as any);
     };
 
-    const formatCurrency = (val: number) => formatNumber(val);
+    const formatCurrency = (val: number) => formatNumber(Math.round(val));
     const methods: PaymentMethod[] = ['Chuyển khoản', 'Tiền mặt', 'LC', 'Khác'];
 
     // Status options per voucher type

@@ -14,7 +14,7 @@ import Auth from '../Auth';
 import ErrorBoundary from '../ErrorBoundary';
 import ChatWidget from '../ChatWidget';
 import RouteGuard from '../auth/RouteGuard';
-import { Unit, UserRole } from '../../types';
+import { Unit, UserRole, DEFAULT_ROLE_PERMISSIONS } from '../../types';
 import { UnitService } from '../../services';
 import { NON_BUSINESS_UNIT_CODES } from '../../constants';
 import { useCurrentUserVisibleUnits } from '../../hooks';
@@ -246,7 +246,15 @@ const MainLayout: React.FC = () => {
                     {/* Sidebar */}
                     <Sidebar
                         activeTab={getActiveTab()}
-                        setActiveTab={(tab) => navigate(`/${tab === 'dashboard' ? '' : tab}`)}
+                        setActiveTab={(tab) => {
+                            if (tab === 'hrm') {
+                                const role = profile?.role;
+                                const canViewEmployees = role && DEFAULT_ROLE_PERMISSIONS[role]?.employees?.includes('view');
+                                navigate(canViewEmployees ? '/hrm' : '/hrm/requests');
+                            } else {
+                                navigate(`/${tab === 'dashboard' ? '' : tab}`);
+                            }
+                        }}
                         isOpen={isSidebarOpen}
                         isCollapsed={isSidebarCollapsed}
                         setIsCollapsed={handleSetIsSidebarCollapsed}

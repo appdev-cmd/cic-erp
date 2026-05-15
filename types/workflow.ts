@@ -129,6 +129,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     payments: ['view'],
     tasks: ['view', 'create', 'update'],
     units: ['view', 'update'],
+    requests: ['view', 'create', 'update'],
   },
   // Admin đơn vị — HĐ/KH/SP: VCU, payments: chỉ xem
   AdminUnit: {
@@ -138,6 +139,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     payments: ['view'],
     tasks: ['view', 'create', 'update'],
     units: ['view', 'update'],
+    requests: ['view', 'create', 'update'],
   },
   // Nhân viên kinh doanh — HĐ/KH/SP: VCU, payments: chỉ xem
   NVKD: {
@@ -146,6 +148,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     products: ['view', 'create', 'update'],
     payments: ['view'],
     tasks: ['view', 'create', 'update'],
+    requests: ['view', 'create', 'update'],
   },
   // Kế toán trưởng — Tài chính toàn quyền, xem NV, không units
   ChiefAccountant: {
@@ -155,6 +158,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     payments: ['view', 'create', 'update', 'delete'],
     tasks: ['view', 'create', 'update'],
     employees: ['view'],
+    requests: ['view', 'create', 'update'],
   },
   // Kế toán — Ghi nhận tài chính, xem toàn công ty, KHÔNG employees
   Accountant: {
@@ -163,6 +167,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     products: ['view', 'create', 'update'],
     payments: ['view', 'create', 'update'],
     tasks: ['view', 'create', 'update'],
+    requests: ['view', 'create', 'update'],
   },
   // Nhân viên kỹ thuật — Triển khai KT, hỗ trợ thực hiện HĐ, quản lý SP
   NVKT: {
@@ -171,6 +176,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     products: ['view', 'create', 'update'],
     payments: ['view'],
     tasks: ['view', 'create', 'update'],
+    requests: ['view', 'create', 'update'],
   },
   // Pháp chế — Rà soát, KHÔNG employees/units
   Legal: {
@@ -179,6 +185,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     products: ['view', 'create', 'update'],
     payments: ['view'],
     tasks: ['view', 'create', 'update'],
+    requests: ['view', 'create', 'update'],
   },
   // Marketing — Quảng bá, truyền thông, nội dung website
   // Xem: dự án, sản phẩm/DV, đối tác/khách hàng
@@ -190,6 +197,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     news: ['view', 'create', 'update', 'delete'],// Toàn quyền nội dung website
     tasks: ['view', 'create', 'update'],          // Quản lý công việc của mình
     contracts: ['view'],                              // Xem hợp đồng (reference, không sửa)
+    requests: ['view', 'create', 'update'],
   },
 };
 

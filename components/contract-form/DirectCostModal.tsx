@@ -178,23 +178,11 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         setTempCostDetails(updated);
     };
 
-    const initialOpenTotalRef = useRef(inputTotal);
-    
-    // Update ref when modal opens
-    useEffect(() => {
-        if (isOpen) {
-            initialOpenTotalRef.current = inputTotal;
-        }
-    }, [isOpen, inputTotal]);
-
-    // Recalculate auto costs when inputTotal changes (only if it genuinely changed after opening)
+    // Recalculate auto costs when inputTotal, usdRate, or supplierShareCount changes
     useEffect(() => {
         if (!isOpen) return;
         if (!contractorTax && transferFeeType === 'none') return;
-        
-        // Skip recalculation if inputTotal is the same as when modal opened
-        if (inputTotal === initialOpenTotalRef.current) return;
-        
+
         const updated = updateAutoCosts(tempCostDetails, contractorTax, transferFeeType, inputTotal, usdRate, supplierShareCount);
         // Only update if amounts differ to avoid infinite loop
         const oldAutoAmounts = tempCostDetails.filter(d => d.id === AUTO_TAX_ID || d.id === AUTO_TRANSFER_ID).map(d => d.amount).join(',');

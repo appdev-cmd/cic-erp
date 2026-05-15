@@ -55,6 +55,8 @@ export const ROUTE_PERMISSION_MAP: RoutePermissionEntry[] = [
 
     { pattern: '/website', resource: 'news', action: 'view', label: 'Quan ly Website', module: 'Website' },
 
+    { pattern: '/hrm/requests', resource: 'requests', action: 'view', label: 'Quan ly De xuat Noi bo', module: 'HRM' },
+    { pattern: '/hrm/requests/*', resource: 'requests', action: 'view', label: 'Quan ly De xuat Noi bo', module: 'HRM' },
     { pattern: '/hrm/*', resource: 'employees', action: 'view', label: 'Quan ly Nhan su HRM', module: 'HRM' },
     { pattern: '/hrm', resource: 'employees', action: 'view', label: 'Quan ly Nhan su HRM', module: 'HRM' },
 
