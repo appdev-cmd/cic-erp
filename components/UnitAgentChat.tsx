@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, Bot, Loader2, Square, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../contexts/AuthContext';
+import { useEffectiveProfile } from '../contexts/ImpersonationContext';
 import { agentDefinitions } from '../services/ai/openclaw/agents/definitions';
 import { AgentConfigService } from '../services/ai/agentConfigService';
 import type { UserContext, DepartmentAgent } from '../services/ai/openclaw/types';
@@ -30,7 +31,7 @@ const MARKDOWN_COMPONENTS: any = {
 };
 
 const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode, unitName }) => {
-  const { profile } = useAuth();
+  const { profile } = useEffectiveProfile();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);

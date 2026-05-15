@@ -47,6 +47,7 @@ import { searchKnowledgeBase } from '../services/ragService';
 import { parseDocumentClientSide } from '../lib/documentReaderClient';
 import { searchMentions, encodeMention, type MentionResult } from '../services/mentionService';
 import { useAuth } from '../contexts/AuthContext';
+import { useEffectiveProfile } from '../contexts/ImpersonationContext';
 
 import { getVisibleAgentsFilter, routeUserToAgentFilter } from '../services/ai/openclaw/router';
 import { AgentConfigService } from '../services/ai/agentConfigService';
@@ -287,7 +288,7 @@ const MARKDOWN_COMPONENTS: any = {
 };
 
 const AIAssistant: React.FC = () => {
-  const { profile: _profile } = useAuth();
+  const { profile: _profile } = useEffectiveProfile();
   const [dbAgents, setDbAgents] = useState<DepartmentAgent[]>([]);
 
   useEffect(() => {
@@ -629,9 +630,9 @@ const AIAssistant: React.FC = () => {
   // ─── Pre-fetch business context ────────────────────────
   const [systemContext, setSystemContext] = useState<string>('');
   useEffect(() => {
-    invalidateBusinessContext(); // Force refresh khi mở page
-    getBusinessContext().then(ctx => setSystemContext(ctx));
-  }, []);
+    invalidateBusinessContext(_profile?.unitId); // Force refresh khi mở page
+    getBusinessContext(_profile?.unitId, _profile?.id).then(ctx => setSystemContext(ctx));
+  }, [_profile?.unitId, _profile?.id]);
 
   // ─── Close agent menu on outside click ─────────────────
   useEffect(() => {
@@ -741,10 +742,17 @@ const AIAssistant: React.FC = () => {
       // Ngược lại, route tự động theo phòng ban
       const autoAgent = routeUserToAgentFilter(_userContext, dbAgents);
       let agentConf = autoAgent;
-      // Map 4 agent UI cũ sang agent definitions mới  
-      if (currentAgent === 'legal') agentConf = dbAgents.find(a => a.id === 'agent-bgd' || a.departmentId === 'BGD') || autoAgent;
-      if (currentAgent === 'drafter') agentConf = dbAgents.find(a => a.id === 'agent-hcns' || a.departmentId === 'HCNS') || autoAgent;
-      if (currentAgent === 'analyst') agentConf = dbAgents.find(a => a.id === 'agent-bgd' || a.departmentId === 'BGD') || autoAgent;
+      
+      // Ưu tiên agent do user tự chọn trên UI tab
+      if (currentAgent && currentAgent.startsWith('agent-')) {
+        const selected = dbAgents.find(a => a.id === currentAgent);
+        if (selected) agentConf = selected;
+      } else {
+        // Map 4 agent UI cũ sang agent definitions mới  
+        if (currentAgent === 'legal') agentConf = dbAgents.find(a => a.id === 'agent-bgd' || a.departmentId === 'BGD') || autoAgent;
+        if (currentAgent === 'drafter') agentConf = dbAgents.find(a => a.id === 'agent-hr' || a.departmentId === 'HR') || autoAgent;
+        if (currentAgent === 'analyst') agentConf = dbAgents.find(a => a.id === 'agent-bgd' || a.departmentId === 'BGD') || autoAgent;
+      }
 
       // Extract existing history for LLM
       const history = messages.filter(m => m.id !== 'welcome' && m.id !== botMsgId).map(m => {
@@ -800,6 +808,9 @@ const AIAssistant: React.FC = () => {
           ? { ...m, content: finalContent, isStreaming: false }
           : m
       ));
+
+      // Track usage (fire-and-forget)
+      AgentConfigService.trackUsage(agentConf.id).catch(() => {});
 
       // ─── AUTO-SAVE to DB ────────────────────────
       if (_profile?.id) {

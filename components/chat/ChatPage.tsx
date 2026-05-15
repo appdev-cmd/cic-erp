@@ -4,6 +4,7 @@ import ChatRoom from './ChatRoom';
 import ChatNewConversation from './ChatNewConversation';
 import { useChatPresence } from '../../hooks/useChatPresence';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectiveProfile } from '../../contexts/ImpersonationContext';
 import * as chatService from '../../services/chatService';
 import type { ChatRoomWithDetails, ChatMessageWithSender } from '../../types';
 import { toast } from 'sonner';
@@ -11,7 +12,8 @@ import { Search, X, MessageCircle, ArrowRight } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
 
 const ChatPage: React.FC = () => {
-    const { user, profile } = useAuth();
+    const { user } = useAuth();
+    const { profile } = useEffectiveProfile();
     const [rooms, setRooms] = useState<ChatRoomWithDetails[]>([]);
     const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
     const [showNewChat, setShowNewChat] = useState(false);

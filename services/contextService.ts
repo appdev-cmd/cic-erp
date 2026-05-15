@@ -2,13 +2,16 @@ import { dataClient as supabase } from '../lib/dataClient';
 import { UnitService, EmployeeService, PaymentService } from './index';
 
 // ─── Cache: Tránh gọi DB mỗi lần mount component ───────────
-let cachedContext: string | null = null;
-let cachedAt: number = 0;
+const cachedContexts: Record<string, { data: string; at: number }> = {};
 const CACHE_TTL = 5 * 60 * 1000; // 5 phút
 
-export const invalidateBusinessContext = () => {
-    cachedContext = null;
-    cachedAt = 0;
+export const invalidateBusinessContext = (unitId?: string) => {
+    if (unitId) {
+        delete cachedContexts[unitId];
+    } else {
+        // Clear all
+        for (const key in cachedContexts) delete cachedContexts[key];
+    }
 };
 
 /**
@@ -60,10 +63,12 @@ const getMonth = (dateStr: string | null | undefined): number | null => {
     return isNaN(d.getTime()) ? null : d.getMonth() + 1;
 };
 
-export const getBusinessContext = async (): Promise<string> => {
+export const getBusinessContext = async (unitId?: string, userId?: string): Promise<string> => {
+    const cacheKey = userId || unitId || 'global';
+    const nowCache = Date.now();
     // Trả về cache nếu còn hạn
-    if (cachedContext && Date.now() - cachedAt < CACHE_TTL) {
-        return cachedContext;
+    if (cachedContexts[cacheKey] && nowCache - cachedContexts[cacheKey].at < CACHE_TTL) {
+        return cachedContexts[cacheKey].data;
     }
 
     try {
@@ -290,8 +295,7 @@ export const getBusinessContext = async (): Promise<string> => {
         report += `- Nếu không có dữ liệu cho khoảng thời gian user hỏi, hãy thông báo rõ.\n`;
 
         // Lưu cache
-        cachedContext = report;
-        cachedAt = Date.now();
+        cachedContexts[cacheKey] = { data: report, at: Date.now() };
         return report;
 
     } catch (error) {

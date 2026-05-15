@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { UserProfile, UserRole } from '../types';
+import { useAuth } from './AuthContext';
 
 const STORAGE_KEY = 'cic_erp_impersonation';
 
@@ -72,8 +73,6 @@ export const useImpersonation = () => {
  * Use this instead of useAuth().profile when checking permissions
  */
 export const useEffectiveProfile = () => {
-    // Import useAuth inline to avoid circular dependency
-    const { useAuth } = require('./AuthContext');
     const { profile: realProfile } = useAuth();
     const { impersonatedUser, isImpersonating } = useImpersonation();
 

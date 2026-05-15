@@ -1,19 +1,8 @@
 // @ts-nocheck
 import { ContractService } from '../../../contractService';
-import { CustomerService } from '../../../customerService';
-import { PaymentService } from '../../../paymentService';
-import { UnitService } from '../../../unitService';
-import { ProductService } from '../../../productService';
 import type { OpenClawTool, UserContext } from '../types';
 import { dataClient as supabase } from '../../../../lib/dataClient';
-import { fmtMoney, fmtMoneyWithRaw, calcChange, canViewAll, isBusinessUnit, getUnitFilter } from './_helpers';
-import { EmployeeService } from '../../../employeeService';
-import { TaskService } from '../../../taskService';
-import { NotificationService } from '../../../notificationService';
-import { marketingToolsRegistry } from './marketingTools';
-import type { OpenClawTool, UserContext } from '../types';
-import { dataClient as supabase } from '../../../../lib/dataClient';
-import { fmtMoney, fmtMoneyWithRaw, calcChange, canViewAll, isBusinessUnit, getUnitFilter } from './_helpers';
+import { fmtMoney, fmtMoneyWithRaw, canViewAll, getUnitFilter } from './_helpers';
 
 // ═══════════════════════════════════════════════
 // searchContractsTool
@@ -199,18 +188,27 @@ export const getOverdueContractsTool: OpenClawTool = {
     type: { type: 'string', enum: ['payment', 'completion', 'all'], description: 'Loại quá hạn: payment (thanh toán), completion (hoàn thành), all (tất cả). Mặc định: all' },
   },
   execute: async (args, context: UserContext) => {
+    // Ép buộc phạm vi dữ liệu
+    const forcedUnitId = getUnitFilter(args, context);
+
     const today = new Date().toISOString().split('T')[0];
 
     // HĐ quá hạn thanh toán: payments chưa thanh toán + quá deadline
     const overduePayments: any[] = [];
     if (args.type !== 'completion') {
-      const { data: payments } = await supabase
+      let query = supabase
         .from('payments')
-        .select('id, amount, due_date, status, contract_id, contracts(title, customer_contract_number)')
+        .select('id, amount, due_date, status, contract_id, contracts!inner(title, customer_contract_number, unit_id)')
         .in('status', ['Chưa thanh toán', 'Pending', 'Chờ thanh toán'])
         .lt('due_date', today)
         .order('due_date')
         .limit(15);
+        
+      if (forcedUnitId) {
+        query = query.eq('contracts.unit_id', forcedUnitId);
+      }
+
+      const { data: payments } = await query;
       if (payments) {
         overduePayments.push(...payments.map((p: any) => ({
           loai: '💰 Quá hạn thanh toán',
@@ -227,13 +225,19 @@ export const getOverdueContractsTool: OpenClawTool = {
     // HĐ quá hạn hoàn thành: end_date < today & status = Processing
     const overdueContracts: any[] = [];
     if (args.type !== 'payment') {
-      const { data: contracts } = await supabase
+      let query = supabase
         .from('contracts')
-        .select('id, title, customer_contract_number, end_date, value, status')
+        .select('id, title, customer_contract_number, end_date, value, status, unit_id')
         .eq('status', 'Processing')
         .lt('end_date', today)
         .order('end_date')
         .limit(15);
+        
+      if (forcedUnitId) {
+        query = query.eq('unit_id', forcedUnitId);
+      }
+
+      const { data: contracts } = await query;
       if (contracts) {
         overdueContracts.push(...contracts.map((c: any) => ({
           loai: '📋 Quá hạn hoàn thành',
@@ -267,7 +271,9 @@ export const getContractExpiryTimelineTool: OpenClawTool = {
   schema: {
     days: { type: 'string', description: 'Số ngày tới (30, 60, 90). Mặc định: 60' },
   },
-  execute: async (args) => {
+  execute: async (args, context: UserContext) => {
+    const forcedUnitId = getUnitFilter(args, context);
+    
     const days = parseInt(args.days) || 60;
     const today = new Date();
     const futureDate = new Date();
@@ -276,7 +282,7 @@ export const getContractExpiryTimelineTool: OpenClawTool = {
     const todayStr = today.toISOString().split('T')[0];
     const futureStr = futureDate.toISOString().split('T')[0];
 
-    const { data: contracts } = await supabase
+    let query = supabase
       .from('contracts')
       .select('id, title, contract_code, value, actual_revenue, end_date, status, unit_id, units(name)')
       .gte('end_date', todayStr)
@@ -284,6 +290,12 @@ export const getContractExpiryTimelineTool: OpenClawTool = {
       .eq('status', 'Processing')
       .order('end_date')
       .limit(30);
+
+    if (forcedUnitId) {
+      query = query.eq('unit_id', forcedUnitId);
+    }
+
+    const { data: contracts } = await query;
 
     if (!contracts || contracts.length === 0) {
       return `Không có HĐ nào hết hạn trong ${days} ngày tới. ✅`;

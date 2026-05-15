@@ -412,6 +412,7 @@ async function* streamOpenAICompatible(
       baseURL: getLocalAIBaseURL(request.model),
       apiKey: config.localApiKey,
       dangerouslyAllowBrowser: true,
+      defaultHeaders: request.meta?.userId ? { 'X-Impersonate-User': request.meta.userId } : undefined,
     });
   } else if (provider === 'openai') {
     const apiKey = getCustomKey('openai') || getEnvKey('openai');
@@ -810,6 +811,7 @@ Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doan
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authKey) headers['Authorization'] = `Bearer ${authKey}`;
     if (isVllm) headers['ngrok-skip-browser-warning'] = 'true';
+    if (request.meta?.userId) headers['X-Impersonate-User'] = request.meta.userId;
 
     const res = await fetch(url, {
       method: 'POST',

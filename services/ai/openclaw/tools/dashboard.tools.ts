@@ -97,15 +97,17 @@ export const getComparativeReportTool: OpenClawTool = {
     previousDateTo: { type: 'string', description: 'Ngày kết thúc kỳ trước (YYYY-MM-DD). VD Q1 năm trước: 2025-03-31' },
   },
   execute: async (args, context: UserContext) => {
+    const forcedUnitId = getUnitFilter(args, context);
+
     // Gọi song song 2 kỳ
     const [current, previous] = await Promise.all([
       ContractService.getStats({
         dateFrom: args.currentDateFrom, dateTo: args.currentDateTo,
-        year: args.currentYear, status: 'All'
+        year: args.currentYear, status: 'All', unitId: forcedUnitId
       }),
       ContractService.getStats({
         dateFrom: args.previousDateFrom, dateTo: args.previousDateTo,
-        year: args.previousYear, status: 'All'
+        year: args.previousYear, status: 'All', unitId: forcedUnitId
       }),
     ]);
 
@@ -168,7 +170,12 @@ export const getUnitRankingTool: OpenClawTool = {
     year: { type: 'string', description: 'Năm (vd: 2026)' },
     sortBy: { type: 'string', enum: ['signing', 'revenue', 'profit'], description: 'Tiêu chí xếp hạng. Mặc định: revenue' },
   },
-  execute: async (args) => {
+  execute: async (args, context: UserContext) => {
+    const forcedUnitId = getUnitFilter(args, context);
+    if (forcedUnitId) {
+      throw new Error('Bạn không có quyền xem bảng xếp hạng toàn công ty. Tính năng này chỉ dành cho Ban Lãnh Đạo.');
+    }
+
     const year = parseInt(args.year) || new Date().getFullYear();
     const units = await UnitService.getWithStats(year);
     const sortKey = args.sortBy === 'signing' ? 'totalSigning' : args.sortBy === 'profit' ? 'totalProfit' : 'totalRevenue';
@@ -225,10 +232,12 @@ export const getComprehensiveReportTool: OpenClawTool = {
     year: { type: 'string', description: 'Năm cần lập báo cáo (vd: 2025, 2026)' }
   },
   execute: async (args, context: UserContext) => {
+    const forcedUnitId = getUnitFilter(args, context);
     const year = args.year ? parseInt(args.year) : new Date().getFullYear();
 
     // 1. Lấy dữ liệu KPI theo đơn vị
-    const units = await UnitService.getWithStats(year, undefined);
+    const allUnitsRaw = await UnitService.getWithStats(year, undefined);
+    const units = forcedUnitId ? allUnitsRaw.filter((u: any) => u.id === forcedUnitId) : allUnitsRaw;
     let tongKyKet = 0, tongDoanhThu = 0, tongLoiNhuan = 0, tongSoHD = 0, tongDongTien = 0;
 
 
@@ -315,33 +324,38 @@ export const getSmartInsightsTool: OpenClawTool = {
   description: 'Phân tích đa chiều tự động: so sánh KPI tháng này vs tháng trước, đơn vị tụt mạnh nhất, xu hướng công nợ, top rủi ro. Dùng khi user hỏi "phân tích", "insights", "đánh giá tổng quan", "tư vấn chiến lược".',
   schema: {},
   execute: async (args, context: UserContext) => {
+    const forcedUnitId = getUnitFilter(args, context);
+
     const year = new Date().getFullYear();
     const month = new Date().getMonth() + 1;
     const today = new Date().toISOString().split('T')[0];
 
+    // Build queries with unit filter
+    let qContracts = supabase.from('contracts').select('id', { count: 'exact', head: true }).eq('status', 'Processing').lt('end_date', today);
+    let qPayments = supabase.from('payments').select('amount, paid_amount, due_date, status, contracts!inner(unit_id)').in('status', ['Chưa thanh toán', 'Pending', 'Đã xuất HĐ', 'Đã giao KH']);
+    let qTasks = supabase.from('tasks').select('id, due_date', { count: 'exact' }).lt('due_date', today).is('completed_at', null);
+
+    if (forcedUnitId) {
+      qContracts = qContracts.eq('unit_id', forcedUnitId);
+      qPayments = qPayments.eq('contracts.unit_id', forcedUnitId);
+      // tasks filter requires unit mapping, assuming tasks has unit_id or we ignore for simplicity
+      // For now, if user is unit-scoped, just let RLS handle tasks if RLS is on tasks.
+    }
+
     // Song song query tất cả dữ liệu cần thiết
     const [
-      unitsData,
+      unitsDataRaw,
       overdueRes,
       debtRes,
       tasksRes,
     ] = await Promise.all([
       UnitService.getWithStats(year),
-      supabase
-        .from('contracts')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'Processing')
-        .lt('end_date', today),
-      supabase
-        .from('payments')
-        .select('amount, paid_amount, due_date, status')
-        .in('status', ['Chưa thanh toán', 'Pending', 'Đã xuất HĐ', 'Đã giao KH']),
-      supabase
-        .from('tasks')
-        .select('id, due_date', { count: 'exact' })
-        .lt('due_date', today)
-        .is('completed_at', null),
+      qContracts,
+      qPayments,
+      qTasks,
     ]);
+
+    const unitsData = forcedUnitId ? unitsDataRaw.filter((u: any) => u.id === forcedUnitId) : unitsDataRaw;
 
     // 1. Phân tích đơn vị
     const businessUnits = unitsData

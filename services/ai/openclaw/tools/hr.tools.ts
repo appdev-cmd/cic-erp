@@ -1,19 +1,10 @@
 // @ts-nocheck
-import { ContractService } from '../../../contractService';
-import { CustomerService } from '../../../customerService';
-import { PaymentService } from '../../../paymentService';
 import { UnitService } from '../../../unitService';
-import { ProductService } from '../../../productService';
 import type { OpenClawTool, UserContext } from '../types';
 import { dataClient as supabase } from '../../../../lib/dataClient';
-import { fmtMoney, fmtMoneyWithRaw, calcChange, canViewAll, isBusinessUnit, getUnitFilter } from './_helpers';
+import { fmtMoney, fmtMoneyWithRaw, canViewAll, getUnitFilter } from './_helpers';
 import { EmployeeService } from '../../../employeeService';
 import { TaskService } from '../../../taskService';
-import { NotificationService } from '../../../notificationService';
-import { marketingToolsRegistry } from './marketingTools';
-import type { OpenClawTool, UserContext } from '../types';
-import { dataClient as supabase } from '../../../../lib/dataClient';
-import { fmtMoney, fmtMoneyWithRaw, calcChange, canViewAll, isBusinessUnit, getUnitFilter } from './_helpers';
 
 // ═══════════════════════════════════════════════
 // searchEmployeesTool
@@ -201,54 +192,176 @@ export const getEmployeeWorkloadTool: OpenClawTool = {
 };
 
 // ═══════════════════════════════════════════════
-// getHrHeadcountStatsTool
+// getHrHeadcountStatsTool — VIẾT LẠI HOÀN TOÀN
 // ═══════════════════════════════════════════════
 
 export const getHrHeadcountStatsTool: OpenClawTool = {
   name: 'get_hr_headcount_stats',
-  description: 'Thống kê biến động nhân sự, xem tổng quy mô (headcount) báo cáo tuyển dụng, ứng viên và phễu tuyển dụng.',
-  schema: {},
-  execute: async (args, context) => {
-    const { data: employees } = await supabase.from('employees').select('id, department');
-    const totalEmployees = employees ? employees.length : 0;
-    const depts: Record<string, number> = {};
-    employees?.forEach((e: any) => {
-      const d = e.department || 'Chưa phân bổ';
-      depts[d] = (depts[d] || 0) + 1;
-    });
+  description: 'Thống kê toàn diện tình hình nhân sự: Tổng headcount (chỉ đếm active), biến động nhân sự mới/nghỉ việc, turnover rate, cơ cấu theo đơn vị/giới tính/loại HĐLĐ/thâm niên, và tình hình tuyển dụng. Dùng khi user hỏi "tình hình nhân sự", "headcount", "quy mô", "biến động nhân sự", "turnover".',
+  schema: {
+    year: { type: 'string', description: 'Năm thống kê (VD: 2026). Mặc định năm hiện tại.' },
+  },
+  execute: async (args, context: UserContext) => {
+    const year = args.year ? parseInt(args.year) : new Date().getFullYear();
+    const today = new Date().toISOString().split('T')[0];
+    const yearStart = `${year}-01-01`;
+    const yearEnd = `${year}-12-31`;
 
-    const { data: jobs } = await supabase.from('job_openings').select('*').in('status', ['open', 'urgent', 'draft']);
-    const openJobs = jobs ? jobs.length : 0;
-    const totalNeeds = jobs ? jobs.reduce((sum: number, j: any) => sum + (j.quantity || 1), 0) : 0;
+    // ── 1. Lấy tất cả nhân viên (bao gồm cả resigned để tính biến động) ──
+    const { data: allEmployees } = await supabase
+      .from('employees')
+      .select('id, name, unit_id, gender, contract_type, date_joined, status, position');
 
-    const { data: applications } = await supabase.from('applications').select('stage, offer_salary');
-
-    let md = `## 👥 BÁO CÁO NHÂN SỰ & TUYỂN DỤNG\n`;
-    md += `### 1. Quy mô Nhân sự (Headcount)\n`;
-    md += `- **Tổng số nhân sự hiện tại:** ${totalEmployees} người\n`;
-    md += `- **Phân bổ theo khối:**\n`;
-    Object.keys(depts).forEach(d => {
-      md += `  - ${d}: ${depts[d]} người\n`;
-    });
-
-    md += `\n### 2. Tình hình Tuyển dụng\n`;
-    md += `- **Vị trí đang mở (Open Jobs):** ${openJobs} job (Cần tuyển: ${totalNeeds} người)\n`;
-    if (applications) {
-      const stages: Record<string, number> = {};
-      applications.forEach((a: any) => {
-        stages[a.stage] = (stages[a.stage] || 0) + 1;
-      });
-      md += `- **Phễu ứng viên (Pipeline):**\n`;
-      md += `  - Ứng tuyển mới: ${stages['applied'] || 0}\n`;
-      md += `  - Sàng lọc (Screening): ${stages['screening'] || 0}\n`;
-      md += `  - Phỏng vấn: ${(stages['interview_1'] || 0) + (stages['interview_2'] || 0)}\n`;
-      md += `  - Đã Offer: ${stages['offer'] || 0}\n`;
-      md += `  - Đã Hired: ${stages['hired'] || 0}\n`;
+    if (!allEmployees || allEmployees.length === 0) {
+      return '## 👥 BÁO CÁO NHÂN SỰ\n\nKhông có dữ liệu nhân viên trong hệ thống.';
     }
 
-    md += `\n*(AI Instruction: BẮT BUỘC nhận xét quy mô nhân sự hiện tại so với nhu cầu tuyển dụng mở, và nếu có chức danh cần gấp hãy chỉ ra 🚨)*`;
+    // ── 2. Phân loại ──
+    const activeEmps = allEmployees.filter((e: any) => !e.status || e.status === 'active');
+    const resignedInYear = allEmployees.filter((e: any) =>
+      e.status === 'resigned' || e.status === 'inactive'
+    );
+    const newInYear = activeEmps.filter((e: any) =>
+      e.date_joined && e.date_joined >= yearStart && e.date_joined <= yearEnd
+    );
+    const totalActive = activeEmps.length;
+    const totalNew = newInYear.length;
+    const totalResigned = resignedInYear.length;
+
+    // Turnover rate
+    const headcountStart = totalActive - totalNew + totalResigned;
+    const turnoverRate = headcountStart > 0
+      ? ((totalResigned / headcountStart) * 100).toFixed(1)
+      : '0.0';
+
+    // ── 3. Cơ cấu theo Đơn vị (join units) ──
+    const units = await UnitService.getAll();
+    const unitMap: Record<string, string> = {};
+    units.forEach((u: any) => { unitMap[u.id] = u.name; });
+
+    const byUnit: Record<string, number> = {};
+    activeEmps.forEach((e: any) => {
+      const uName = e.unit_id && unitMap[e.unit_id] ? unitMap[e.unit_id] : 'Chưa phân bổ';
+      byUnit[uName] = (byUnit[uName] || 0) + 1;
+    });
+
+    // ── 4. Cơ cấu theo Giới tính ──
+    const byGender: Record<string, number> = { 'Nam': 0, 'Nữ': 0, 'Khác/Chưa cập nhật': 0 };
+    activeEmps.forEach((e: any) => {
+      if (e.gender === 'male') byGender['Nam']++;
+      else if (e.gender === 'female') byGender['Nữ']++;
+      else byGender['Khác/Chưa cập nhật']++;
+    });
+
+    // ── 5. Cơ cấu theo Loại HĐLĐ ──
+    const byContract: Record<string, number> = {};
+    activeEmps.forEach((e: any) => {
+      const ct = e.contract_type || 'Chưa cập nhật';
+      byContract[ct] = (byContract[ct] || 0) + 1;
+    });
+
+    // ── 6. Cơ cấu theo Thâm niên ──
+    const seniority = { 'Dưới 1 năm': 0, '1-3 năm': 0, '3-5 năm': 0, 'Trên 5 năm': 0, 'Chưa rõ': 0 };
+    activeEmps.forEach((e: any) => {
+      if (!e.date_joined) { seniority['Chưa rõ']++; return; }
+      const joinDate = new Date(e.date_joined);
+      const years = (Date.now() - joinDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+      if (years < 1) seniority['Dưới 1 năm']++;
+      else if (years < 3) seniority['1-3 năm']++;
+      else if (years < 5) seniority['3-5 năm']++;
+      else seniority['Trên 5 năm']++;
+    });
+
+    // ── 7. Tuyển dụng ──
+    const { data: jobs } = await supabase
+      .from('job_openings')
+      .select('id, title, status, quantity, department')
+      .in('status', ['open', 'urgent', 'draft']);
+    const openJobs = jobs ? jobs.length : 0;
+    const totalNeeds = jobs ? jobs.reduce((s: number, j: any) => s + (j.quantity || 1), 0) : 0;
+    const urgentJobs = jobs ? jobs.filter((j: any) => j.status === 'urgent') : [];
+
+    const { data: applications } = await supabase
+      .from('applications')
+      .select('stage');
+    const stages: Record<string, number> = {};
+    (applications || []).forEach((a: any) => {
+      stages[a.stage] = (stages[a.stage] || 0) + 1;
+    });
+
+    // ── 8. Build Markdown Report ──
+    let md = `## 👥 BÁO CÁO TÌNH HÌNH NHÂN SỰ NĂM ${year}\n`;
+    md += `_Cập nhật tới: ${today}_\n\n`;
+
+    // 8.1 Thống kê & Biến động
+    md += `### 📊 1. Thống kê Quy mô & Biến động (Headcount)\n\n`;
+    md += `| Chỉ số | Giá trị | Ghi chú |\n`;
+    md += `|:---|:---:|:---|\n`;
+    md += `| **Tổng nhân sự hiện tại** | **${totalActive} nhân sự** | Chỉ đếm nhân viên đang active |\n`;
+    md += `| Nhân sự mới (năm ${year}) | +${totalNew} | Tuyển mới trong năm |\n`;
+    md += `| Nhân sự nghỉ việc (năm ${year}) | -${totalResigned} | Đã nghỉ/inactive |\n`;
+    md += `| **Tỷ lệ nghỉ việc (Turnover)** | **${turnoverRate}%** | = Nghỉ / Đầu năm × 100 |\n\n`;
+
+    // 8.2 Cơ cấu theo Đơn vị
+    md += `### 🏢 2. Cơ cấu Nhân sự theo Đơn vị (Phòng ban)\n\n`;
+    md += `| Đơn vị | Số lượng | Tỷ trọng |\n`;
+    md += `|:---|:---:|:---:|\n`;
+    const sortedUnits = Object.entries(byUnit).sort((a, b) => b[1] - a[1]);
+    sortedUnits.forEach(([name, count]) => {
+      const pct = ((count / totalActive) * 100).toFixed(1);
+      md += `| ${name} | ${count} | ${pct}% |\n`;
+    });
+
+    // Biểu đồ pie
+    const pieData = sortedUnits.map(([name, count]) => ({ name, value: count }));
+    const chartJson = JSON.stringify({
+      type: 'pie',
+      title: `Cơ cấu nhân sự theo đơn vị (${totalActive} người)`,
+      dataKey: 'value',
+      nameKey: 'name',
+      data: pieData,
+      unit: 'người'
+    });
+    md += `\n\`\`\`chart\n${chartJson}\n\`\`\`\n\n`;
+
+    // 8.3 Cơ cấu theo Giới tính
+    md += `### 👫 3. Cơ cấu theo Giới tính\n\n`;
+    md += `| Giới tính | Số lượng | Tỷ lệ |\n|:---|:---:|:---:|\n`;
+    Object.entries(byGender).forEach(([g, c]) => {
+      if (c > 0) md += `| ${g} | ${c} | ${((c / totalActive) * 100).toFixed(1)}% |\n`;
+    });
+
+    // 8.4 Cơ cấu theo Thâm niên
+    md += `\n### ⏳ 4. Cơ cấu theo Thâm niên\n\n`;
+    md += `| Thâm niên | Số lượng | Tỷ lệ |\n|:---|:---:|:---:|\n`;
+    Object.entries(seniority).forEach(([s, c]) => {
+      if (c > 0) md += `| ${s} | ${c} | ${((c / totalActive) * 100).toFixed(1)}% |\n`;
+    });
+
+    // 8.5 Cơ cấu theo Loại HĐLĐ
+    md += `\n### 📄 5. Cơ cấu theo Loại Hợp đồng Lao động\n\n`;
+    md += `| Loại HĐLĐ | Số lượng |\n|:---|:---:|\n`;
+    Object.entries(byContract).sort((a, b) => b[1] - a[1]).forEach(([ct, c]) => {
+      md += `| ${ct} | ${c} |\n`;
+    });
+
+    // 8.6 Tuyển dụng
+    md += `\n### 🎯 6. Tình hình Tuyển dụng\n\n`;
+    md += `- **Vị trí đang mở:** ${openJobs} job (Cần tuyển: ${totalNeeds} người)\n`;
+    if (urgentJobs.length > 0) {
+      md += `- 🚨 **Vị trí KHẨN CẤP:** ${urgentJobs.map((j: any) => j.title).join(', ')}\n`;
+    }
+    md += `- **Phễu ứng viên:**\n`;
+    md += `  - Ứng tuyển mới: ${stages['applied'] || 0}\n`;
+    md += `  - Sàng lọc: ${stages['screening'] || 0}\n`;
+    md += `  - Phỏng vấn: ${(stages['interview_1'] || 0) + (stages['interview_2'] || 0)}\n`;
+    md += `  - Đã Offer: ${stages['offer'] || 0}\n`;
+    md += `  - Đã Hired: ${stages['hired'] || 0}\n`;
+
+    md += `\n*(AI Instruction: BẮT BUỘC paste toàn bộ bảng và biểu đồ trên. Phân tích turnover rate có cao không (benchmark ngành IT ~15-20%). Nhận xét tỷ lệ nam/nữ, thâm niên. Nếu có vị trí tuyển khẩn cấp hãy nhấn mạnh 🚨)*`;
 
     return md;
   }
 };
+
 

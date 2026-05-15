@@ -9,6 +9,9 @@ import { getBusinessContext } from '../services/contextService';
 import { NewsService } from '../services/newsService';
 import { toast } from 'sonner';
 
+import { useAuth } from '../contexts/AuthContext';
+import { useEffectiveProfile } from '../contexts/ImpersonationContext';
+
 interface ChatWidgetProps {
     contextData?: any; // Data to be passed to AI for context
 }
@@ -51,6 +54,7 @@ const SYSTEM_PROMPT_TEMPLATE = `Bạn là "CIC AI" — Trợ lý thông minh n�
 - Hỗ trợ soạn thảo email, công văn, tờ trình mẫu`;
 
 const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
+    const { profile } = useEffectiveProfile();
     const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
@@ -64,8 +68,8 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
 
     // Load business context khi mount
     useEffect(() => {
-        getBusinessContext().then(ctx => setBusinessContext(ctx)).catch(() => {});
-    }, []);
+        getBusinessContext(profile?.unitId, profile?.id).then(ctx => setBusinessContext(ctx)).catch(() => {});
+    }, [profile?.unitId, profile?.id]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

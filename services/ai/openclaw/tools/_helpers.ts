@@ -56,3 +56,14 @@ export const getUnitFilter = (args: any, context: UserContext): string | undefin
   }
   return unitFilter;
 };
+
+/** Ép buộc unit filter, quăng lỗi nếu user không có quyền xem toàn công ty mà lại thiếu unitId */
+export const enforceUnitScope = (context: UserContext): string | undefined => {
+  if (canViewAll(context)) {
+    return undefined; // Không giới hạn
+  }
+  if (!context.unitId) {
+    throw new Error('Bạn không có quyền truy cập dữ liệu do không thuộc đơn vị nào.');
+  }
+  return context.unitId;
+};

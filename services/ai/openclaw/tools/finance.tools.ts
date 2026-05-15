@@ -1,19 +1,10 @@
 // @ts-nocheck
 import { ContractService } from '../../../contractService';
-import { CustomerService } from '../../../customerService';
 import { PaymentService } from '../../../paymentService';
 import { UnitService } from '../../../unitService';
-import { ProductService } from '../../../productService';
 import type { OpenClawTool, UserContext } from '../types';
 import { dataClient as supabase } from '../../../../lib/dataClient';
-import { fmtMoney, fmtMoneyWithRaw, calcChange, canViewAll, isBusinessUnit, getUnitFilter } from './_helpers';
-import { EmployeeService } from '../../../employeeService';
-import { TaskService } from '../../../taskService';
-import { NotificationService } from '../../../notificationService';
-import { marketingToolsRegistry } from './marketingTools';
-import type { OpenClawTool, UserContext } from '../types';
-import { dataClient as supabase } from '../../../../lib/dataClient';
-import { fmtMoney, fmtMoneyWithRaw, calcChange, canViewAll, isBusinessUnit, getUnitFilter } from './_helpers';
+import { fmtMoney, fmtMoneyWithRaw, canViewAll, getUnitFilter } from './_helpers';
 
 // ═══════════════════════════════════════════════
 // searchPaymentsTool
@@ -66,13 +57,20 @@ export const getDebtReportTool: OpenClawTool = {
   schema: {
     sortBy: { type: 'string', enum: ['amount', 'age'], description: 'Sắp xếp: amount (số tiền nợ lớn nhất), age (nợ lâu nhất)' },
   },
-  execute: async (args) => {
-    // Lấy tất cả payment pending/chưa thanh toán + join customer qua contract
-    const { data: payments } = await supabase
+  execute: async (args, context: UserContext) => {
+    const forcedUnitId = getUnitFilter(args, context);
+
+    let query = supabase
       .from('payments')
-      .select('id, amount, paid_amount, due_date, status, contract_id, contracts(title, customer_contract_number, customer_id, customers(name))')
+      .select('id, amount, paid_amount, due_date, status, contract_id, contracts!inner(title, customer_contract_number, customer_id, unit_id, customers(name))')
       .in('status', ['Chưa thanh toán', 'Pending', 'Chờ thanh toán', 'Đã xuất HĐ', 'Đã giao KH'])
       .order('due_date');
+
+    if (forcedUnitId) {
+      query = query.eq('contracts.unit_id', forcedUnitId);
+    }
+
+    const { data: payments } = await query;
 
     if (!payments || payments.length === 0) {
       return { tongCongNo: '0 VND', message: 'Không có khoản công nợ nào.' };
@@ -133,17 +131,25 @@ export const getCashflowSummaryTool: OpenClawTool = {
     year: { type: 'string', description: 'Năm (vd: 2026)' },
     period: { type: 'string', enum: ['monthly', 'quarterly'], description: 'Chu kỳ: monthly hoặc quarterly. Mặc định: quarterly' },
   },
-  execute: async (args) => {
+  execute: async (args, context: UserContext) => {
+    const forcedUnitId = getUnitFilter(args, context);
+
     const year = parseInt(args.year) || new Date().getFullYear();
     const dateFrom = `${year}-01-01`;
     const dateTo = `${year}-12-31`;
 
-    const { data: payments } = await supabase
+    let query = supabase
       .from('payments')
-      .select('amount, payment_date, voucher_type, status')
+      .select('amount, payment_date, voucher_type, status, contracts!inner(unit_id)')
       .gte('payment_date', dateFrom)
       .lte('payment_date', dateTo)
       .in('status', ['Tiền về', 'Paid', 'Đã thanh toán', 'Đã xuất HĐ', 'Đã giao KH']);
+
+    if (forcedUnitId) {
+      query = query.eq('contracts.unit_id', forcedUnitId);
+    }
+
+    const { data: payments } = await query;
 
     if (!payments || payments.length === 0) {
       return { nam: year, message: 'Không có dữ liệu thanh toán.' };
@@ -199,16 +205,24 @@ export const getRevenueForecastTool: OpenClawTool = {
   schema: {
     year: { type: 'string', description: 'Năm (vd: 2026)' },
   },
-  execute: async (args) => {
+  execute: async (args, context: UserContext) => {
+    const forcedUnitId = getUnitFilter(args, context);
+
     const year = parseInt(args.year) || new Date().getFullYear();
     const today = new Date().toISOString().split('T')[0];
 
-    const { data: contracts } = await supabase
+    let query = supabase
       .from('contracts')
       .select('id, title, value, actual_revenue, status, end_date, signed_date, unit_id, units(name)')
       .eq('status', 'Processing')
       .order('value', { ascending: false })
       .limit(50);
+
+    if (forcedUnitId) {
+      query = query.eq('unit_id', forcedUnitId);
+    }
+
+    const { data: contracts } = await query;
 
     if (!contracts || contracts.length === 0) {
       return `Không có HĐ đang xử lý. Dự báo doanh thu = 0.`;
@@ -311,9 +325,14 @@ export const getExpenseBreakdownTool: OpenClawTool = {
     year: { type: 'string', description: 'Năm cần xem chi phí (VD: 2026). Có thể để trống để xem toàn bộ.', required: false }
   },
   execute: async (args, context) => {
-    let query = supabase.from('payments').select('amount, expense_category, payment_date').eq('voucher_type', 'EXPENSE').eq('status', 'Completed');
+    const forcedUnitId = getUnitFilter(args, context as UserContext);
+
+    let query = supabase.from('payments').select('amount, expense_category, payment_date, contracts!inner(unit_id)').eq('voucher_type', 'EXPENSE').eq('status', 'Completed');
     if (args.year) {
       query = query.gte('payment_date', `${args.year}-01-01`).lte('payment_date', `${args.year}-12-31`);
+    }
+    if (forcedUnitId) {
+      query = query.eq('contracts.unit_id', forcedUnitId);
     }
     const { data: payments } = await query;
     if (!payments || payments.length === 0) return 'Không tìm thấy dữ liệu chi phí (EXPENSE).';
@@ -364,12 +383,21 @@ export const getBudgetVarianceReportTool: OpenClawTool = {
     year: { type: 'string', description: 'Năm ngân sách (VD: 2026)', required: true }
   },
   execute: async (args, context) => {
+    const forcedUnitId = getUnitFilter(args, context as UserContext);
+
     const year = args.year || new Date().getFullYear().toString();
-    const { data: targets } = await supabase.from('unit_targets').select('unit_id, signing_target, revenue_target').eq('year', parseInt(year));
+    
+    let queryTargets = supabase.from('unit_targets').select('unit_id, signing_target, revenue_target').eq('year', parseInt(year));
+    if (forcedUnitId) {
+      queryTargets = queryTargets.eq('unit_id', forcedUnitId);
+    }
+    
+    const { data: targets } = await queryTargets;
     if (!targets || targets.length === 0) return `Không có dữ liệu Ngân sách / Mục tiêu cho năm ${year}.`;
 
     const { UnitService } = await import('../../../unitService');
-    const allUnits = await UnitService.getAll();
+    const allUnitsRaw = await UnitService.getAll();
+    const allUnits = forcedUnitId ? allUnitsRaw.filter((u: any) => u.id === forcedUnitId) : allUnitsRaw;
     if (!allUnits || allUnits.length === 0) return 'Không có dữ liệu Đơn vị.';
 
     let md = `## 🎯 BÁO CÁO NGÂN SÁCH (BUDGET VS ACTUAL) NĂM ${year}\n\n`;

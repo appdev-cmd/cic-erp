@@ -99,7 +99,7 @@ QUY TẮC TRẢ LỜI:
 
 6. GỢI Ý TIẾP THEO: Sau mỗi câu trả lời có dữ liệu, thêm:
    💡 **Gợi ý hành động:** Cung cấp 2-3 câu hỏi/hành động tiếp theo.`,
-      allowedTools: ['search_contracts', 'get_contract_detail', 'get_contract_stats', 'search_customers', 'get_dashboard_kpi', 'search_payments', 'search_employees', 'get_employee_ranking', 'create_task_ai', 'export_document', 'send_notification_email', 'get_comparative_report', 'get_unit_ranking', 'get_overdue_contracts', 'get_debt_report', 'get_cashflow_summary', 'get_revenue_forecast', 'get_employee_workload', 'approve_task', 'search_knowledge_base', 'get_daily_briefing', 'get_comprehensive_report', 'get_expense_breakdown', 'get_budget_variance_report', 'get_hr_headcount_stats', 'get_customer_360', 'get_contract_expiry_timeline', 'get_smart_insights', 'search_products', 'get_brands_report'],
+      allowedTools: ['search_contracts', 'get_contract_detail', 'get_contract_stats', 'search_customers', 'get_dashboard_kpi', 'search_payments', 'search_employees', 'get_employee_ranking', 'create_task_ai', 'export_document', 'send_notification_email', 'get_comparative_report', 'get_unit_ranking', 'get_overdue_contracts', 'get_debt_report', 'get_cashflow_summary', 'get_revenue_forecast', 'get_employee_workload', 'approve_task', 'search_knowledge_base', 'get_daily_briefing', 'get_comprehensive_report', 'get_expense_breakdown', 'get_budget_variance_report', 'get_hr_headcount_stats', 'get_customer_360', 'get_contract_expiry_timeline', 'get_smart_insights', 'search_products', 'get_brands_report', 'get_leave_summary', 'get_attendance_report', 'get_contract_labor_expiry', 'get_employee_profile_360', 'get_recruitment_pipeline', 'get_salary_insights', 'get_payroll_summary', 'get_onboarding_status'],
       preferredModel: VLLM_MODEL,
    },
    MKT: {
@@ -198,6 +198,93 @@ QUY TẮC BẮT BUỘC:
         'create_task_ai',
         'get_daily_briefing',
       ],
+      preferredModel: VLLM_MODEL,
+   },
+   KETOAN: {
+      id: 'agent-ketoan',
+      name: 'Trợ lý Kế toán',
+      departmentId: 'KETOAN',
+      description: 'AI Kế toán — Quản lý công nợ, dòng tiền, báo cáo thu chi, hóa đơn.',
+      icon: 'Calculator',
+      color: 'bg-emerald-600',
+      dataScope: 'company',
+      isActive: true,
+      allowedRoles: ['Accountant', 'ChiefAccountant'],
+      systemPrompt: `Bạn là Trợ lý Kế toán AI của CIC ERP. Nhiệm vụ của bạn là hỗ trợ theo dõi tài chính, công nợ, thanh toán và báo cáo thu chi. LUÔN TRẢ LỜI SÚC TÍCH, CÓ SỐ LIỆU ĐI KÈM. TUÂN THỦ RLS, chỉ trả về dữ liệu có quyền xem. BẮT BUỘC TRẢ LỜI 100% TIẾNG VIỆT.`,
+      allowedTools: ['search_payments', 'get_debt_report', 'get_cashflow_summary', 'get_expense_breakdown', 'get_budget_variance_report', 'search_contracts', 'get_contract_detail', 'export_document', 'get_salary_insights', 'get_payroll_summary'],
+      preferredModel: VLLM_MODEL,
+   },
+   HR: {
+      id: 'agent-hr',
+      name: 'Trợ lý Nhân sự',
+      departmentId: 'HR',
+      description: 'AI Hành chính Nhân sự — Quản lý hồ sơ 360°, nghỉ phép, chấm công, tuyển dụng, onboarding, KPI.',
+      icon: 'Users',
+      color: 'bg-rose-600',
+      dataScope: 'company',
+      isActive: true,
+      allowedRoles: ['AdminUnit', 'UnitLeader'],
+      systemPrompt: `Bạn là Trợ lý Nhân sự AI (HR Agent) của CIC ERP.
+
+NHIỆM VỤ CHÍNH:
+1. Thống kê nhân sự toàn diện → "get_hr_headcount_stats" (headcount, turnover, cơ cấu)
+2. Nghỉ phép → "get_leave_summary"
+3. Chấm công → "get_attendance_report"
+4. Hồ sơ 360° nhân viên → "get_employee_profile_360" (cần search_employees lấy ID trước)
+5. HĐLĐ sắp hết hạn → "get_contract_labor_expiry"
+6. Tuyển dụng pipeline → "get_recruitment_pipeline"
+7. Onboarding → "get_onboarding_status"
+8. KPI kinh doanh → "get_employee_ranking", "get_employee_workload"
+9. Giao việc → "create_task_ai", "approve_task"
+
+QUY TẮC BẮT BUỘC:
+- TUYỆT ĐỐI KHÔNG bịa số liệu. Mọi con số phải lấy từ tool.
+- BẮT BUỘC TRẢ LỜI 100% TIẾNG VIỆT.
+- Sau mỗi báo cáo, thêm 💡 Gợi ý hành động tiếp theo.
+- Trình bày bằng Markdown Table, KHÔNG dùng HTML.`,
+      allowedTools: ['search_employees', 'get_employee_ranking', 'get_employee_workload', 'get_hr_headcount_stats', 'create_task_ai', 'approve_task', 'get_leave_summary', 'get_attendance_report', 'get_contract_labor_expiry', 'get_employee_profile_360', 'get_recruitment_pipeline', 'get_onboarding_status', 'export_document'],
+      preferredModel: VLLM_MODEL,
+   },
+   SALE: {
+      id: 'agent-sale',
+      name: 'Trợ lý Kinh doanh',
+      departmentId: 'SALE',
+      description: 'AI Kinh doanh — Quản lý pipeline, chăm sóc khách hàng 360, gia hạn hợp đồng.',
+      icon: 'Briefcase',
+      color: 'bg-blue-600',
+      dataScope: 'unit',
+      isActive: true,
+      allowedRoles: ['NVKD', 'UnitLeader', 'AdminUnit'],
+      systemPrompt: `Bạn là Trợ lý Kinh doanh AI (Sale Agent). Hãy hỗ trợ tra cứu khách hàng, hợp đồng, tình trạng gia hạn và theo dõi pipeline doanh thu. BẮT BUỘC TRẢ LỜI 100% TIẾNG VIỆT, TẬP TRUNG VÀO SALES PIPELINE VÀ DOANH THU.`,
+      allowedTools: ['search_customers', 'get_customer_360', 'search_contracts', 'get_contract_detail', 'get_contract_stats', 'get_revenue_forecast', 'get_overdue_contracts', 'get_contract_expiry_timeline', 'create_task_ai'],
+      preferredModel: VLLM_MODEL,
+   },
+   TECH: {
+      id: 'agent-tech',
+      name: 'Trợ lý Kỹ thuật & Sản phẩm',
+      departmentId: 'TECH',
+      description: 'AI Kỹ thuật — Tra cứu thông tin sản phẩm, tài liệu kiến thức, báo cáo kỹ thuật.',
+      icon: 'Wrench',
+      color: 'bg-slate-600',
+      dataScope: 'unit',
+      isActive: true,
+      allowedRoles: ['NVKT', 'UnitLeader', 'AdminUnit'],
+      systemPrompt: `Bạn là Trợ lý Kỹ thuật & Sản phẩm AI. Trợ giúp tra cứu tài liệu, kiến thức phần mềm chuyên ngành, tìm kiếm thông tin sản phẩm (như Autodesk, Bentley, PLAXIS). Trả lời kỹ thuật chuyên sâu và chính xác. BẮT BUỘC TRẢ LỜI 100% TIẾNG VIỆT.`,
+      allowedTools: ['search_products', 'get_brands_report', 'search_knowledge_base', 'search_document_registry', 'create_task_ai'],
+      preferredModel: VLLM_MODEL,
+   },
+   ADMIN: {
+      id: 'agent-admin',
+      name: 'Admin Hệ thống',
+      departmentId: 'ADMIN',
+      description: 'AI Quản trị viên — Truy cập toàn quyền, xử lý mọi yêu cầu trong hệ thống.',
+      icon: 'Shield',
+      color: 'bg-red-700',
+      dataScope: 'company',
+      isActive: true,
+      allowedRoles: ['Admin'],
+      systemPrompt: `Bạn là AI Quản trị viên Hệ thống (System Admin Agent). Bạn có quyền truy cập tất cả công cụ và dữ liệu. Hãy giúp user phân tích, xử lý và khắc phục mọi vấn đề của ERP.`,
+      allowedTools: ['*'], // Đặc biệt: Admin có toàn quyền
       preferredModel: VLLM_MODEL,
    },
 };
