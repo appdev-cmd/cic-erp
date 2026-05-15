@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
-import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Upload, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Check, Clock, AlertCircle, AlertTriangle, FileText, CheckCircle, PackageCheck, X, RotateCcw, Hash } from 'lucide-react';
+import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Check, Clock, AlertCircle, AlertTriangle, FileText, CheckCircle, PackageCheck, X, RotateCcw, Hash } from 'lucide-react';
 import { ContractService, EmployeeService, UnitService } from '../services';
 import { ContractTagService } from '../services/contractTagService';
 import { ContractStatus, Unit, Contract, Employee, UserRole, ContractClassification } from '../types';
 import { CONTRACT_STATUS_LABELS } from '../constants';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import ImportContractModal from './ImportContractModal';
+import { exportContractsToExcel } from '../services/contractExportService';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 import { useCurrentUserVisibleUnits } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
@@ -103,6 +103,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [units, setUnits] = useState<Unit[]>([]);
   const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalRevenueProfit: 0, totalCash: 0, processingCount: 0, suspendedCount: 0, handoverCount: 0, acceptanceCount: 0, completedCount: 0 });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [statsCollapsed, setStatsCollapsed] = useState(() => {
     try { return localStorage.getItem('cic-erp-stats-collapsed') === 'true'; } catch { return false; }
   });
@@ -198,6 +199,42 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
       toast.error('Lỗi cập nhật trạng thái: ' + (err.message || err));
     } finally {
       setChangingStatusId(null);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    toast.info('Đang tạo file Excel...');
+    try {
+      let effectiveUnitId = 'All';
+      if (selectedUnit && selectedUnit.id !== 'all') {
+        effectiveUnitId = selectedUnit.id;
+      } else if (unitFilter !== 'All') {
+        effectiveUnitId = unitFilter;
+      }
+      const { data } = await ContractService.list({
+        page: 1,
+        limit: 10000,
+        search: debouncedSearch || undefined,
+        status: statusFilter !== 'All' ? statusFilter : undefined,
+        unitId: effectiveUnitId,
+        year: yearFilter,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        salespersonId: salespersonFilter !== 'All' ? salespersonFilter : undefined,
+        classification: classificationFilter !== 'All' ? classificationFilter : undefined,
+        sortBy: sortBy || undefined,
+        sortDir,
+        filterByIds: tagFilterIds,
+      });
+      const employeesMap = new Map(salespeople.map(e => [e.id, e.name]));
+      exportContractsToExcel(data, { customersMap: customersData, employeesMap });
+      toast.success(`Xuất file thành công! (${data.length} hợp đồng)`);
+    } catch (e) {
+      console.error(e);
+      toast.error('Lỗi khi xuất file Excel');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -646,57 +683,15 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* TODO: Tạm ẩn Nhập/Xuất Excel — chưa ổn định, phân quyền chưa chuẩn
           <button
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-5 py-3 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            title="Xuất danh sách hợp đồng ra Excel"
+            className="flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-all shadow-sm text-sm cursor-pointer"
           >
-            <Upload size={20} /> Nhập Excel
+            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+            Xuất Excel
           </button>
-          <button
-            onClick={async () => {
-              try {
-                toast.info("Đang tạo file Excel...");
-                let effectiveUnitId = 'All';
-                if (selectedUnit && selectedUnit.id !== 'all') {
-                  effectiveUnitId = selectedUnit.id;
-                } else if (unitFilter !== 'All') {
-                  effectiveUnitId = unitFilter;
-                }
-                const { data } = await ContractService.list({
-                  page: 1, limit: 10000,
-                  search: debouncedSearch,
-                  status: statusFilter,
-                  unitId: effectiveUnitId,
-                  year: yearFilter,
-                  dateFrom: dateFrom || undefined,
-                  dateTo: dateTo || undefined,
-                });
-                const exportData = data.map((c, idx) => ({
-                  'STT': idx + 1,
-                  'Mã HĐ': c.contractCode,
-                  'Tên HĐ': c.title,
-                  'Khách hàng': c.partyA,
-                  'Giá trị': c.value,
-                  'Doanh thu': c.actualRevenue,
-                  'Ngày ký': c.signedDate,
-                  'Trạng thái': c.status
-                }));
-                const ws = XLSX.utils.json_to_sheet(exportData);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Danh sách HĐ");
-                XLSX.writeFile(wb, `Danh_sach_Hop_dong_${new Date().toISOString().split('T')[0]}.xlsx`);
-                toast.success("Xuất file thành công!");
-              } catch (e) {
-                console.error(e);
-                toast.error("Lỗi khi xuất file");
-              }
-            }}
-            className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-5 py-3 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-          >
-            <Download size={20} /> Xuất Excel
-          </button>
-          */}
           {canCreate && (
             <button
               onClick={onAdd}
