@@ -18,6 +18,7 @@ import { formatDate, removeDiacritics } from '../utils/formatters';
 import { useLayoutContext } from './layout/MainLayout';
 import DateInput from './ui/DateInput';
 import AcceptanceDialog from './ui/AcceptanceDialog';
+import DatePromptDialog from './ui/DatePromptDialog';
 import { useColumnResize } from '../hooks/useColumnResize';
 
 import { 
@@ -128,6 +129,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
   const [changingStatusId, setChangingStatusId] = useState<string | null>(null);
   const [acceptancePendingId, setAcceptancePendingId] = useState<string | null>(null);
+  const [datePromptPending, setDatePromptPending] = useState<{
+    contractId: string;
+    newStatus: string;
+    dateField: string;
+    title: string;
+    colorScheme: 'rose' | 'cyan';
+  } | null>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
   const { columnWidths, onResizeStart, isResizing, resetWidths } = useColumnResize({
@@ -174,19 +182,15 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     let updateData: Record<string, any> = { status: newStatus as any };
 
     if (datePromptMap[newStatus]) {
-      const today = new Date();
-      const defaultDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
-      const inputDate = prompt(datePromptMap[newStatus], defaultDate);
-      if (!inputDate) {
-        setStatusDropdownId(null);
-        return; // User cancelled
-      }
-      // Parse dd/mm/yyyy -> yyyy-mm-dd
-      const parts = inputDate.split('/');
-      if (parts.length === 3) {
-        const isoDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-        (updateData as any)[dateFieldMap[newStatus]] = isoDate;
-      }
+      setDatePromptPending({
+        contractId,
+        newStatus,
+        dateField: dateFieldMap[newStatus],
+        title: newStatus === 'Handover' ? 'Ngày bàn giao' : 'Ngày tạm dừng/huỷ',
+        colorScheme: newStatus === 'Handover' ? 'cyan' : 'rose',
+      });
+      setStatusDropdownId(null);
+      return;
     }
 
     setChangingStatusId(contractId);
@@ -226,7 +230,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         filterByIds: tagFilterIds,
       });
       const employeesMap = new Map(salespeople.map(e => [e.id, e.name]));
-      exportContractsToExcel(data, { customersMap: customersData, employeesMap });
+      exportContractsToExcel(data, { customersMap: customersData, employeesMap, unitId: exportUnitId });
       toast.success(`Xuất file thành công! (${data.length} hợp đồng)`);
     } catch (e) {
       console.error(e);
@@ -1045,6 +1049,28 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         onSuccess={() => {
           resetInfiniteScroll();
           setIsImportModalOpen(false);
+        }}
+      />
+      {/* Date Prompt Dialog (Handover / Suspended) */}
+      <DatePromptDialog
+        isOpen={!!datePromptPending}
+        onClose={() => setDatePromptPending(null)}
+        title={datePromptPending?.title || ''}
+        colorScheme={datePromptPending?.colorScheme || 'cyan'}
+        onConfirm={async (isoDate) => {
+          const { contractId, newStatus, dateField } = datePromptPending!;
+          setDatePromptPending(null);
+          setChangingStatusId(contractId);
+          const updateData: Record<string, any> = { status: newStatus, [dateField]: isoDate };
+          try {
+            await ContractService.update(contractId, updateData as any);
+            setContracts(prev => prev.map(c => c.id === contractId ? { ...c, ...updateData } as any : c));
+            toast.success(`Đã chuyển trạng thái → ${CONTRACT_STATUS_LABELS[newStatus]}`);
+          } catch (err: any) {
+            toast.error('Lỗi cập nhật trạng thái: ' + (err.message || err));
+          } finally {
+            setChangingStatusId(null);
+          }
         }}
       />
       {/* Acceptance Dialog */}

@@ -357,7 +357,7 @@ export const ContractListTableRow: React.FC<ContractListTableRowProps> = ({
                 )}
               </button>
               {statusDropdownId === contract.id && (
-                <div className="absolute z-50 top-full mt-1 right-0 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="absolute z-50 top-full mt-1 right-0 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 animate-in fade-in slide-in-from-top-1 duration-150" onMouseDown={(e) => e.stopPropagation()}>
                   <div className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Chuyển trạng thái</div>
                   {ACTIVE_STATUSES.map(s => (
                     <button
@@ -544,7 +544,7 @@ export const ContractListMobileCard: React.FC<ContractListTableRowProps> = ({
             )}
           </button>
           {statusDropdownId === contract.id && (
-            <div className="absolute z-50 bottom-full mb-1 left-0 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 animate-in fade-in">
+            <div className="absolute z-50 bottom-full mb-1 left-0 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 animate-in fade-in" onMouseDown={(e) => e.stopPropagation()}>
               <div className="px-3 py-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-wider">Chuyển trạng thái</div>
               {ACTIVE_STATUSES.map(s => (
                 <button
