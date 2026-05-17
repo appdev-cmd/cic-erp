@@ -1,6 +1,7 @@
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 import type { Plugin } from 'vite';
 
 // ─── SECURITY: Block direct browser access to source files ──
@@ -260,6 +261,28 @@ export default defineConfig(({ mode }) => {
       react(),
       geminiExtractProxy(env),
       recruitmentEmailProxy(env),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['favicon.png', 'cic-logo.png'],
+        manifest: {
+          name: 'CIC ERP System',
+          short_name: 'CIC ERP',
+          description: 'Hệ thống quản lý hợp đồng thông minh CIC',
+          theme_color: '#ffffff',
+          icons: [
+            {
+              src: 'favicon.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: 'cic-logo.png',
+              sizes: '512x512',
+              type: 'image/png'
+            }
+          ]
+        }
+      }),
     ],
     // SECURITY: API Key Gemini chạy qua Vercel Serverless Function (/api/gemini-extract).
     // Local dev dùng Vite plugin proxy ở trên → key không bao giờ lộ ra client bundle.

@@ -10,7 +10,6 @@ import { AgentConfigService, type AgentConfigRow } from '../services/ai/agentCon
 import { getEnabledModels } from '../services/ai/models';
 import { usePermissionCheck } from '../hooks/usePermissions';
 import { cn } from '../lib/utils';
-import { useSlidePanel } from '../contexts/SlidePanelContext';
 import { erpToolsRegistry } from '../services/ai/openclaw/tools/registry';
 import { marketingToolsRegistry } from '../services/ai/openclaw/tools/marketingTools';
 import { EmployeeService } from '../services/employeeService';
@@ -113,7 +112,6 @@ const AgentManager: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [configuringTool, setConfiguringTool] = useState<OpenClawTool | null>(null);
   const [toolSearchQuery, setToolSearchQuery] = useState('');
-  const { openPanel, closePanel } = useSlidePanel();
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   const fetchAgents = useCallback(async () => {
@@ -144,6 +142,17 @@ const AgentManager: React.FC = () => {
     }
   };
 
+  const handleSaveConfig = async () => {
+    if (!selectedAgent || !canManage) return;
+    try {
+      await AgentConfigService.update(selectedAgent.id, editingForm);
+      setAgents(prev => prev.map(a => a.id === selectedAgent.id ? { ...a, ...editingForm } : a));
+      setSelectedAgent(prev => prev ? { ...prev, ...editingForm } : null);
+      toast.success('Đã lưu cấu hình Agent');
+    } catch {
+      toast.error('Lỗi lưu cấu hình');
+    }
+  };
 
   const handleSync = async () => {
     if (!canManage) return;
@@ -236,36 +245,17 @@ const AgentManager: React.FC = () => {
                   : "border-slate-200 dark:border-slate-800 opacity-60 hover:opacity-100"
               )}
               onClick={() => { 
-                setSelectedAgent(agent);
-                openPanel({
-                  id: `agent-${agent.id}`,
-                  title: agent.name,
-                  icon: renderIcon(agent.icon, 14),
-                  component: (
-                    <AgentDetailPanel
-                      agent={agent}
-                      canManage={canManage}
-                      employees={employees}
-                      roles={ALL_ROLES}
-                      onSave={async (id, updates) => {
-                        try {
-                          await AgentConfigService.update(id, updates);
-                          setAgents(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
-                          toast.success('Đã lưu cấu hình');
-                          closePanel();
-                        } catch {
-                          toast.error('Lỗi khi lưu cấu hình');
-                        }
-                      }}
-                      onToggleActive={handleToggleActive}
-                      onClose={() => {
-                        closePanel();
-                        setSelectedAgent(null);
-                      }}
-                      renderIcon={renderIcon}
-                    />
-                  )
-                });
+                setSelectedAgent(agent); 
+                setEditingForm({ 
+                  description: agent.description,
+                  system_prompt: agent.system_prompt,
+                  allowed_tools: agent.allowed_tools || [],
+                  allowed_roles: agent.allowed_roles || [],
+                  allowed_users: agent.allowed_users || [],
+                  preferred_model: agent.preferred_model,
+                  data_scope: agent.data_scope
+                }); 
+                setUserSearchText('');
               }}
             >
               {/* Color header bar */}
@@ -339,69 +329,26 @@ const AgentManager: React.FC = () => {
         </div>
       )}
 
-          </div>
-  );
-};
-
-
-interface AgentDetailPanelProps {
-  agent: AgentConfigRow;
-  canManage: boolean;
-  employees: {id: string, name: string}[];
-  roles: any[];
-  onSave: (id: string, updates: Partial<AgentConfigRow>) => Promise<void>;
-  onToggleActive: (agent: AgentConfigRow) => Promise<void>;
-  onClose: () => void;
-  renderIcon: (iconName: string, size?: number) => React.ReactNode;
-}
-
-const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
-  agent,
-  canManage,
-  employees,
-  roles,
-  onSave,
-  onToggleActive,
-  onClose,
-  renderIcon
-}) => {
-  const [editingForm, setEditingForm] = useState<Partial<AgentConfigRow>>({
-    description: agent.description,
-    system_prompt: agent.system_prompt,
-    allowed_tools: agent.allowed_tools || [],
-    allowed_roles: agent.allowed_roles || [],
-    allowed_users: agent.allowed_users || [],
-    preferred_model: agent.preferred_model,
-    data_scope: agent.data_scope
-  });
-  const [configuringTool, setConfiguringTool] = useState<OpenClawTool | null>(null);
-  const [toolSearchQuery, setToolSearchQuery] = useState('');
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
-  const [userSearchText, setUserSearchText] = useState('');
-
-  const handleSaveConfig = async () => {
-    await onSave(agent.id, editingForm);
-  };
-
-  return (
-    <>
       {/* Detail Panel (slide-in from right) */}
-      <div className="flex flex-col h-full bg-white dark:bg-slate-950">
+      {selectedAgent && (
+        <>
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSelectedAgent(null)} />
+          <div className="fixed inset-y-0 right-0 w-[95vw] xl:w-[90vw] max-w-none bg-white dark:bg-slate-950 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
             {/* Panel Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
               <div className="flex items-center gap-3">
                 <div className={cn(
                   "w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg",
-                  agent.color || 'bg-slate-600'
+                  selectedAgent.color || 'bg-slate-600'
                 )}>
-                  {renderIcon(agent.icon)}
+                  {renderIcon(selectedAgent.icon)}
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-800 dark:text-slate-100">{agent.name}</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{agent.id} • {agent.department_id}</p>
+                  <h3 className="font-black text-slate-800 dark:text-slate-100">{selectedAgent.name}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{selectedAgent.id} • {selectedAgent.department_id}</p>
                 </div>
               </div>
-              <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+              <button onClick={() => setSelectedAgent(null)} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -475,7 +422,7 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                     </select>
                   ) : (
                     <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5 truncate">
-                      {getEnabledModels().find(m => m.id === agent.preferred_model)?.name || agent.preferred_model || 'Gemma 4 26B (mặc định)'}
+                      {getEnabledModels().find(m => m.id === selectedAgent.preferred_model)?.name || selectedAgent.preferred_model || 'Gemma 4 26B (mặc định)'}
                     </p>
                   )}
                 </div>
@@ -491,23 +438,23 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                       <option value="unit">🏠 Đơn vị</option>
                     </select>
                   ) : (
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">{agent.data_scope === 'company' ? '🏢 Toàn công ty' : '🏠 Đơn vị'}</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">{selectedAgent.data_scope === 'company' ? '🏢 Toàn công ty' : '🏠 Đơn vị'}</p>
                   )}
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Lượt dùng</p>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">{(agent.usage_count || 0).toLocaleString()}</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">{(selectedAgent.usage_count || 0).toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Trạng thái</p>
                   <p className="text-sm font-bold mt-0.5">
                     <span className={cn(
                       "px-2 py-0.5 rounded-full text-xs font-bold",
-                      agent.is_active
+                      selectedAgent.is_active
                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                         : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                     )}>
-                      {agent.is_active ? '🟢 Hoạt động' : '⭕ Tắt'}
+                      {selectedAgent.is_active ? '🟢 Hoạt động' : '⭕ Tắt'}
                     </span>
                   </p>
                 </div>
@@ -683,7 +630,7 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                   /* Read-only view: grouped by category */
                   <div className="space-y-3">
                     {TOOL_CATEGORIES.map(cat => {
-                      const agentTools = (agent.allowed_tools || []).filter(t => cat.tools.includes(t));
+                      const agentTools = (selectedAgent.allowed_tools || []).filter(t => cat.tools.includes(t));
                       if (agentTools.length === 0) return null;
                       return (
                         <div key={cat.id}>
@@ -748,7 +695,7 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-1.5">
-                      {(agent.allowed_roles || []).map(r => {
+                      {(selectedAgent.allowed_roles || []).map(r => {
                           const rLabel = ALL_ROLES.find(x => x.id === r)?.label || r;
                           return <span key={r} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold">{rLabel}</span>;
                       })}
@@ -803,7 +750,7 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-1.5 overflow-y-auto max-h-56">
-                      {(agent.allowed_users || []).map(uId => {
+                      {(selectedAgent.allowed_users || []).map(uId => {
                           const uName = employees.find(e => e.id === uId)?.name || 'Unknown';
                           return <span key={uId} className="px-2 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-xs font-bold">{uName}</span>;
                       })}
@@ -827,19 +774,21 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                    💾 Lưu thay đổi
                 </button>
                 <button
-                  onClick={() => onToggleActive(agent)}
+                  onClick={() => handleToggleActive(selectedAgent)}
                   className={cn(
                     "flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors",
-                    agent.is_active
+                    selectedAgent.is_active
                       ? "bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/30"
                       : "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
                   )}
                 >
-                  {agent.is_active ? '⏸️ Tắt Agent' : '▶️ Bật Agent'}
+                  {selectedAgent.is_active ? '⏸️ Tắt Agent' : '▶️ Bật Agent'}
                 </button>
               </div>
             )}
           </div>
+        </>
+      )}
       {/* Tool Config Modal */}
       {configuringTool && (
         <ToolDetailModal
@@ -850,10 +799,8 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
           }}
         />
       )}
-    </>
+    </div>
   );
 };
-
-
 
 export default AgentManager;

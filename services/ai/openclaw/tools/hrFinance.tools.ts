@@ -128,8 +128,7 @@ export const getSalaryInsightsTool: OpenClawTool = {
     // Lấy lương mới nhất của mỗi nhân viên
     let empQuery = supabase
       .from('employees')
-      .select('id, name, position, unit_id')
-      .or('status.is.null,status.eq.active');
+      .select('id, name, position, unit_id');
     if (unitFilter) empQuery = empQuery.eq('unit_id', unitFilter);
 
     const { data: employees } = await empQuery;

@@ -166,7 +166,6 @@ export const getContractLaborExpiryTool: OpenClawTool = {
     const { data: employees } = await supabase
       .from('employees')
       .select('id, name, position, unit_id, contract_type, contract_end_date')
-      .or(`status.is.null,status.eq.active`)
       .not('contract_end_date', 'is', null)
       .gte('contract_end_date', todayStr)
       .lte('contract_end_date', futureStr)

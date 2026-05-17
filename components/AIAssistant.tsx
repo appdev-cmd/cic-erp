@@ -37,10 +37,18 @@ import {
   Globe,
   Facebook,
   Linkedin,
-  Mail
+  Mail,
+  FileCode,
+  FileText,
+  Presentation,
+  FileDown,
+  Loader2,
+  Image as ImageIcon,
+  ClipboardCopy
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { generateSmartFileName, exportToHTML, exportToDOCX, exportToImage, copyImageToClipboard, exportToPDF } from '../utils/aiExportService';
 import { streamEnterpriseAI } from '../services/ai';
 import { getBusinessContext, invalidateBusinessContext } from '../services/contextService';
 import { searchKnowledgeBase } from '../services/ragService';
@@ -1254,7 +1262,9 @@ const AIAssistant: React.FC = () => {
                   {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
                 </div>
 
-                <div className={cn(
+                <div 
+                  id={`chat-bubble-${msg.id}`}
+                  className={cn(
                   "group relative px-5 py-3.5 md:px-6 md:py-4 rounded-[20px] text-sm leading-relaxed shadow-sm",
                   msg.role === 'user'
                     ? "bg-indigo-600 text-white rounded-tr-sm"
@@ -1285,7 +1295,7 @@ const AIAssistant: React.FC = () => {
                   )}
 
                   {msg.role === 'model' && !msg.isStreaming && msg.content && (
-                    <div className="absolute -bottom-6 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                    <div className="absolute -bottom-6 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10" data-html2canvas-ignore="true">
                       <button
                         onClick={() => handleCopy(msg.id, msg.content)}
                         className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm cursor-pointer transition-colors"
@@ -1293,6 +1303,87 @@ const AIAssistant: React.FC = () => {
                       >
                         {copiedId === msg.id ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
                       </button>
+
+                      {msg.content.length > 50 && (
+                        <div className="flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm overflow-hidden">
+                          <button
+                            onClick={async () => {
+                              const tId = toast.loading('Đang chuẩn bị dữ liệu xuất file...');
+                              const prevMsgIndex = messages.findIndex(m => m.id === msg.id) - 1;
+                              const prevMsg = prevMsgIndex >= 0 ? messages[prevMsgIndex] : null;
+                              const fileName = await generateSmartFileName(prevMsg?.content || '', msg.content, currentModel);
+                              toast.loading('Đang xuất ra file HTML...', { id: tId });
+                              exportToHTML(`chat-bubble-${msg.id}`, fileName);
+                              toast.success('Đã tải xuống file HTML', { id: tId });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-r border-slate-200 dark:border-slate-700 cursor-pointer"
+                            title="Lưu file HTML"
+                          >
+                            <FileCode size={12} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const tId = toast.loading('Đang chuẩn bị dữ liệu xuất file...');
+                              const prevMsgIndex = messages.findIndex(m => m.id === msg.id) - 1;
+                              const prevMsg = prevMsgIndex >= 0 ? messages[prevMsgIndex] : null;
+                              const fileName = await generateSmartFileName(prevMsg?.content || '', msg.content, currentModel);
+                              toast.loading('Đang xuất ra file Word...', { id: tId });
+                              await exportToDOCX(msg.content, fileName, `chat-bubble-${msg.id}`);
+                              toast.success('Đã tải xuống file Word', { id: tId });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-r border-slate-200 dark:border-slate-700 cursor-pointer"
+                            title="Lưu file Word (DOCX)"
+                          >
+                            <FileText size={12} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const tId = toast.loading('Đang chuẩn bị dữ liệu xuất file...');
+                              const prevMsgIndex = messages.findIndex(m => m.id === msg.id) - 1;
+                              const prevMsg = prevMsgIndex >= 0 ? messages[prevMsgIndex] : null;
+                              const fileName = await generateSmartFileName(prevMsg?.content || '', msg.content, currentModel);
+                              toast.loading('Đang tải xuống ảnh...', { id: tId });
+                              await exportToImage(`chat-bubble-${msg.id}`, fileName);
+                              toast.success('Đã tải xuống file ảnh PNG', { id: tId });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-sky-500 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors border-r border-slate-200 dark:border-slate-700 cursor-pointer"
+                            title="Lưu thành Ảnh (PNG)"
+                          >
+                            <ImageIcon size={12} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const tId = toast.loading('Đang chuẩn bị dữ liệu xuất file...');
+                              const prevMsgIndex = messages.findIndex(m => m.id === msg.id) - 1;
+                              const prevMsg = prevMsgIndex >= 0 ? messages[prevMsgIndex] : null;
+                              const fileName = await generateSmartFileName(prevMsg?.content || '', msg.content, currentModel);
+                              toast.loading('Đang sao chép ảnh...', { id: tId });
+                              await copyImageToClipboard(`chat-bubble-${msg.id}`, fileName);
+                              toast.success('Đã sao chép ảnh vào Clipboard (Zalo/Telegram)', { id: tId });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors border-r border-slate-200 dark:border-slate-700 cursor-pointer"
+                            title="Copy Ảnh để gửi Zalo/Telegram"
+                          >
+                            <ClipboardCopy size={12} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const tId = toast.loading('Đang nhờ AI nghĩ tên file...');
+                              const prevMsgIndex = messages.findIndex(m => m.id === msg.id) - 1;
+                              const prevMsg = prevMsgIndex >= 0 ? messages[prevMsgIndex] : null;
+                              const fileName = await generateSmartFileName(prevMsg?.content || '', msg.content, currentModel);
+                              toast.loading('Đang xuất ra file PDF...', { id: tId });
+                              await exportToPDF(`chat-bubble-${msg.id}`, fileName);
+                              toast.success('Đã tải xuống file PDF', { id: tId });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors cursor-pointer"
+                            title="Lưu file PDF"
+                          >
+                            <FileDown size={12} />
+                          </button>
+                        </div>
+                      )}
+
                       {msg.content.length > 50 && (
                         <button
                           onClick={async () => {

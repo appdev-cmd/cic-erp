@@ -207,23 +207,34 @@ export const getHrHeadcountStatsTool: OpenClawTool = {
     const yearStart = `${year}-01-01`;
     const yearEnd = `${year}-12-31`;
 
-    // ── 1. Lấy tất cả nhân viên (bao gồm cả resigned để tính biến động) ──
-    const { data: allEmployees } = await supabase
+    // ── 1. Lấy tất cả nhân viên ──
+    const { data: allEmployees, error: empError } = await supabase
       .from('employees')
-      .select('id, name, unit_id, gender, contract_type, date_joined, status, position');
+      .select('*');
+
+    if (empError) {
+      return `## 👥 BÁO CÁO NHÂN SỰ\n\nLỗi truy vấn dữ liệu: ${empError.message}`;
+    }
 
     if (!allEmployees || allEmployees.length === 0) {
       return '## 👥 BÁO CÁO NHÂN SỰ\n\nKhông có dữ liệu nhân viên trong hệ thống.';
     }
 
     // ── 2. Phân loại ──
-    const activeEmps = allEmployees.filter((e: any) => !e.status || e.status === 'active');
-    const resignedInYear = allEmployees.filter((e: any) =>
-      e.status === 'resigned' || e.status === 'inactive'
-    );
-    const newInYear = activeEmps.filter((e: any) =>
-      e.date_joined && e.date_joined >= yearStart && e.date_joined <= yearEnd
-    );
+    // Nếu bảng không có cột status → coi tất cả là active
+    const hasStatus = allEmployees.some((e: any) => e.status !== undefined && e.status !== null);
+    const activeEmps = hasStatus
+      ? allEmployees.filter((e: any) => !e.status || e.status === 'active')
+      : allEmployees; // Không có cột status → tất cả là active
+    const resignedInYear = hasStatus
+      ? allEmployees.filter((e: any) => e.status === 'resigned' || e.status === 'inactive')
+      : [];
+    // Hỗ trợ cả date_joined và join_date (2 tên cột có thể tồn tại)
+    const getJoinDate = (e: any) => e.date_joined || e.join_date || null;
+    const newInYear = activeEmps.filter((e: any) => {
+      const jd = getJoinDate(e);
+      return jd && jd >= yearStart && jd <= yearEnd;
+    });
     const totalActive = activeEmps.length;
     const totalNew = newInYear.length;
     const totalResigned = resignedInYear.length;
@@ -263,8 +274,9 @@ export const getHrHeadcountStatsTool: OpenClawTool = {
     // ── 6. Cơ cấu theo Thâm niên ──
     const seniority = { 'Dưới 1 năm': 0, '1-3 năm': 0, '3-5 năm': 0, 'Trên 5 năm': 0, 'Chưa rõ': 0 };
     activeEmps.forEach((e: any) => {
-      if (!e.date_joined) { seniority['Chưa rõ']++; return; }
-      const joinDate = new Date(e.date_joined);
+      const jd = getJoinDate(e);
+      if (!jd) { seniority['Chưa rõ']++; return; }
+      const joinDate = new Date(jd);
       const years = (Date.now() - joinDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
       if (years < 1) seniority['Dưới 1 năm']++;
       else if (years < 3) seniority['1-3 năm']++;
