@@ -13,6 +13,7 @@ import {
     calculateAdvanceAmount,
     calculatePayables,
 } from './contractFinancials';
+import { safeEval } from '../../utils/formulaEval';
 
 /**
  * Map a raw DB contract row to the frontend Contract interface.
@@ -34,8 +35,17 @@ export const mapContract = (c: any): Contract => {
     const lineItems = c.details?.lineItems || c.line_items || [];
     const executionCosts = c.details?.executionCosts || c.execution_costs || [];
 
-    // Calculate exact value and estimated cost based on formulas
-    const estimatedCost = (c.estimated_cost || 0); // Already handles sum(input * qty) + direct + execution
+    // Compute estimated cost dynamically from lineItems + executionCosts
+    // Uses inputPrice (authoritative stored value), not inputPriceFormula which can be stale
+    const computedInputCost = lineItems.reduce((sum: number, li: any) => {
+        const directVal = (li.directCosts as number) || 0;
+        const effectiveDirectCosts = directVal > 0
+            ? directVal
+            : ((li.directCostDetails as any[]) || []).reduce((s: number, d: any) => s + (d.amount || 0), 0);
+        return sum + ((li.inputPrice as number) || 0) * ((li.quantity as number) || 1) + effectiveDirectCosts;
+    }, 0);
+    const computedExecCost = executionCosts.reduce((sum: number, ec: any) => sum + (ec.amount || 0), 0);
+    const estimatedCost = computedInputCost + computedExecCost;
     const totalInputCost = lineItems.reduce((sum: number, li: any) => sum + (li.inputPrice || 0) * (li.quantity || 1), 0);
 
     // Revenue calculations

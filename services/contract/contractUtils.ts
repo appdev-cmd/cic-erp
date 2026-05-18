@@ -167,8 +167,8 @@ export const buildPayload = (data: Partial<Contract>): Record<string, unknown> =
             revenueSchedules: (data as Record<string, unknown>).revenueSchedules || [],
         };
 
-        if (data.executionCosts) {
-            const execSum = (data.executionCosts as ExecutionCostItem[]).reduce(
+        if (data.lineItems !== undefined || data.executionCosts !== undefined) {
+            const execSum = ((data.executionCosts as ExecutionCostItem[]) || []).reduce(
                 (sum, c) => sum + (c.amount || 0), 0
             );
             const inputSum = ((data.lineItems as any[]) || []).reduce(

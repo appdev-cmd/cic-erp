@@ -180,6 +180,7 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
         const formula = isFormula(foreignExpr) ? foreignExpr : undefined;
         onChange(vnd);
         onForeignCurrencyChange?.({ amount: amt, rate: rateValue, currency: selectedCurrency, formula });
+        onFormulaChange?.(undefined); // Clear VND formula when price is set via foreign currency
         setIsOpen(false);
     };
 

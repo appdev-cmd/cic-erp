@@ -34,14 +34,9 @@ export function useFinancialCalculations(
                 const evalPrice = safeEval(item.outputPriceFormula);
                 if (!isNaN(evalPrice) && evalPrice > 0) exactOutputPrice = evalPrice;
             }
-            let exactInputPrice = item.inputPrice;
-            if (item.inputPriceFormula) {
-                const evalPrice = safeEval(item.inputPriceFormula);
-                if (!isNaN(evalPrice) && evalPrice > 0) exactInputPrice = evalPrice;
-            }
 
             const itemOutputTotal = item.quantity * exactOutputPrice;
-            const itemInputTotal = item.quantity * exactInputPrice;
+            const itemInputTotal = item.quantity * item.inputPrice;
             const itemVatRate = item.vatRate ?? 0;
 
             // Giá trị ký HĐ = Đầu ra × (1 + VAT%) cho từng SP

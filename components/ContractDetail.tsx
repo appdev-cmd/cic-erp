@@ -880,7 +880,14 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
         {/* Content - PAKD tab */}
         {activeTab === 'pakd' && contract && (
           <div className="w-full">
-            <ContractBusinessPlanTab contract={contract} onUpdate={() => { /* maybe refresh contract */ }} />
+            <ContractBusinessPlanTab contract={contract} onUpdate={() => {
+              const id = contractId || contract?.id;
+              if (id) {
+                ContractService.getById(id)
+                  .then(data => { if (data) setContract(data); })
+                  .catch(err => console.error('ContractDetail: Refetch error', err));
+              }
+            }} />
           </div>
         )}
 

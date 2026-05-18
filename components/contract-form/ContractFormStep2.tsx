@@ -198,13 +198,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                         const evalPrice = safeEval(item.outputPriceFormula);
                                         if (!isNaN(evalPrice) && evalPrice > 0) exactOutputPrice = evalPrice;
                                     }
-                                    let exactInputPrice = item.inputPrice;
-                                    if (item.inputPriceFormula) {
-                                        const evalPrice = safeEval(item.inputPriceFormula);
-                                        if (!isNaN(evalPrice) && evalPrice > 0) exactInputPrice = evalPrice;
-                                    }
-
-                                    const inputTotal = item.quantity * exactInputPrice;
+                                    const inputTotal = item.quantity * item.inputPrice;
                                     const outputTotal = item.quantity * exactOutputPrice * (1 + (item.vatRate ?? 0) / 100);
                                     const lineMargin = outputTotal - inputTotal - (item.directCosts || 0);
                                     const lineMarginRate = outputTotal > 0 ? (lineMargin / outputTotal) * 100 : 0;
@@ -464,6 +458,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         onChange={(vnd) => {
                                                             const newList = [...lineItems];
                                                             newList[index].inputPrice = vnd;
+                                                            newList[index].inputPriceFormula = undefined;
                                                             setLineItems(newList);
                                                         }}
                                                         onForeignCurrencyChange={(info) => {
