@@ -21,6 +21,7 @@ import { useFinancialCalculations } from '../hooks/useFinancialCalculations';
 import { formatVND } from '../utils/contractHelpers';
 import { DirectCostModal } from './contract-form';
 import BusinessPlanCashflow from './contract-form/BusinessPlanCashflow';
+import Tooltip from './ui/Tooltip';
 
 interface Props {
     contract: Contract;
@@ -360,15 +361,55 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <ArrowDownRight size={14} className="text-rose-400" />
-                                <div>
-                                    <p className="text-[9px] font-bold text-rose-400/80 uppercase tracking-tight">Chi phí & Giá vốn</p>
-                                    <p className="text-sm font-black text-rose-400 leading-tight">
-                                        {fmtVND(financials.costs)}
-                                    </p>
+                            <Tooltip placement="bottom" content={(() => {
+                                const rev = financialsCalc.estimatedRevenue;
+                                const pct = (val: number) => rev > 0 ? (val / rev * 100).toFixed(1) + '%' : '—';
+                                return (
+                                    <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 shadow-xl min-w-[260px] text-xs">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Chi phí & Giá vốn / Doanh thu</p>
+                                        <div className="space-y-1.5 text-slate-300">
+                                            <div className="flex justify-between gap-4">
+                                                <span>Giá vốn đầu vào</span>
+                                                <div className="text-right">
+                                                    <span className="font-bold tabular-nums">{fmtVND(financialsCalc.totalInput)}</span>
+                                                    <span className="text-amber-400 ml-2">({pct(financialsCalc.totalInput)})</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between gap-4">
+                                                <span>CP trực tiếp theo SP</span>
+                                                <div className="text-right">
+                                                    <span className="font-bold tabular-nums">{fmtVND(financialsCalc.totalDirectCosts)}</span>
+                                                    <span className="text-amber-400 ml-2">({pct(financialsCalc.totalDirectCosts)})</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between gap-4">
+                                                <span>CP quản lý & thực hiện</span>
+                                                <div className="text-right">
+                                                    <span className="font-bold tabular-nums">{fmtVND(financialsCalc.executionCostsSum)}</span>
+                                                    <span className="text-amber-400 ml-2">({pct(financialsCalc.executionCostsSum)})</span>
+                                                </div>
+                                            </div>
+                                            <div className="border-t border-slate-700 pt-1.5 flex justify-between gap-4">
+                                                <span className="font-bold text-slate-200">= Tổng chi phí</span>
+                                                <div className="text-right">
+                                                    <span className="font-black text-rose-400 tabular-nums">{fmtVND(financialsCalc.totalCosts)}</span>
+                                                    <span className="text-rose-400 ml-2">({pct(financialsCalc.totalCosts)})</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}>
+                                <div className="flex items-center gap-2 cursor-help">
+                                    <ArrowDownRight size={14} className="text-rose-400" />
+                                    <div>
+                                        <p className="text-[9px] font-bold text-rose-400/80 uppercase tracking-tight">Chi phí & Giá vốn</p>
+                                        <p className="text-sm font-black text-rose-400 leading-tight">
+                                            {fmtVND(financials.costs)}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
+                            </Tooltip>
                         </div>
                         <div className="flex items-center gap-3 pl-6 border-l border-white/10">
                             <div className="text-right">
@@ -700,15 +741,60 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="pt-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1 truncate" title={item.name}>{item.name}</label>
-                                            <p className="text-sm font-bold text-rose-500 dark:text-rose-400">
-                                                {fmtVND(item.amount || 0)}
-                                                {(item.percentage || 0) > 0 && (
-                                                    <span className="text-xs text-slate-400 font-medium ml-2">({item.percentage}%)</span>
-                                                )}
-                                            </p>
-                                        </div>
+                                        <Tooltip placement="top" content={(() => {
+                                            const rev = financialsCalc.estimatedRevenue;
+                                            const amt = item.amount || 0;
+                                            const actualPct = rev > 0 ? (amt / rev * 100).toFixed(2) : '0';
+                                            return (
+                                                <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 shadow-xl min-w-[220px] text-xs">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 truncate">{item.name}</p>
+                                                    {(item.percentage || 0) > 0 ? (
+                                                        <div className="space-y-1.5 text-slate-300">
+                                                            <div className="flex justify-between gap-6">
+                                                                <span>Tỷ lệ áp dụng</span>
+                                                                <span className="font-bold text-amber-400">{item.percentage}%</span>
+                                                            </div>
+                                                            <div className="flex justify-between gap-6">
+                                                                <span>× Doanh thu</span>
+                                                                <span className="font-bold tabular-nums">{fmtVND(rev)}</span>
+                                                            </div>
+                                                            <div className="border-t border-slate-700 pt-1.5 flex justify-between gap-6">
+                                                                <span className="font-bold text-slate-200">= Kết quả</span>
+                                                                <div className="text-right">
+                                                                    <span className="font-black text-rose-400 tabular-nums">{fmtVND(amt)}</span>
+                                                                    <span className="text-amber-400 ml-2">({actualPct}%)</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-1.5 text-slate-300">
+                                                            <p className="text-slate-400 italic">Nhập trực tiếp</p>
+                                                            <div className="flex justify-between gap-6">
+                                                                <span>× Doanh thu</span>
+                                                                <span className="font-bold tabular-nums">{fmtVND(rev)}</span>
+                                                            </div>
+                                                            <div className="border-t border-slate-700 pt-1.5 flex justify-between gap-6">
+                                                                <span className="font-bold text-slate-200">= Số tiền</span>
+                                                                <div className="text-right">
+                                                                    <span className="font-black text-rose-400 tabular-nums">{fmtVND(amt)}</span>
+                                                                    <span className="text-amber-400 ml-2">({actualPct}%)</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}>
+                                            <div className="pt-1 cursor-help">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1 truncate" title={item.name}>{item.name}</label>
+                                                <p className="text-sm font-bold text-rose-500 dark:text-rose-400">
+                                                    {fmtVND(item.amount || 0)}
+                                                    {(item.percentage || 0) > 0 && (
+                                                        <span className="text-xs text-slate-400 font-medium ml-2">({item.percentage}%)</span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </Tooltip>
                                     )}
                                 </div>
                             ))}

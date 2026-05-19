@@ -4,9 +4,10 @@ import { createPortal } from 'react-dom';
 interface TooltipProps {
     content: React.ReactNode;
     children: React.ReactNode;
+    placement?: 'top' | 'bottom';
 }
 
-const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
+const Tooltip: React.FC<TooltipProps> = ({ content, children, placement = 'top' }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [coords, setCoords] = useState({ top: 0, left: 0 });
     const triggerRef = useRef<HTMLDivElement>(null);
@@ -14,10 +15,17 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
     const handleMouseEnter = () => {
         if (triggerRef.current) {
             const rect = triggerRef.current.getBoundingClientRect();
-            setCoords({
-                top: rect.top + window.scrollY, // Position above by default handled by CSS translation
-                left: rect.left + window.scrollX + rect.width, // Align to right or adjust
-            });
+            if (placement === 'bottom') {
+                setCoords({
+                    top: rect.bottom + window.scrollY,
+                    left: rect.left + window.scrollX,
+                });
+            } else {
+                setCoords({
+                    top: rect.top + window.scrollY,
+                    left: rect.left + window.scrollX + rect.width / 2,
+                });
+            }
             setIsVisible(true);
         }
     };
@@ -25,6 +33,10 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
     const handleMouseLeave = () => {
         setIsVisible(false);
     };
+
+    const transformStyle = placement === 'bottom'
+        ? 'translateY(8px)'
+        : 'translate(-50%, calc(-100% - 8px))';
 
     return (
         <>
@@ -42,7 +54,7 @@ const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
                     style={{
                         top: coords.top,
                         left: coords.left,
-                        transform: 'translate(-100%, -100%) translateY(-10px)', // Adjust to sit top-left of cursor/trigger
+                        transform: transformStyle,
                     }}
                 >
                     {content}
