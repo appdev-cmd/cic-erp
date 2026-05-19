@@ -648,7 +648,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                         value={cost.percentage || ''}
                                                         onChange={(e) => {
                                                             const pct = Number(e.target.value);
-                                                            const amount = Math.round((pct / 100) * totals.totalInput);
+                                                            const amount = Math.round((pct / 100) * totals.estimatedRevenue);
                                                             setExecutionCosts(prev => prev.map(c => c.id === cost.id ? { ...c, percentage: pct, amount } : c));
                                                         }}
                                                         className="w-full px-1 py-1 bg-transparent border-0 text-xs font-bold text-right outline-none"
@@ -660,7 +660,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                 <CurrencyCalculator
                                                     value={cost.amount || 0}
                                                     onChange={(vnd) => {
-                                                        const pct = totals.totalInput > 0 ? Number(((vnd / totals.totalInput) * 100).toFixed(2)) : 0;
+                                                        const pct = totals.estimatedRevenue > 0 ? Number(((vnd / totals.estimatedRevenue) * 100).toFixed(2)) : 0;
                                                         setExecutionCosts(prev => prev.map(c => c.id === cost.id ? { ...c, amount: vnd, percentage: pct } : c));
                                                     }}
                                                     formula={cost.formula}
