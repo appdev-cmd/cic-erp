@@ -10,7 +10,7 @@ import { fmtMoney, fmtMoneyWithRaw, canViewAll, getUnitFilter } from './_helpers
 
 export const searchContractsTool: OpenClawTool = {
   name: 'search_contracts',
-  description: 'Tìm kiếm hợp đồng theo từ khóa, thời gian, trạng thái, phòng ban. Dùng để lấy danh sách hợp đồng cụ thể, hoặc tìm TOP N hợp đồng lớn nhất/nhỏ nhất (sử dụng sortBy="value" và sortDir="desc").',
+  description: 'Tìm kiếm hợp đồng theo từ khóa, thời gian, trạng thái, phòng ban. Dùng để lấy danh sách hợp đồng cụ thể, hỗ trợ phân trang (page, limit) để tránh sót kết quả, hoặc tìm TOP N hợp đồng lớn nhất/nhỏ nhất (sử dụng sortBy="value" và sortDir="desc").',
   schema: {
     search: { type: 'string', description: 'Từ khóa tìm kiếm (tên, mã hợp đồng, khách hàng)' },
     status: { type: 'string', description: 'Trạng thái (Processing, Completed, Suspended, Cancelled)', enum: ['Processing', 'Completed', 'Suspended', 'Cancelled', 'All'] },
@@ -20,7 +20,8 @@ export const searchContractsTool: OpenClawTool = {
     dateTo: { type: 'string', description: 'Đến ngày (YYYY-MM-DD)' },
     sortBy: { type: 'string', description: 'Trường để sắp xếp (vd: value, signedDate)' },
     sortDir: { type: 'string', description: 'Chiều sắp xếp (asc hoặc desc)', enum: ['asc', 'desc'] },
-    limit: { type: 'number', description: 'Số lượng kết quả trả về (mặc định 10, tối đa 50)' }
+    page: { type: 'number', description: 'Số trang cần lấy để phân trang (mặc định là 1)' },
+    limit: { type: 'number', description: 'Số lượng kết quả trả về mỗi trang (mặc định 10, tối đa 100)' }
   },
   execute: async (args, context: UserContext) => {
     // Phân quyền: nếu unit-scoped, tự filter theo đơn vị mình
@@ -29,10 +30,11 @@ export const searchContractsTool: OpenClawTool = {
       unitFilter = context.unitId;
     }
 
-    const limit = args.limit ? Math.min(Number(args.limit), 50) : 10;
+    const limit = args.limit ? Math.min(Number(args.limit), 100) : 10;
+    const page = args.page ? Math.max(Number(args.page), 1) : 1;
 
     const res = await ContractService.list({
-      page: 1, limit,
+      page, limit,
       search: args.search,
       status: args.status,
       year: args.year,
@@ -42,15 +44,23 @@ export const searchContractsTool: OpenClawTool = {
       sortBy: args.sortBy,
       sortDir: args.sortDir as 'asc' | 'desc' | undefined
     });
-    return res.data.map(c => ({
-      id: c.id,
-      code: c.contractCode,
-      title: c.title,
-      partyA: c.partyA,
-      value: fmtMoney(c.value || 0),
-      status: c.status,
-      signedDate: c.signedDate
-    }));
+    return {
+      contracts: res.data.map(c => ({
+        id: c.id,
+        code: c.contractCode,
+        title: c.title,
+        partyA: c.partyA,
+        value: fmtMoney(c.value || 0),
+        status: c.status,
+        signedDate: c.signedDate
+      })),
+      pagination: {
+        page,
+        limit,
+        total: res.count,
+        totalPages: Math.ceil(res.count / limit)
+      }
+    };
   }
 };
 

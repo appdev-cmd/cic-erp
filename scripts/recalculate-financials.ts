@@ -19,24 +19,29 @@ import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Manual .env loading (no dotenv dependency)
-const envPath = path.resolve(process.cwd(), '.env');
-const envContent = fs.readFileSync(envPath, 'utf-8');
-envContent.split('\n').forEach(line => {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) return;
-    const eqIdx = trimmed.indexOf('=');
-    if (eqIdx === -1) return;
-    const key = trimmed.substring(0, eqIdx).trim();
-    const val = trimmed.substring(eqIdx + 1).trim();
-    process.env[key] = val;
-});
+// Manual env loading
+const loadEnv = (filePath: string) => {
+    if (!fs.existsSync(filePath)) return;
+    const content = fs.readFileSync(filePath, 'utf-8');
+    content.split('\n').forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) return;
+        const key = trimmed.substring(0, eqIdx).trim();
+        const val = trimmed.substring(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+        process.env[key] = val;
+    });
+};
+
+loadEnv(path.resolve(process.cwd(), '.env'));
+loadEnv(path.resolve(process.cwd(), '.env.local'));
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.error('❌ Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in .env');
+    console.error('❌ Missing VITE_SUPABASE_URL or VITE_SUPABASE_SERVICE_ROLE_KEY / VITE_SUPABASE_ANON_KEY in env');
     process.exit(1);
 }
 
@@ -160,13 +165,8 @@ async function main() {
             const payables = totalInputCost - totalExpensesPaid;
 
             // === 11. LNG theo DT ===
-            let revProfit = 0;
-            if (c.status === 'Completed') {
-                revProfit = actualRevenue - actualCost;
-            } else {
-                const revenueRatio = expectedRevenue > 0 ? (actualRevenue / expectedRevenue) : 0;
-                revProfit = actualRevenue - (newEstimatedCost * revenueRatio);
-            }
+            const revenueRatio = expectedRevenue > 0 ? (actualRevenue / expectedRevenue) : 0;
+            const revProfit = actualRevenue - (newEstimatedCost * revenueRatio);
 
             // Update DB
             const updateData: any = {

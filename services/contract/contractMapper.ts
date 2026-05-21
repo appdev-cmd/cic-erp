@@ -66,17 +66,8 @@ export const mapContract = (c: any): Contract => {
     // LNG Quản trị = Doanh thu dự kiến - Chi phí dự kiến
     const adminProfit = expectedRevenue - estimatedCost;
 
-    let revProfit = 0;
-    if (c.status === 'Completed') {
-        const actualCost = payments
-            .filter((p: any) => p.voucher_type === 'EXPENSE' && p.status === 'Đã chi')
-            .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-        revProfit = actualRevenue - actualCost;
-    } else {
-        // Trạng thái KHÁC Hoàn thành: Doanh thu thực tế - Chi phí dự kiến * Tỷ lệ xuất doanh thu
-        const revenueRatio = expectedRevenue > 0 ? (actualRevenue / expectedRevenue) : 0;
-        revProfit = actualRevenue - (estimatedCost * revenueRatio);
-    }
+    const revenueRatio = expectedRevenue > 0 ? (actualRevenue / expectedRevenue) : 0;
+    const revProfit = actualRevenue - (estimatedCost * revenueRatio);
 
 
     // Compute warning flags (not stored in DB — derived from data)

@@ -151,7 +151,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const navigate = useNavigate();
 
   // Slide panel for nested navigation (always available within MainLayout)
-  const { openPanel: openPanelFn, closePanel: closePanelFn } = useSlidePanel();
+  const { openPanel: openPanelFn, closePanel: closePanelFn, updatePanelTitle } = useSlidePanel();
   const slidePanelAvailable = true;
 
   // Effective role (impersonation-aware) — for backward compat
@@ -229,6 +229,13 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
         .finally(() => setLoading(false));
     }
   }, [contractId, initialContract]);
+
+  // Update panel title with contract code
+  useEffect(() => {
+    if (contract?.contractCode && updatePanelTitle) {
+      updatePanelTitle(undefined, contract.contractCode);
+    }
+  }, [contract?.contractCode, updatePanelTitle]);
 
   // Fetch References — batch thành Promise.all để tránh N+1 queries
   useEffect(() => {
