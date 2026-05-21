@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useEffectiveProfile } from '../contexts/ImpersonationContext';
 import { agentDefinitions } from '../services/ai/openclaw/agents/definitions';
 import { AgentConfigService } from '../services/ai/agentConfigService';
+import { aiPermissionService } from '../services/aiPermissionService';
 import type { UserContext, DepartmentAgent } from '../services/ai/openclaw/types';
 import { cn } from '../lib/utils';
 
@@ -134,11 +135,26 @@ const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode
 
       const mergedTools = await AgentToolConfigService.getMergedTools(erpToolsRegistry);
 
+      // SECURITY (C4): Only allow tools that the agent config permits
+      const filteredTools = agent.allowedTools?.length
+          ? mergedTools.filter(t => agent.allowedTools!.includes(t.name))
+          : mergedTools;
+
+      // SECURITY (C12): Check AI permission before running agent loop
+      const permission = await aiPermissionService.getMyPermission();
+      if (permission && !permission.can_use_system_api) {
+          setMessages(prev => prev.map(m =>
+              m.id === botMsgId ? { ...m, content: '⚠️ Bạn chưa được cấp quyền sử dụng AI Agent. Vui lòng liên hệ Admin.', isStreaming: false } : m
+          ));
+          setIsTyping(false);
+          return;
+      }
+
       const result = await runReActLoop(
         text,
         userContext,
         agent,
-        mergedTools,
+        filteredTools,
         history,
         8,
         controller.signal,

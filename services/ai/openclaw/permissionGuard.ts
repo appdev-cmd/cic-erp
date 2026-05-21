@@ -1,6 +1,7 @@
 import type { OpenClawTool, UserContext } from './types';
-import { getUnitFilter, canViewAll } from './tools/_helpers';
+import { canViewAll } from './tools/_helpers';
 import { AuditLogger } from './auditLogger';
+import { isToolAllowedForRole, TOOL_ACL } from './toolAcl';
 
 /**
  * Danh sách role được phép xem toàn công ty (Global roles)
@@ -18,19 +19,31 @@ function isGlobalRole(role: string): boolean {
 /**
  * Middleware bảo mật cho OpenClaw Tools
  * Đảm bảo:
- * 1. AI chỉ gọi tool nếu user có quyền.
+ * 1. AI chỉ gọi tool nếu user có quyền (Role-based ACL).
  * 2. Tự động ép unitId filter nếu user là unit-scoped.
- * 3. Ghi log truy cập.
+ * 3. Ghi log truy cập (Audit Trail).
  */
 export function createGuardedTool(tool: OpenClawTool): OpenClawTool {
   return {
     ...tool,
     execute: async (args, context: UserContext) => {
-      // 1. Kiểm tra quyền cơ bản (optional, có thể mở rộng bằng toolPermissionMap)
-      // Hiện tại ta dựa vào allowedTools ở agent config để giới hạn.
-      // PermissionGuard này tập trung vào DATA SCOPING.
+      // ═══ 1. ROLE-BASED TOOL ACCESS CONTROL ═══════════════════════
+      // Check if user's role is allowed to use this specific tool
+      if (!isToolAllowedForRole(tool.name, context.role)) {
+        // Log denied access attempt
+        await AuditLogger.log({
+          userId: context.userId,
+          toolName: tool.name,
+          args: args,
+          unitScope: [context.unitId || 'UNKNOWN'],
+          result: 'denied',
+          dataAccessed: `DENIED: Role "${context.role}" not allowed for tool "${tool.name}"`,
+          timestamp: new Date().toISOString()
+        });
+        return `Truy cập bị từ chối: Bạn (${context.role}) không có quyền sử dụng chức năng "${tool.name}". Vui lòng liên hệ Admin để được cấp quyền.`;
+      }
 
-      // 2. Data Scoping & Sanitization
+      // ═══ 2. DATA SCOPING & SANITIZATION ══════════════════════════
       const sanitizedArgs = { ...args };
 
       // Nếu user không có quyền xem toàn công ty, và tool nhận tham số unitId
@@ -45,18 +58,18 @@ export function createGuardedTool(tool: OpenClawTool): OpenClawTool {
         }
       }
 
-      // 3. Ghi Audit Log trước khi chạy
+      // ═══ 3. AUDIT LOG ════════════════════════════════════════════
       await AuditLogger.log({
         userId: context.userId,
         toolName: tool.name,
         args: sanitizedArgs,
         unitScope: isGlobalRole(context.role) ? ['*'] : [context.unitId || 'UNKNOWN'],
-        result: 'success', // Assuming success for now, will catch error if fails
+        result: 'success',
         dataAccessed: `AI Agent calling ${tool.name}`,
         timestamp: new Date().toISOString()
       });
 
-      // 4. Thực thi tool với context đã được bảo mật
+      // ═══ 4. EXECUTE ══════════════════════════════════════════════
       try {
           const result = await tool.execute(sanitizedArgs, context);
           return result;

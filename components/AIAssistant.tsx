@@ -577,7 +577,7 @@ const AIAssistant: React.FC = () => {
       try {
         const res = await fetch(`/api/vllm/models`, {
           signal: AbortSignal.timeout(3000),
-          headers: { 'Authorization': `Bearer sk-cic-2026` }
+          headers: { 'Authorization': `Bearer ${import.meta.env.VITE_LITELLM_KEY || 'sk-cic-2026'}` }
         });
         if (res.ok) {
           const data = await res.json() as { data?: { id: string }[] };
@@ -591,7 +591,7 @@ const AIAssistant: React.FC = () => {
       try {
         const res = await fetch(`/api/vllm_gemma/models`, {
           signal: AbortSignal.timeout(3000),
-          headers: { 'Authorization': `Bearer sk-cic-2026` }
+          headers: { 'Authorization': `Bearer ${import.meta.env.VITE_LITELLM_KEY || 'sk-cic-2026'}` }
         });
         if (res.ok) {
           const data = await res.json() as { data?: { id: string }[] };

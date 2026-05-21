@@ -64,9 +64,14 @@ export const getContractDetailTool: OpenClawTool = {
   schema: {
     contractId: { type: 'string', description: 'ID hợp đồng' }
   },
-  execute: async (args) => {
+  execute: async (args, context: UserContext) => {
     const data = await ContractService.getById(args.contractId);
     if (!data) return "Không tìm thấy hợp đồng.";
+
+    // SECURITY: Check unit ownership for non-global roles
+    if (!canViewAll(context) && context.unitId && (data as any).unitId !== context.unitId) {
+      return "Truy cập bị từ chối: Hợp đồng này không thuộc đơn vị của bạn.";
+    }
 
     const totalValue = data.value || 0;
     const totalRevenue = data.actualRevenue || 0;

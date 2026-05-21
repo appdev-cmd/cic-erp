@@ -5,7 +5,7 @@ import { EmployeeService } from '../../../employeeService';
 import { UnitService } from '../../../unitService';
 import { TaskService } from '../../../taskService';
 import type { OpenClawTool, UserContext } from '../types';
-import { fmtMoney, isBusinessUnit } from './_helpers';
+import { fmtMoney, isBusinessUnit, canViewAll, getUnitFilter } from './_helpers';
 
 // ═══════════════════════════════════════════════
 // createSmartPlanTool
@@ -19,6 +19,15 @@ export const createSmartPlanTool: OpenClawTool = {
     assignedTo: { type: 'string', description: 'ID nhân viên được giao (để trống = tự động phân công)' },
   },
   execute: async (args, context: UserContext) => {
+    // SECURITY: Role gate — only Leadership/UnitLeader/Admin can auto-create plans
+    const allowedPlanRoles = ['Admin', 'Leadership', 'UnitLeader'];
+    if (!allowedPlanRoles.includes(context.role)) {
+      return 'Truy cập bị từ chối: Chỉ Ban Giám đốc, Trưởng đơn vị hoặc Admin mới có thể tạo kế hoạch tự động.';
+    }
+
+    // SECURITY: Unit scope for queries
+    const forcedUnitId = getUnitFilter(args, context);
+
     const today = new Date();
     const focusArea = args.focusArea || 'all';
     const isWeekly = args.planType !== 'monthly';
@@ -28,11 +37,17 @@ export const createSmartPlanTool: OpenClawTool = {
     const endStr = endDate.toISOString().split('T')[0];
 
     // 1. Lấy dữ liệu song song
-    const [overdueRes, expiryRes, debtRes] = await Promise.all([
-      supabase.from('contracts').select('id, name, end_date, unit_id').eq('status', 'Processing').lt('end_date', todayStr).limit(10),
-      supabase.from('contracts').select('id, name, end_date, unit_id').eq('status', 'Processing').gte('end_date', todayStr).lte('end_date', endStr).limit(10),
-      supabase.from('payments').select('id, contract_id, amount, paid_amount, due_date').in('status', ['Chưa thanh toán', 'Đã xuất HĐ']).lt('due_date', endStr).limit(10),
-    ]);
+    let overdueQuery = supabase.from('contracts').select('id, name, end_date, unit_id').eq('status', 'Processing').lt('end_date', todayStr).limit(10);
+    let expiryQuery = supabase.from('contracts').select('id, name, end_date, unit_id').eq('status', 'Processing').gte('end_date', todayStr).lte('end_date', endStr).limit(10);
+    let debtQuery = supabase.from('payments').select('id, contract_id, amount, paid_amount, due_date, contracts!inner(unit_id)').in('status', ['Chưa thanh toán', 'Đã xuất HĐ']).lt('due_date', endStr).limit(10);
+
+    if (forcedUnitId) {
+      overdueQuery = overdueQuery.eq('unit_id', forcedUnitId);
+      expiryQuery = expiryQuery.eq('unit_id', forcedUnitId);
+      debtQuery = debtQuery.eq('contracts.unit_id', forcedUnitId);
+    }
+
+    const [overdueRes, expiryRes, debtRes] = await Promise.all([overdueQuery, expiryQuery, debtQuery]);
 
     const overdueContracts = overdueRes.data || [];
     const expiringContracts = expiryRes.data || [];
@@ -123,21 +138,40 @@ export const analyzeBottleneckTool: OpenClawTool = {
     unit_id: { type: 'string', description: 'ID đơn vị cần phân tích (để trống = toàn công ty)' },
   },
   execute: async (args, context: UserContext) => {
+    // SECURITY: Unit scope
+    const forcedUnitId = getUnitFilter(args, context);
+
     const today = new Date().toISOString().split('T')[0];
+
+    let overdueTasksQuery = supabase.from('tasks').select('id, title, assigned_to, due_date').lt('due_date', today).is('completed_at', null).limit(50);
+    let overdueContractsQuery = supabase.from('contracts').select('id, name, end_date, unit_id').eq('status', 'Processing').lt('end_date', today).limit(20);
+
+    if (forcedUnitId) {
+      overdueContractsQuery = overdueContractsQuery.eq('unit_id', forcedUnitId);
+    }
+
     const [overdueTasksRes, overdueContractsRes, employeesRes] = await Promise.all([
-      supabase.from('tasks').select('id, title, assigned_to, due_date').lt('due_date', today).is('completed_at', null).limit(50),
-      supabase.from('contracts').select('id, name, end_date, unit_id').eq('status', 'Processing').lt('end_date', today).limit(20),
+      overdueTasksQuery,
+      overdueContractsQuery,
       EmployeeService.getAll(),
     ]);
 
     const overdueTasks = overdueTasksRes.data || [];
     const overdueContracts = overdueContractsRes.data || [];
-    const employees = employeesRes || [];
+    let employees = employeesRes || [];
 
-    // Tính workload theo nhân viên
+    // SECURITY: Filter employees by unit for non-global roles
+    if (forcedUnitId) {
+      employees = employees.filter((e: any) => e.unit_id === forcedUnitId);
+    }
+    const empIds = new Set(employees.map((e: any) => e.id));
+
+    // Tính workload theo nhân viên (filtered by unit)
     const workloadMap: Record<string, number> = {};
     overdueTasks.forEach(t => {
-      if (t.assigned_to) workloadMap[t.assigned_to] = (workloadMap[t.assigned_to] || 0) + 1;
+      if (t.assigned_to && (!forcedUnitId || empIds.has(t.assigned_to))) {
+        workloadMap[t.assigned_to] = (workloadMap[t.assigned_to] || 0) + 1;
+      }
     });
 
     const empMap = new Map(employees.map((e: any) => [e.id, e.name]));
@@ -182,6 +216,9 @@ export const forecastNextQuarterTool: OpenClawTool = {
     targetYear: { type: 'string', description: 'Năm mục tiêu (VD: 2026). Mặc định = năm hiện tại.' },
   },
   execute: async (args, context: UserContext) => {
+    // SECURITY: Unit scope
+    const forcedUnitId = getUnitFilter(args, context);
+
     const year = parseInt(args.targetYear || String(new Date().getFullYear()));
     const now = new Date();
     const currentQ = Math.ceil((now.getMonth() + 1) / 3);
@@ -208,11 +245,17 @@ export const forecastNextQuarterTool: OpenClawTool = {
     const r1 = getQRange(prevQ, prevYear);
     const r2 = getQRange(prev2Q, prev2Year);
 
-    const [q1Res, q2Res, pipelineRes] = await Promise.all([
-      supabase.from('contracts').select('value, revenue').gte('signed_date', r1.from).lte('signed_date', r1.to),
-      supabase.from('contracts').select('value, revenue').gte('signed_date', r2.from).lte('signed_date', r2.to),
-      supabase.from('contracts').select('value').eq('status', 'Processing').gte('end_date', new Date().toISOString().split('T')[0]),
-    ]);
+    let q1Query = supabase.from('contracts').select('value, revenue').gte('signed_date', r1.from).lte('signed_date', r1.to);
+    let q2Query = supabase.from('contracts').select('value, revenue').gte('signed_date', r2.from).lte('signed_date', r2.to);
+    let pipelineQuery = supabase.from('contracts').select('value').eq('status', 'Processing').gte('end_date', new Date().toISOString().split('T')[0]);
+
+    if (forcedUnitId) {
+      q1Query = q1Query.eq('unit_id', forcedUnitId);
+      q2Query = q2Query.eq('unit_id', forcedUnitId);
+      pipelineQuery = pipelineQuery.eq('unit_id', forcedUnitId);
+    }
+
+    const [q1Res, q2Res, pipelineRes] = await Promise.all([q1Query, q2Query, pipelineQuery]);
 
     const calcTotals = (rows: any[]) => ({
       signing: (rows || []).reduce((s: number, r: any) => s + (r.value || 0), 0),

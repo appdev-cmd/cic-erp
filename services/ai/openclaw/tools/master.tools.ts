@@ -1,4 +1,5 @@
-import type { OpenClawTool } from '../types';
+import type { OpenClawTool, UserContext } from '../types';
+import { canViewAll } from './_helpers';
 
 export const delegateTaskTool: OpenClawTool = {
   name: 'delegate_task_to_agent',
@@ -7,7 +8,7 @@ export const delegateTaskTool: OpenClawTool = {
     agentId: { type: 'string', description: 'ID của agent đích (Ví dụ: "agent-bgd", "agent-mkt")' },
     instruction: { type: 'string', description: 'Chỉ thị công việc cực kỳ chi tiết, bao gồm cả từ khóa hoặc điều kiện để Agent đích biết phải làm gì.' }
   },
-  execute: async (args, context) => {
+  execute: async (args, context: UserContext) => {
     try {
       // Dynamic imports to prevent circular dependencies
       const { runReActLoop } = await import('../react-loop');
@@ -21,6 +22,16 @@ export const delegateTaskTool: OpenClawTool = {
       }
       if (!targetAgent.isActive) {
           return `Lỗi: Agent ${targetAgent.name} hiện đang bị vô hiệu hóa.`;
+      }
+
+      // SECURITY: Check if user's role is allowed to access target agent
+      if (targetAgent.allowedRoles && targetAgent.allowedRoles.length > 0) {
+        const userRole = context.role;
+        const isAdmin = userRole === 'Admin';
+        const isAllowed = isAdmin || targetAgent.allowedRoles.includes(userRole) || canViewAll(context);
+        if (!isAllowed) {
+          return `Truy cập bị từ chối: Bạn không có quyền sử dụng Agent "${targetAgent.name}".`;
+        }
       }
 
       console.log(`[MasterRouter] Giao task cho ${targetAgent.name}: "${args.instruction}"`);

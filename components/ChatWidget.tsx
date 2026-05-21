@@ -352,25 +352,93 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
             )}
 
             {/* Premium Toggle Button */}
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`relative group p-3 rounded-full shadow-2xl transition-all duration-300 pointer-events-auto hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer ${isOpen
-                    ? 'bg-slate-800 text-white rotate-90 scale-0 opacity-0 absolute'
-                    : 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white hover:shadow-indigo-500/40'
-                    }`}
-            >
-                {/* Glow effect under button */}
-                <div className="absolute inset-0 rounded-full bg-indigo-500 blur opacity-40 group-hover:opacity-60 transition-opacity"></div>
-                <MessageCircle size={24} className="relative z-10" />
+            <div className={`pointer-events-auto ${isOpen ? 'opacity-0 scale-0 absolute' : 'opacity-100 scale-100'} transition-all duration-300`}>
                 
-                {/* Notification Badge */}
-                {!isOpen && (
-                    <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-4 w-4 z-20">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white dark:border-slate-900"></span>
-                    </span>
-                )}
-            </button>
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="relative p-3.5 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer bg-slate-950 dark:bg-slate-900 border-2 border-orange-500/40 dark:border-orange-500/30 hover:border-orange-500 dark:hover:border-orange-400 text-white cic-btn-glow"
+                >
+                    {/* Glow effect under button - Soft orange glow to elevate premium contrast */}
+                    <div className="absolute inset-0 rounded-full bg-orange-500 blur-md opacity-20 hover:opacity-35 transition-opacity duration-300"></div>
+                    
+                    {/* 100% Original CIC Logo - Flat, sharp, and correct striping with breathing float effect */}
+                    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 relative z-10 drop-shadow-md logo-cic-float">
+                        <defs>
+                            {/* CIC Orange Brand Gradient */}
+                            <linearGradient id="cic-orange" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stop-color="#f97316"/>
+                                <stop offset="100%" stop-color="#ea580c"/>
+                            </linearGradient>
+                        </defs>
+                        <style>
+                            {`
+                                @keyframes cic-float {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-2px); }
+                                }
+                                @keyframes cic-pulse-glow {
+                                    0%, 100% {
+                                        box-shadow: 0 0 12px rgba(249, 115, 22, 0.15), inset 0 0 6px rgba(249, 115, 22, 0.05);
+                                        border-color: rgba(249, 115, 22, 0.35);
+                                    }
+                                    50% {
+                                        box-shadow: 0 0 22px rgba(249, 115, 22, 0.45), inset 0 0 10px rgba(249, 115, 22, 0.15);
+                                        border-color: rgba(249, 115, 22, 0.75);
+                                    }
+                                }
+                                .logo-cic-float { animation: cic-float 3.5s ease-in-out infinite; }
+                                .cic-btn-glow { animation: cic-pulse-glow 3s ease-in-out infinite; }
+                            `}
+                        </style>
+                        <g>
+                            {/* NỀN TẢNG LOGO CIC NGUYÊN BẢN 100% PHẲNG & SẮC NÉT (10 SỌC NGANG CHUẨN XÁC) */}
+                            {/* Letter 'C' Left */}
+                            <rect x="12" y="20" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="12" y="26" width="19" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="12" y="32" width="15" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="12" y="38" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="12" y="44" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="12" y="50" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="12" y="56" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="12" y="62" width="15" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="12" y="68" width="19" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="12" y="74" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+
+                            {/* Letter 'I' Center (Nét vát chéo bậc thang chuẩn xác ở góc dưới bên trái) */}
+                            <rect x="39" y="20" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="39" y="26" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="39" y="32" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="39" y="38" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="39" y="44" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="42" y="50" width="19" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="45" y="56" width="16" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="48" y="62" width="13" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="48" y="68" width="13" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="48" y="74" width="13" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+
+                            {/* Letter 'C' Right */}
+                            <rect x="66" y="20" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="66" y="26" width="19" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="66" y="32" width="15" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="66" y="38" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="66" y="44" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="66" y="50" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="66" y="56" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="66" y="62" width="15" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="66" y="68" width="19" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                            <rect x="66" y="74" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                        </g>
+                    </svg>
+                    
+                    {/* Notification Badge */}
+                    {!isOpen && (
+                        <span className="absolute top-0 right-0 mt-0 mr-0 flex h-4 w-4 z-20">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border border-white dark:border-slate-900 shadow-sm"></span>
+                        </span>
+                    )}
+                </button>
+            </div>
         </div>
     );
 };

@@ -33,11 +33,19 @@ function getEnv(key: string, backup: string = ''): string {
 
 const supabaseUrl = getEnv('VITE_SUPABASE_URL', DEFAULT_SUPABASE_URL);
 
-// If in dev bypass mode and service role key is provided, use it to instantly bypass all RLS
-const isDevBypass = getEnv('VITE_DEV_BYPASS_AUTH') === 'true';
+// Dev bypass mode — ONLY allowed on localhost to prevent production data leak
+const isLocalhost = typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const isDevBypass = getEnv('VITE_DEV_BYPASS_AUTH') === 'true' && isLocalhost;
+
+// SECURITY: Never use service_role key in client code on production
 const supabaseKey = (isDevBypass && getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY')) 
     ? getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY') 
     : (getEnv('VITE_SUPABASE_ANON_KEY', DEFAULT_SUPABASE_ANON_KEY));
+
+if (isDevBypass) {
+    console.warn('[SECURITY] Dev bypass mode is ACTIVE — RLS is disabled. This must NEVER happen on production.');
+}
 
 export const dataClient = createClient(supabaseUrl, supabaseKey, {
     auth: {

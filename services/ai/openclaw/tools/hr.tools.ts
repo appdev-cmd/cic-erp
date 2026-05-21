@@ -2,7 +2,7 @@
 import { UnitService } from '../../../unitService';
 import type { OpenClawTool, UserContext } from '../types';
 import { dataClient as supabase } from '../../../../lib/dataClient';
-import { fmtMoney, fmtMoneyWithRaw, canViewAll, getUnitFilter } from './_helpers';
+import { fmtMoney, fmtMoneyWithRaw, canViewAll, getUnitFilter, enforceUnitScope } from './_helpers';
 import { EmployeeService } from '../../../employeeService';
 import { TaskService } from '../../../taskService';
 
@@ -16,7 +16,7 @@ export const searchEmployeesTool: OpenClawTool = {
   schema: {
     searchName: { type: 'string', description: 'Tên nhân sự hoặc Tên Phòng Ban (VD: BIM, Kế Toán) cần tìm' }
   },
-  execute: async (args) => {
+  execute: async (args, context: UserContext) => {
     let term = args.searchName.replace('@', '').trim();
     // Bỏ các chữ dư thừa để tìm chính xác hơn
     const excludeWords = ['phòng ', 'trung tâm ', 'phong ', 'trung tam '];
@@ -26,12 +26,19 @@ export const searchEmployeesTool: OpenClawTool = {
       }
     }
 
+    // SECURITY: Unit filter for non-global roles
+    const forcedUnitId = getUnitFilter(args, context);
+
     // 1. Tìm trong bảng employees (Hỗ trợ cả tên và phòng ban)
-    const { data: emps } = await supabase
+    let empQuery = supabase
       .from('employees')
-      .select('id, name, position, department')
+      .select('id, name, position, department, unit_id')
       .or(`name.ilike.%${term}%,department.ilike.%${term}%`)
       .limit(30);
+    if (forcedUnitId) {
+      empQuery = empQuery.eq('unit_id', forcedUnitId);
+    }
+    const { data: emps } = await empQuery;
 
     let results = [];
     if (emps && emps.length > 0) {
@@ -83,7 +90,8 @@ export const getEmployeeRankingTool: OpenClawTool = {
       const year = args.year ? parseInt(args.year) : new Date().getFullYear();
       const sortBy = args.sortBy || 'revenue';
       const limit = args.limit ? parseInt(args.limit) : 10;
-      const unitId = args.unitId || 'all';
+      // SECURITY: Enforce unitId for non-global roles
+      const unitId = (!canViewAll(context) && context.unitId) ? context.unitId : (args.unitId || 'all');
 
       // Load units for translation
       const units = await UnitService.getAll();
@@ -134,7 +142,10 @@ export const getEmployeeWorkloadTool: OpenClawTool = {
   schema: {
     employeeId: { type: 'string', description: 'ID nhân viên cụ thể (để trống = top 10 bận nhất)' },
   },
-  execute: async (args) => {
+  execute: async (args, context: UserContext) => {
+    // SECURITY: Unit filter for non-global roles
+    const forcedUnitId = getUnitFilter(args, context);
+
     // Lấy tất cả task chưa done
     const allStatuses = await TaskService.getStatuses();
     const doneIds = new Set(allStatuses.filter(s => s.is_done).map(s => s.id));
@@ -147,12 +158,24 @@ export const getEmployeeWorkloadTool: OpenClawTool = {
 
     if (!tasks) return { message: 'Không có dữ liệu task.' };
 
+    // SECURITY: Get employees in user's unit to filter workload
+    let allowedEmployeeIds: Set<string> | null = null;
+    if (forcedUnitId) {
+      const { data: unitEmps } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('unit_id', forcedUnitId);
+      allowedEmployeeIds = new Set((unitEmps || []).map((e: any) => e.id));
+    }
+
     // Aggregate by assignee
     const workload: Record<string, { total: number; doing: number; overdue: number; done: number }> = {};
 
     for (const t of tasks) {
       const assignees: string[] = t.assignees || [];
       for (const aId of assignees) {
+        // SECURITY: Skip employees not in user's unit
+        if (allowedEmployeeIds && !allowedEmployeeIds.has(aId)) continue;
         if (!workload[aId]) workload[aId] = { total: 0, doing: 0, overdue: 0, done: 0 };
         workload[aId].total++;
         if (doneIds.has(t.status_id || '')) {
@@ -166,6 +189,10 @@ export const getEmployeeWorkloadTool: OpenClawTool = {
 
     // If specific employee requested
     if (args.employeeId) {
+      // SECURITY: Check employee belongs to user's unit
+      if (allowedEmployeeIds && !allowedEmployeeIds.has(args.employeeId)) {
+        return { error: 'Truy cập bị từ chối: Nhân viên này không thuộc đơn vị của bạn.' };
+      }
       const w = workload[args.employeeId] || { total: 0, doing: 0, overdue: 0, done: 0 };
       const { data: emp } = await supabase.from('employees').select('name').eq('id', args.employeeId).single();
       return {
@@ -207,10 +234,17 @@ export const getHrHeadcountStatsTool: OpenClawTool = {
     const yearStart = `${year}-01-01`;
     const yearEnd = `${year}-12-31`;
 
+    // SECURITY: Unit filter for non-global roles
+    const forcedUnitId = getUnitFilter(args, context);
+
     // ── 1. Lấy tất cả nhân viên ──
-    const { data: allEmployees, error: empError } = await supabase
+    let empQuery = supabase
       .from('employees')
-      .select('*');
+      .select('id, name, status, gender, unit_id, position, contract_type, date_joined, join_date');
+    if (forcedUnitId) {
+      empQuery = empQuery.eq('unit_id', forcedUnitId);
+    }
+    const { data: allEmployees, error: empError } = await empQuery;
 
     if (empError) {
       return `## 👥 BÁO CÁO NHÂN SỰ\n\nLỗi truy vấn dữ liệu: ${empError.message}`;

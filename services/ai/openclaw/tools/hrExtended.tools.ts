@@ -96,25 +96,39 @@ export const getAttendanceReportTool: OpenClawTool = {
     const lastDay = new Date(year, month, 0).getDate();
     const endDate = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
+    // SECURITY: Unit filter for non-global roles
+    const forcedUnitId = getUnitFilter(args, context);
+
     // Lấy bản ghi chấm công
-    const { data: records } = await supabase
+    let recordsQuery = supabase
       .from('attendance_records')
-      .select('*, employee:employees!employee_id(name)')
+      .select('*, employee:employees!employee_id(name, unit_id)')
       .gte('date', startDate)
       .lte('date', endDate);
 
     // Lấy overtime requests
-    const { data: otRequests } = await supabase
+    let otQuery = supabase
       .from('overtime_requests')
-      .select('*, employee:employees!employee_id(name)')
+      .select('*, employee:employees!employee_id(name, unit_id)')
       .gte('date', startDate)
       .lte('date', endDate)
       .eq('status', 'approved');
 
-    const totalRecords = records?.length || 0;
-    const lateCount = records?.filter((r: any) => r.is_late).length || 0;
-    const absentCount = records?.filter((r: any) => r.status === 'absent').length || 0;
-    const totalOTHours = otRequests?.reduce((s: number, r: any) => s + (r.hours || 0), 0) || 0;
+    const { data: records } = await recordsQuery;
+    const { data: otRequests } = await otQuery;
+
+    // SECURITY: Filter by unit if non-global
+    const filteredRecords = forcedUnitId
+      ? (records || []).filter((r: any) => r.employee?.unit_id === forcedUnitId)
+      : (records || []);
+    const filteredOT = forcedUnitId
+      ? (otRequests || []).filter((r: any) => r.employee?.unit_id === forcedUnitId)
+      : (otRequests || []);
+
+    const totalRecords = filteredRecords.length;
+    const lateCount = filteredRecords.filter((r: any) => r.is_late).length;
+    const absentCount = filteredRecords.filter((r: any) => r.status === 'absent').length;
+    const totalOTHours = filteredOT.reduce((s: number, r: any) => s + (r.hours || 0), 0);
 
     let md = `## ⏰ BÁO CÁO CHẤM CÔNG THÁNG ${month}/${year}\n\n`;
     md += `### Tổng quan\n`;
@@ -122,12 +136,12 @@ export const getAttendanceReportTool: OpenClawTool = {
     md += `| Tổng bản ghi chấm công | ${totalRecords} |\n`;
     md += `| Số lần đi muộn | ${lateCount} (${totalRecords > 0 ? ((lateCount / totalRecords) * 100).toFixed(1) : 0}%) |\n`;
     md += `| Nghỉ không phép | ${absentCount} |\n`;
-    md += `| Tổng giờ OT (đã duyệt) | ${totalOTHours} giờ (${otRequests?.length || 0} đơn) |\n\n`;
+    md += `| Tổng giờ OT (đã duyệt) | ${totalOTHours} giờ (${filteredOT.length} đơn) |\n\n`;
 
     // Top đi muộn
-    if (records && records.length > 0) {
+    if (filteredRecords.length > 0) {
       const lateByEmp: Record<string, { name: string; count: number }> = {};
-      records.filter((r: any) => r.is_late).forEach((r: any) => {
+      filteredRecords.filter((r: any) => r.is_late).forEach((r: any) => {
         const id = r.employee_id;
         if (!lateByEmp[id]) lateByEmp[id] = { name: r.employee?.name || id, count: 0 };
         lateByEmp[id].count++;
@@ -163,13 +177,20 @@ export const getContractLaborExpiryTool: OpenClawTool = {
     const todayStr = today.toISOString().split('T')[0];
     const futureStr = futureDate.toISOString().split('T')[0];
 
-    const { data: employees } = await supabase
+    // SECURITY: Unit filter for non-global roles
+    const forcedUnitId = getUnitFilter(args, context);
+
+    let empQuery = supabase
       .from('employees')
       .select('id, name, position, unit_id, contract_type, contract_end_date')
       .not('contract_end_date', 'is', null)
       .gte('contract_end_date', todayStr)
       .lte('contract_end_date', futureStr)
       .order('contract_end_date');
+    if (forcedUnitId) {
+      empQuery = empQuery.eq('unit_id', forcedUnitId);
+    }
+    const { data: employees } = await empQuery;
 
     if (!employees || employees.length === 0) {
       return `✅ Không có HĐLĐ nào hết hạn trong ${days} ngày tới.`;
@@ -216,6 +237,11 @@ export const getEmployeeProfile360Tool: OpenClawTool = {
       .single();
 
     if (!emp) return { error: 'Không tìm thấy nhân viên với ID này.' };
+
+    // SECURITY: Check unit ownership for non-global roles
+    if (!canViewAll(context) && context.unitId && emp.unit_id !== context.unitId) {
+      return { error: 'Truy cập bị từ chối: Nhân viên này không thuộc đơn vị của bạn.' };
+    }
 
     const units = await UnitService.getAll();
     const unitMap: Record<string, string> = {};

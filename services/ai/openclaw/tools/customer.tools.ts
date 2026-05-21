@@ -26,13 +26,41 @@ export const searchCustomersTool: OpenClawTool = {
     search: { type: 'string', description: 'Từ khóa tìm kiếm (tên KH, tên viết tắt, MST)' },
     type: { type: 'string', description: 'Loại: Customer, Supplier, Both, all', enum: ['Customer', 'Supplier', 'Both', 'all'] },
   },
-  execute: async (args) => {
+  execute: async (args, context: UserContext) => {
     const res = await CustomerService.getAll({
       page: 1,
       pageSize: 10,
       search: args.search || undefined,
       type: args.type || undefined,
     });
+
+    // SECURITY: For unit-scoped roles, filter customers to only those with contracts in user's unit
+    if (!canViewAll(context) && context.unitId) {
+      const { data: unitContractCusts } = await supabase
+        .from('contracts')
+        .select('customer_id')
+        .eq('unit_id', context.unitId);
+      const allowedCustIds = new Set((unitContractCusts || []).map((c: any) => c.customer_id));
+      const filtered = res.data.filter(c => allowedCustIds.has(c.id));
+      return filtered.map(c => ({
+        id: c.id,
+        name: c.name,
+        shortName: c.shortName,
+        taxCode: c.taxCode || '—',
+        type: c.type,
+        rating: c.rating,
+        industry: Array.isArray(c.industry) ? c.industry.join(', ') : c.industry,
+        phone: c.phone || '—',
+        email: c.email || '—',
+        stats: c.stats ? {
+          soHopDong: c.stats.contractCount,
+          tongGiaTri: fmtMoney(c.stats.totalValue),
+          tongDoanhThu: fmtMoney(c.stats.totalRevenue),
+          hdDangThucHien: c.stats.activeContracts,
+        } : undefined,
+      }));
+    }
+
     return res.data.map(c => ({
       id: c.id,
       name: c.name,
@@ -64,7 +92,7 @@ export const getCustomer360Tool: OpenClawTool = {
     customerId: { type: 'string', description: 'ID khách hàng (nếu biết)' },
     customerName: { type: 'string', description: 'Tên khách hàng (dùng khi chưa biết ID)' },
   },
-  execute: async (args) => {
+  execute: async (args, context: UserContext) => {
     let customerId = args.customerId;
 
     // Tìm theo tên nếu không có ID
@@ -93,12 +121,18 @@ export const getCustomer360Tool: OpenClawTool = {
     if (!customer) return { error: 'Không tìm thấy khách hàng.' };
 
     // Lấy HĐ liên quan
-    const { data: contracts } = await supabase
+    // SECURITY: Apply unit filter for non-global roles
+    const forcedUnitId = getUnitFilter(args, context);
+    let contractQuery = supabase
       .from('contracts')
-      .select('id, title, value, actual_revenue, cash_received, status, signed_date, end_date')
+      .select('id, title, value, actual_revenue, cash_received, status, signed_date, end_date, unit_id')
       .eq('customer_id', customerId)
       .order('signed_date', { ascending: false })
       .limit(20);
+    if (forcedUnitId) {
+      contractQuery = contractQuery.eq('unit_id', forcedUnitId);
+    }
+    const { data: contracts } = await contractQuery;
 
     const allContracts = contracts || [];
     const totalContracts = allContracts.length;

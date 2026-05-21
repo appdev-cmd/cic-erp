@@ -48,6 +48,7 @@ export interface ChatRequest {
     sessionId?: string;
     source?: 'web-chat' | 'telegram' | 'api' | 'cron' | 'extract';
     agentId?: string;
+    isFallback?: boolean;
   };
 }
 

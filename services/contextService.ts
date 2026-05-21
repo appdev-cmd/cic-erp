@@ -1,5 +1,7 @@
 import { dataClient as supabase } from '../lib/dataClient';
 import { UnitService, EmployeeService, PaymentService } from './index';
+import { GLOBAL_VIEW_ROLES } from '../lib/permissions';
+import type { UserRole } from '../types';
 
 // ─── Cache: Tránh gọi DB mỗi lần mount component ───────────
 const cachedContexts: Record<string, { data: string; at: number }> = {};
@@ -63,7 +65,7 @@ const getMonth = (dateStr: string | null | undefined): number | null => {
     return isNaN(d.getTime()) ? null : d.getMonth() + 1;
 };
 
-export const getBusinessContext = async (unitId?: string, userId?: string): Promise<string> => {
+export const getBusinessContext = async (unitId?: string, userId?: string, userContext?: { role: string; unitId?: string }): Promise<string> => {
     const cacheKey = userId || unitId || 'global';
     const nowCache = Date.now();
     // Trả về cache nếu còn hạn
@@ -82,14 +84,28 @@ export const getBusinessContext = async (unitId?: string, userId?: string): Prom
             )
         ]);
 
-        const allContracts = contractRes.data || [];
+        let allContracts = contractRes.data || [];
+
+        // SECURITY (C5): Filter data by role — non-global roles only see their own unit
+        const isGlobalRole = userContext
+            ? GLOBAL_VIEW_ROLES.includes(userContext.role as UserRole)
+            : true; // no context = legacy behavior (show all)
+        const scopedUnitId = userContext?.unitId;
+
+        if (!isGlobalRole && scopedUnitId) {
+            allContracts = allContracts.filter((c: any) => c.unit_id === scopedUnitId);
+        }
 
         // --- Unit & Person Maps ---
         const unitMap = new Map<string, string>();
         units.forEach(u => unitMap.set(u.id, u.name));
 
         const personMap = new Map<string, string>();
-        people.forEach(p => personMap.set(p.id, p.name));
+        // SECURITY (C5): Filter employees by unit for scoped roles
+        const scopedPeople = (!isGlobalRole && scopedUnitId)
+            ? people.filter(p => (p as any).unit_id === scopedUnitId)
+            : people;
+        scopedPeople.forEach(p => personMap.set(p.id, p.name));
 
         const formatCurrency = (val: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(val);
 
@@ -223,14 +239,17 @@ export const getBusinessContext = async (unitId?: string, userId?: string): Prom
         report += `- Dòng tiền đã về: ${formatCurrency(paymentsStats.cashReceivedAmount)}\n`;
         report += `- Đã xuất hóa đơn: ${formatCurrency(paymentsStats.invoicedAmount)}\n\n`;
 
-        report += `Top 5 đơn vị (tất cả thời gian):\n`;
-        topUnitsAll.forEach((u, idx) => {
-            report += `  ${idx + 1}. ${u.name}: ${formatCurrency(u.revenue)} (${u.count} HĐ)\n`;
-        });
-        report += `\nTop 5 nhân sự (tất cả thời gian):\n`;
-        topSalesAll.forEach((p, idx) => {
-            report += `  ${idx + 1}. ${p.name}: ${formatCurrency(p.revenue)}\n`;
-        });
+        // SECURITY (C5): Only show cross-unit rankings for global roles
+        if (isGlobalRole) {
+            report += `Top 5 đơn vị (tất cả thời gian):\n`;
+            topUnitsAll.forEach((u, idx) => {
+                report += `  ${idx + 1}. ${u.name}: ${formatCurrency(u.revenue)} (${u.count} HĐ)\n`;
+            });
+            report += `\nTop 5 nhân sự (tất cả thời gian):\n`;
+            topSalesAll.forEach((p, idx) => {
+                report += `  ${idx + 1}. ${p.name}: ${formatCurrency(p.revenue)}\n`;
+            });
+        }
 
         // --- Theo năm ---
         const sortedYears = Object.keys(yearStats).map(Number).sort((a, b) => b - a);

@@ -3,6 +3,7 @@ import type { OpenClawTool, UserContext } from '../types';
 import { dataClient as supabase } from '../../../../lib/dataClient';
 import { TaskService } from '../../../taskService';
 import { NotificationService } from '../../../notificationService';
+import { canViewAll } from './_helpers';
 
 // ═══════════════════════════════════════════════
 // createTaskAiTool
@@ -62,6 +63,14 @@ export const approveTaskTool: OpenClawTool = {
     try {
       const task = await TaskService.getById(args.taskId);
       if (!task) return { error: 'Không tìm thấy task.' };
+
+      // SECURITY: Check user has right to approve this task
+      const taskAssignees = (task as any).assignees || [];
+      const isAssigned = taskAssignees.includes(context.userId) || taskAssignees.includes(context.employeeId);
+      const isCreator = (task as any).created_by === context.userId;
+      if (!canViewAll(context) && !isAssigned && !isCreator) {
+        return { error: 'Bạn không có quyền phê duyệt task này.' };
+      }
 
       if (args.action === 'approve') {
         // Mark as approved: move to completed status

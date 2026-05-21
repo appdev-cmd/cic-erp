@@ -27,7 +27,7 @@ import type { AIProvider, ChatRequest, AILogEntry, GatewayConfig } from './types
 function getConfig(): GatewayConfig {
   return {
     localBaseURL: getLocalAIBaseURL(),
-    localApiKey: 'sk-cic-2026',  // LiteLLM master key
+    localApiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || 'sk-cic-2026',  // SECURITY: Use env var, fallback for dev
     defaultModel: 'gemma-4-26b',   // LiteLLM model alias — Gemma 4 26B
     maxRetries: 2,
     timeoutMs: 120000,
@@ -199,12 +199,13 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<string> 
 
     // Try fallback model
     const fallback = getFallbackModel(provider);
-    if (fallback) {
+    if (fallback && !request.meta?.isFallback) {
       const fallbackMsg = `\n\n*(Chuyển sang ${fallback.name} do lỗi kết nối ${request.model})*\n\n`;
       outputBuffer += fallbackMsg;
       yield fallbackMsg;
       try {
-        yield* collectAndYield(streamChat({ ...request, model: fallback.id }) as any);
+        const fallbackMeta = { ...(request.meta || {}), isFallback: true };
+        yield* collectAndYield(streamChat({ ...request, model: fallback.id, meta: fallbackMeta }) as any);
         return;
       } catch {
         // Fallback also failed
@@ -727,7 +728,7 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
 
   if (isVllm) {
     baseURL = request.baseUrl || getLocalAIBaseURL(request.model);
-    authKey = 'sk-cic-2026';  // LiteLLM master key
+    authKey = getConfig().localApiKey;  // From getConfig() — reads env var
   } else if (provider === 'gemini') {
     baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
     authKey = getEnvKey('gemini');

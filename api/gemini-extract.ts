@@ -21,8 +21,11 @@ function getSupabaseAdmin() {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    // CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS — restrict to production domain
+    const allowedOrigins = ['https://cic-erp.vercel.app', 'https://erp.cic.com.vn', 'http://localhost:5173', 'http://localhost:5174'];
+    const origin = req.headers.origin || '';
+    const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+    res.setHeader('Access-Control-Allow-Origin', corsOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
