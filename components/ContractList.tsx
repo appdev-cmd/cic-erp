@@ -62,6 +62,15 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
   // Params state — initialize from localStorage
   const [statusFilter, setStatusFilter] = useState<ContractStatus | 'All'>(savedFilters.statusFilter || 'All');
+  
+  // Detect mobile viewport to render infinite scroll sentinel in the correct container
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [unitFilter, setUnitFilter] = useState<string>(savedFilters.unitFilter || 'All');
   const [searchTerm, setSearchTerm] = useState(savedFilters.searchTerm || '');
   const [salespersonFilter, setSalespersonFilter] = useState<string>(savedFilters.salespersonFilter || 'All');
@@ -970,6 +979,23 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </tbody>
         </table>
 
+        {/* DESKTOP INFINITE SCROLL SENTINEL */}
+        {!isMobile && (
+          <div className="p-4 flex flex-col items-center justify-center">
+            <div ref={sentinelRef} className="h-4 w-full" />
+            {isLoadingMore && (
+              <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
+                <Loader2 size={20} className="animate-spin" />
+                <span className="text-sm font-medium">Đang tải thêm...</span>
+              </div>
+            )}
+            {!hasMore && contracts.length > 0 && !loading && (
+              <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+                Đã hiển thị tất cả {totalCount} kết quả
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* MOBILE CARDS */}
@@ -1008,21 +1034,23 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         
       </div>
 
-      {/* INFINITE SCROLL SENTINEL (Common for Desktop & Mobile) */}
-      <div className="p-4 flex flex-col items-center justify-center">
-        <div ref={sentinelRef} className="h-4 w-full" />
-        {isLoadingMore && (
-          <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
-            <Loader2 size={20} className="animate-spin" />
-            <span className="text-sm font-medium">Đang tải thêm...</span>
-          </div>
-        )}
-        {!hasMore && contracts.length > 0 && !loading && (
-          <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
-            Đã hiển thị tất cả {totalCount} kết quả
-          </div>
-        )}
-      </div>
+      {/* MOBILE INFINITE SCROLL SENTINEL */}
+      {isMobile && (
+        <div className="p-4 flex flex-col items-center justify-center">
+          <div ref={sentinelRef} className="h-4 w-full" />
+          {isLoadingMore && (
+            <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
+              <Loader2 size={20} className="animate-spin" />
+              <span className="text-sm font-medium">Đang tải thêm...</span>
+            </div>
+          )}
+          {!hasMore && contracts.length > 0 && !loading && (
+            <div className="text-center py-4 text-sm text-slate-400 dark:text-slate-500">
+              Đã hiển thị tất cả {totalCount} kết quả
+            </div>
+          )}
+        </div>
+      )}
 
       {/* STATUS BAR */}
       <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">

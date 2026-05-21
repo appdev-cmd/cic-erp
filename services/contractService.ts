@@ -837,7 +837,10 @@ export const ContractService = {
             const isSignedMatch = isInPeriod(curr.signed_date);
             const val = curr.value || 0;
             const estimatedCost = curr.estimated_cost || 0;
-            const expectedProfit = val - estimatedCost;
+            const hasVat = curr.has_vat !== false;
+            const vatRate = curr.vat_rate ?? 10;
+            const expectedRevenue = hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val;
+            const expectedProfit = expectedRevenue - estimatedCost;
 
             // Stats from contract (only if signed_date matches filter)
             if (isSignedMatch) {
@@ -893,8 +896,8 @@ export const ContractService = {
             acc.totalCash += contractCashInPeriod * fraction;
             
             // Revenue Profit (LNG Doanh thu)
-            if (val > 0) {
-                const profitRatio = expectedProfit / val;
+            if (expectedRevenue > 0) {
+                const profitRatio = expectedProfit / expectedRevenue;
                 acc.totalRevenueProfit += (contractRevInPeriod * profitRatio) * fraction;
             }
 
@@ -1117,7 +1120,11 @@ export const ContractService = {
             if (sharePct === 0) return;
             const fraction = sharePct / 100;
             const val = c.value || 0;
-            const expectedProfit = val - (c.estimated_cost || 0);
+            const estimatedCost = c.estimated_cost || 0;
+            const hasVat = c.has_vat !== false;
+            const vatRate = c.vat_rate ?? 10;
+            const expectedRevenue = hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val;
+            const expectedProfit = expectedRevenue - estimatedCost;
 
             // 1. Signing & Profit (based on signed_date)
             if (c.signed_date) {
@@ -1158,8 +1165,8 @@ export const ContractService = {
                     monthlyData[month].revenue += preVatAmount * fraction;
                     
                     // Add proportional revProfit for the recognized revenue
-                    if (val > 0) {
-                        const profitRatio = expectedProfit / val;
+                    if (expectedRevenue > 0) {
+                        const profitRatio = expectedProfit / expectedRevenue;
                         monthlyData[month].revProfit += (preVatAmount * profitRatio) * fraction;
                     }
                 }

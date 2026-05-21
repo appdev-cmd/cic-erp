@@ -45,7 +45,13 @@ export const mapContract = (c: any): Contract => {
         return sum + ((li.inputPrice as number) || 0) * ((li.quantity as number) || 1) + effectiveDirectCosts;
     }, 0);
     const computedExecCost = executionCosts.reduce((sum: number, ec: any) => sum + (ec.amount || 0), 0);
-    const estimatedCost = computedInputCost + computedExecCost;
+    const fallbackEstimatedCost = computedInputCost + computedExecCost;
+
+    // Ưu tiên lấy estimated_cost tĩnh từ DB
+    const estimatedCost = c.estimated_cost !== null && c.estimated_cost !== undefined
+        ? Number(c.estimated_cost)
+        : fallbackEstimatedCost;
+
     const totalInputCost = lineItems.reduce((sum: number, li: any) => sum + (li.inputPrice || 0) * (li.quantity || 1), 0);
 
     // Revenue calculations
@@ -64,10 +70,16 @@ export const mapContract = (c: any): Contract => {
 
     // Profit Metrics Calculations
     // LNG Quản trị = Doanh thu dự kiến - Chi phí dự kiến
-    const adminProfit = expectedRevenue - estimatedCost;
+    const fallbackAdminProfit = expectedRevenue - estimatedCost;
+    const adminProfit = c.admin_profit !== null && c.admin_profit !== undefined
+        ? Number(c.admin_profit)
+        : fallbackAdminProfit;
 
     const revenueRatio = expectedRevenue > 0 ? (actualRevenue / expectedRevenue) : 0;
-    const revProfit = actualRevenue - (estimatedCost * revenueRatio);
+    const fallbackRevProfit = actualRevenue - (estimatedCost * revenueRatio);
+    const revProfit = c.rev_profit !== null && c.rev_profit !== undefined
+        ? Number(c.rev_profit)
+        : fallbackRevProfit;
 
 
     // Compute warning flags (not stored in DB — derived from data)

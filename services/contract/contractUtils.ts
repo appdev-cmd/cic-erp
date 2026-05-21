@@ -172,8 +172,13 @@ export const buildPayload = (data: Partial<Contract>): Record<string, unknown> =
                 (sum, c) => sum + (c.amount || 0), 0
             );
             const inputSum = ((data.lineItems as any[]) || []).reduce(
-                (sum: number, li: any) =>
-                    sum + ((li.inputPrice as number) || 0) * ((li.quantity as number) || 1) + ((li.directCosts as number) || 0),
+                (sum: number, li: any) => {
+                    const directVal = (li.directCosts as number) || 0;
+                    const effectiveDirectCosts = directVal > 0
+                        ? directVal
+                        : ((li.directCostDetails as any[]) || []).reduce((s: number, d: any) => s + (d.amount || 0), 0);
+                    return sum + ((li.inputPrice as number) || 0) * ((li.quantity as number) || 1) + effectiveDirectCosts;
+                },
                 0
             );
             payload.estimated_cost = inputSum + execSum;

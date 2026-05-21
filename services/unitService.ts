@@ -252,7 +252,11 @@ export const UnitService = {
 
                     const fraction = sharePct / 100;
                     const val = c.value || 0;
-                    const expectedProfit = val - (c.estimated_cost || 0);
+                    const estimatedCost = c.estimated_cost || 0;
+                    const hasVat = c.has_vat !== false;
+                    const vatRate = c.vat_rate ?? 10;
+                    const expectedRevenue = hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val;
+                    const expectedProfit = expectedRevenue - estimatedCost;
 
                     // Signing Metrics
                     if (isInPeriod(c.signed_date)) {
@@ -293,8 +297,8 @@ export const UnitService = {
                     totalRevenue += contractRevInPeriod * fraction;
                     totalCash += contractCashInPeriod * fraction;
 
-                    if (val > 0) {
-                        const profitRatio = expectedProfit / val;
+                    if (expectedRevenue > 0) {
+                        const profitRatio = expectedProfit / expectedRevenue;
                         totalRevenueProfit += (contractRevInPeriod * profitRatio) * fraction;
                     }
                 });

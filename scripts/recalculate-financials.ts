@@ -134,13 +134,16 @@ async function main() {
             }, 0);
 
             // === 3. Chi phí dự kiến ===
-            // Sum(inputPrice * quantity) + directCosts + executionCosts
+            // Sum(inputPrice * quantity) + directCosts/directCostDetails + executionCosts
             const totalInputCost = lineItems.reduce((sum: number, li: any) => {
-                return sum + (Number(li.inputPrice) || 0) * (Number(li.quantity) || 1);
+                const directVal = (li.directCosts as number) || 0;
+                const effectiveDirectCosts = directVal > 0
+                    ? directVal
+                    : ((li.directCostDetails as any[]) || []).reduce((s: number, d: any) => s + (d.amount || 0), 0);
+                return sum + (Number(li.inputPrice) || 0) * (Number(li.quantity) || 1) + effectiveDirectCosts;
             }, 0);
-            const totalDirectCosts = directCosts.reduce((sum: number, dc: any) => sum + (Number(dc.amount) || 0), 0);
             const totalExecutionCosts = executionCosts.reduce((sum: number, ec: any) => sum + (Number(ec.amount) || 0), 0);
-            const newEstimatedCost = totalInputCost + totalDirectCosts + totalExecutionCosts;
+            const newEstimatedCost = totalInputCost + totalExecutionCosts;
 
             // === 4. LNG Quản trị ===
             const adminProfit = expectedRevenue - newEstimatedCost;
