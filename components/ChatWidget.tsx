@@ -356,87 +356,193 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                 
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="relative p-3.5 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer bg-slate-950 dark:bg-slate-900 border-2 border-orange-500/40 dark:border-orange-500/30 hover:border-orange-500 dark:hover:border-orange-400 text-white cic-btn-glow"
+                    className="relative p-2 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center cursor-pointer bg-slate-950 dark:bg-slate-900 border-2 border-orange-500/30 dark:border-orange-500/20 hover:border-orange-500 dark:hover:border-orange-400 text-white cic-btn-glow"
                 >
                     {/* Glow effect under button - Soft orange glow to elevate premium contrast */}
-                    <div className="absolute inset-0 rounded-full bg-orange-500 blur-md opacity-20 hover:opacity-35 transition-opacity duration-300"></div>
+                    <div className="absolute inset-0 rounded-full bg-orange-500 blur-sm opacity-15 hover:opacity-25 transition-opacity duration-300"></div>
                     
-                    {/* 100% Original CIC Logo - Flat, sharp, and correct striping with breathing float effect */}
-                    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 relative z-10 drop-shadow-md logo-cic-float">
-                        <defs>
-                            {/* CIC Orange Brand Gradient */}
-                            <linearGradient id="cic-orange" x1="0" y1="0" x2="1" y2="1">
-                                <stop offset="0%" stop-color="#f97316"/>
-                                <stop offset="100%" stop-color="#ea580c"/>
-                            </linearGradient>
-                        </defs>
-                        <style>
-                            {`
-                                @keyframes cic-float {
-                                    0%, 100% { transform: translateY(0px); }
-                                    50% { transform: translateY(-2px); }
-                                }
-                                @keyframes cic-pulse-glow {
-                                    0%, 100% {
-                                        box-shadow: 0 0 12px rgba(249, 115, 22, 0.15), inset 0 0 6px rgba(249, 115, 22, 0.05);
-                                        border-color: rgba(249, 115, 22, 0.35);
-                                    }
-                                    50% {
-                                        box-shadow: 0 0 22px rgba(249, 115, 22, 0.45), inset 0 0 10px rgba(249, 115, 22, 0.15);
-                                        border-color: rgba(249, 115, 22, 0.75);
-                                    }
-                                }
-                                .logo-cic-float { animation: cic-float 3.5s ease-in-out infinite; }
-                                .cic-btn-glow { animation: cic-pulse-glow 3s ease-in-out infinite; }
-                            `}
-                        </style>
-                        <g>
-                            {/* NỀN TẢNG LOGO CIC NGUYÊN BẢN 100% PHẲNG & SẮC NÉT (10 SỌC NGANG CHUẨN XÁC) */}
-                            {/* Letter 'C' Left */}
-                            <rect x="12" y="20" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="12" y="26" width="19" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="12" y="32" width="15" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="12" y="38" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="12" y="44" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="12" y="50" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="12" y="56" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="12" y="62" width="15" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="12" y="68" width="19" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="12" y="74" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                    {/* Robot Wrapper for float animation */}
+                    <div className="relative w-10 h-10 flex items-center justify-center logo-cic-float">
+                        {/* Antenna (Râu robot rung rung) */}
+                        <div className="absolute -top-3.5 left-1/2 flex flex-col items-center pointer-events-none z-20 logo-antenna-float">
+                            {/* Glow ball */}
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 dark:bg-cyan-300 shadow-[0_0_8px_#22d3ee] animate-pulse"></div>
+                            {/* Antenna rod */}
+                            <div className="w-[1.5px] h-3 bg-gradient-to-t from-orange-500 to-cyan-400 dark:from-orange-600 dark:to-cyan-300"></div>
+                        </div>
 
-                            {/* Letter 'I' Center (Nét vát chéo bậc thang chuẩn xác ở góc dưới bên trái) */}
-                            <rect x="39" y="20" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="39" y="26" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="39" y="32" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="39" y="38" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="39" y="44" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="42" y="50" width="19" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="45" y="56" width="16" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="48" y="62" width="13" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="48" y="68" width="13" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="48" y="74" width="13" height="3.5" rx="1.2" fill="url(#cic-orange)" />
+                        {/* AI Cyber Brain Background - Mạng nơ-ron thần kinh hình học mờ ảo phía sau logo */}
+                        <svg 
+                            viewBox="0 0 100 100" 
+                            className="absolute w-14 h-14 pointer-events-none z-0 text-cyan-400 dark:text-cyan-500 animate-pulse-slow left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="0.8"
+                        >
+                            {/* Các đường liên kết synapses xuyên tâm và vòng trong */}
+                            <line x1="50" y1="50" x2="50" y2="25" />
+                            <line x1="50" y1="50" x2="75" y2="50" />
+                            <line x1="50" y1="50" x2="50" y2="75" />
+                            <line x1="50" y1="50" x2="25" y2="50" />
+                            
+                            {/* Các đường nối chéo vòng trong sang vòng ngoài */}
+                            <line x1="50" y1="25" x2="22" y2="22" />
+                            <line x1="50" y1="25" x2="78" y2="22" />
+                            <line x1="75" y1="50" x2="78" y2="22" />
+                            <line x1="75" y1="50" x2="78" y2="78" />
+                            <line x1="50" y1="75" x2="78" y2="78" />
+                            <line x1="50" y1="75" x2="22" y2="78" />
+                            <line x1="25" y1="50" x2="22" y2="78" />
+                            <line x1="25" y1="50" x2="22" y2="22" />
+                            
+                            {/* Các đường liên kết xuyên tâm lớn (Nét đứt dữ liệu) */}
+                            <line x1="22" y1="22" x2="78" y2="78" strokeDasharray="2 3" />
+                            <line x1="78" y1="22" x2="22" y2="78" strokeDasharray="2 3" />
+                            <line x1="50" y1="25" x2="50" y2="75" strokeDasharray="2 2" />
+                            <line x1="25" y1="50" x2="75" y2="50" strokeDasharray="2 2" />
 
-                            {/* Letter 'C' Right */}
-                            <rect x="66" y="20" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="66" y="26" width="19" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="66" y="32" width="15" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="66" y="38" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="66" y="44" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="66" y="50" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="66" y="56" width="10" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="66" y="62" width="15" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="66" y="68" width="19" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                            <rect x="66" y="74" width="22" height="3.5" rx="1.2" fill="url(#cic-orange)" />
-                        </g>
-                    </svg>
+                            {/* Các đường viền lưới liên kết ngoài */}
+                            <line x1="22" y1="22" x2="78" y2="22" strokeDasharray="3 3" />
+                            <line x1="78" y1="22" x2="78" y2="78" />
+                            <line x1="78" y1="78" x2="22" y2="78" strokeDasharray="3 3" />
+                            <line x1="22" y1="78" x2="22" y2="22" />
+
+                            {/* Điểm nút neuron trung tâm */}
+                            <circle cx="50" cy="50" r="1.5" fill="currentColor" />
+                            
+                            {/* Các điểm nút neuron vòng trong */}
+                            <circle cx="50" cy="25" r="2" fill="currentColor" />
+                            <circle cx="75" cy="50" r="2" fill="currentColor" />
+                            <circle cx="50" cy="75" r="2" fill="currentColor" />
+                            <circle cx="25" cy="50" r="2" fill="currentColor" />
+                            
+                            {/* Các điểm nút neuron vòng ngoài phát sáng (Active) */}
+                            <circle cx="22" cy="22" r="2.5" fill="currentColor" />
+                            <circle cx="22" cy="22" r="4.5" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1.5" />
+                            
+                            <circle cx="78" cy="22" r="2.5" fill="currentColor" />
+                            <circle cx="78" cy="22" r="4.5" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1.5" />
+                            
+                            <circle cx="78" cy="78" r="2.5" fill="currentColor" />
+                            <circle cx="78" cy="78" r="4.5" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1.5" />
+                            
+                            <circle cx="22" cy="78" r="2.5" fill="currentColor" />
+                            <circle cx="22" cy="78" r="4.5" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1.5" />
+                        </svg>
+
+                        {/* 100% Original CIC Logo Image - Flat, sharp, and correct striping */}
+                        <img
+                            src="/cic-logo.png"
+                            alt="CIC Logo"
+                            className="w-10 h-10 relative z-10 object-contain select-none pointer-events-none"
+                        />
+
+                        {/* Robot Eyes (Đôi mắt màu cyan chớp chớp) */}
+                        <div className="absolute inset-0 flex items-center justify-center gap-1.5 pointer-events-none z-20 mt-[-2px]">
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 dark:bg-cyan-300 shadow-[0_0_6px_#22d3ee] robot-eye"></div>
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 dark:bg-cyan-300 shadow-[0_0_6px_#22d3ee] robot-eye"></div>
+                        </div>
+                    </div>
                     
-                    {/* Notification Badge */}
-                    {!isOpen && (
-                        <span className="absolute top-0 right-0 mt-0 mr-0 flex h-4 w-4 z-20">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border border-white dark:border-slate-900 shadow-sm"></span>
-                        </span>
-                    )}
+                    <style>
+                        {`
+                            @keyframes cic-float {
+                                0%, 100% { transform: translateY(0px); }
+                                50% { transform: translateY(-2px); }
+                            }
+                            @keyframes cic-pulse-glow {
+                                0%, 100% {
+                                    box-shadow: 0 0 8px rgba(249, 115, 22, 0.15), inset 0 0 4px rgba(249, 115, 22, 0.05);
+                                    border-color: rgba(249, 115, 22, 0.35);
+                                }
+                                50% {
+                                    box-shadow: 0 0 16px rgba(249, 115, 22, 0.4), inset 0 0 8px rgba(249, 115, 22, 0.12);
+                                    border-color: rgba(249, 115, 22, 0.65);
+                                }
+                            }
+                            @keyframes antenna-wiggle {
+                                0%, 100% { transform: translate(-50%, 0) rotate(0deg); }
+                                20% { transform: translate(-50%, 0) rotate(-6deg); }
+                                40% { transform: translate(-50%, 0) rotate(5deg); }
+                                60% { transform: translate(-50%, 0) rotate(-4deg); }
+                                80% { transform: translate(-50%, 0) rotate(3deg); }
+                            }
+                            @keyframes robot-eyes-anim {
+                                0%, 50%, 100% {
+                                    transform: scale(1) translateX(0px);
+                                    filter: drop-shadow(0 0 4px rgba(34,211,238,0.8));
+                                }
+                                /* Đảo mắt sang trái */
+                                12% {
+                                    transform: scale(1) translateX(-1.5px);
+                                    filter: drop-shadow(0 0 5px rgba(34,211,238,0.9));
+                                }
+                                22% {
+                                    transform: scale(1) translateX(0px);
+                                    filter: drop-shadow(0 0 4px rgba(34,211,238,0.8));
+                                }
+                                /* Chớp mắt đơn */
+                                30% {
+                                    transform: scaleY(0.08) scaleX(1.2) translateX(0px);
+                                    filter: drop-shadow(0 0 1px rgba(34,211,238,0.2));
+                                }
+                                34% {
+                                    transform: scale(1) translateX(0px);
+                                    filter: drop-shadow(0 0 4px rgba(34,211,238,0.8));
+                                }
+                                /* Đảo mắt sang phải */
+                                62% {
+                                    transform: scale(1) translateX(1.5px);
+                                    filter: drop-shadow(0 0 5px rgba(34,211,238,0.9));
+                                }
+                                72% {
+                                    transform: scale(1) translateX(0px);
+                                    filter: drop-shadow(0 0 4px rgba(34,211,238,0.8));
+                                }
+                                /* Chớp mắt kép ngộ nghĩnh */
+                                80% {
+                                    transform: scaleY(0.08) scaleX(1.2) translateX(0px);
+                                    filter: drop-shadow(0 0 1px rgba(34,211,238,0.2));
+                                }
+                                83% {
+                                    transform: scale(1) translateX(0px);
+                                    filter: drop-shadow(0 0 4px rgba(34,211,238,0.8));
+                                }
+                                86% {
+                                    transform: scaleY(0.08) scaleX(1.2) translateX(0px);
+                                    filter: drop-shadow(0 0 1px rgba(34,211,238,0.2));
+                                }
+                                90% {
+                                    transform: scale(1) translateX(0px);
+                                    filter: drop-shadow(0 0 4px rgba(34,211,238,0.8));
+                                }
+                            }
+                            @keyframes pulse-slow {
+                                0%, 100% { 
+                                    opacity: 0.15; 
+                                    transform: translate(-50%, -50%) scale(0.96); 
+                                    filter: drop-shadow(0 0 2px rgba(34,211,238,0.1)); 
+                                }
+                                50% { 
+                                    opacity: 0.38; 
+                                    transform: translate(-50%, -50%) scale(1.04); 
+                                    filter: drop-shadow(0 0 8px rgba(34,211,238,0.4)); 
+                                }
+                            }
+                            .logo-cic-float { animation: cic-float 3.5s ease-in-out infinite; }
+                            .cic-btn-glow { animation: cic-pulse-glow 3s ease-in-out infinite; }
+                            .logo-antenna-float {
+                                animation: antenna-wiggle 2.5s ease-in-out infinite;
+                                transform-origin: bottom center;
+                            }
+                            .robot-eye {
+                                animation: robot-eyes-anim 6s ease-in-out infinite;
+                            }
+                            .animate-pulse-slow {
+                                animation: pulse-slow 4s ease-in-out infinite;
+                            }
+                        `}
+                    </style>
                 </button>
             </div>
         </div>

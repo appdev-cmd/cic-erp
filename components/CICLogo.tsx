@@ -31,7 +31,7 @@ const CICLogo: React.FC<CICLogoProps> = ({
     return (
         <div className={`inline-flex items-center ${className}`} style={{ gap: config.gap }}>
             <img
-                src="/cic-logo.png"
+                src={variant === 'full' ? "/cic-logo-full.png" : "/cic-logo.png"}
                 alt="CIC Logo"
                 style={{ height: config.imgH }}
                 className="flex-shrink-0 object-contain"
