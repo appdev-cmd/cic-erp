@@ -12,6 +12,9 @@ import {
     calculateCashReceived,
     calculateAdvanceAmount,
     calculatePayables,
+    calculateExpectedRevenue,
+    calculateAdminProfit,
+    calculateRevProfit,
 } from './contractFinancials';
 import { safeEval } from '../../utils/formulaEval';
 
@@ -55,9 +58,12 @@ export const mapContract = (c: any): Contract => {
     const totalInputCost = lineItems.reduce((sum: number, li: any) => sum + (li.inputPrice || 0) * (li.quantity || 1), 0);
 
     // Revenue calculations
-    const actualRevenue = calculateRevenueFromPayments(
-        payments, c.vat_rate ?? 10, c.has_vat !== false, c.actual_revenue || 0
-    );
+    // Ưu tiên lấy actual_revenue từ DB nếu có
+    const actualRevenue = c.actual_revenue !== null && c.actual_revenue !== undefined
+        ? Number(c.actual_revenue)
+        : calculateRevenueFromPayments(
+            payments, c.vat_rate ?? 10, c.has_vat !== false, 0
+        );
 
     const invoicedAmount = payments.length > 0
         ? calculateInvoicedFromPayments(payments)
@@ -65,21 +71,28 @@ export const mapContract = (c: any): Contract => {
 
     const cashReceived = calculateCashReceived(payments);
 
-    // Expected Revenue (Doanh thu dự kiến) = Sum(outputPrice * quantity) — pre-VAT
-    const expectedRevenue = lineItems.reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0);
+    // Expected Revenue (Doanh thu dự kiến trước thuế)
+    // Ưu tiên lấy expected_revenue từ DB nếu có
+    const fallbackExpectedRevenue = calculateExpectedRevenue(lineItems) || (
+        c.has_vat !== false && (c.vat_rate ?? 10) > 0
+            ? Math.round((c.value || 0) / (1 + (c.vat_rate ?? 10) / 100))
+            : (c.value || 0)
+    );
+    const expectedRevenue = c.expected_revenue !== null && c.expected_revenue !== undefined
+        ? Number(c.expected_revenue)
+        : fallbackExpectedRevenue;
 
     // Profit Metrics Calculations
-    // LNG Quản trị = Doanh thu dự kiến - Chi phí dự kiến
-    const fallbackAdminProfit = expectedRevenue - estimatedCost;
+    // LNG Quản trị = Doanh thu dự kiến - Chi phí dự kiến (Ưu tiên DB)
     const adminProfit = c.admin_profit !== null && c.admin_profit !== undefined
         ? Number(c.admin_profit)
-        : fallbackAdminProfit;
+        : calculateAdminProfit(expectedRevenue, estimatedCost);
 
-    const revenueRatio = expectedRevenue > 0 ? (actualRevenue / expectedRevenue) : 0;
-    const fallbackRevProfit = actualRevenue - (estimatedCost * revenueRatio);
+    // LNG theo DT = (Doanh thu thực tế / Doanh thu dự kiến) * LNG Quản trị (Ưu tiên DB)
     const revProfit = c.rev_profit !== null && c.rev_profit !== undefined
         ? Number(c.rev_profit)
-        : fallbackRevProfit;
+        : calculateRevProfit(actualRevenue, expectedRevenue, adminProfit);
+
 
 
     // Compute warning flags (not stored in DB — derived from data)

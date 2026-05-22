@@ -97,7 +97,7 @@ async function main() {
     // Fetch all contracts with payments and details
     const { data: contracts, error } = await supabase
         .from('contracts')
-        .select('id, value, estimated_cost, actual_revenue, actual_cost, invoiced_amount, status, vat_rate, has_vat, details, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)');
+        .select('id, value, expected_revenue, estimated_cost, actual_revenue, actual_cost, invoiced_amount, status, vat_rate, has_vat, details, payments(amount, paid_amount, status, payment_type, voucher_type, vat_invoice_items)');
 
     if (error) {
         console.error('❌ Failed to fetch contracts:', error.message);
@@ -174,6 +174,7 @@ async function main() {
             // Update DB
             const updateData: any = {
                 value: Math.round(newValue),
+                expected_revenue: Math.round(expectedRevenue),
                 estimated_cost: Math.round(newEstimatedCost),
                 actual_revenue: Math.round(actualRevenue),
                 invoiced_amount: Math.round(invoicedAmount),
@@ -195,11 +196,12 @@ async function main() {
             } else {
                 const changed = (
                     Math.round(newValue) !== Math.round(c.value || 0) ||
+                    Math.round(expectedRevenue) !== Math.round(c.expected_revenue || 0) ||
                     Math.round(newEstimatedCost) !== Math.round(c.estimated_cost || 0) ||
                     Math.round(actualRevenue) !== Math.round(c.actual_revenue || 0)
                 );
                 if (changed) {
-                    console.log(`  ✅ ${c.id}: value=${Math.round(newValue).toLocaleString()}, estCost=${Math.round(newEstimatedCost).toLocaleString()}, actRev=${Math.round(actualRevenue).toLocaleString()}, adminP=${Math.round(adminProfit).toLocaleString()}, revP=${Math.round(revProfit).toLocaleString()}`);
+                    console.log(`  ✅ ${c.id}: value=${Math.round(newValue).toLocaleString()}, expectedRev=${Math.round(expectedRevenue).toLocaleString()}, estCost=${Math.round(newEstimatedCost).toLocaleString()}, actRev=${Math.round(actualRevenue).toLocaleString()}, adminP=${Math.round(adminProfit).toLocaleString()}, revP=${Math.round(revProfit).toLocaleString()}`);
                 } else {
                     console.log(`  ✓  ${c.id}: no change`);
                 }

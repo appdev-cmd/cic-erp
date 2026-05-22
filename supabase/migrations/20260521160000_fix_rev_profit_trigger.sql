@@ -8,7 +8,8 @@ DECLARE
     v_expected_revenue NUMERIC;
 BEGIN
     -- 1. Quy đổi giá trị hợp đồng ký kết về pre-VAT (Doanh thu dự kiến trước thuế)
-    IF NEW.has_vat IS NOT FALSE AND COALESCE(NEW.vat_rate, 0) > 0 THEN
+    -- Sửa lỗi: COALESCE(NEW.vat_rate, 10) để tương thích với frontend default = 10%
+    IF NEW.has_vat IS NOT FALSE AND COALESCE(NEW.vat_rate, 10) > 0 THEN
         v_expected_revenue := COALESCE(NEW.value, 0) / (1 + COALESCE(NEW.vat_rate, 10)::NUMERIC / 100);
     ELSE
         v_expected_revenue := COALESCE(NEW.value, 0);
@@ -33,7 +34,7 @@ $$ LANGUAGE plpgsql;
 UPDATE contracts 
 SET 
     admin_profit = CASE 
-        WHEN has_vat IS NOT FALSE AND COALESCE(vat_rate, 0) > 0 THEN 
+        WHEN has_vat IS NOT FALSE AND COALESCE(vat_rate, 10) > 0 THEN 
             COALESCE(value, 0) / (1 + COALESCE(vat_rate, 10)::NUMERIC / 100) - COALESCE(estimated_cost, 0)
         ELSE 
             COALESCE(value, 0) - COALESCE(estimated_cost, 0)
@@ -41,12 +42,13 @@ SET
     rev_profit = CASE 
         WHEN COALESCE(value, 0) > 0 THEN 
             CASE 
-                WHEN has_vat IS NOT FALSE AND COALESCE(vat_rate, 0) > 0 THEN 
-                    (COALESCE(actual_revenue, 0) / (COALESCE(value, 0) / (1 + COALESCE(vat_rate, 10)::NUMERIC / 100))) * 
+                WHEN has_vat IS NOT FALSE AND COALESCE(vat_rate, 10) > 0 THEN 
+                    (COALESCE(actual_revenue, 0) / NULLIF(COALESCE(value, 0) / (1 + COALESCE(vat_rate, 10)::NUMERIC / 100), 0)) * 
                     (COALESCE(value, 0) / (1 + COALESCE(vat_rate, 10)::NUMERIC / 100) - COALESCE(estimated_cost, 0))
                 ELSE 
-                    (COALESCE(actual_revenue, 0) / COALESCE(value, 1)) * (COALESCE(value, 0) - COALESCE(estimated_cost, 0))
+                    (COALESCE(actual_revenue, 0) / NULLIF(COALESCE(value, 1), 0)) * (COALESCE(value, 0) - COALESCE(estimated_cost, 0))
             END
         ELSE 
             0 
     END;
+

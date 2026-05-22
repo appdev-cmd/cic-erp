@@ -548,7 +548,7 @@ export const ContractService = {
 
         // Fetch ALL contracts with unit_allocations for allocation-aware filtering
         // OPTIMIZED: No payments JOIN — use pre-computed columns
-        let query = supabase.from('contracts').select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, title, contract_code, party_a, signed_date, unit_id, unit_allocations, employee_id, employee_allocations');
+        let query = supabase.from('contracts').select('id, value, expected_revenue, actual_revenue, admin_profit, rev_profit, cash_received, status, title, contract_code, party_a, signed_date, unit_id, unit_allocations, employee_id, employee_allocations');
 
         if (search) {
             query = query.or(buildSearchFilter(search, matchingCustomerIds, unaccentMatchIds));
@@ -764,7 +764,7 @@ export const ContractService = {
     }> => {
         console.log('[ContractService.getStatsFallback] Using direct query with payments');
         // We MUST fetch payments to correctly calculate revenue/cash by time period.
-        let query = supabase.from('contracts').select('id, value, estimated_cost, status, unit_id, unit_allocations, end_date, signed_date, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type, payment_date, invoice_date, vat_invoice_items)');
+        let query = supabase.from('contracts').select('id, value, expected_revenue, estimated_cost, status, unit_id, unit_allocations, end_date, signed_date, vat_rate, has_vat, admin_profit, rev_profit, payments(amount, paid_amount, status, payment_type, voucher_type, payment_date, invoice_date, vat_invoice_items)');
 
         const { data, error } = await query;
         if (error) {
@@ -839,8 +839,12 @@ export const ContractService = {
             const estimatedCost = curr.estimated_cost || 0;
             const hasVat = curr.has_vat !== false;
             const vatRate = curr.vat_rate ?? 10;
-            const expectedRevenue = hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val;
-            const expectedProfit = expectedRevenue - estimatedCost;
+            const expectedRevenue = curr.expected_revenue !== null && curr.expected_revenue !== undefined
+                ? Number(curr.expected_revenue)
+                : (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val);
+            const expectedProfit = curr.admin_profit !== null && curr.admin_profit !== undefined
+                ? Number(curr.admin_profit)
+                : expectedRevenue - estimatedCost;
 
             // Stats from contract (only if signed_date matches filter)
             if (isSignedMatch) {

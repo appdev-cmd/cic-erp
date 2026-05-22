@@ -803,6 +803,136 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           if (!s) return 1;
           return lineItems.filter(li => li.supplier === s).length;
         })()}
+        supplierTotalValue={(() => {
+          if (activeCostModalIndex === null) return 0;
+          const s = lineItems[activeCostModalIndex]?.supplier;
+          if (!s) return 0;
+          return lineItems
+            .filter(li => li.supplier === s)
+            .reduce((acc, li) => acc + (li.quantity || 0) * (li.inputPrice || 0), 0);
+        })()}
+        onApplyToAllSupplierItems={async (tax, transferType, rate) => {
+          if (activeCostModalIndex === null) return;
+          const s = lineItems[activeCostModalIndex]?.supplier;
+          if (!s) return;
+
+          // 1. Calculate supplier-level metrics
+          const supplierItems = lineItems.filter(item => item.supplier === s);
+          const supplierTotalValue = supplierItems.reduce((acc, item) => acc + (item.quantity || 0) * (item.inputPrice || 0), 0);
+
+          const AUTO_TAX_ID = '__auto_contractor_tax__';
+          const AUTO_TRANSFER_ID = '__auto_transfer_fee__';
+          const TAX_NAMES = ['thuế nhà thầu', 'thue nha thau'];
+          const TRANSFER_NAMES = ['phí chuyển tiền', 'phi chuyen tien'];
+          const isAutoTaxEntry = (d: any) => d.id === AUTO_TAX_ID || TAX_NAMES.some((n: string) => d.name.toLowerCase().includes(n));
+          const isAutoTransferEntry = (d: any) => d.id === AUTO_TRANSFER_ID || TRANSFER_NAMES.some((n: string) => d.name.toLowerCase().includes(n));
+
+          // 2. Update lineItems in parent
+          setLineItems(prev => {
+            return prev.map(item => {
+              if (item.supplier !== s) return item;
+
+              const itemValue = (item.quantity || 0) * (item.inputPrice || 0);
+              
+              // Filter out current auto costs
+              let newDetails = (item.directCostDetails || []).filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
+
+              // Add tax if checked
+              if (tax) {
+                const taxAmount = Math.round(itemValue / 0.9 * 0.1);
+                newDetails = [
+                  { id: AUTO_TAX_ID, name: 'Thuế nhà thầu', amount: taxAmount, formula: `${itemValue}/0.9*0.1` },
+                  ...newDetails
+                ];
+              }
+
+              // Add transfer fee if checked
+              if (transferType !== 'none') {
+                let fee = 0;
+                let formula = '';
+                if (transferType === 'domestic') {
+                  const stv = Math.max(supplierTotalValue, itemValue, 1);
+                  const totalSupplierFee = Math.max(Math.round(stv * 0.0007), 22000);
+                  fee = Math.round(totalSupplierFee * (itemValue / stv));
+                  formula = stv > itemValue
+                    ? `Max(${stv}*0.07%,22k)*(${itemValue}/${stv})`
+                    : `Max(${itemValue}*0.07%,22k)`;
+                } else if (transferType === 'international') {
+                  const stv = Math.max(supplierTotalValue, itemValue, 1);
+                  fee = Math.round(itemValue * 0.005 + 10 * rate * (itemValue / stv));
+                  formula = stv > itemValue
+                    ? `${itemValue}*0.5%+10*${rate}*(${itemValue}/${stv})`
+                    : `${itemValue}*0.5%+10*${rate}`;
+                }
+
+                const label = transferType === 'domestic'
+                  ? 'Phí chuyển tiền trong nước'
+                  : 'Phí chuyển tiền nước ngoài';
+
+                // Insert after tax if present
+                const insertIdx = newDetails.findIndex(d => d.id === AUTO_TAX_ID);
+                const transferEntry = { id: AUTO_TRANSFER_ID, name: label, amount: fee, formula };
+                if (insertIdx >= 0) {
+                  newDetails.splice(insertIdx + 1, 0, transferEntry);
+                } else {
+                  newDetails = [transferEntry, ...newDetails];
+                }
+              }
+
+              const totalAmount = newDetails.reduce((acc, d) => acc + d.amount, 0);
+
+              return {
+                ...item,
+                directCostDetails: newDetails,
+                directCosts: totalAmount
+              };
+            });
+          });
+
+          // 3. Sync visual state of currently opened item in the modal
+          const itemValue = (lineItems[activeCostModalIndex]?.quantity || 0) * (lineItems[activeCostModalIndex]?.inputPrice || 0);
+          setTempCostDetails(prev => {
+            let newDetails = prev.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
+            if (tax) {
+              const taxAmount = Math.round(itemValue / 0.9 * 0.1);
+              newDetails = [
+                { id: AUTO_TAX_ID, name: 'Thuế nhà thầu', amount: taxAmount, formula: `${itemValue}/0.9*0.1` },
+                ...newDetails
+              ];
+            }
+            if (transferType !== 'none') {
+              let fee = 0;
+              let formula = '';
+              if (transferType === 'domestic') {
+                const stv = Math.max(supplierTotalValue, itemValue, 1);
+                const totalSupplierFee = Math.max(Math.round(stv * 0.0007), 22000);
+                fee = Math.round(totalSupplierFee * (itemValue / stv));
+                formula = stv > itemValue
+                  ? `Max(${stv}*0.07%,22k)*(${itemValue}/${stv})`
+                  : `Max(${itemValue}*0.07%,22k)`;
+              } else if (transferType === 'international') {
+                const stv = Math.max(supplierTotalValue, itemValue, 1);
+                fee = Math.round(itemValue * 0.005 + 10 * rate * (itemValue / stv));
+                formula = stv > itemValue
+                  ? `${itemValue}*0.5%+10*${rate}*(${itemValue}/${stv})`
+                  : `${itemValue}*0.5%+10*${rate}`;
+              }
+              const label = transferType === 'domestic'
+                ? 'Phí chuyển tiền trong nước'
+                : 'Phí chuyển tiền nước ngoài';
+              const insertIdx = newDetails.findIndex(d => d.id === AUTO_TAX_ID);
+              const transferEntry = { id: AUTO_TRANSFER_ID, name: label, amount: fee, formula };
+              if (insertIdx >= 0) {
+                newDetails.splice(insertIdx + 1, 0, transferEntry);
+              } else {
+                newDetails = [transferEntry, ...newDetails];
+              }
+            }
+            return newDetails;
+          });
+
+          toast.success(`Đã áp dụng cấu hình phí cho toàn bộ SP của NCC: ${s}`);
+        }}
       />
 
       {/* FOOTER */}

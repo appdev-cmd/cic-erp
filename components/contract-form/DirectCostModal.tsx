@@ -17,6 +17,8 @@ interface DirectCostModalProps {
     formatVND: (val: number) => string;
     inputTotal?: number; // quantity * inputPrice — for auto-calc
     supplierShareCount?: number; // Số SP cùng NCC — để chia điện phí $10
+    supplierTotalValue?: number; // Tổng giá trị SP cùng NCC
+    onApplyToAllSupplierItems?: (tax: boolean, transferType: TransferFeeType, rate: number) => void;
 }
 
 // Auto-cost IDs (so we can identify and update them)
@@ -35,6 +37,8 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
     formatVND,
     inputTotal = 0,
     supplierShareCount = 1,
+    supplierTotalValue = 0,
+    onApplyToAllSupplierItems,
 }) => {
     // Auto-cost toggles
     const [contractorTax, setContractorTax] = useState(false);
@@ -76,7 +80,7 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                 const detectedTransferType = transferEntry
                     ? (transferEntry.name.includes('nước ngoài') || transferEntry.name.includes('international') ? 'international' as TransferFeeType : 'domestic' as TransferFeeType)
                     : 'none' as TransferFeeType;
-                const updated = updateAutoCosts(cleaned, hasTax, detectedTransferType, inputTotal, usdRate, supplierShareCount);
+                const updated = updateAutoCosts(cleaned, hasTax, detectedTransferType, inputTotal, usdRate, supplierShareCount, supplierTotalValue);
                 setTempCostDetails(updated);
             }
         }
@@ -102,16 +106,20 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         return Math.round(total / 0.9 * 0.1);
     }, []);
 
-    const calcTransferFee = useCallback((total: number, type: TransferFeeType, rate: number, shareCount: number = 1) => {
+    const calcTransferFee = useCallback((total: number, type: TransferFeeType, rate: number, shareCount: number = 1, supplierTotalVal: number = 0) => {
         if (type === 'domestic') {
-            // Trong nước: total * 0.07%, min 22,000
-            return Math.max(Math.round(total * 0.0007), 22000);
+            // Trong nước mới: tổng phí = Max(supplierTotalValue * 0.07%, 22000)
+            // Phí của SP = tổng phí * (total / supplierTotalValue)
+            const stv = Math.max(supplierTotalVal, total, 1);
+            const totalSupplierFee = Math.max(Math.round(stv * 0.0007), 22000);
+            return Math.round(totalSupplierFee * (total / stv));
         }
         if (type === 'international') {
-            // Nước ngoài: (total * 0.5%) + (10 * tỷ giá USD / số SP cùng NCC)
-            // Điện phí $10 chỉ tính 1 lần cho mỗi NCC → chia đều cho các SP cùng NCC
-            const sc = Math.max(shareCount, 1);
-            return Math.round(total * 0.005 + 10 * rate / sc);
+            // Nước ngoài mới: Phí = (total * 0.5%) + (10 * rate * (total / supplierTotalValue))
+            const stv = Math.max(supplierTotalVal, total, 1);
+            const percentPart = total * 0.005;
+            const flatPart = 10 * rate * (total / stv);
+            return Math.round(percentPart + flatPart);
         }
         return 0;
     }, []);
@@ -123,7 +131,8 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         transfer: TransferFeeType,
         total: number,
         rate: number,
-        shareCount: number = 1
+        shareCount: number = 1,
+        supplierTotalVal: number = 0
     ) => {
         // Filter out ALL auto entries — both by ID and by name patterns
         let newDetails = details.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
@@ -138,16 +147,20 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
 
         if (transfer !== 'none') {
             const sc = Math.max(shareCount, 1);
-            const fee = calcTransferFee(total, transfer, rate, sc);
+            const fee = calcTransferFee(total, transfer, rate, sc, supplierTotalVal);
             const label = transfer === 'domestic'
                 ? 'Phí chuyển tiền trong nước'
                 : 'Phí chuyển tiền nước ngoài';
             let transferFormula: string;
             if (transfer === 'domestic') {
-                transferFormula = `${total}*0.07%`;
+                const stv = Math.max(supplierTotalVal, total, 1);
+                transferFormula = stv > total
+                    ? `Max(${stv}*0.07%,22k)*(${total}/${stv})`
+                    : `Max(${total}*0.07%,22k)`;
             } else {
-                transferFormula = sc > 1
-                    ? `${total}*0.5%+10*${rate}/${sc}`
+                const stv = Math.max(supplierTotalVal, total, 1);
+                transferFormula = stv > total
+                    ? `${total}*0.5%+10*${rate}*(${total}/${stv})`
                     : `${total}*0.5%+10*${rate}`;
             }
             // Insert after tax if present, else at start
@@ -167,14 +180,14 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
     const handleToggleTax = () => {
         const newVal = !contractorTax;
         setContractorTax(newVal);
-        const updated = updateAutoCosts(tempCostDetails, newVal, transferFeeType, inputTotal, usdRate, supplierShareCount);
+        const updated = updateAutoCosts(tempCostDetails, newVal, transferFeeType, inputTotal, usdRate, supplierShareCount, supplierTotalValue);
         setTempCostDetails(updated);
     };
 
     // Change transfer fee type
     const handleTransferChange = (type: TransferFeeType) => {
         setTransferFeeType(type);
-        const updated = updateAutoCosts(tempCostDetails, contractorTax, type, inputTotal, usdRate, supplierShareCount);
+        const updated = updateAutoCosts(tempCostDetails, contractorTax, type, inputTotal, usdRate, supplierShareCount, supplierTotalValue);
         setTempCostDetails(updated);
     };
 
@@ -183,14 +196,14 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         if (!isOpen) return;
         if (!contractorTax && transferFeeType === 'none') return;
 
-        const updated = updateAutoCosts(tempCostDetails, contractorTax, transferFeeType, inputTotal, usdRate, supplierShareCount);
+        const updated = updateAutoCosts(tempCostDetails, contractorTax, transferFeeType, inputTotal, usdRate, supplierShareCount, supplierTotalValue);
         // Only update if amounts differ to avoid infinite loop
         const oldAutoAmounts = tempCostDetails.filter(d => d.id === AUTO_TAX_ID || d.id === AUTO_TRANSFER_ID).map(d => d.amount).join(',');
         const newAutoAmounts = updated.filter(d => d.id === AUTO_TAX_ID || d.id === AUTO_TRANSFER_ID).map(d => d.amount).join(',');
         if (oldAutoAmounts !== newAutoAmounts) {
             setTempCostDetails(updated);
         }
-    }, [inputTotal, usdRate, supplierShareCount, isOpen]);
+    }, [inputTotal, usdRate, supplierShareCount, supplierTotalValue, isOpen]);
 
     // Manual (non-auto) details
     const manualDetails = tempCostDetails.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
@@ -277,24 +290,42 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                                 </button>
                             ))}
                         </div>
+                        {lineItem?.supplier && onApplyToAllSupplierItems && (
+                            <button
+                                type="button"
+                                onClick={() => onApplyToAllSupplierItems(contractorTax, transferFeeType, usdRate)}
+                                className="mt-3 w-full px-3 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-bold border border-indigo-200/60 dark:border-indigo-800/40 transition-all flex items-center justify-center gap-1.5"
+                            >
+                                🔄 Áp dụng cấu hình phí này cho toàn bộ SP cùng NCC
+                            </button>
+                        )}
                         {transferFeeType !== 'none' && (
                             <div className="mt-2 space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <div>
+                                    <div className="flex-1 mr-2">
                                         <p className="text-[10px] text-slate-400 leading-relaxed">
-                                            {transferFeeType === 'domestic'
-                                                ? '= TT giá vào × 0.07% (tối thiểu 22.000₫)'
-                                                : <>= (TT giá vào × 0.5%) + (10 × tỷ giá USD{supplierShareCount > 1 ? ` ÷ ${supplierShareCount}` : ''})</>
-                                            }
+                                            {transferFeeType === 'domestic' ? (
+                                                supplierTotalValue > inputTotal ? (
+                                                    <>= Phân bổ từ Tổng phí NCC (Tổng phí = Max({formatVND(supplierTotalValue)} × 0.07%, 22.000₫)) theo tỷ trọng {((inputTotal / Math.max(supplierTotalValue, 1)) * 100).toFixed(1)}%</>
+                                                ) : (
+                                                    '= TT giá vào × 0.07% (tối thiểu 22.000₫)'
+                                                )
+                                            ) : (
+                                                supplierTotalValue > inputTotal ? (
+                                                    <>= (TT giá vào × 0.5%) + (10 × tỷ giá USD × Tỷ trọng {((inputTotal / Math.max(supplierTotalValue, 1)) * 100).toFixed(1)}%)</>
+                                                ) : (
+                                                    '= (TT giá vào × 0.5%) + (10 × tỷ giá USD)'
+                                                )
+                                            )}
                                         </p>
-                                        {transferFeeType === 'international' && supplierShareCount > 1 && (
+                                        {supplierTotalValue > inputTotal && (
                                             <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
-                                                💡 Điện phí $10 chia cho {supplierShareCount} SP cùng NCC
+                                                💡 Phí chuyển tiền và Điện phí được phân bổ theo tỷ trọng giá trị sản phẩm.
                                             </p>
                                         )}
                                     </div>
-                                    <span className="text-sm font-black text-rose-500">
-                                        {formatVND(calcTransferFee(inputTotal, transferFeeType, usdRate, supplierShareCount))}
+                                    <span className="text-sm font-black text-rose-500 whitespace-nowrap">
+                                        {formatVND(calcTransferFee(inputTotal, transferFeeType, usdRate, supplierShareCount, supplierTotalValue))}
                                     </span>
                                 </div>
                                 {transferFeeType === 'international' && (

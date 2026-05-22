@@ -157,3 +157,36 @@ export const getEmployeeSharePct = (contract: any, targetEmployeeId: string): nu
     if (supportMatch) return 100; // support unit PIC gets 100% of their unit's share
     return 0;
 };
+
+/**
+ * Calculate Expected Revenue (Doanh thu dự kiến trước thuế) from line items.
+ * Sum of (outputPrice * quantity) for each line item.
+ */
+export const calculateExpectedRevenue = (lineItems: any[]): number => {
+    if (!lineItems || lineItems.length === 0) return 0;
+    return lineItems.reduce((sum: number, li: any) => {
+        return sum + (Number(li.outputPrice) || 0) * (Number(li.quantity) || 1);
+    }, 0);
+};
+
+/**
+ * Calculate Admin Profit (LNG Quản trị)
+ * expectedRevenue - estimatedCost
+ */
+export const calculateAdminProfit = (expectedRevenue: number, estimatedCost: number): number => {
+    return Math.round(expectedRevenue - estimatedCost);
+};
+
+/**
+ * Calculate Rev Profit (LNG theo DT)
+ * (actualRevenue / expectedRevenue) * adminProfit
+ */
+export const calculateRevProfit = (
+    actualRevenue: number,
+    expectedRevenue: number,
+    adminProfit: number
+): number => {
+    if (expectedRevenue <= 0) return 0;
+    return Math.round((actualRevenue / expectedRevenue) * adminProfit);
+};
+
