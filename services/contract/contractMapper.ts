@@ -183,6 +183,8 @@ export const mapContract = (c: any): Contract => {
         payables: calculatePayables(payments, totalInputCost),
         adminProfit: adminProfit,
         revProfit: revProfit,
+        expectedRevenue: expectedRevenue,
+        margin: expectedRevenue > 0 ? (adminProfit / expectedRevenue) * 100 : 0,
         // Warning flags (computed)
         warnings: { isOverdueAdvance, isOverduePayment, isAcceptedNoInvoice },
         // Workflow steps

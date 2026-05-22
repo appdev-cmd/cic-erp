@@ -119,9 +119,9 @@ export const ContractListTableRow: React.FC<ContractListTableRowProps> = ({
   const cashReceived = Math.round((contract.cashReceived || 0) * allocFraction);
   const advanceAmount = Math.round((contract.advanceAmount || 0) * allocFraction);
   const revProfit = Math.round((contract.revProfit || 0) * allocFraction);
-  // Tỷ suất LN = LNG Quản trị / Doanh thu dự kiến (Sum outputPrice * quantity)
-  const expectedRevenue = (contract.lineItems || []).reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0) * allocFraction;
-  const margin = expectedRevenue > 0 ? (adminProfit / expectedRevenue) * 100 : 0;
+  // Tỷ suất LN đọc trực tiếp expectedRevenue đồng bộ từ backend mapping
+  const expectedRevenue = Math.round((contract.expectedRevenue || 0) * allocFraction);
+  const margin = expectedRevenue > 0 ? (adminProfit / expectedRevenue) * 100 : contract.margin || 0;
   
   const leadAllocEmp = contract.employeeAllocations?.find((a: any) => a.role === 'lead') || contract.employeeAllocations?.[0];
   const picEmployeeId = leadAllocEmp?.employeeId || contract.salespersonId;
@@ -444,8 +444,9 @@ export const ContractListMobileCard: React.FC<ContractListTableRowProps> = ({
   const cashReceived = Math.round((contract.cashReceived || 0) * allocFraction);
   const advanceAmount = Math.round((contract.advanceAmount || 0) * allocFraction);
   const revProfit = Math.round((contract.revProfit || 0) * allocFraction);
-  const expectedRevenue = (contract.lineItems || []).reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0) * allocFraction;
-  const margin = expectedRevenue > 0 ? (adminProfit / expectedRevenue) * 100 : 0;
+  // Tỷ suất LN đọc trực tiếp expectedRevenue đồng bộ từ backend mapping
+  const expectedRevenue = Math.round((contract.expectedRevenue || 0) * allocFraction);
+  const margin = expectedRevenue > 0 ? (adminProfit / expectedRevenue) * 100 : contract.margin || 0;
   
   const leadAllocEmp = contract.employeeAllocations?.find((a: any) => a.role === 'lead') || contract.employeeAllocations?.[0];
   const picEmployeeId = leadAllocEmp?.employeeId || contract.salespersonId;

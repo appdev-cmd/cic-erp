@@ -1,5 +1,6 @@
 import { dataClient as supabase } from '../lib/dataClient';
 import { getUnitSharePct } from './contractService';
+import { calculatePeriodFinancials } from './contract/contractFinancials';
 import { Unit } from '../types';
 
 // Helper to map DB Unit to Frontend Unit
@@ -234,7 +235,7 @@ export const UnitService = {
             // Fetch ALL contracts with payments to parse revenue by time period
             const { data: contracts, error } = await supabase
                 .from('contracts')
-                .select('id, value, estimated_cost, status, unit_id, unit_allocations, signed_date, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type, payment_date, invoice_date, vat_invoice_items)');
+                .select('id, value, expected_revenue, admin_profit, estimated_cost, status, unit_id, unit_allocations, signed_date, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type, payment_date, invoice_date, vat_invoice_items)');
 
             if (error) throw error;
 
@@ -255,8 +256,14 @@ export const UnitService = {
                     const estimatedCost = c.estimated_cost || 0;
                     const hasVat = c.has_vat !== false;
                     const vatRate = c.vat_rate ?? 10;
-                    const expectedRevenue = hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val;
-                    const expectedProfit = expectedRevenue - estimatedCost;
+                    
+                    const expectedRevenue = c.expected_revenue !== null && c.expected_revenue !== undefined
+                        ? Number(c.expected_revenue)
+                        : (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val);
+                    
+                    const expectedProfit = c.admin_profit !== null && c.admin_profit !== undefined
+                        ? Number(c.admin_profit)
+                        : expectedRevenue - estimatedCost;
 
                     // Signing Metrics
                     if (isInPeriod(c.signed_date)) {
@@ -265,42 +272,12 @@ export const UnitService = {
                         totalProfit += expectedProfit * fraction;
                     }
 
-                    // Revenue and Cash Metrics via Payments
-                    const payments = c.payments || [];
+                    // Revenue and Cash Metrics via Payments using the shared helper
+                    const { revenueInPeriod, cashInPeriod, revProfitInPeriod } = calculatePeriodFinancials(c, isInPeriod);
 
-                    const revenuePayments = payments.filter(
-                        (p: any) => p.voucher_type === 'VAT_INVOICE' &&
-                            ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status) &&
-                            isInPeriod(p.invoice_date || p.payment_date)
-                    );
-
-                    let contractRevInPeriod = 0;
-                    revenuePayments.forEach((p: any) => {
-                        if (p.vat_invoice_items && p.vat_invoice_items.length > 0) {
-                            contractRevInPeriod += p.vat_invoice_items.reduce((s: number, item: any) => s + (Number(item.amountBeforeVAT) || 0), 0);
-                        } else {
-                            const gross = Number(p.amount) || 0;
-                            const hasVat = c.has_vat !== false;
-                            const vatRate = c.vat_rate ?? 10;
-                            const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
-                            contractRevInPeriod += Math.round(gross / vatDivisor);
-                        }
-                    });
-
-                    const cashPayments = payments.filter(
-                        (p: any) => p.voucher_type === 'RECEIPT' &&
-                            ['Tạm ứng', 'Tiền về', 'Paid'].includes(p.status) &&
-                            isInPeriod(p.payment_date)
-                    );
-                    const contractCashInPeriod = cashPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-
-                    totalRevenue += contractRevInPeriod * fraction;
-                    totalCash += contractCashInPeriod * fraction;
-
-                    if (expectedRevenue > 0) {
-                        const profitRatio = expectedProfit / expectedRevenue;
-                        totalRevenueProfit += (contractRevInPeriod * profitRatio) * fraction;
-                    }
+                    totalRevenue += revenueInPeriod * fraction;
+                    totalCash += cashInPeriod * fraction;
+                    totalRevenueProfit += revProfitInPeriod * fraction;
                 });
 
                 return {

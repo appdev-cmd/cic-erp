@@ -190,3 +190,72 @@ export const calculateRevProfit = (
     return Math.round((actualRevenue / expectedRevenue) * adminProfit);
 };
 
+/**
+ * Calculate financial metrics for a contract within a specific time period.
+ * Shared across getStatsFallback, getChartDataFallback, and unitService.getWithStats.
+ */
+export const calculatePeriodFinancials = (
+    contract: any,
+    isInPeriod: (dateStr: string | null | undefined) => boolean
+): {
+    revenueInPeriod: number;
+    cashInPeriod: number;
+    revProfitInPeriod: number;
+} => {
+    const payments = contract.payments || [];
+    const val = contract.value || 0;
+    const estimatedCost = contract.estimated_cost || 0;
+    const hasVat = contract.has_vat !== false;
+    const vatRate = contract.vat_rate ?? 10;
+
+    // 1. Xác định Expected Revenue (Doanh thu dự kiến trước thuế)
+    const expectedRevenue = contract.expected_revenue !== null && contract.expected_revenue !== undefined
+        ? Number(contract.expected_revenue)
+        : (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val);
+
+    // 2. Xác định Expected Admin Profit (Lợi nhuận gộp quản trị dự kiến)
+    const expectedProfit = contract.admin_profit !== null && contract.admin_profit !== undefined
+        ? Number(contract.admin_profit)
+        : expectedRevenue - estimatedCost;
+
+    // 3. Doanh thu thực tế trong kỳ (Revenue in Period)
+    const revenuePayments = payments.filter(
+        (p: any) => p.voucher_type === 'VAT_INVOICE' &&
+            ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status) &&
+            isInPeriod(p.invoice_date || p.payment_date)
+    );
+
+    let revenueInPeriod = 0;
+    revenuePayments.forEach((p: any) => {
+        if (p.vat_invoice_items && p.vat_invoice_items.length > 0) {
+            revenueInPeriod += p.vat_invoice_items.reduce((s: number, item: any) => s + (Number(item.amountBeforeVAT) || 0), 0);
+        } else {
+            const gross = Number(p.amount) || 0;
+            const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+            revenueInPeriod += Math.round(gross / vatDivisor);
+        }
+    });
+
+    // 4. Tiền về thực tế trong kỳ (Cash in Period)
+    const cashPayments = payments.filter(
+        (p: any) => p.voucher_type === 'RECEIPT' &&
+            ['Tạm ứng', 'Tiền về', 'Paid'].includes(p.status) &&
+            isInPeriod(p.payment_date)
+    );
+    const cashInPeriod = cashPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+
+    // 5. Lợi nhuận gộp theo doanh thu trong kỳ (Revenue Profit in Period)
+    let revProfitInPeriod = 0;
+    if (expectedRevenue > 0) {
+        const profitRatio = expectedProfit / expectedRevenue;
+        revProfitInPeriod = revenueInPeriod * profitRatio;
+    }
+
+    return {
+        revenueInPeriod,
+        cashInPeriod,
+        revProfitInPeriod
+    };
+};
+
+

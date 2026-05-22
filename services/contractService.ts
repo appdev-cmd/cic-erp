@@ -15,6 +15,7 @@ import {
     calculateCashReceived,
     calculateInvoicedFromPayments,
     calculateRevenueFromPayments,
+    calculatePeriodFinancials,
 } from './contract/contractFinancials';
 
 // Re-exports — keep backward compatibility for consumers importing from contractService
@@ -865,45 +866,12 @@ export const ContractService = {
                 );
             }
             
-            // Calculate revenue and cash from payments (filtered by their own dates)
-            const payments = curr.payments || [];
+            // Calculate period financials using the shared helper
+            const { revenueInPeriod, cashInPeriod, revProfitInPeriod } = calculatePeriodFinancials(curr, isInPeriod);
             
-            // Revenue (Doanh thu)
-            const revenuePayments = payments.filter(
-                (p: any) => p.voucher_type === 'VAT_INVOICE' &&
-                    ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status) &&
-                    isInPeriod(p.invoice_date || p.payment_date)
-            );
-            
-            let contractRevInPeriod = 0;
-            revenuePayments.forEach((p: any) => {
-                if (p.vat_invoice_items && p.vat_invoice_items.length > 0) {
-                    contractRevInPeriod += p.vat_invoice_items.reduce((s: number, item: any) => s + (Number(item.amountBeforeVAT) || 0), 0);
-                } else {
-                    const gross = Number(p.amount) || 0;
-                    const hasVat = curr.has_vat !== false;
-                    const vatRate = curr.vat_rate ?? 10;
-                    const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
-                    contractRevInPeriod += Math.round(gross / vatDivisor);
-                }
-            });
-            
-            // Cash (Tiền về)
-            const cashPayments = payments.filter(
-                (p: any) => p.voucher_type === 'RECEIPT' &&
-                    ['Tạm ứng', 'Tiền về', 'Paid'].includes(p.status) &&
-                    isInPeriod(p.payment_date)
-            );
-            const contractCashInPeriod = cashPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
-            
-            acc.totalRevenue += contractRevInPeriod * fraction;
-            acc.totalCash += contractCashInPeriod * fraction;
-            
-            // Revenue Profit (LNG Doanh thu)
-            if (expectedRevenue > 0) {
-                const profitRatio = expectedProfit / expectedRevenue;
-                acc.totalRevenueProfit += (contractRevInPeriod * profitRatio) * fraction;
-            }
+            acc.totalRevenue += revenueInPeriod * fraction;
+            acc.totalCash += cashInPeriod * fraction;
+            acc.totalRevenueProfit += revProfitInPeriod * fraction;
 
             return acc;
         }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, suspendedCount: 0, handoverCount: 0 });
@@ -1099,7 +1067,7 @@ export const ContractService = {
     getChartDataFallback: async (unitId: string = 'all', year: string = 'all'): Promise<Array<{ month: number, revenue: number, profit: number, revProfit: number, signing: number }>> => {
         console.log('[ContractService.getChartDataFallback] Using direct query with payments');
         // Fetch ALL contracts with payments, NO signed_date filter at query level!
-        let query = supabase.from('contracts').select('signed_date, value, estimated_cost, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type, payment_date, invoice_date, vat_invoice_items)');
+        let query = supabase.from('contracts').select('signed_date, value, expected_revenue, admin_profit, estimated_cost, unit_id, unit_allocations, vat_rate, has_vat, payments(amount, paid_amount, status, payment_type, voucher_type, payment_date, invoice_date, vat_invoice_items)');
 
         const { data, error } = await query;
         if (error) {
@@ -1127,8 +1095,14 @@ export const ContractService = {
             const estimatedCost = c.estimated_cost || 0;
             const hasVat = c.has_vat !== false;
             const vatRate = c.vat_rate ?? 10;
-            const expectedRevenue = hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val;
-            const expectedProfit = expectedRevenue - estimatedCost;
+            
+            const expectedRevenue = c.expected_revenue !== null && c.expected_revenue !== undefined
+                ? Number(c.expected_revenue)
+                : (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val);
+            
+            const expectedProfit = c.admin_profit !== null && c.admin_profit !== undefined
+                ? Number(c.admin_profit)
+                : expectedRevenue - estimatedCost;
 
             // 1. Signing & Profit (based on signed_date)
             if (c.signed_date) {
@@ -1140,41 +1114,19 @@ export const ContractService = {
                 }
             }
 
-            // 2. Revenue (based on payment.invoice_date or payment.payment_date)
-            const payments = c.payments || [];
-            const revenuePayments = payments.filter(
-                (p: any) => p.voucher_type === 'VAT_INVOICE' &&
-                    ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status)
-            );
+            // 2. Revenue & RevProfit (based on monthly periods)
+            for (let month = 1; month <= 12; month++) {
+                const isInMonth = (dateStr: string | null | undefined): boolean => {
+                    if (!dateStr) return false;
+                    const d = new Date(dateStr);
+                    const yearMatch = targetYear ? d.getFullYear() === targetYear : true;
+                    return yearMatch && (d.getMonth() + 1) === month;
+                };
 
-            revenuePayments.forEach((p: any) => {
-                const pDateStr = p.invoice_date || p.payment_date;
-                if (!pDateStr) return;
-                
-                const pDate = new Date(pDateStr);
-                if (!targetYear || pDate.getFullYear() === targetYear) {
-                    const month = pDate.getMonth() + 1;
-                    
-                    let preVatAmount = 0;
-                    if (p.vat_invoice_items && p.vat_invoice_items.length > 0) {
-                        preVatAmount = p.vat_invoice_items.reduce((s: number, item: any) => s + (Number(item.amountBeforeVAT) || 0), 0);
-                    } else {
-                        const gross = Number(p.amount) || 0;
-                        const hasVat = c.has_vat !== false;
-                        const vatRate = c.vat_rate ?? 10;
-                        const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
-                        preVatAmount = Math.round(gross / vatDivisor);
-                    }
-                    
-                    monthlyData[month].revenue += preVatAmount * fraction;
-                    
-                    // Add proportional revProfit for the recognized revenue
-                    if (expectedRevenue > 0) {
-                        const profitRatio = expectedProfit / expectedRevenue;
-                        monthlyData[month].revProfit += (preVatAmount * profitRatio) * fraction;
-                    }
-                }
-            });
+                const { revenueInPeriod, revProfitInPeriod } = calculatePeriodFinancials(c, isInMonth);
+                monthlyData[month].revenue += revenueInPeriod * fraction;
+                monthlyData[month].revProfit += revProfitInPeriod * fraction;
+            }
         });
 
         return Object.entries(monthlyData).map(([month, vals]) => ({
