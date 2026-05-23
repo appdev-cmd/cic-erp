@@ -256,14 +256,11 @@ export const UnitService = {
                     const estimatedCost = c.estimated_cost || 0;
                     const hasVat = c.has_vat !== false;
                     const vatRate = c.vat_rate ?? 10;
-                    
-                    const expectedRevenue = c.expected_revenue !== null && c.expected_revenue !== undefined
-                        ? Number(c.expected_revenue)
-                        : (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val);
-                    
+
+                    // ★ FIX Bug #6: Bỏ dead code biến expectedRevenue (không được dùng ngoài expectedProfit)
                     const expectedProfit = c.admin_profit !== null && c.admin_profit !== undefined
                         ? Number(c.admin_profit)
-                        : expectedRevenue - estimatedCost;
+                        : ((c.expected_revenue ?? (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val)) - estimatedCost);
 
                     // Signing Metrics
                     if (isInPeriod(c.signed_date)) {

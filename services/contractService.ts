@@ -547,9 +547,17 @@ export const ContractService = {
             }
         }
 
-        // Fetch ALL contracts with unit_allocations for allocation-aware filtering
-        // OPTIMIZED: No payments JOIN — use pre-computed columns
-        let query = supabase.from('contracts').select('id, value, expected_revenue, actual_revenue, admin_profit, rev_profit, cash_received, status, title, contract_code, party_a, signed_date, unit_id, unit_allocations, employee_id, employee_allocations');
+        // Fetch ALL contracts with unit_allocations for allocation-aware filtering.
+        // ★ FIX Bug #4: JOIN payments để tính revenue/cash/revProfit theo period filter
+        //   (giống getStatsFallback). Trước đây dùng pre-computed columns nhưng số tổng,
+        //   gây sai khi user filter theo kỳ (HĐ ký kỳ trước nhưng có doanh thu trong kỳ).
+        let query = supabase.from('contracts').select(
+            'id, value, expected_revenue, actual_revenue, admin_profit, rev_profit, cash_received, ' +
+            'estimated_cost, vat_rate, has_vat, ' +
+            'status, title, contract_code, party_a, signed_date, ' +
+            'unit_id, unit_allocations, employee_id, employee_allocations, category, ' +
+            'payments(amount, status, voucher_type, payment_date, invoice_date, vat_invoice_items)'
+        );
 
         if (search) {
             query = query.or(buildSearchFilter(search, matchingCustomerIds, unaccentMatchIds));
@@ -560,21 +568,34 @@ export const ContractService = {
         if (classification && classification !== 'All') {
             query = query.eq('classification', classification);
         }
-        // NOTE: Unit filter is NOT applied at SQL level — done in JS below for allocation support
-        if (dateFrom || dateTo) {
-            if (dateFrom) query = query.gte('signed_date', dateFrom);
-            if (dateTo) query = query.lte('signed_date', dateTo);
-        } else if (year && year !== 'All') {
-            const startDate = `${year}-01-01`;
-            const endDate = `${year}-12-31`;
-            query = query.gte('signed_date', startDate).lte('signed_date', endDate);
-        }
+        // ★ FIX Bug #4: KHÔNG filter signed_date ở SQL — vì cần lấy cả HĐ ngoài kỳ
+        // (HĐ ký kỳ trước nhưng có payment trong kỳ vẫn cần được tính vào doanh thu).
+        // Period filter sẽ được apply trong JS bằng helper calculatePeriodFinancials.
         // DO NOT filter by salespersonId in SQL — we need to also find
         // contracts where the employee appears in employee_allocations.
         // Salesperson filtering is done in JS below.
 
         const { data, error } = await query;
         if (error) throw error;
+
+        // Parse period dates for in-period filtering
+        let startPeriodDate: Date | null = null;
+        let endPeriodDate: Date | null = null;
+        if (dateFrom) startPeriodDate = new Date(dateFrom + 'T00:00:00');
+        if (dateTo) endPeriodDate = new Date(dateTo + 'T23:59:59');
+        if (!startPeriodDate && !endPeriodDate && year && year !== 'All') {
+            const y = parseInt(year);
+            startPeriodDate = new Date(y, 0, 1, 0, 0, 0);
+            endPeriodDate = new Date(y, 11, 31, 23, 59, 59);
+        }
+        const isInPeriod = (dateStr: string | null | undefined): boolean => {
+            if (!dateStr) return false;
+            if (!startPeriodDate && !endPeriodDate) return true;
+            const d = new Date(dateStr);
+            if (startPeriodDate && d < startPeriodDate) return false;
+            if (endPeriodDate && d > endPeriodDate) return false;
+            return true;
+        };
 
         // Also fetch status counts WITHOUT status filter for accurate status card display
         let statusCountQuery = supabase.from('contracts').select('id, status, unit_id, unit_allocations, signed_date');
@@ -646,17 +667,18 @@ export const ContractService = {
             else if (c.status === 'Completed') statusCounts.completedCount++;
         });
 
-        // OPTIMIZED: Calculate aggregates from pre-computed columns — no payment recalculation
+        // ★ FIX Bug #4: Aggregate using period-aware logic (giống getStatsFallback).
+        //   - totalValue, totalProfit, totalSigningProfit, totalContracts:
+        //       chỉ tính HĐ có signed_date ∈ kỳ
+        //   - totalRevenue, totalCash, totalRevenueProfit:
+        //       tính theo invoice_date/payment_date ∈ kỳ (dùng helper)
         let maxContract: any = null;
         let minContract: any = null;
         const unitBreakdown: Record<string, { count: number, value: number }> = {};
 
         const financials = (data || []).reduce((acc, curr: any) => {
             const val = curr.value || 0;
-            const rev = curr.actual_revenue || 0;
             const adminProfit = curr.admin_profit || 0;
-            const revProfit = curr.rev_profit || 0;
-            const cash = curr.cash_received || 0;
 
             // Determine this unit's share percentage using shared helper
             let unitSharePct = 100; // Default: 100% for "all" view
@@ -680,36 +702,44 @@ export const ContractService = {
                 const empPct = getEmployeeSharePct(curr, salespersonId);
                 fraction = fraction * empPct / 100;
             }
-            
-            const trueVal = val * fraction;
 
-            // Track Max and Min
-            if (trueVal > 0) {
-                if (!maxContract || trueVal > maxContract.value) {
-                    maxContract = { title: curr.title, code: curr.contract_code, value: trueVal, customer: curr.party_a, unit_id: curr.unit_id };
+            const isSignedMatch = isInPeriod(curr.signed_date);
+
+            // === Signing-date based metrics (chỉ tính HĐ ký trong kỳ) ===
+            if (isSignedMatch) {
+                const trueVal = val * fraction;
+
+                // Track Max and Min
+                if (trueVal > 0) {
+                    if (!maxContract || trueVal > maxContract.value) {
+                        maxContract = { title: curr.title, code: curr.contract_code, value: trueVal, customer: curr.party_a, unit_id: curr.unit_id };
+                    }
+                    if (!minContract || trueVal < minContract.value) {
+                        minContract = { title: curr.title, code: curr.contract_code, value: trueVal, customer: curr.party_a, unit_id: curr.unit_id };
+                    }
                 }
-                if (!minContract || trueVal < minContract.value) {
-                    minContract = { title: curr.title, code: curr.contract_code, value: trueVal, customer: curr.party_a, unit_id: curr.unit_id };
+
+                // Track Unit Breakdown
+                const unit = curr.unit_id || 'UNKNOWN';
+                if (!unitBreakdown[unit]) {
+                    unitBreakdown[unit] = { count: 0, value: 0 };
                 }
+                unitBreakdown[unit].count += 1;
+                unitBreakdown[unit].value += trueVal;
+
+                acc.totalContracts += 1;
+                acc.totalValue += val * fraction;
+                acc.totalProfit += adminProfit * fraction;
+                acc.totalSigningProfit += adminProfit * fraction;
             }
 
-            // Track Unit Breakdown
-            const unit = curr.unit_id || 'UNKNOWN';
-            if (!unitBreakdown[unit]) {
-                unitBreakdown[unit] = { count: 0, value: 0 };
-            }
-            unitBreakdown[unit].count += 1;
-            unitBreakdown[unit].value += trueVal;
+            // === Payment-date based metrics (theo invoice_date/payment_date ∈ kỳ) ===
+            const { revenueInPeriod, cashInPeriod, revProfitInPeriod } = calculatePeriodFinancials(curr, isInPeriod);
+            acc.totalRevenue += revenueInPeriod * fraction;
+            acc.totalCash += cashInPeriod * fraction;
+            acc.totalRevenueProfit += revProfitInPeriod * fraction;
 
-            return {
-                totalContracts: acc.totalContracts + 1,
-                totalValue: acc.totalValue + val * fraction,
-                totalRevenue: acc.totalRevenue + rev * fraction,
-                totalProfit: acc.totalProfit + adminProfit * fraction,
-                totalSigningProfit: acc.totalSigningProfit + adminProfit * fraction,
-                totalRevenueProfit: acc.totalRevenueProfit + revProfit * fraction,
-                totalCash: acc.totalCash + cash * fraction
-            };
+            return acc;
         }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0 });
 
         return { ...financials, ...statusCounts, maxContract, minContract, unitBreakdown };
@@ -840,12 +870,11 @@ export const ContractService = {
             const estimatedCost = curr.estimated_cost || 0;
             const hasVat = curr.has_vat !== false;
             const vatRate = curr.vat_rate ?? 10;
-            const expectedRevenue = curr.expected_revenue !== null && curr.expected_revenue !== undefined
-                ? Number(curr.expected_revenue)
-                : (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val);
+            // ★ FIX Bug #6: Bỏ dead code biến expectedRevenue (không được dùng ngoài expectedProfit).
+            // expectedProfit chỉ cần khi DB admin_profit null/undefined (legacy contract).
             const expectedProfit = curr.admin_profit !== null && curr.admin_profit !== undefined
                 ? Number(curr.admin_profit)
-                : expectedRevenue - estimatedCost;
+                : ((curr.expected_revenue ?? (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val)) - estimatedCost);
 
             // Stats from contract (only if signed_date matches filter)
             if (isSignedMatch) {
@@ -1095,14 +1124,11 @@ export const ContractService = {
             const estimatedCost = c.estimated_cost || 0;
             const hasVat = c.has_vat !== false;
             const vatRate = c.vat_rate ?? 10;
-            
-            const expectedRevenue = c.expected_revenue !== null && c.expected_revenue !== undefined
-                ? Number(c.expected_revenue)
-                : (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val);
-            
+
+            // ★ FIX Bug #6: Bỏ dead code biến expectedRevenue (không được dùng ngoài expectedProfit)
             const expectedProfit = c.admin_profit !== null && c.admin_profit !== undefined
                 ? Number(c.admin_profit)
-                : expectedRevenue - estimatedCost;
+                : ((c.expected_revenue ?? (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val)) - estimatedCost);
 
             // 1. Signing & Profit (based on signed_date)
             if (c.signed_date) {

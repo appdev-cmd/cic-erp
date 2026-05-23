@@ -122,6 +122,7 @@ export const buildPayload = (data: Partial<Contract>): Record<string, unknown> =
         salespersonId: 'employee_id',
         value: 'value',
         estimatedCost: 'estimated_cost',
+        expectedRevenue: 'expected_revenue',
         actualRevenue: 'actual_revenue',
         actualCost: 'actual_cost',
         invoicedAmount: 'invoiced_amount',
@@ -182,6 +183,19 @@ export const buildPayload = (data: Partial<Contract>): Record<string, unknown> =
                 0
             );
             payload.estimated_cost = inputSum + execSum;
+
+            // ★ FIX Bug #1/#2: Tự tính expected_revenue từ lineItems để gửi lên DB.
+            // Cách này chính xác cho HĐ có VAT mix (mỗi line item có vatRate khác nhau),
+            // vì công thức "value / (1 + vat_rate / 100)" của trigger DB không xử lý được VAT mix.
+            // Nếu không gửi giá trị này, trigger DB sẽ thấy expected_revenue cũ > 0 và giữ nguyên
+            // → admin_profit, rev_profit sai khi user update value/lineItems.
+            const expectedRevenueFromLineItems = ((data.lineItems as any[]) || []).reduce(
+                (sum: number, li: any) => sum + ((li.outputPrice as number) || 0) * ((li.quantity as number) || 1),
+                0
+            );
+            if (expectedRevenueFromLineItems > 0) {
+                payload.expected_revenue = Math.round(expectedRevenueFromLineItems);
+            }
         }
     }
 
