@@ -62,22 +62,28 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
         if (triggerRef.current) {
             const rect = triggerRef.current.getBoundingClientRect();
             const popoverWidth = 360;
-            const popoverHeight = 480; // estimated max height
+            // Chiều cao tự nhiên tối đa ở chế độ Ngoại tệ là khoảng 580px
+            const popoverHeight = 580; 
             const gap = 8;
             const viewportH = window.innerHeight;
             const viewportW = window.innerWidth;
 
-            // Prefer below, flip to above if not enough space
             let top: number;
-            if (rect.bottom + gap + popoverHeight > viewportH && rect.top - gap - popoverHeight > 0) {
-                // Show above
+
+            // 1. Thử hiển thị phía dưới trigger trước
+            if (rect.bottom + gap + popoverHeight <= viewportH - 16) {
+                top = rect.bottom + gap;
+            } 
+            // 2. Nếu không đủ chỗ phía dưới, thử hiển thị phía trên trigger
+            else if (rect.top - gap - popoverHeight >= 16) {
                 top = rect.top - gap - popoverHeight;
-            } else {
-                // Show below (clamp to viewport)
-                top = Math.min(rect.bottom + gap, viewportH - popoverHeight - 8);
+            } 
+            // 3. Nếu màn hình nhỏ không vừa cả 2, ghim top trong khoảng an toàn cách mép dưới ít nhất 16px
+            else {
+                top = Math.max(16, viewportH - popoverHeight - 16);
             }
 
-            // Align right edge with trigger, clamp to viewport
+            // Align right edge với trigger, clamp trong viewport
             const left = Math.max(8, Math.min(rect.right - popoverWidth, viewportW - popoverWidth - 8));
 
             setPopoverPos({ top, left });
@@ -266,7 +272,16 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
             {isOpen && createPortal(
                 <div
                     ref={popoverRef}
-                    style={{ position: 'fixed', top: popoverPos.top, left: Math.max(8, popoverPos.left), zIndex: 9999 }}
+                    style={{ 
+                        position: 'fixed', 
+                        top: popoverPos.top, 
+                        left: Math.max(8, popoverPos.left), 
+                        zIndex: 9999,
+                        // Bỏ height cố định để tự co giãn theo chiều cao tự nhiên của VND/Foreign mode
+                        maxHeight: `calc(100vh - ${popoverPos.top}px - 16px)`,
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }}
                     className="w-[360px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-200"
                 >
                     {/* Header */}
@@ -305,7 +320,7 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
                     </div>
 
                     {/* Body */}
-                    <div className="p-4 space-y-3">
+                    <div className="p-4 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
                         {mode === 'vnd' ? (
                             /* ─── VND mode with formula support ─── */
                             <div className="space-y-2">
