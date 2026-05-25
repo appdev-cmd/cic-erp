@@ -20,7 +20,8 @@ import {
   Bot,
   Newspaper,
   Globe,
-  Activity
+  Activity,
+  Target
 } from 'lucide-react';
 import { UserRole, PlanStatus } from './types';
 
@@ -101,6 +102,7 @@ export const NAV_ITEMS = [
   { id: 'hrm', label: 'Nhân sự HR', icon: <Briefcase size={20} /> },
   { id: 'ai-assistant', label: 'AI Agent', icon: <BrainCircuit size={20} /> },
   { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
+  { id: 'crm', label: 'CRM (Kinh doanh)', icon: <Target size={20} /> },
 
   { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} />, devOnly: true },
 

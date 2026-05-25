@@ -55,3 +55,9 @@ export { BIM_PROJECT_STATUS_LABELS } from './project';
 
 // News & Web Content domain
 export type { PostStatus, PostCategory, NewsPost } from './news';
+
+// CRM domain
+export type {
+  CrmStageTemplate, CrmStage, CrmLead, CrmDeal,
+  CrmActivity, CrmDealProduct
+} from './crm';

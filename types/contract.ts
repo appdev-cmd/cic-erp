@@ -65,6 +65,7 @@ export interface ForeignCurrencyInfo {
   rate: number;     // Tỷ giá (VD: 26500)
   currency: string; // "USD" | "EUR"
   formula?: string; // Công thức gốc nếu có (VD: "22*(33+44)")
+  isCustomRate?: boolean; // Đánh dấu tỷ giá đã được chốt cố định (không bị ghi đè bởi VCB)
 }
 
 export interface LineItem {

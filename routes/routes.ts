@@ -27,4 +27,7 @@ export const ROUTES = {
     USER_GUIDE: '/user-guide',
     SETTINGS: '/settings',
     AI_DASHBOARD: '/admin/ai-dashboard',
+    CRM: '/crm',
+    CRM_LEADS: '/crm/leads',
+    CRM_DEALS: '/crm/deals',
 } as const;

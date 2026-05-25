@@ -51,6 +51,7 @@ import {
     LazyPerformancePage as PerformancePage,
     LazySelfServicePortal as SelfServicePortal,
     LazyHRAnalyticsDashboard as HRAnalyticsDashboardPage,
+    LazyCrmLeadsPage as CrmLeadsPage,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -162,6 +163,10 @@ export const router = createBrowserRouter([
 
             // User Guide
             { path: 'user-guide', element: <UserGuidePage /> },
+
+            // CRM
+            { path: 'crm', element: <Navigate to="/crm/leads" replace /> },
+            { path: 'crm/leads', element: <CrmLeadsPage /> },
 
             // 404 Fallback
             { path: '*', element: <Navigate to="/" replace /> },

@@ -19,6 +19,7 @@ import QuickAddSupplierDialog from './ui/QuickAddSupplierDialog';
 // Contract Form Sub-components
 import { useAuth } from '../contexts/AuthContext';
 import { useFinancialCalculations } from '../hooks/useFinancialCalculations';
+import { recalculateAutoCostsForList } from '../hooks/useLineItems';
 import {
   StepIndicator,
   FinancialSummary,
@@ -214,6 +215,10 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     id: '1', name: '', quantity: 1, supplier: '', inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 0
   }]);
 
+  const updateLineItemsAndRecalculate = useCallback((newItems: LineItem[]) => {
+    setLineItems(recalculateAutoCostsForList(newItems));
+  }, []);
+
   const [executionCosts, setExecutionCosts] = useState<ExecutionCostItem[]>(contract?.executionCosts || []);
 
   // Execution cost handlers
@@ -241,7 +246,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     const totalAmount = tempCostDetails.reduce((acc, item) => acc + item.amount, 0);
     newList[activeCostModalIndex].directCostDetails = tempCostDetails;
     newList[activeCostModalIndex].directCosts = totalAmount;
-    setLineItems(newList);
+    setLineItems(recalculateAutoCostsForList(newList));
     setActiveCostModalIndex(null);
   };
 
@@ -503,7 +508,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const addContact = () => setContacts([...contacts, { id: Date.now().toString(), name: '', role: '' }]);
   const removeContact = (id: string) => setContacts(contacts.filter(c => c.id !== id));
   const addLineItem = () => setLineItems([...lineItems, { id: Date.now().toString(), name: '', productId: undefined, productName: '', quantity: 1, supplier: '', manufacturer: '', manufacturerId: undefined, inputPrice: 0, outputPrice: 0, directCosts: 0, vatRate: 0 }]);
-  const removeLineItem = (id: string) => setLineItems(lineItems.filter(i => i.id !== id));
+  const removeLineItem = (id: string) => setLineItems(recalculateAutoCostsForList(lineItems.filter(i => i.id !== id)));
 
   // AI Auto-Generate Title from line items
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
@@ -737,7 +742,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
                 products={products} setProducts={setProducts}
                 suppliers={suppliers} setSuppliers={setSuppliers}
                 executionCostTypes={executionCostTypes} setExecutionCostTypes={setExecutionCostTypes}
-                lineItems={lineItems} setLineItems={setLineItems}
+                lineItems={lineItems} setLineItems={updateLineItemsAndRecalculate}
                 addLineItem={addLineItem} removeLineItem={removeLineItem}
                 openCostModal={openCostModal}
                 executionCosts={executionCosts} setExecutionCosts={setExecutionCosts}

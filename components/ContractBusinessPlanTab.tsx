@@ -111,6 +111,9 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
     }, []);
 
     // Sync from contract when contract changes
+    const contractLineItemsStr = JSON.stringify(contract.lineItems);
+    const contractExecutionCostsStr = JSON.stringify(contract.executionCosts);
+
     useEffect(() => {
         setLineItems((contract.lineItems || []).map(item => ({
             ...item,
@@ -118,7 +121,7 @@ const ContractBusinessPlanTab: React.FC<Props> = ({ contract, onUpdate }) => {
             outputPriceFormula: item.outputPriceFormula || (item.outputPrice ? String(item.outputPrice) : undefined),
         })));
         setExecutionCosts(contract.executionCosts || []);
-    }, [contract.id, setLineItems, setExecutionCosts]);
+    }, [contract.id, contractLineItemsStr, contractExecutionCostsStr, setLineItems, setExecutionCosts]);
 
     // Reset to original contract data
     const resetToOriginal = () => {

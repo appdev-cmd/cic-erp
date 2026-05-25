@@ -93,6 +93,10 @@ const PerformancePage = lazyWithRetry(() => import('./hrm/PerformancePage').then
 const SelfServicePortal = lazyWithRetry(() => import('./hrm/SelfServicePortal').then(m => ({ default: m.SelfServicePortal })));
 const HRAnalyticsDashboard = lazyWithRetry(() => import('./hrm/HRAnalyticsDashboard').then(m => ({ default: m.HRAnalyticsDashboard })));
 
+// CRM
+const LeadsPage = lazyWithRetry(() => import('./crm/leads/LeadsPage'));
+// const DealsPage = lazyWithRetry(() => import('./crm/deals/DealsPage')); // Will add later
+
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
     <Suspense fallback={fallback || <ListPageSkeleton />}>
@@ -1057,6 +1061,10 @@ export const LazyPublicApplicationForm: React.FC = () => withSuspense(<PublicApp
 
 // CMS / News
 export const LazyNewsPage: React.FC = () => withSuspense(<NewsList />);
+
+// CRM
+export const LazyCrmLeadsPage: React.FC = () => withSuspense(<LeadsPage />);
+
 
 // Settings / System
 export const LazyAIObservabilityDashboardPage: React.FC = () => withSuspense(<AIObservabilityDashboard />);

@@ -64,6 +64,9 @@ export const ROUTE_PERMISSION_MAP: RoutePermissionEntry[] = [
 
     { pattern: '/projects', resource: 'projects', action: 'view', label: 'Danh sach du an', module: 'Du an BIM' },
     { pattern: '/projects/:id', resource: 'projects', action: 'view', label: 'Chi tiet du an', module: 'Du an BIM' },
+
+    { pattern: '/crm/*', resource: 'crm', action: 'view', label: 'Quan ly CRM', module: 'CRM' },
+    { pattern: '/crm', resource: 'crm', action: 'view', label: 'Quan ly CRM', module: 'CRM' },
 ];
 
 function patternToRegex(pattern: string): RegExp {

@@ -74,7 +74,8 @@ export type PermissionResource =
   | 'requests'
   | 'leaves'
   | 'recruitment'
-  | 'analytics';
+  | 'analytics'
+  | 'crm';
 
 export interface UserPermission {
   id?: string;
@@ -105,6 +106,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     leaves: ['view', 'create', 'update', 'delete'],
     recruitment: ['view', 'create', 'update', 'delete'],
     analytics: ['view', 'create', 'update', 'delete'],
+    crm: ['view', 'create', 'update', 'delete'],
   },
   // Ban lãnh đạo — Toàn quyền dữ liệu, KHÔNG settings/permissions, payments chỉ xem
   Leadership: {
@@ -120,6 +122,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     leaves: ['view', 'create', 'update', 'delete'],
     recruitment: ['view', 'create', 'update', 'delete'],
     analytics: ['view'],
+    crm: ['view', 'create', 'update', 'delete'],
   },
   // Lãnh đạo đơn vị — HĐ/KH/SP: VCU, payments: chỉ xem (tạo phiếu cần cấp quyền qua Settings)
   UnitLeader: {

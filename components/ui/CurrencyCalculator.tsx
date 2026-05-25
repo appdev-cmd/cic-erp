@@ -10,7 +10,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Calculator, X, RefreshCw, Globe, ChevronDown, ArrowRight, Equal } from 'lucide-react';
+import { Calculator, X, RefreshCw, Globe, ChevronDown, ArrowRight, Equal, Lock } from 'lucide-react';
 import { ExchangeRateService, ExchangeRate, COMMON_CURRENCIES } from '../../services/exchangeRateService';
 
 import { safeEval } from '../../utils/formulaEval';
@@ -18,8 +18,8 @@ import { safeEval } from '../../utils/formulaEval';
 interface CurrencyCalculatorProps {
     value: number;
     onChange: (vndValue: number) => void;
-    onForeignCurrencyChange?: (info: { amount: number; rate: number; currency: string; formula?: string } | undefined) => void;
-    foreignCurrency?: { amount: number; rate: number; currency: string; formula?: string };
+    onForeignCurrencyChange?: (info: { amount: number; rate: number; currency: string; formula?: string; isCustomRate?: boolean } | undefined) => void;
+    foreignCurrency?: { amount: number; rate: number; currency: string; formula?: string; isCustomRate?: boolean };
     formatVND: (val: number) => string;
     placeholder?: string;
     inputClassName?: string;
@@ -47,7 +47,8 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
     const [foreignExpr, setForeignExpr] = useState(foreignCurrency?.formula || foreignCurrency?.amount?.toString() || '');
     const [vndExpr, setVndExpr] = useState('');
     const [customRate, setCustomRate] = useState(foreignCurrency?.rate?.toString() || '');
-    const [rateEdited, setRateEdited] = useState(false); // track if user manually edited rate
+    const [isCustomRate, setIsCustomRate] = useState(foreignCurrency?.isCustomRate || false);
+    const [rateEdited, setRateEdited] = useState(foreignCurrency?.isCustomRate || false); // track if user manually edited rate
     const [rates, setRates] = useState<ExchangeRate[]>([]);
     const [ratesLoading, setRatesLoading] = useState(false);
     const [ratesUpdatedAt, setRatesUpdatedAt] = useState('');
@@ -108,8 +109,8 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
             const { rates: fetchedRates, updatedAt } = await ExchangeRateService.getRates();
             setRates(ExchangeRateService.sortRates(fetchedRates));
             setRatesUpdatedAt(updatedAt);
-            // Auto-fill rate only if user hasn't manually edited it
-            if (!rateEdited) {
+            // Auto-fill rate only if user hasn't manually edited it AND it is not custom
+            if (!isCustomRate && !rateEdited) {
                 const rate = fetchedRates.find(r => r.currency === selectedCurrency);
                 if (rate) {
                     setCustomRate(rate.sell.toString());
@@ -120,7 +121,7 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
         } finally {
             setRatesLoading(false);
         }
-    }, [selectedCurrency, rateEdited]);
+    }, [selectedCurrency, rateEdited, isCustomRate]);
 
     useEffect(() => {
         if (isOpen && mode === 'foreign') {
@@ -128,17 +129,39 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
         }
     }, [isOpen, mode]);
 
-    // Update rate when currency changes (only if user hasn't manually edited)
+    // Update rate when currency changes (only if rate is not custom/edited)
     useEffect(() => {
-        if (rates.length > 0 && !rateEdited) {
+        if (rates.length > 0 && !isCustomRate && !rateEdited) {
             const rate = rates.find(r => r.currency === selectedCurrency);
             if (rate) {
                 setCustomRate(rate.sell.toString());
             }
         }
         // Reset rateEdited when currency changes so new VCB rate loads
-        setRateEdited(false);
+        if (!isCustomRate) {
+            setRateEdited(false);
+        }
     }, [selectedCurrency]);
+
+    // Sync state from foreignCurrency when it changes or when popover opens
+    useEffect(() => {
+        if (isOpen) {
+            if (foreignCurrency) {
+                setSelectedCurrency(foreignCurrency.currency || 'USD');
+                setForeignExpr(foreignCurrency.formula || foreignCurrency.amount?.toString() || '');
+                setCustomRate(foreignCurrency.rate?.toString() || '');
+                setIsCustomRate(foreignCurrency.isCustomRate || false);
+                setRateEdited(foreignCurrency.isCustomRate || false);
+            } else {
+                // Default values if no foreign currency info is saved yet
+                setSelectedCurrency('USD');
+                setForeignExpr('');
+                setCustomRate('');
+                setIsCustomRate(false);
+                setRateEdited(false);
+            }
+        }
+    }, [isOpen, foreignCurrency]);
 
     // Sync vndExpr when popover opens
     useEffect(() => {
@@ -179,7 +202,13 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
         const vnd = Math.round(amt * rateValue);
         const formula = isFormula(foreignExpr) ? foreignExpr : undefined;
         onChange(vnd);
-        onForeignCurrencyChange?.({ amount: amt, rate: rateValue, currency: selectedCurrency, formula });
+        onForeignCurrencyChange?.({
+            amount: amt,
+            rate: rateValue,
+            currency: selectedCurrency,
+            formula,
+            isCustomRate: isCustomRate
+        });
         onFormulaChange?.(undefined); // Clear VND formula when price is set via foreign currency
         setIsOpen(false);
     };
@@ -380,18 +409,21 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
                                 </div>
 
                                 {/* Exchange rate — editable */}
-                                <div className="space-y-1.5">
+                                <div className="space-y-2">
                                     <div className="flex items-center justify-between">
                                         <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1.5">
                                             Tỷ giá
-                                            {rateEdited && (
-                                                <span className="text-[8px] font-medium text-amber-500 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">đã sửa</span>
+                                            {isCustomRate && (
+                                                <span className="inline-flex items-center gap-0.5 text-[8px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
+                                                    <Lock size={8} /> Đã chốt
+                                                </span>
                                             )}
                                         </label>
                                         <button
-                                            onClick={() => { setRateEdited(false); loadRates(); }}
+                                            type="button"
+                                            onClick={() => { setIsCustomRate(false); setRateEdited(false); loadRates(); }}
                                             disabled={ratesLoading}
-                                            className="text-[9px] text-indigo-500 hover:text-indigo-700 font-bold flex items-center gap-1"
+                                            className="text-[9px] text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-bold flex items-center gap-1 transition-colors"
                                             title="Lấy tỷ giá VCB mới nhất"
                                         >
                                             <RefreshCw size={10} className={ratesLoading ? 'animate-spin' : ''} />
@@ -404,19 +436,48 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
                                         onChange={(e) => {
                                             setCustomRate(e.target.value);
                                             setRateEdited(true);
+                                            setIsCustomRate(true); // Tự động chốt khi tự sửa
                                         }}
                                         placeholder="VD: 25480"
                                         className={`w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border rounded-lg text-base font-black text-right outline-none focus:ring-2 transition-colors ${
-                                            rateEdited
+                                            isCustomRate
                                                 ? 'border-amber-300 dark:border-amber-600 text-amber-600 dark:text-amber-400 focus:border-amber-400 focus:ring-amber-400/20'
-                                                : 'border-slate-200 dark:border-slate-700 text-amber-600 dark:text-amber-400 focus:border-amber-400 focus:ring-amber-400/20'
+                                                : 'border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:border-indigo-400 focus:ring-indigo-400/20'
                                         }`}
                                     />
-                                    {ratesUpdatedAt && !rateEdited && (
+                                    {ratesUpdatedAt && !isCustomRate && (
                                         <p className="text-[8px] text-slate-400 text-right">
                                             VCB cập nhật: {ratesUpdatedAt}
                                         </p>
                                     )}
+                                    {/* Switch chốt tỷ giá */}
+                                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 mt-2 transition-all duration-200">
+                                        <div className="flex items-center gap-2">
+                                            <Lock size={12} className={isCustomRate ? "text-amber-500" : "text-slate-400"} />
+                                            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Chốt tỷ giá tự nhập</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newValue = !isCustomRate;
+                                                setIsCustomRate(newValue);
+                                                setRateEdited(newValue);
+                                                if (!newValue) {
+                                                    // Reset và load rates từ VCB
+                                                    loadRates();
+                                                }
+                                            }}
+                                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                isCustomRate ? 'bg-amber-500' : 'bg-slate-200 dark:bg-slate-700'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                                    isCustomRate ? 'translate-x-4' : 'translate-x-0'
+                                                }`}
+                                            />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Result preview */}
