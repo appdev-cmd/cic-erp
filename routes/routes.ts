@@ -29,5 +29,9 @@ export const ROUTES = {
     AI_DASHBOARD: '/admin/ai-dashboard',
     CRM: '/crm',
     CRM_LEADS: '/crm/leads',
+    CRM_COMPANIES: '/crm/companies',
+    CRM_CONTACTS: '/crm/contacts',
     CRM_DEALS: '/crm/deals',
+    CRM_QUOTES: '/crm/quotes',
+    CRM_PRODUCTS: '/crm/products',
 } as const;

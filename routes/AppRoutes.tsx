@@ -52,6 +52,11 @@ import {
     LazySelfServicePortal as SelfServicePortal,
     LazyHRAnalyticsDashboard as HRAnalyticsDashboardPage,
     LazyCrmLeadsPage as CrmLeadsPage,
+    LazyCrmCompaniesPage as CrmCompaniesPage,
+    LazyCrmContactsPage as CrmContactsPage,
+    LazyCrmDealsPage as CrmDealsPage,
+    LazyCrmQuotesPage as CrmQuotesPage,
+    LazyCrmProductsPage as CrmProductsPage,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -167,6 +172,11 @@ export const router = createBrowserRouter([
             // CRM
             { path: 'crm', element: <Navigate to="/crm/leads" replace /> },
             { path: 'crm/leads', element: <CrmLeadsPage /> },
+            { path: 'crm/companies', element: <CrmCompaniesPage /> },
+            { path: 'crm/contacts', element: <CrmContactsPage /> },
+            { path: 'crm/deals', element: <CrmDealsPage /> },
+            { path: 'crm/quotes', element: <CrmQuotesPage /> },
+            { path: 'crm/products', element: <CrmProductsPage /> },
 
             // 404 Fallback
             { path: '*', element: <Navigate to="/" replace /> },

@@ -68,12 +68,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const tool = registryTools[key];
     if (tool && tool.name === name) {
       try {
-        // Mock a user context, you can customize this as needed
+        // Context configuration based on environment variables for security and flexibility
+        const agentRole = process.env.MCP_AGENT_ROLE || 'NVKD';
+        const agentUserId = process.env.MCP_AGENT_USER_ID || 'mcp-agent-telegram';
+        const agentUnitId = process.env.MCP_AGENT_UNIT_ID || undefined;
+
+        if (agentRole === 'admin') {
+          console.error("⚠️ SECURITY WARNING: Running MCP Server tool execution under administrative privilege ('admin').");
+        }
+
         const mockContext = { 
-            userId: 'mcp-agent-telegram', 
-            role: 'admin',
-            // if you need unit filtering etc.
-            unitId: undefined 
+            userId: agentUserId, 
+            role: agentRole,
+            unitId: agentUnitId
         };
         
         const result = await tool.execute(args || {}, mockContext);

@@ -95,7 +95,11 @@ const HRAnalyticsDashboard = lazyWithRetry(() => import('./hrm/HRAnalyticsDashbo
 
 // CRM
 const LeadsPage = lazyWithRetry(() => import('./crm/leads/LeadsPage'));
-// const DealsPage = lazyWithRetry(() => import('./crm/deals/DealsPage')); // Will add later
+const CompaniesPage = lazyWithRetry(() => import('./crm/companies/CompaniesPage'));
+const ContactsPage = lazyWithRetry(() => import('./crm/contacts/ContactsPage'));
+const DealsPage = lazyWithRetry(() => import('./crm/deals/DealsPage'));
+const QuotesPage = lazyWithRetry(() => import('./crm/quotes/QuotesPage'));
+const ProductsPage = lazyWithRetry(() => import('./crm/products/ProductsPage'));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
@@ -1064,6 +1068,11 @@ export const LazyNewsPage: React.FC = () => withSuspense(<NewsList />);
 
 // CRM
 export const LazyCrmLeadsPage: React.FC = () => withSuspense(<LeadsPage />);
+export const LazyCrmCompaniesPage: React.FC = () => withSuspense(<CompaniesPage />);
+export const LazyCrmContactsPage: React.FC = () => withSuspense(<ContactsPage />);
+export const LazyCrmDealsPage: React.FC = () => withSuspense(<DealsPage />);
+export const LazyCrmQuotesPage: React.FC = () => withSuspense(<QuotesPage />);
+export const LazyCrmProductsPage: React.FC = () => withSuspense(<ProductsPage />);
 
 
 // Settings / System

@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.crm_stage_templates (
 CREATE TABLE IF NOT EXISTS public.crm_stages (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   template_id UUID REFERENCES public.crm_stage_templates(id) ON DELETE CASCADE,
-  unit_id UUID REFERENCES public.units(id) ON DELETE CASCADE,
+  unit_id TEXT REFERENCES public.units(id) ON DELETE CASCADE,
   sort_order INT,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.crm_leads (
   stage_id UUID REFERENCES public.crm_stage_templates(id),
   expected_value DECIMAL,
   assigned_to UUID REFERENCES public.profiles(id),
-  unit_id UUID REFERENCES public.units(id),
+  unit_id TEXT REFERENCES public.units(id),
   created_by UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS public.crm_leads (
 CREATE TABLE IF NOT EXISTS public.crm_deals (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   title TEXT NOT NULL,
-  customer_id UUID REFERENCES public.customers(id),
-  contact_id UUID REFERENCES public.customer_contacts(id),
+  customer_id TEXT REFERENCES public.customers(id),
+  contact_id TEXT REFERENCES public.customer_contacts(id),
   amount DECIMAL DEFAULT 0,
   expected_revenue DECIMAL DEFAULT 0,
   currency TEXT DEFAULT 'VND',
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS public.crm_deals (
   expected_close_date DATE,
   source TEXT,
   assigned_to UUID REFERENCES public.profiles(id),
-  unit_id UUID REFERENCES public.units(id),
+  unit_id TEXT REFERENCES public.units(id),
   created_by UUID REFERENCES public.profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS public.crm_activities (
 CREATE TABLE IF NOT EXISTS public.crm_deal_products (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   deal_id UUID REFERENCES public.crm_deals(id) ON DELETE CASCADE,
-  product_id UUID REFERENCES public.products(id),
+  product_id TEXT REFERENCES public.products(id),
   quantity DECIMAL DEFAULT 1,
   price DECIMAL DEFAULT 0,
   total DECIMAL DEFAULT 0,

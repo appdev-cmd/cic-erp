@@ -6,11 +6,12 @@ export const CrmLayout: React.FC<{ children?: React.ReactNode }> = ({ children }
   const location = useLocation();
 
   const tabs = [
-    { name: 'Cơ hội (Deals)', path: ROUTES.CRM_DEALS },
     { name: 'Đầu mối (Leads)', path: ROUTES.CRM_LEADS },
-    { name: 'Khách hàng', path: ROUTES.CUSTOMERS }, // Reusing existing customers route? Or inside CRM? Let's use standard CRM path. 
-    // Wait, the user asked to integrate with existing modules. If we just link to existing, that's fine.
-    // For now, let's just make Leads and Deals the main tabs.
+    { name: 'Khách hàng tổ chức (Companies)', path: ROUTES.CRM_COMPANIES },
+    { name: 'Liên hệ (Contacts)', path: ROUTES.CRM_CONTACTS },
+    { name: 'Cơ hội (Deals)', path: ROUTES.CRM_DEALS },
+    { name: 'Báo giá (Quotes)', path: ROUTES.CRM_QUOTES },
+    { name: 'Sản phẩm & Dịch vụ (Products)', path: ROUTES.CRM_PRODUCTS },
   ];
 
   return (

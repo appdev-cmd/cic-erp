@@ -33,10 +33,15 @@ function getEnv(key: string, backup: string = ''): string {
 
 const supabaseUrl = getEnv('VITE_SUPABASE_URL', DEFAULT_SUPABASE_URL);
 
-// Dev bypass mode — ONLY allowed on localhost to prevent production data leak
+// Detect if running in production mode
+const isProduction = 
+    (typeof import.meta.env !== 'undefined' && import.meta.env.PROD) ||
+    (typeof process !== 'undefined' && process.env.NODE_ENV === 'production');
+
+// Dev bypass mode — ONLY allowed on localhost during non-production to prevent production data leak
 const isLocalhost = typeof window !== 'undefined' && 
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const isDevBypass = getEnv('VITE_DEV_BYPASS_AUTH') === 'true' && isLocalhost;
+const isDevBypass = !isProduction && getEnv('VITE_DEV_BYPASS_AUTH') === 'true' && isLocalhost;
 
 // SECURITY: Never use service_role key in client code on production
 const supabaseKey = (isDevBypass && getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY')) 
