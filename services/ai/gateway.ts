@@ -27,7 +27,7 @@ import type { AIProvider, ChatRequest, AILogEntry, GatewayConfig } from './types
 function getConfig(): GatewayConfig {
   return {
     localBaseURL: getLocalAIBaseURL(),
-    localApiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || 'sk-cic-2026',
+    localApiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || '',
     defaultModel: 'gemma-4-26b',   // LiteLLM model alias — Gemma 4 26B
     maxRetries: 2,
     timeoutMs: 120000,
@@ -36,21 +36,18 @@ function getConfig(): GatewayConfig {
 }
 
 // ─── LocalStorage helpers ────────────────────
+const isLocalhost = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname);
+
 function getLocalAIBaseURL(model?: string): string {
   const isGemma = model ? model.toLowerCase().includes('gemma') : false;
 
   try {
     if (typeof window !== 'undefined') {
-      // Ưu tiên localStorage override (user có thể set từ Personal Settings)
-      const stored = localStorage.getItem('cic_local_ai_base_url');
-      if (stored && (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|ai-api\.cic\.com\.vn|118\.70\.182\.173)/.test(stored) || stored.startsWith('/api/'))) {
-        if (stored.startsWith('/api/')) {
-          return isGemma ? '/api/vllm_gemma' : '/api/vllm';
-        }
-        // URL tường minh → vẫn dùng proxy path tương ứng để tránh CORS
-        return isGemma ? '/api/vllm_gemma' : '/api/vllm';
+      // Production (Vercel): dùng serverless function proxy — key được thêm server-side
+      if (!isLocalhost) {
+        return '/api/ai-proxy';
       }
-      // Mặc định: luôn dùng Vite proxy path (tránh CORS/SSL khi gọi trực tiếp từ browser)
+      // Localhost: dùng Vite dev proxy
       return isGemma ? '/api/vllm_gemma' : '/api/vllm';
     }
     // Server-side / Node: gọi trực tiếp
@@ -741,12 +738,16 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
     authKey = getEnvKey('deepseek');
   }
 
-  const url = `${baseURL.replace(/\/$/, '')}/chat/completions`;
+  // Production serverless proxy: /api/ai-proxy?endpoint=chat/completions
+  const isProxyRoute = baseURL.includes('/api/ai-proxy');
+  const url = isProxyRoute
+    ? `${baseURL}?endpoint=chat/completions`
+    : `${baseURL.replace(/\/$/, '')}/chat/completions`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), getConfig().timeoutMs);
 
   try {
-    const isVllmOrLocal = /localhost|127\.0\.0\.1/.test(url) || url.includes('/api/vllm');
+    const isVllmOrLocal = /localhost|127\.0\.0\.1/.test(url) || url.includes('/api/vllm') || isProxyRoute;
 
     let formattedMessages = request.messages.map((m: any) => {
       const out = { ...m };

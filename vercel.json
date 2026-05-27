@@ -13,12 +13,8 @@
     ],
     "rewrites": [
         {
-            "source": "/api/vllm_gemma/(.*)",
-            "destination": "https://ai-api.cic.com.vn:9443/v1/$1"
-        },
-        {
-            "source": "/api/vllm/(.*)",
-            "destination": "https://ai-api.cic.com.vn:9443/v1/$1"
+            "source": "/api/ai-proxy/:path*",
+            "destination": "/api/ai-proxy"
         },
         {
             "source": "/api/(.*)",
