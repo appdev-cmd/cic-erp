@@ -44,13 +44,9 @@ const isLocalhost = typeof window !== 'undefined' &&
 const isDevBypass = !isProduction && getEnv('VITE_DEV_BYPASS_AUTH') === 'true' && isLocalhost;
 
 // SECURITY: Never use service_role key in client code on production
-const supabaseKey = (isDevBypass && getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY')) 
-    ? getEnv('VITE_SUPABASE_SERVICE_ROLE_KEY') 
-    : (getEnv('VITE_SUPABASE_ANON_KEY', DEFAULT_SUPABASE_ANON_KEY));
-
-if (isDevBypass) {
-    console.warn('[SECURITY] Dev bypass mode is ACTIVE — RLS is disabled. This must NEVER happen on production.');
-}
+// In dev bypass mode, we use the regular anon key but AuthContext will silently
+// log in as a Dev Admin user. This ensures data is fetched safely and securely via RLS.
+const supabaseKey = getEnv('VITE_SUPABASE_ANON_KEY', DEFAULT_SUPABASE_ANON_KEY);
 
 export const dataClient = createClient(supabaseUrl, supabaseKey, {
     auth: {
