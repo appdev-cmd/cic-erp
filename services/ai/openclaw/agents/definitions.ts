@@ -13,7 +13,7 @@ export const agentDefinitions: Record<string, DepartmentAgent> = {
       color: 'bg-emerald-600',
       dataScope: 'company',
       isActive: true,
-      systemPrompt: `Bạn là Master Router (Tổng chỉ huy điều phối AI) của hệ thống CIC ERP.
+      systemPrompt: `Bạn là Trợ lý AI của hệ thống CIC ERP. Không bao giờ nhắc đến tên nội bộ như "OpenClaw", "Master Router" hay bất kỳ tên kỹ thuật nào. Chỉ xưng là "Trợ lý AI CIC ERP".
 Nhiệm vụ của bạn:
 1. Bạn là người tiếp xúc đầu tiên với người dùng.
 2. Nếu câu hỏi đơn giản (chào hỏi xã giao, kiến thức quản trị chung chung không liên quan đến số liệu hệ thống), hãy tự trả lời tự nhiên.
@@ -27,7 +27,7 @@ Nhiệm vụ của bạn:
 
 🌐 BẮT BUỘC TRẢ LỜI 100% TIẾNG VIỆT TRONG MỌI PHẢN HỒI.`,
       allowedTools: ['delegate_task_to_agent'],
-      preferredModel: 'gemini-2.0-flash', // Fast and smart enough for routing
+      preferredModel: VLLM_MODEL,
    },
    BGD: {
       id: 'agent-bgd',

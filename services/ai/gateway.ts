@@ -730,7 +730,8 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
     baseURL = request.baseUrl || getLocalAIBaseURL(request.model);
     authKey = getConfig().localApiKey;  // From getConfig() — reads env var
   } else if (provider === 'gemini') {
-    baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
+    // Dùng Vite proxy để tránh CORS khi gọi từ browser
+    baseURL = typeof window !== 'undefined' ? '/api/gemini/' : 'https://generativelanguage.googleapis.com/v1beta/openai/';
     authKey = getEnvKey('gemini');
   } else if (provider === 'openai') {
     baseURL = 'https://api.openai.com/v1';

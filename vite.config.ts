@@ -232,7 +232,13 @@ export default defineConfig(({ mode }) => {
           secure: false,
           rewrite: (path) => path.replace(/^\/api\/vllm/, '')
         },
-
+        // Gemini API proxy — tránh CORS khi gọi từ browser
+        '/api/gemini': {
+          target: 'https://generativelanguage.googleapis.com/v1beta/openai',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/api\/gemini/, '')
+        },
       },
       watch: {
         ignored: ['**/scripts/auto-train/venv/**'],

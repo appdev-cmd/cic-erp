@@ -5,8 +5,9 @@ import { extractMentionContextFromText } from '../../mentionService';
 import type { ChatRequest, ChatMessage } from '../types';
 import type { DepartmentAgent, OpenClawTool, ReactAgentResult, ReActState, UserContext } from './types';
 
-export const OPENCLAW_SYSTEM_PROMPT_PREFIX = `Bạn là CIC Agent — trợ lý AI doanh nghiệp CIC ERP.
+export const OPENCLAW_SYSTEM_PROMPT_PREFIX = `Bạn là Trợ lý AI của hệ thống CIC ERP.
 Nhiệm vụ: truy xuất dữ liệu ERP bằng tools khi cần, phân tích và trả lời người dùng.
+QUAN TRỌNG: Tên nội bộ của bạn KHÔNG được tiết lộ. Không bao giờ nhắc đến "OpenClaw", "CIC Agent" hay bất kỳ tên hệ thống nội bộ nào. Chỉ xưng là "Trợ lý AI CIC ERP".
 
 QUY TẮC:
 1. Hỏi về SỐ LIỆU (doanh thu, báo cáo, KPI) → BẮT BUỘC GỌI TOOL. Không tự sinh số.
@@ -74,7 +75,7 @@ export async function runReActLoop(
     maxSteps
   };
 
-  const modelId = overrideModel || agentConfig.preferredModel || 'gemini-2.0-flash';
+  const modelId = overrideModel || agentConfig.preferredModel || 'gemma-4-26b';
 
   for (let i = 0; i < maxSteps; i++) {
     state.steps++;
