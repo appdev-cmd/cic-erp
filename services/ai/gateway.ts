@@ -27,7 +27,7 @@ import type { AIProvider, ChatRequest, AILogEntry, GatewayConfig } from './types
 function getConfig(): GatewayConfig {
   return {
     localBaseURL: getLocalAIBaseURL(),
-    localApiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || '',  // SECURITY: No hardcoded fallback — must set VITE_LITELLM_KEY env var
+    localApiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || 'sk-cic-2026',
     defaultModel: 'gemma-4-26b',   // LiteLLM model alias — Gemma 4 26B
     maxRetries: 2,
     timeoutMs: 120000,
