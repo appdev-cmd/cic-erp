@@ -22,17 +22,25 @@ function getEmbeddingProvider(): EmbeddingProvider {
  * Model: nomic-embed-text (768 dimensions)
  */
 export async function generateLocalEmbedding(text: string): Promise<number[]> {
-    let baseURL = getLocalAIBaseURL();
-    if (!baseURL.endsWith('/v1')) {
+    let baseURL = '/api/vllm';
+    if (typeof window !== 'undefined') {
+        baseURL = localStorage.getItem('cic-local-ai-base-url') || localStorage.getItem('cic_local_ai_base_url') || getLocalAIBaseURL();
+    } else {
+        baseURL = getLocalAIBaseURL();
+    }
+
+    if (!baseURL.endsWith('/v1') && !baseURL.startsWith('/api/')) {
         baseURL = baseURL.replace(/\/$/, '') + '/v1';
     }
+
+    const localKey = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || '';  // SECURITY: No hardcoded fallback
 
     try {
         const response = await fetch(`${baseURL}/embeddings`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer local-embedding`
+                'Authorization': `Bearer ${localKey}`
             },
             body: JSON.stringify({
                 model: 'nomic-embed-text',
@@ -71,10 +79,10 @@ export async function generateGeminiEmbedding(text: string): Promise<number[]> {
     }
 
     const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent`,
         {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
             body: JSON.stringify({
                 model: 'models/text-embedding-004',
                 content: { parts: [{ text }] },
@@ -105,7 +113,20 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     if (provider === 'gemini') {
         return generateGeminiEmbedding(text);
     }
-    return generateLocalEmbedding(text);
+    
+    try {
+        return await generateLocalEmbedding(text);
+    } catch (e) {
+        console.warn("⚠️ Local embedding failed, attempting auto-fallback to Gemini Cloud API:", e);
+        try {
+            const result = await generateGeminiEmbedding(text);
+            console.info("✅ Gemini fallback succeeded — consider checking local embedding service.");
+            return result;
+        } catch (geminiErr) {
+            console.error("❌ Gemini fallback also failed:", geminiErr);
+            throw e;
+        }
+    }
 }
 
 // ============================================

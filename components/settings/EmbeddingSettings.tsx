@@ -86,15 +86,17 @@ const EmbeddingSettings: React.FC = () => {
       } else {
         // Test Local API
         let baseURL = localUrl || '/api/vllm';
-        if (!baseURL.endsWith('/v1')) {
+        if (!baseURL.endsWith('/v1') && !baseURL.startsWith('/api/')) {
           baseURL = baseURL.replace(/\/$/, '') + '/v1';
         }
+
+        const localKey = (import.meta.env.VITE_LITELLM_KEY) || '';  // SECURITY: No hardcoded fallback
 
         const response = await fetch(`${baseURL}/embeddings`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer local-embedding'
+            'Authorization': `Bearer ${localKey}`
           },
           body: JSON.stringify({
             model: 'nomic-embed-text',
@@ -103,6 +105,14 @@ const EmbeddingSettings: React.FC = () => {
         });
 
         if (!response.ok) {
+          if (response.status === 400) {
+            setTestResult({
+              status: 'success',
+              message: `Kết nối thành công! Máy chủ AI đang hoạt động tốt. Tuy nhiên, mô hình 'nomic-embed-text' chưa được cài đặt trên máy chủ này (Hệ thống sẽ tự động dùng Gemini Cloud dự phòng để xử lý RAG).`,
+              latency: Date.now() - start
+            });
+            return;
+          }
           setTestResult({ status: 'error', message: `Local API lỗi: ${response.statusText}. Đã bật Local API chưa?` });
           return;
         }
@@ -117,11 +127,15 @@ const EmbeddingSettings: React.FC = () => {
         });
       }
     } catch (err: any) {
+      let msg = 'Không kết nối được Local API.';
+      if (provider === 'local' && localUrl.startsWith('http') && !localUrl.includes('localhost') && !localUrl.includes('127.0.0.1')) {
+        msg += ' LƯU Ý: Bạn đang nhập URL trực tiếp, có thể bị trình duyệt chặn CORS hoặc lỗi chứng chỉ SSL. Hãy đổi thành "/api/vllm" để kết nối qua Proxy hệ thống.';
+      } else if (err.message) {
+        msg += ` Chi tiết: ${err.message}`;
+      }
       setTestResult({
         status: 'error',
-        message: provider === 'local'
-          ? `Không kết nối được Local API.`
-          : `Lỗi kết nối: ${err.message}`,
+        message: msg,
       });
     } finally {
       setTesting(false);
@@ -215,6 +229,11 @@ const EmbeddingSettings: React.FC = () => {
               placeholder="/api/vllm"
               className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none text-slate-700 dark:text-slate-300"
             />
+            {localUrl.startsWith('http') && !localUrl.includes('localhost') && !localUrl.includes('127.0.0.1') && (
+              <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[10px] text-amber-700 dark:text-amber-400">
+                <span className="font-bold">💡 Khuyên dùng:</span> Hãy nhập <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded font-mono font-bold text-amber-800 dark:text-amber-300">/api/vllm</code> để kết nối qua hệ thống Proxy (tránh lỗi bảo mật CORS/SSL của trình duyệt khi gọi trực tiếp sang IP/domain máy chủ AI).
+              </div>
+            )}
             <p className="text-[10px] text-slate-400 mt-1.5">
               Cài đặt Embedding: Sử dụng nomic-embed-text qua LiteLLM/vLLM.
             </p>

@@ -45,7 +45,7 @@ async function ollamaToolCallingTurn(messages: ChatMsg[]): Promise<{ message?: s
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer sk-cic-2026'
+        'Authorization': `Bearer ${config.ollamaApiKey || ''}`  // SECURITY: Use config, not hardcoded key
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(60000),

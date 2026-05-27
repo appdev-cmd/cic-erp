@@ -137,11 +137,11 @@ export const AgentConfigService = {
         // Preserve existing DB fields that shouldn't be overwritten blindly by code configs
         const { data: existing } = await supabase.from('agent_configs').select('id, system_prompt, is_active, allowed_roles, allowed_users').eq('id', agent.id).single();
         
+        // Preserve fields that admin may have customized via UI
         const payload: any = {
           name: agent.name,
           department_id: agent.departmentId,
           description: agent.description,
-          allowed_tools: agent.allowedTools,
           preferred_model: agent.preferredModel || 'gemma-4-26b',
           fallback_model: agent.fallbackModel || null,
           icon: agent.icon || 'Bot',
@@ -150,16 +150,23 @@ export const AgentConfigService = {
           updated_at: new Date().toISOString()
         };
 
+        // Only overwrite allowed_tools if not customized in DB
+        if (!existing) {
+          payload.allowed_tools = agent.allowedTools;
+        }
+        // If existing, preserve DB allowed_tools (admin may have customized)
+
         if (!existing) {
           payload.system_prompt = agent.systemPrompt;
           payload.is_active = agent.isActive;
           payload.allowed_roles = [];
           payload.allowed_users = [];
         } else {
-          payload.system_prompt = existing.system_prompt; // preserve
-          payload.is_active = existing.is_active; // preserve
-          payload.allowed_roles = existing.allowed_roles || []; // preserve
-          payload.allowed_users = existing.allowed_users || []; // preserve
+          // Preserve all admin-customizable fields from DB
+          payload.system_prompt = existing.system_prompt;
+          payload.is_active = existing.is_active;
+          payload.allowed_roles = existing.allowed_roles || [];
+          payload.allowed_users = existing.allowed_users || [];
         }
 
         const { error } = await supabase

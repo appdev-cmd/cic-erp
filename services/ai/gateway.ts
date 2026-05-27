@@ -27,7 +27,7 @@ import type { AIProvider, ChatRequest, AILogEntry, GatewayConfig } from './types
 function getConfig(): GatewayConfig {
   return {
     localBaseURL: getLocalAIBaseURL(),
-    localApiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || 'sk-cic-2026',  // SECURITY: Use env var, fallback for dev
+    localApiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || '',  // SECURITY: No hardcoded fallback — must set VITE_LITELLM_KEY env var
     defaultModel: 'gemma-4-26b',   // LiteLLM model alias — Gemma 4 26B
     maxRetries: 2,
     timeoutMs: 120000,
@@ -136,8 +136,8 @@ async function logAICall(entry: AILogEntry): Promise<void> {
       latency_ms: entry.latency_ms || 0,
       success: entry.success,
       error_message: entry.error_message || null,
-      input_preview: entry.input_preview?.substring(0, 500) || null,
-      output_preview: entry.output_preview?.substring(0, 500) || null,
+      input_preview: entry.input_preview?.substring(0, 300) || null,
+      output_preview: entry.output_preview?.substring(0, 300) || null,
       metadata: entry.metadata || {},
     }).throwOnError();
   } catch (err) {
@@ -217,10 +217,10 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<string> 
     yield errMsg;
   } finally {
     const latencyMs = Date.now() - startTime;
-    // Estimate tokens: ~4 chars per token (rough approximation)
+    // Vietnamese text averages ~2.5 chars per token (more accurate than the generic 4)
     const inputText = request.messages.map(m => m.content).join(' ');
-    const estimatedPromptTokens = Math.ceil(inputText.length / 4);
-    const estimatedCompletionTokens = Math.ceil(outputBuffer.length / 4);
+    const estimatedPromptTokens = Math.ceil(inputText.length / 2.5);
+    const estimatedCompletionTokens = Math.ceil(outputBuffer.length / 2.5);
 
     // Async log (fire-and-forget)
     logAICall({
@@ -413,7 +413,7 @@ async function* streamOpenAICompatible(
       baseURL: getLocalAIBaseURL(request.model),
       apiKey: config.localApiKey,
       dangerouslyAllowBrowser: true,
-      defaultHeaders: request.meta?.userId ? { 'X-Impersonate-User': request.meta.userId } : undefined,
+      defaultHeaders: request.meta?.userId ? { 'X-Request-User-Id': request.meta.userId } : undefined,
     });
   } else if (provider === 'openai') {
     const apiKey = getCustomKey('openai') || getEnvKey('openai');
@@ -458,7 +458,7 @@ async function* streamOpenAICompatible(
     messages,
     stream: true,
     temperature: isReasoner ? undefined : (request.temperature ?? 0.7),
-    max_tokens: provider === 'local' ? Math.min(request.maxTokens || 2048, 3000) : request.maxTokens,
+    max_tokens: provider === 'local' ? Math.min(request.maxTokens || 4096, 8000) : request.maxTokens,
   });
 
   let buffer = '';
@@ -549,7 +549,7 @@ export async function chat(request: ChatRequest): Promise<string> {
 export async function generateEmbedding(text: string): Promise<number[]> {
   const config = getConfig();
   let baseURL = config.localBaseURL;
-  if (!baseURL.endsWith('/v1')) {
+  if (!baseURL.endsWith('/v1') && !baseURL.startsWith('/api/')) {
     baseURL = baseURL.replace(/\/$/, '') + '/v1';
   }
 
@@ -788,7 +788,7 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
       messages: formattedMessages,
       temperature: request.temperature ?? 0.15,
       stream: false,
-      max_tokens: isVllmOrLocal ? 3000 : undefined,
+      max_tokens: isVllmOrLocal ? 8000 : undefined,
     };
     // Always pass tools
     if (request.tools && request.tools.length > 0) {
@@ -812,7 +812,7 @@ Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doan
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authKey) headers['Authorization'] = `Bearer ${authKey}`;
     if (isVllm) headers['ngrok-skip-browser-warning'] = 'true';
-    if (request.meta?.userId) headers['X-Impersonate-User'] = request.meta.userId;
+    if (request.meta?.userId) headers['X-Request-User-Id'] = request.meta.userId;
 
     const res = await fetch(url, {
       method: 'POST',

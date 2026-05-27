@@ -11,6 +11,9 @@ export interface AIPermission {
     quota_reset_at: string;
     granted_by: string | null;
     notes: string | null;
+    is_locked: boolean;        // Lock when abuse detected
+    locked_reason: string | null;
+    locked_at: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -27,7 +30,7 @@ export interface AIPermissionWithProfile extends AIPermission {
 // ─── Service ─────────────────────────────────────────────
 export const aiPermissionService = {
 
-    /** Lấy permission của user hiện tại */
+    /** Lấy permission của user hiện tại (auto-reset quota nếu đã qua tháng mới) */
     async getMyPermission(): Promise<AIPermission | null> {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return null;
@@ -42,6 +45,27 @@ export const aiPermissionService = {
             console.error('[aiPermission] Error:', error.message);
             return null;
         }
+
+        // Auto-reset quota if past reset date (monthly cycle)
+        if (data && data.quota_reset_at) {
+            const resetDate = new Date(data.quota_reset_at);
+            const now = new Date();
+            if (now > resetDate) {
+                // Reset usage and set next reset date to 1st of next month
+                const nextReset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                await dataClient
+                    .from('ai_permissions')
+                    .update({
+                        usage_count: 0,
+                        quota_reset_at: nextReset.toISOString(),
+                        updated_at: now.toISOString(),
+                    })
+                    .eq('user_id', user.id);
+                data.usage_count = 0;
+                data.quota_reset_at = nextReset.toISOString();
+            }
+        }
+
         return data;
     },
 
@@ -134,6 +158,30 @@ export const aiPermissionService = {
 
     /** Tăng usage count (gọi sau mỗi lần dùng system API) */
     async incrementUsage(userId: string): Promise<void> {
+        // Check lock status before incrementing
+        const { data: perm } = await dataClient
+            .from('ai_permissions')
+            .select('is_locked, monthly_quota, usage_count')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (perm?.is_locked) {
+            throw new Error('Tài khoản AI của bạn đã bị khóa. Liên hệ Admin.');
+        }
+
         await dataClient.rpc('increment_ai_usage', { p_user_id: userId }).throwOnError();
+
+        // Auto-lock if usage exceeds 150% of quota
+        if (perm && perm.monthly_quota > 0 && (perm.usage_count + 1) > perm.monthly_quota * 1.5) {
+            await dataClient
+                .from('ai_permissions')
+                .update({
+                    is_locked: true,
+                    locked_reason: `Auto-locked: Usage ${perm.usage_count + 1} exceeded 150% of quota ${perm.monthly_quota}`,
+                    locked_at: new Date().toISOString(),
+                })
+                .eq('user_id', userId);
+            console.warn(`[AI] Auto-locked user ${userId} for exceeding quota.`);
+        }
     },
 };

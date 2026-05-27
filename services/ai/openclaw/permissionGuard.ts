@@ -2,18 +2,13 @@ import type { OpenClawTool, UserContext } from './types';
 import { canViewAll } from './tools/_helpers';
 import { AuditLogger } from './auditLogger';
 import { isToolAllowedForRole, TOOL_ACL } from './toolAcl';
+import { GLOBAL_VIEW_ROLES } from '../../../lib/permissions';
 
 /**
- * Danh sách role được phép xem toàn công ty (Global roles)
- * Map from lib/permissions.ts
- */
-const GLOBAL_ROLES = ['Admin', 'Leadership', 'Legal', 'Accountant', 'ChiefAccountant', 'Marketing'];
-
-/**
- * Helper kiểm tra role
+ * Helper kiểm tra role — sử dụng GLOBAL_VIEW_ROLES từ lib/permissions.ts (single source of truth)
  */
 function isGlobalRole(role: string): boolean {
-  return GLOBAL_ROLES.includes(role);
+  return GLOBAL_VIEW_ROLES.includes(role as any);
 }
 
 /**

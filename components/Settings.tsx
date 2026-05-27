@@ -9,12 +9,10 @@ import PermissionManager from './settings/PermissionManager';
 import RoleDefaultsManager from './settings/RoleDefaultsManager';
 import UserImpersonator from './settings/UserImpersonator';
 import DriveSettings from './settings/DriveSettings';
-import AIPermissionManager from './settings/AIPermissionManager';
 import ManagementRankManager from './settings/ManagementRankManager';
 import HistoricalProductionManager from './settings/HistoricalProductionManager';
 import CompanyTargetManager from './settings/CompanyTargetManager';
 import RouteAuditPanel from './settings/RouteAuditPanel';
-import EmbeddingSettings from './settings/EmbeddingSettings';
 import PermissionAuditLog from './settings/PermissionAuditLog';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,12 +20,15 @@ import { dataClient } from '../lib/dataClient';
 import { PermissionService } from '../services/permissionService';
 import { toast } from 'sonner';
 
+const AISettingsManager = React.lazy(() => import('./settings/AISettingsManager'));
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 type SettingsTab =
     | 'system'
     | 'permissions' | 'role-defaults' | 'task-mgmt' | 'route-audit' | 'perm-audit'
-    | 'ai-api' | 'ai-embedding' | 'drive'
+    | 'drive'
     | 'historical' | 'company-target'
+    | 'ai-settings'
     | 'testing';
 
 interface SectionGroup {
@@ -269,11 +270,9 @@ const Settings: React.FC = () => {
         {
             id: 'integrations',
             label: 'Tích hợp',
-            icon: <Bot size={14} />,
+            icon: <HardDrive size={14} />,
             adminOnly: true,
             items: [
-                { id: 'ai-api', label: 'AI API', icon: <Bot size={15} />, adminOnly: true },
-                { id: 'ai-embedding', label: 'AI Embedding', icon: <Sparkles size={15} />, adminOnly: true },
                 { id: 'drive', label: 'Google Drive', icon: <HardDrive size={15} />, adminOnly: true },
             ],
         },
@@ -285,6 +284,15 @@ const Settings: React.FC = () => {
             items: [
                 { id: 'historical', label: 'Sản lượng lịch sử', icon: <BarChart3 size={15} />, adminOnly: true },
                 { id: 'company-target', label: 'Chỉ tiêu ĐHCĐ', icon: <TrendingUp size={15} />, adminOnly: true },
+            ],
+        },
+        {
+            id: 'ai',
+            label: 'Trí tuệ nhân tạo',
+            icon: <Bot size={14} />,
+            adminOnly: true,
+            items: [
+                { id: 'ai-settings', label: 'Thiết lập AI', icon: <Bot size={15} />, adminOnly: true },
             ],
         },
         {
@@ -483,31 +491,7 @@ const Settings: React.FC = () => {
                         </div>
                     )}
 
-                    {/* AI API */}
-                    {activeTab === 'ai-api' && isAdmin && (
-                        <div>
-                            <SectionHeader
-                                icon={<Bot size={20} className="text-white" />}
-                                title="Phân quyền AI API"
-                                desc="Quản lý quyền sử dụng API hệ thống cho tính năng AI"
-                                gradient="from-violet-500 to-indigo-600"
-                            />
-                            <AIPermissionManager />
-                        </div>
-                    )}
-
-                    {/* AI EMBEDDING */}
-                    {activeTab === 'ai-embedding' && isAdmin && (
-                        <div>
-                            <SectionHeader
-                                icon={<Sparkles size={20} className="text-white" />}
-                                title="AI Embedding Provider"
-                                desc="Cấu hình engine nhúng vector cho tài liệu (RAG)"
-                                gradient="from-amber-500 to-orange-600"
-                            />
-                            <EmbeddingSettings />
-                        </div>
-                    )}
+                    {/* Các tab thiết lập AI đã được chuyển sang trang AI Agent hợp nhất */}
 
                     {/* GOOGLE DRIVE */}
                     {activeTab === 'drive' && isAdmin && (
@@ -529,6 +513,19 @@ const Settings: React.FC = () => {
                                 gradient="from-orange-500 to-amber-600"
                             />
                             <CompanyTargetManager />
+                        </div>
+                    )}
+
+                    {/* THIẾT LẬP AI */}
+                    {activeTab === 'ai-settings' && isAdmin && (
+                        <div className="space-y-6">
+                            <React.Suspense fallback={
+                                <div className="flex items-center gap-2 text-sm text-slate-500 py-4">
+                                    <Loader2 size={16} className="animate-spin" /> Đang tải thiết lập AI...
+                                </div>
+                            }>
+                                <AISettingsManager />
+                            </React.Suspense>
                         </div>
                     )}
 

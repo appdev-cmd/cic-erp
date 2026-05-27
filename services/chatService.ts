@@ -618,11 +618,12 @@ export async function summarizeConversation(roomId: string, messageCount = 50): 
     const apiKey = localStorage.getItem('cic_custom_deepseek_key') || import.meta.env.VITE_DEEPSEEK_API_KEY;
     if (!apiKey) throw new Error('Chưa cấu hình DeepSeek API Key');
 
+    // TODO: SECURITY — Migrate to server-side proxy (Edge Function) to avoid exposing API key in browser
     const { default: OpenAI } = await import('openai');
     const client = new OpenAI({
         baseURL: 'https://api.deepseek.com',
         apiKey,
-        dangerouslyAllowBrowser: true,
+        dangerouslyAllowBrowser: true, // SECURITY WARNING: Key visible in DevTools. Migrate to server-side proxy.
     });
 
     const response = await client.chat.completions.create({

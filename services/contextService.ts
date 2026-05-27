@@ -79,6 +79,8 @@ export const getBusinessContext = async (unitId?: string, userId?: string, userC
             UnitService.getAll(),
             EmployeeService.getAll(),
             PaymentService.getStats({}),
+            // PERF: Load contracts with payments — consider materialized view for large datasets
+            // TODO: Replace with DB-level aggregation (Supabase RPC) when contracts exceed 5000
             supabase.from('contracts').select(
                 'id, unit_id, employee_id, value, actual_revenue, status, vat_rate, has_vat, signed_date, start_date, end_date, payments(amount, paid_amount, status, payment_type, voucher_type)'
             )
@@ -304,6 +306,7 @@ export const getBusinessContext = async (unitId?: string, userId?: string, userC
 
         // --- Hướng dẫn AI ---
         report += `\n═══ 5. HƯỚNG DẪN TRẢ LỜI ═══\n`;
+        report += `- CHÚ Ý: Context này được cache ${CACHE_TTL / 60000} phút. Dữ liệu có thể chênh lệch nhỏ so với thời gian thực.\n`;
         report += `- QUAN TRỌNG: Khi user hỏi "doanh thu năm X", PHẢI dùng dữ liệu của năm X ở mục 2, KHÔNG dùng tổng tất cả thời gian.\n`;
         report += `- Khi user hỏi "quý X" hoặc "Q1/Q2/Q3/Q4", dùng dữ liệu quý ở mục 3.\n`;
         report += `- Khi user hỏi "tháng X", dùng dữ liệu tháng ở mục 4.\n`;

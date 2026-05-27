@@ -39,10 +39,8 @@ import {
     LazyLeavePage as LeavePage,
     LazyRequestsPage as RequestsPage,
     LazyFacilityManagerPage as FacilityManagerPage,
-    LazyAgentManagerPage as AgentManagerPage,
     LazyPublicApplicationForm as PublicApplicationForm,
     LazyWebsiteManagerPage as WebsiteManagerPage,
-    LazyAIObservabilityDashboardPage as AIObservabilityDashboardPage,
     LazyAttendanceSettingsPage as AttendanceSettingsPage,
     LazyOvertimeRequestsPage as OvertimeRequestsPage,
     LazyPayrollPage as PayrollPage,
@@ -109,8 +107,8 @@ export const router = createBrowserRouter([
             // AI Assistant (Rendered globally in MainLayout to persist state, dummy route here to prevent 404)
             { path: 'ai-assistant', element: null },
 
-            // Agent Manager
-            { path: 'agent-manager', element: <AgentManagerPage /> },
+            // Agent Manager (Redirected to AI Assistant tabbed view)
+            { path: 'agent-manager', element: <Navigate to="/ai-assistant" replace /> },
 
             // Tools
             { path: 'tools/*', element: <ToolsPage /> },
@@ -163,8 +161,8 @@ export const router = createBrowserRouter([
             // Settings
             { path: 'settings', element: <SettingsPage /> },
 
-            // AI Dashboard
-            { path: 'admin/ai-dashboard', element: <AIObservabilityDashboardPage /> },
+            // AI Dashboard (Redirected to AI Assistant tabbed view)
+            { path: 'admin/ai-dashboard', element: <Navigate to="/ai-assistant" replace /> },
 
             // User Guide
             { path: 'user-guide', element: <UserGuidePage /> },

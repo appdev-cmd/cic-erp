@@ -24,6 +24,7 @@ export const config = {
   /** Ollama / tương thích OpenAI local — tắt nếu không set */
   ollamaHost: process.env.OLLAMA_HOST?.replace(/\/$/, '') ?? '',
   ollamaModel: process.env.OLLAMA_MODEL ?? 'gemma2:2b',
+  ollamaApiKey: process.env.OLLAMA_API_KEY ?? '',  // SECURITY: API key from env, not hardcoded
   /** Giới hạn hàng RPC khi xuất báo cáo */
   reportRowCap: Math.min(Number(process.env.REPORT_ROW_CAP ?? '500'), 2000),
   /** Agent ReAct (OpenClaw-style): suy luận nhiều bước + tool ERP */

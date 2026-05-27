@@ -11,8 +11,11 @@ function hasAccess(agent: DepartmentAgent, context: UserContext): boolean {
   const hasUsers = agent.allowedUsers && agent.allowedUsers.length > 0;
   const hasRoles = agent.allowedRoles && agent.allowedRoles.length > 0;
 
-  // Nếu agent có set allowed_users
-  if (hasUsers && context.employeeId && agent.allowedUsers?.includes(context.employeeId)) {
+  // Nếu agent có set allowed_users (match cả employeeId và userId)
+  if (hasUsers && (
+    (context.employeeId && agent.allowedUsers?.includes(context.employeeId)) ||
+    (context.userId && agent.allowedUsers?.includes(context.userId))
+  )) {
     return true;
   }
   // Nếu agent có set allowed_roles
@@ -26,7 +29,7 @@ function hasAccess(agent: DepartmentAgent, context: UserContext): boolean {
   }
 
   // Nếu không có cả 2: quay về rule default (Admin/Leadership thấy hết, đơn vị nào thấy đơn vị đó)
-  if (['Admin', 'Leadership', 'Dev'].includes(context.role)) {
+  if (['Admin', 'Leadership'].includes(context.role)) {
     return true;
   }
   

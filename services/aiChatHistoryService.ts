@@ -60,16 +60,30 @@ export async function createConversation(
   return data;
 }
 
-/** Cập nhật tiêu đề và thời gian cuộc hội thoại */
-export async function updateConversation(convId: string, title: string): Promise<void> {
-  await dataClient
+/** Cập nhật tiêu đề và thời gian cuộc hội thoại (chỉ owner) */
+export async function updateConversation(convId: string, title: string, userId?: string): Promise<void> {
+  let query = dataClient
     .from('ai_conversations')
     .update({ title, updated_at: new Date().toISOString() })
     .eq('id', convId);
+  // SECURITY: If userId provided, only allow owner to update
+  if (userId) query = query.eq('user_id', userId);
+  await query;
 }
 
-/** Xóa cuộc hội thoại + tin nhắn */
-export async function deleteConversation(convId: string): Promise<void> {
+/** Xóa cuộc hội thoại + tin nhắn (chỉ owner mới được xóa) */
+export async function deleteConversation(convId: string, userId?: string): Promise<void> {
+  // SECURITY: Verify ownership before deletion
+  if (userId) {
+    const { data: conv } = await dataClient
+      .from('ai_conversations')
+      .select('user_id')
+      .eq('id', convId)
+      .single();
+    if (conv && conv.user_id !== userId) {
+      throw new Error('Bạn không có quyền xóa cuộc hội thoại này.');
+    }
+  }
   // Xóa messages trước (FK constraint)
   await dataClient.from('ai_messages').delete().eq('conversation_id', convId);
   await dataClient.from('ai_conversations').delete().eq('id', convId);
