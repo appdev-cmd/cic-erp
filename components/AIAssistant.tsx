@@ -72,6 +72,7 @@ import { toast } from 'sonner';
 import AIDataIngestion from './AIDataIngestion';
 import { NewsService } from '../services/newsService';
 import { dataClient } from '../lib/dataClient';
+import { AgentToolConfigService } from '../services/ai/agentToolConfigService';
 // Formatter functions outside component to avoid reference changes during render
 const formatValue = (value: any) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(value);
 const formatTooltip = (value: any) => new Intl.NumberFormat('vi-VN').format(Number(value));
@@ -82,20 +83,59 @@ const LEGEND_STYLE = { fontSize: '12px', marginTop: '10px' };
 const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
   const chartConfig = React.useMemo(() => {
     try {
-      // LLMs often leave trailing commas or add backticks inside the block
-      let cleanStr = configStr.replace(/,\s*([\]}])/g, '$1').trim();
-      if (cleanStr.startsWith('```json')) cleanStr = cleanStr.substring(7);
+      // 1) Dọn dẹp chuỗi JSON thông minh (trích xuất khối json/chart và bỏ trailing commas)
+      let cleanStr = configStr.trim();
+      
+      // Nếu có khối mã markdown, trích xuất phần bên trong
+      if (cleanStr.includes('```')) {
+        const match = cleanStr.match(/```(?:json|chart)?([\s\S]*?)```/);
+        if (match) {
+          cleanStr = match[1].trim();
+        }
+      }
+      
+      // Loại bỏ dấu phẩy thừa ở cuối mảng/đối tượng
+      cleanStr = cleanStr.replace(/,\s*([\]}])/g, '$1').trim();
       if (cleanStr.startsWith('`')) cleanStr = cleanStr.replace(/^`+|`+$/g, '');
       cleanStr = cleanStr.trim();
 
       const config = JSON.parse(cleanStr);
+      
+      const chartColors = config.colors || ['#6366f1', '#94a3b8', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'];
+
+      // 2) TỰ ĐỘNG CHUYỂN ĐỔI: Nếu data ở định dạng Chart.js { labels, datasets }
+      if (config.data && !Array.isArray(config.data) && Array.isArray(config.data.labels) && Array.isArray(config.data.datasets)) {
+        const labels = config.data.labels;
+        const datasets = config.data.datasets;
+        
+        // Chuyển đổi sang định dạng phẳng cho Recharts
+        const newData = labels.map((label: string, index: number) => {
+          const item: any = { name: label };
+          datasets.forEach((ds: any) => {
+            const key = ds.label || 'Value';
+            item[key] = ds.data && ds.data[index] !== undefined ? ds.data[index] : 0;
+          });
+          return item;
+        });
+
+        // Tạo cấu hình lines (hoặc bars) tương ứng
+        const newLines = datasets.map((ds: any, i: number) => ({
+          dataKey: ds.label || 'Value',
+          color: ds.backgroundColor || ds.borderColor || chartColors[i % chartColors.length],
+          name: ds.label || 'Value'
+        }));
+
+        config.data = newData;
+        config.xAxisKey = 'name';
+        config.lines = newLines;
+      }
+
+      // Kiểm tra tính hợp lệ cuối cùng sau khi đã chuẩn hóa
       if (!config.data || !Array.isArray(config.data) || config.data.length === 0) {
         return { error: 'Dữ liệu mảng data: [] rỗng hoặc không tồn tại', raw: configStr };
       }
 
-      // ═══ AUTO-NORMALIZE: Chuyển đổi mọi format về chuẩn { xAxisKey, lines } ═══
-
-      // 1) Tìm xAxisKey: ưu tiên config → fallback 'name' nếu có trong data
+      // 3) BỔ SUNG: Thiết lập xAxisKey nếu chưa có
       if (!config.xAxisKey) {
         const firstItem = config.data[0];
         if (firstItem.name !== undefined) config.xAxisKey = 'name';
@@ -103,19 +143,15 @@ const DynamicChart = React.memo(({ configStr }: { configStr: string }) => {
         else config.xAxisKey = Object.keys(firstItem)[0];
       }
 
-      // 2) Tìm lines: ưu tiên config.lines → chuyển từ config.keys → auto-detect
+      // 4) BỔ SUNG: Thiết lập lines/bars nếu chưa có
       if (!config.lines || !Array.isArray(config.lines) || config.lines.length === 0) {
-        const chartColors = config.colors || ['#6366f1', '#94a3b8', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'];
-
         if (config.keys && Array.isArray(config.keys)) {
-          // Format từ tool: { keys: ['kyTruoc', 'kyNay'], colors: [...] }
           config.lines = config.keys.map((key: string, i: number) => ({
             dataKey: key,
             color: chartColors[i % chartColors.length],
-            name: key // Sẽ hiển thị label trên legend
+            name: key
           }));
         } else {
-          // Auto-detect: lấy tất cả numeric keys (trừ xAxisKey)
           const firstItem = config.data[0];
           const numericKeys = Object.keys(firstItem).filter(k =>
             k !== config.xAxisKey && typeof firstItem[k] === 'number'
@@ -307,7 +343,7 @@ const AIObservabilityDashboard = React.lazy(() => import('./AIObservabilityDashb
 export type AITab = 'chat' | 'agents' | 'permissions' | 'embedding' | 'monitoring' | 'api-keys';
 
 export const AI_TABS = [
-  { id: 'chat', label: 'Trò chuyện', icon: <MessageSquare size={16} /> },
+  { id: 'chat', label: 'Trò chuyện', icon: <MessageSquare size={16} />, adminOnly: false },
   { id: 'agents', label: 'Cấu hình Agent', icon: <Bot size={16} />, adminOnly: true },
   { id: 'permissions', label: 'Phân quyền AI', icon: <Shield size={16} />, adminOnly: true },
   { id: 'embedding', label: 'Cấu hình Vector', icon: <Sparkles size={16} />, adminOnly: true },
@@ -815,7 +851,6 @@ const AIAssistant: React.FC = () => {
       });
 
       // Lấy merged tools (áp dụng custom description từ database)
-      const { AgentToolConfigService } = await import('../services/ai/agentToolConfigService');
       const mergedTools = await AgentToolConfigService.getMergedTools(erpToolsRegistry);
 
       // ─── THỰC THI RE-ACT LOOP TRỰC TIẾP TỪ BROWSER ────────────────────────

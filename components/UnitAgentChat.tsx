@@ -8,6 +8,9 @@ import { AgentConfigService } from '../services/ai/agentConfigService';
 import { aiPermissionService } from '../services/aiPermissionService';
 import type { UserContext, DepartmentAgent } from '../services/ai/openclaw/types';
 import { cn } from '../lib/utils';
+import { runReActLoop } from '../services/ai/openclaw/react-loop';
+import { erpToolsRegistry } from '../services/ai/openclaw/tools/registry';
+import { AgentToolConfigService } from '../services/ai/agentToolConfigService';
 
 interface UnitAgentChatProps {
   isOpen: boolean;
@@ -112,10 +115,6 @@ const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode
     abortControllerRef.current = controller;
 
     try {
-      const { runReActLoop } = await import('../services/ai/openclaw/react-loop');
-      const { erpToolsRegistry } = await import('../services/ai/openclaw/tools/registry');
-      const { AgentToolConfigService } = await import('../services/ai/agentToolConfigService');
-
       const userContext: UserContext = {
         userId: profile?.id || 'web',
         employeeId: profile?.employeeId,
