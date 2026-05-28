@@ -922,6 +922,29 @@ const AIAssistant: React.FC = () => {
     } catch (error: any) {
       console.error("Chat Error", error);
       const errDetail = error?.message || String(error);
+      
+      // Auto-reload on chunk load error (stale deployment on cloud)
+      const isChunkError = 
+        errDetail.includes('Failed to fetch dynamically imported module') ||
+        errDetail.includes('Importing a module script failed') ||
+        errDetail.includes('error loading dynamically imported module') ||
+        errDetail.includes('Loading chunk') ||
+        errDetail.includes('Loading CSS chunk');
+        
+      if (isChunkError) {
+        console.warn('[AIAssistant] Chunk load error detected, reloading page to fetch latest version...', error);
+        toast.info("Đang tự động tải lại trang để cập nhật phiên bản ứng dụng mới...");
+        setMessages(prev => prev.map(m =>
+          m.id === botMsgId
+            ? { ...m, content: `\n\n⚠️ **Đang cập nhật phiên bản mới...**\n\nHệ thống phát hiện có bản cập nhật mới trên Cloud. Trang web sẽ tự động tải lại sau giây lát để áp dụng.`, isStreaming: false }
+            : m
+        ));
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+        return;
+      }
+
       setMessages(prev => prev.map(m =>
         m.id === botMsgId
           ? { ...m, content: `\n\n⚠️ Đã xảy ra lỗi kết nối.\n\n\`\`\`\n${errDetail}\n\`\`\``, isStreaming: false }
