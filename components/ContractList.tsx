@@ -219,10 +219,10 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     setIsExporting(true);
     toast.info('Đang tạo file Excel...');
     try {
-      const isAdmin = realProfile?.role === 'Admin';
+      const isAdmin = profile?.role === 'Admin';
       // Admin: xuất theo bộ lọc hiện tại (có thể toàn công ty)
-      // Non-admin: luôn chỉ xuất đơn vị của họ, bất kể bộ lọc đang chọn
-      const exportUnitId = isAdmin ? effectiveUnitId : (realProfile?.unitId || 'none');
+      // Non-admin / impersonated non-admin: luôn chỉ xuất đơn vị của họ
+      const exportUnitId = isAdmin ? effectiveUnitId : (profile?.unitId || 'none');
       const { data } = await ContractService.list({
         page: 1,
         limit: 10000,

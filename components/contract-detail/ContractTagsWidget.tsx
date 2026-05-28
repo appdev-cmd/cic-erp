@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { X, Hash, Plus, Loader2 } from 'lucide-react';
 import { ContractTagService, normalizeTag } from '../../services/contractTagService';
-import { useAuth } from '../../contexts/AuthContext';
+import { useEffectiveProfile } from '../../contexts/ImpersonationContext';
 import { toast } from 'sonner';
 
 interface ContractTagsWidgetProps {
@@ -9,7 +9,7 @@ interface ContractTagsWidgetProps {
 }
 
 const ContractTagsWidget: React.FC<ContractTagsWidgetProps> = ({ contractId }) => {
-  const { profile } = useAuth();
+  const { profile } = useEffectiveProfile();
   const userId = profile?.id;
 
   const [tags, setTags] = useState<string[]>([]);

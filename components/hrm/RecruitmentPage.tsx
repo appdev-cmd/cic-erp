@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { recruitmentService } from '../../services/recruitmentService';
 import { JobOpening, Candidate, CandidateApplication, ApplicationStage } from '../../types/hrmTypes';
 import { formatDateShort, formatDate } from '../../utils/formatters';
-import { useAuth } from '../../contexts/AuthContext';
+import { useEffectiveProfile } from '../../contexts/ImpersonationContext';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
 
 import JobOpeningForm from './JobOpeningForm';
@@ -57,20 +57,18 @@ const RecruitmentPage: React.FC = () => {
   });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Auth & Permissions
-  const { profile } = useAuth();
+  // Auth & Permissions — Impersonation-aware
+  const { profile: effectiveProfile } = useEffectiveProfile();
   
-  const hasAccess = profile && (
-    profile.role === 'Admin' || 
-    profile.role === 'Leadership' || 
-    (profile.role as string) === 'HR' || 
-    profile.role === 'UnitLeader' ||
-    profile.role === 'AdminUnit' ||
-    profile.email?.includes('dev') ||
-    profile.email?.includes('admin') ||
-    (profile as any).department === 'HR' || 
-    (profile as any).department === 'BOD' || 
-    (profile as any).is_director === true
+  const hasAccess = effectiveProfile && (
+    effectiveProfile.role === 'Admin' || 
+    effectiveProfile.role === 'Leadership' || 
+    (effectiveProfile.role as string) === 'HR' || 
+    effectiveProfile.role === 'UnitLeader' ||
+    effectiveProfile.role === 'AdminUnit' ||
+    (effectiveProfile as any).department === 'HR' || 
+    (effectiveProfile as any).department === 'BOD' || 
+    (effectiveProfile as any).is_director === true
   );
 
   useEffect(() => {
@@ -139,7 +137,7 @@ const RecruitmentPage: React.FC = () => {
     return matchSearch && matchExp && matchSource;
   });
 
-  if (profile && !hasAccess) {
+  if (effectiveProfile && !hasAccess) {
     return (
       <div className="max-w-7xl mx-auto space-y-6 animate-fade-in flex flex-col items-center justify-center py-20">
         <div className="w-20 h-20 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mb-4">

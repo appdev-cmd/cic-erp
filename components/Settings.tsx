@@ -16,6 +16,7 @@ import RouteAuditPanel from './settings/RouteAuditPanel';
 import PermissionAuditLog from './settings/PermissionAuditLog';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
+import { useEffectiveProfile } from '../contexts/ImpersonationContext';
 import { dataClient } from '../lib/dataClient';
 import { PermissionService } from '../services/permissionService';
 import { toast } from 'sonner';
@@ -232,8 +233,10 @@ const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; desc: stri
 // ─── Main Component ───────────────────────────────────────────────────────────
 const Settings: React.FC = () => {
     const { theme, setTheme, accent, setAccent } = useLayoutContext();
-    const { profile } = useAuth();
-    const isAdmin = profile?.role === 'Admin';
+    const { profile: realProfile } = useAuth();
+    const { profile: effectiveProfile } = useEffectiveProfile();
+    // Impersonation-aware: hide admin tabs when impersonating non-admin
+    const isAdmin = effectiveProfile?.role === 'Admin';
 
     const [activeTab, setActiveTabState] = useState<SettingsTab>(() => {
         return (localStorage.getItem('cic-erp-settings-tab') as SettingsTab) || 'system';

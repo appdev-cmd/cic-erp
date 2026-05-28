@@ -6,7 +6,7 @@ import RichTextEditor from './ui/RichTextEditor';
 import { NewsPost, PostStatus, PostCategory } from '../types/news';
 import { generateSlug } from '../utils/formatters';
 import { NewsService } from '../services/newsService';
-import { useAuth } from '../contexts/AuthContext';
+import { useEffectiveProfile } from '../contexts/ImpersonationContext';
 
 interface NewsFormProps {
     isOpen?: boolean;
@@ -18,7 +18,9 @@ interface NewsFormProps {
 
 const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isInsidePanel }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { hasRole } = useAuth();
+    const { profile: effectiveProfile } = useEffectiveProfile();
+    // Impersonation-aware role check
+    const hasEffectiveRole = (roles: string[]) => roles.includes(effectiveProfile?.role || '');
     const [categories, setCategories] = useState<PostCategory[]>([]);
     const [formData, setFormData] = useState({
         titleVi: '',
@@ -26,7 +28,7 @@ const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isIn
         categoryId: '',
         excerptVi: '',
         contentVi: '',
-        status: (hasRole(['Admin', 'Marketing', 'Leadership']) ? 'draft' : 'pending_approval') as PostStatus,
+        status: (hasEffectiveRole(['Admin', 'Marketing', 'Leadership']) ? 'draft' : 'pending_approval') as PostStatus,
         isFeatured: false,
         seoTitleVi: '',
         seoDescriptionVi: '',
@@ -247,15 +249,15 @@ const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isIn
                                                         : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-700'
                                     }`}
                                 >
-                                    {!hasRole(['Admin', 'Marketing', 'Leadership']) && (
+                                    {!hasEffectiveRole(['Admin', 'Marketing', 'Leadership']) && (
                                         <option value="pending_approval">Chờ duyệt (Chỉ BGD duyệt)</option>
                                     )}
-                                    {hasRole(['Admin', 'Marketing', 'Leadership']) && (
+                                    {hasEffectiveRole(['Admin', 'Marketing', 'Leadership']) && (
                                         <>
                                             <option value="draft">Bản nháp (Chưa hiển thị)</option>
                                             <option value="pending_approval">Chờ duyệt (Chỉ BGD duyệt)</option>
-                                            <option value="approved" disabled={!hasRole(['Admin', 'Leadership'])}>Đã duyệt (Chờ đăng)</option>
-                                            <option value="published" disabled={!hasRole(['Admin', 'Marketing'])}>Xuất bản (Hiện Web)</option>
+                                            <option value="approved" disabled={!hasEffectiveRole(['Admin', 'Leadership'])}>Đã duyệt (Chờ đăng)</option>
+                                            <option value="published" disabled={!hasEffectiveRole(['Admin', 'Marketing'])}>Xuất bản (Hiện Web)</option>
                                             <option value="archived">Lưu trữ</option>
                                         </>
                                     )}

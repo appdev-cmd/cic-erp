@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ShieldAlert, ArrowLeft, Lock } from 'lucide-react';
 import { usePermissionCheck } from '../../hooks/usePermissions';
 import { getRoutePermission, isPublicRoute, RoutePermissionEntry } from '../../routes/routePermissions';
+import { useImpersonation } from '../../contexts/ImpersonationContext';
 
 interface RouteGuardProps {
     children: React.ReactNode;
@@ -21,6 +22,7 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { can, isLoading, role } = usePermissionCheck();
+    const { isImpersonating } = useImpersonation();
     const [showSpinner, setShowSpinner] = useState(false);
 
     // Prevent flash of loading spinner for fast permission checks
@@ -36,9 +38,9 @@ const RouteGuard: React.FC<RouteGuardProps> = ({ children }) => {
 
     const pathname = location.pathname;
 
-    // ── 0. Localhost → bypass all permission checks ──
+    // ── 0. Localhost → bypass permission checks (EXCEPT when impersonating) ──
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalhost) {
+    if (isLocalhost && !isImpersonating) {
         return <>{children}</>;
     }
 

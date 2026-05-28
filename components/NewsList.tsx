@@ -8,7 +8,7 @@ import { formatDate } from '../utils/formatters';
 import ConfirmDialog, { useConfirmDialog } from './ui/ConfirmDialog';
 import { toast } from 'sonner';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useEffectiveProfile } from '../contexts/ImpersonationContext';
 
 const NewsList: React.FC = () => {
     const [posts, setPosts] = useState<NewsPost[]>([]);
@@ -24,7 +24,9 @@ const NewsList: React.FC = () => {
     
     const confirmDialog = useConfirmDialog();
     const { openPanel, closePanel } = useSlidePanel();
-    const { hasRole } = useAuth();
+    const { profile: effectiveProfile } = useEffectiveProfile();
+    // Impersonation-aware role check
+    const hasEffectiveRole = (roles: string[]) => roles.includes(effectiveProfile?.role || '');
 
     const fetchPosts = useCallback(async () => {
         setIsLoading(true);
@@ -335,7 +337,7 @@ const NewsList: React.FC = () => {
                                         </td>
                                         <td className="py-3 px-4 text-center">
                                             <div className="flex flex-col items-center gap-1.5">
-                                                {post.status === 'pending_approval' && hasRole(['Admin', 'Leadership']) ? (
+                                                {post.status === 'pending_approval' && hasEffectiveRole(['Admin', 'Leadership']) ? (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleApprove(post.id); }}
                                                         className="px-2 py-1 text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-md transition-colors"
@@ -343,7 +345,7 @@ const NewsList: React.FC = () => {
                                                     >
                                                         Duyệt bài
                                                     </button>
-                                                ) : (['approved', 'published', 'draft'].includes(post.status)) && hasRole(['Admin', 'Marketing']) ? (
+                                                ) : (['approved', 'published', 'draft'].includes(post.status)) && hasEffectiveRole(['Admin', 'Marketing']) ? (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleToggleWebVisibility(post); }}
                                                         title={post.status === 'published' ? 'Nhấn để ẩn bài viết' : 'Nhấn để xuất bản lên Web'}
