@@ -214,6 +214,7 @@ export const getOverdueContractsTool: OpenClawTool = {
       let query = supabase
         .from('payments')
         .select('id, amount, due_date, status, contract_id, contracts!inner(title, customer_contract_number, unit_id)')
+        .in('voucher_type', ['RECEIPT', 'VAT_INVOICE'])
         .in('status', ['Chưa thanh toán', 'Pending', 'Chờ thanh toán'])
         .lt('due_date', today)
         .order('due_date')

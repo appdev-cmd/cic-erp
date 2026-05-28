@@ -29,13 +29,19 @@ export const getDashboardKpiTool: OpenClawTool = {
     const periodFilter = args.period || undefined;
 
     if (args.unitId) {
-      // KPI 1 đơn vị cụ thể (không hỗ trợ period filter ở RPC, dùng fallback)
-      const stats = await UnitService.getStats(args.unitId, year);
+      // Sử dụng getWithStats để hỗ trợ period filter thay vì getStats (RPC không hỗ trợ period)
+      const allUnits = await UnitService.getWithStats(year, periodFilter);
+      const u = allUnits.find((unit: any) => unit.id === args.unitId || unit.code === args.unitId);
+      if (!u) return { error: `Không tìm thấy đơn vị có mã ${args.unitId}` };
       return {
-        kyKet: fmtMoneyWithRaw(stats.totalSigning || 0),
-        doanhThu: fmtMoneyWithRaw(stats.totalRevenue || 0),
-        loiNhuanQT: fmtMoneyWithRaw(stats.totalProfit || 0),
-        soHopDong: stats.contractCount || 0,
+        nam: year,
+        kyLoc: periodFilter || 'Cả năm',
+        tenDonVi: u.name,
+        maDonVi: u.code,
+        kyKet: fmtMoneyWithRaw(u.stats?.totalSigning || 0),
+        doanhThu: fmtMoneyWithRaw(u.stats?.totalRevenue || 0),
+        loiNhuanQT: fmtMoneyWithRaw(u.stats?.totalProfit || 0),
+        soHopDong: u.stats?.contractCount || 0,
       };
     }
 
@@ -90,24 +96,47 @@ export const getComparativeReportTool: OpenClawTool = {
     + 'BẮT BUỘC DÙNG TOOL NÀY khi user yêu cầu báo cáo phân tích, so sánh kinh doanh.',
   schema: {
     currentYear: { type: 'string', description: 'Năm kỳ hiện tại (VD: 2026)' },
-    previousYear: { type: 'string', description: 'Năm kỳ trước (VD: 2025)' },
-    currentDateFrom: { type: 'string', description: 'Ngày bắt đầu kỳ hiện tại (YYYY-MM-DD). VD Q1: 2026-01-01' },
-    currentDateTo: { type: 'string', description: 'Ngày kết thúc kỳ hiện tại (YYYY-MM-DD). VD Q1: 2026-03-31' },
-    previousDateFrom: { type: 'string', description: 'Ngày bắt đầu kỳ trước (YYYY-MM-DD). VD Q1 năm trước: 2025-01-01' },
-    previousDateTo: { type: 'string', description: 'Ngày kết thúc kỳ trước (YYYY-MM-DD). VD Q1 năm trước: 2025-03-31' },
+    previousYear: { type: 'string', description: 'Năm kỳ trước (VD: 2026)' },
+    currentPeriod: { type: 'string', description: 'Kỳ hiện tại: Q1, Q2, Q3, Q4, M1-M12 (để trống nếu so sánh cả năm)' },
+    previousPeriod: { type: 'string', description: 'Kỳ trước: Q1, Q2, Q3, Q4, M1-M12 (để trống nếu so sánh cả năm)' },
   },
   execute: async (args, context: UserContext) => {
     const forcedUnitId = getUnitFilter(args, context);
 
+    const getDates = (yearStr: string, periodStr?: string) => {
+      const y = parseInt(yearStr) || new Date().getFullYear();
+      let from = `${y}-01-01`;
+      let to = `${y}-12-31`;
+      if (periodStr) {
+        if (periodStr.toUpperCase().startsWith('Q')) {
+          const q = parseInt(periodStr.substring(1));
+          const sm = (q - 1) * 3 + 1;
+          const em = q * 3;
+          const lastDay = em === 3 || em === 12 ? 31 : em === 6 || em === 9 ? 30 : 31;
+          from = `${y}-${String(sm).padStart(2, '0')}-01`;
+          to = `${y}-${String(em).padStart(2, '0')}-${lastDay}`;
+        } else if (periodStr.toUpperCase().startsWith('M')) {
+          const m = parseInt(periodStr.substring(1));
+          const lastDay = new Date(y, m, 0).getDate();
+          from = `${y}-${String(m).padStart(2, '0')}-01`;
+          to = `${y}-${String(m).padStart(2, '0')}-${lastDay}`;
+        }
+      }
+      return { from, to, year: y.toString(), label: periodStr ? `${periodStr}/${y}` : `${y}` };
+    };
+
+    const cur = getDates(args.currentYear, args.currentPeriod);
+    const prev = getDates(args.previousYear, args.previousPeriod);
+
     // Gọi song song 2 kỳ
     const [current, previous] = await Promise.all([
       ContractService.getStats({
-        dateFrom: args.currentDateFrom, dateTo: args.currentDateTo,
-        year: args.currentYear, status: 'All', unitId: forcedUnitId
+        dateFrom: cur.from, dateTo: cur.to,
+        year: cur.year, status: 'All', unitId: forcedUnitId
       }),
       ContractService.getStats({
-        dateFrom: args.previousDateFrom, dateTo: args.previousDateTo,
-        year: args.previousYear, status: 'All', unitId: forcedUnitId
+        dateFrom: prev.from, dateTo: prev.to,
+        year: prev.year, status: 'All', unitId: forcedUnitId
       }),
     ]);
 
@@ -115,6 +144,8 @@ export const getComparativeReportTool: OpenClawTool = {
     const prevVal = previous.totalValue;
     const curRev = current.totalRevenue;
     const prevRev = previous.totalRevenue;
+    const curProfit = current.totalProfit;
+    const prevProfit = previous.totalProfit;
     const curCash = current.totalCash;
     const prevCash = previous.totalCash;
     const curCount = current.totalContracts;
@@ -123,30 +154,31 @@ export const getComparativeReportTool: OpenClawTool = {
     // Sinh biểu đồ JSON chuẩn
     const chartJson = JSON.stringify({
       type: 'bar',
-      title: `So sánh Kinh doanh ${args.currentYear} vs ${args.previousYear}`,
+      title: `So sánh Kinh doanh ${cur.label} vs ${prev.label}`,
       xAxisKey: 'name',
       data: [
-        { name: 'Ký kết', [args.previousYear]: Math.round(prevVal / 1e9 * 100) / 100, [args.currentYear]: Math.round(curVal / 1e9 * 100) / 100 },
-        { name: 'Doanh thu', [args.previousYear]: Math.round(prevRev / 1e9 * 100) / 100, [args.currentYear]: Math.round(curRev / 1e9 * 100) / 100 },
-        { name: 'Dòng tiền', [args.previousYear]: Math.round(prevCash / 1e9 * 100) / 100, [args.currentYear]: Math.round(curCash / 1e9 * 100) / 100 },
+        { name: 'Ký kết', 'ky_truoc': Math.round(prevVal / 1e9 * 100) / 100, 'ky_hien_tai': Math.round(curVal / 1e9 * 100) / 100 },
+        { name: 'Doanh thu', 'ky_truoc': Math.round(prevRev / 1e9 * 100) / 100, 'ky_hien_tai': Math.round(curRev / 1e9 * 100) / 100 },
+        { name: 'Lợi nhuận', 'ky_truoc': Math.round(prevProfit / 1e9 * 100) / 100, 'ky_hien_tai': Math.round(curProfit / 1e9 * 100) / 100 },
       ],
       lines: [
-        { dataKey: args.previousYear, color: '#94a3b8', name: `Năm ${args.previousYear}` },
-        { dataKey: args.currentYear, color: '#6366f1', name: `Năm ${args.currentYear}` },
+        { dataKey: 'ky_truoc', color: '#94a3b8', name: `Kỳ trước (${prev.label})` },
+        { dataKey: 'ky_hien_tai', color: '#6366f1', name: `Kỳ hiện tại (${cur.label})` },
       ],
       unit: 'tỷ VND',
     });
 
     // QUAN TRỌNG: Trả về 1 chuỗi markdown duy nhất. LLM chỉ cần paste nguyên khối!
-    return `## 📊 Báo cáo So sánh Kinh doanh ${args.currentYear} vs ${args.previousYear}
+    return `## 📊 Báo cáo So sánh Kinh doanh ${cur.label} vs ${prev.label}
 
 ### Bảng Tổng hợp
 
-| Chỉ tiêu | Kỳ trước (${args.previousYear}) | Kỳ hiện tại (${args.currentYear}) | Chênh lệch |
+| Chỉ tiêu | Kỳ trước (${prev.label}) | Kỳ hiện tại (${cur.label}) | Chênh lệch |
 |---|---|---|---|
 | Số hợp đồng | ${prevCount} | ${curCount} | ${calcChange(curCount, prevCount)} |
 | Giá trị ký kết | ${fmtMoney(prevVal)} | ${fmtMoney(curVal)} | ${calcChange(curVal, prevVal)} |
 | Doanh thu | ${fmtMoney(prevRev)} | ${fmtMoney(curRev)} | ${calcChange(curRev, prevRev)} |
+| Lợi nhuận QT | ${fmtMoney(prevProfit)} | ${fmtMoney(curProfit)} | ${calcChange(curProfit, prevProfit)} |
 | Dòng tiền | ${fmtMoney(prevCash)} | ${fmtMoney(curCash)} | ${calcChange(curCash, prevCash)} |
 
 ### Biểu đồ So sánh

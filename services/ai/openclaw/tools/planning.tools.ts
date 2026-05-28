@@ -53,12 +53,25 @@ export const createSmartPlanTool: OpenClawTool = {
     const expiringContracts = expiryRes.data || [];
     const pendingPayments = debtRes.data || [];
 
-    // 2. Tạo tasks tự động
+    // 2. Lấy danh sách task chưa hoàn thành để chống spam tạo trùng lặp
+    const { data: existingTasksData } = await supabase
+      .from('tasks')
+      .select('source_entity_id')
+      .eq('source_module', 'contracts')
+      .is('completed_at', null);
+    
+    const existingTaskEntityIds = new Set((existingTasksData || []).map((t: any) => t.source_entity_id));
+
+    // 3. Tạo tasks tự động
     const createdTasks: string[] = [];
     const assignee = args.assignedTo || context.userId;
 
     if (focusArea === 'all' || focusArea === 'contracts') {
       for (const c of overdueContracts.slice(0, 3)) {
+        if (existingTaskEntityIds.has(c.id)) {
+          createdTasks.push(`⏭️ Bỏ qua HĐ **${c.name}** (Đã có task đang mở)`);
+          continue;
+        }
         try {
           await TaskService.create({
             title: `[KH AUTO] Đốc thúc HĐ quá hạn: ${c.name}`,
@@ -266,9 +279,12 @@ export const forecastNextQuarterTool: OpenClawTool = {
     const q2 = calcTotals(q2Res.data || []);
     const pipeline = (pipelineRes.data || []).reduce((s: number, r: any) => s + (r.value || 0), 0);
 
-    // Tính growth rate
-    const signingGrowth = q2.signing > 0 ? (q1.signing - q2.signing) / q2.signing : 0;
-    const revenueGrowth = q2.revenue > 0 ? (q1.revenue - q2.revenue) / q2.revenue : 0;
+    // Tính growth rate (có chặn cap +/- 30% để tránh forecast phi thực tế)
+    let signingGrowth = q2.signing > 0 ? (q1.signing - q2.signing) / q2.signing : 0;
+    let revenueGrowth = q2.revenue > 0 ? (q1.revenue - q2.revenue) / q2.revenue : 0;
+    
+    signingGrowth = Math.max(Math.min(signingGrowth, 0.3), -0.3);
+    revenueGrowth = Math.max(Math.min(revenueGrowth, 0.3), -0.3);
 
     // Dự báo = quý gần nhất × (1 + growth rate)
     const forecastSigning = Math.round(q1.signing * (1 + signingGrowth));

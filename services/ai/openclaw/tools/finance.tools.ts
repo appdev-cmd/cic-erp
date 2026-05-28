@@ -63,6 +63,7 @@ export const getDebtReportTool: OpenClawTool = {
     let query = supabase
       .from('payments')
       .select('id, amount, paid_amount, due_date, status, contract_id, contracts!inner(title, customer_contract_number, customer_id, unit_id, customers(name))')
+      .in('voucher_type', ['RECEIPT', 'VAT_INVOICE'])
       .in('status', ['Chưa thanh toán', 'Pending', 'Chờ thanh toán', 'Đã xuất HĐ', 'Đã giao KH'])
       .order('due_date');
 
@@ -165,7 +166,7 @@ export const getCashflowSummaryTool: OpenClawTool = {
       const key = isQuarterly ? `Q${Math.ceil(month / 3)}` : `T${month}`;
       if (!periods[key]) periods[key] = { thu: 0, chi: 0 };
 
-      if (p.voucher_type === 'RECEIPT' || p.voucher_type === 'VAT_INVOICE') {
+      if (p.voucher_type === 'RECEIPT') {
         periods[key].thu += (p.amount || 0);
       } else if (p.voucher_type === 'EXPENSE') {
         periods[key].chi += (p.amount || 0);
