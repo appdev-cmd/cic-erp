@@ -32,6 +32,9 @@ const MainLayout: React.FC = () => {
     const { visibleUnits } = useCurrentUserVisibleUnits();
     const { impersonatedUser, isImpersonating, stopImpersonation } = useImpersonation();
 
+    // Effective profile (impersonated or real)
+    const effectiveProfile = isImpersonating && impersonatedUser ? impersonatedUser : profile;
+
     // ═══ Global Realtime Subscriptions ═══
     useRealtimeSync();
     useAutoTaskEngine();
@@ -249,8 +252,8 @@ const MainLayout: React.FC = () => {
                         activeTab={getActiveTab()}
                         setActiveTab={(tab) => {
                             if (tab === 'hrm') {
-                                const role = profile?.role;
-                                const userUnitCode = profile?.unitCode;
+                                const role = effectiveProfile?.role;
+                                const userUnitCode = effectiveProfile?.unitCode;
                                 const hasHrmAccess = role && canViewEmployees(role, userUnitCode);
                                 navigate(hasHrmAccess ? '/hrm' : '/hrm/requests');
                             } else {
