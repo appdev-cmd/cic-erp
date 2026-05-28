@@ -197,15 +197,25 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<string> 
     // Try fallback model
     const fallback = getFallbackModel(provider);
     if (fallback && !request.meta?.isFallback) {
-      const fallbackMsg = `\n\n*(Chuyển sang ${fallback.name} do lỗi kết nối ${request.model})*\n\n`;
+      const customGeminiKey = getCustomKey('gemini');
+      
+      if (fallback.provider === 'gemini' && !customGeminiKey) {
+        const fallbackErrMsg = `\n\n⚠️ **Máy chủ AI chính gặp sự cố kết nối.**\n\nĐể kích hoạt kết nối dự phòng qua mô hình Gemini 2.0 Flash, vui lòng bấm vào biểu tượng **Cài đặt (⚙️)** ở góc trên bên phải để cấu hình **API Key cá nhân** của bạn.\n\n*(Chi tiết lỗi: ${error?.message || String(error)})*\n`;
+        outputBuffer += fallbackErrMsg;
+        yield fallbackErrMsg;
+        return;
+      }
+
+      const fallbackMsg = `\n\n*(⚠️ Máy chủ AI chính gặp sự cố kết nối. Trợ lý AI đã tự động chuyển sang mô hình dự phòng Gemini 2.0 Flash sử dụng API Key cá nhân của bạn để tiếp tục xử lý).*\n\n`;
       outputBuffer += fallbackMsg;
       yield fallbackMsg;
       try {
         const fallbackMeta = { ...(request.meta || {}), isFallback: true };
         yield* collectAndYield(streamChat({ ...request, model: fallback.id, meta: fallbackMeta }) as any);
         return;
-      } catch {
+      } catch (fallbackErr) {
         // Fallback also failed
+        console.error('[streamChat] Fallback failed:', fallbackErr);
       }
     }
 
@@ -247,12 +257,15 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<string> 
 
 async function* streamGemini(request: ChatRequest): AsyncGenerator<string> {
   const customKey = getCustomKey('gemini');
-  const envKey = getEnvKey('gemini');
+  // Nếu là cuộc gọi fallback, bắt buộc CHỈ dùng key cá nhân, tuyệt đối không dùng key công ty
+  const envKey = request.meta?.isFallback ? null : getEnvKey('gemini');
   const apiKey = customKey || envKey;
 
   // Ưu tiên: nếu có key (custom hoặc env) → dùng Direct API ngay
-  // Edge Function chỉ dùng khi không có key nào trong local env
   if (!apiKey) {
+    if (request.meta?.isFallback) {
+      throw new Error('Thiếu Gemini API Key cá nhân để kích hoạt kết nối dự phòng. Vui lòng vào Cài đặt (⚙️) cấu hình.');
+    }
     const shouldUseEdge = await isEdgeFunctionAvailable('gemini-proxy');
     if (shouldUseEdge) {
       yield* streamGeminiViaEdge(request);
@@ -714,7 +727,7 @@ function extractGemmaToolCalls(content: string): { tool_calls: any[], cleaned_co
 /**
  * Gọi 1 turn của Agent. Trả về cả message và tool_calls (không stream).
  */
-export async function callAgentTurn(request: ChatRequest): Promise<{ message?: string; tool_calls?: any[] }> {
+export async function callAgentTurn(request: ChatRequest): Promise<{ message?: string; tool_calls?: any[]; activeModel?: string; wasFallback?: boolean }> {
   const customKey = getCustomKey('openai');
   const apiKey = customKey || getEnvKey('openai');
   const provider = detectProvider(request.model);
@@ -743,8 +756,9 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
   const url = isProxyRoute
     ? `${baseURL}?endpoint=chat/completions`
     : `${baseURL.replace(/\/$/, '')}/chat/completions`;
+  const timeoutMs = provider === 'local' ? 35000 : getConfig().timeoutMs;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), getConfig().timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const isVllmOrLocal = /localhost|127\.0\.0\.1/.test(url) || url.includes('/api/vllm') || isProxyRoute;
@@ -846,13 +860,51 @@ Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doan
 
       return {
         message: content,
-        tool_calls
+        tool_calls,
+        activeModel: request.model,
+        wasFallback: request.meta?.isFallback || false
       };
     }
 
-    return {};
+    return {
+      activeModel: request.model,
+      wasFallback: request.meta?.isFallback || false
+    };
   } catch (err: any) {
     console.error('[callAgentTurn] Error:', err);
+
+    // Tự động fallback model nếu model chính lỗi
+    if (!request.meta?.isFallback) {
+      const fallback = getFallbackModel(provider);
+      if (fallback) {
+        // BẮT BUỘC chỉ dùng API Key cá nhân của user khi fallback sang Gemini
+        const customGeminiKey = getCustomKey('gemini');
+        
+        if (fallback.provider === 'gemini' && !customGeminiKey) {
+          console.warn('[callAgentTurn] Local model failed but no personal Gemini API Key configured for fallback');
+          throw new Error('Máy chủ AI chính gặp sự cố kết nối. Để kích hoạt kết nối dự phòng Gemini, vui lòng cấu hình API Key cá nhân của bạn trong phần Cài đặt (⚙️).');
+        }
+        
+        console.warn(`[callAgentTurn] Model ${request.model} failed. Falling back to personal ${fallback.id}`);
+        const fallbackMeta = { ...(request.meta || {}), isFallback: true };
+        
+        try {
+          const result = await callAgentTurn({
+            ...request,
+            model: fallback.id,
+            meta: fallbackMeta
+          });
+          return {
+            ...result,
+            wasFallback: true
+          };
+        } catch (fallbackErr: any) {
+          console.error('[callAgentTurn] Fallback failed:', fallbackErr);
+          throw fallbackErr;
+        }
+      }
+    }
+
     throw err;
   } finally {
     clearTimeout(timeout);

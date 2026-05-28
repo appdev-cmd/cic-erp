@@ -75,7 +75,18 @@ export async function runReActLoop(
     maxSteps
   };
 
-  const modelId = overrideModel || agentConfig.preferredModel || 'gemma-4-26b';
+  let modelId = overrideModel || agentConfig.preferredModel || 'gemma-4-26b';
+  let wasFallbackDetected = false;
+
+  const formatFinalReply = (replyText: string): string => {
+    if (wasFallbackDetected) {
+      const notice = `*(⚠️ Máy chủ AI chính gặp sự cố kết nối. Trợ lý AI đã tự động chuyển sang mô hình dự phòng Gemini 2.0 Flash sử dụng API Key cá nhân của bạn để tiếp tục xử lý).* \n\n`;
+      if (!replyText.includes('sử dụng API Key cá nhân') && !replyText.includes('mô hình dự phòng')) {
+        return notice + replyText;
+      }
+    }
+    return replyText;
+  };
 
   for (let i = 0; i < maxSteps; i++) {
     state.steps++;
@@ -92,6 +103,15 @@ export async function runReActLoop(
 
     const turn = await callAgentTurn(request);
 
+    // Đồng bộ modelId dự phòng nếu phát hiện fallback trong gateway
+    if (turn.activeModel && turn.activeModel !== modelId) {
+      console.warn(`[OpenClaw] Step ${state.steps}: Switched running model from ${modelId} to fallback ${turn.activeModel}`);
+      modelId = turn.activeModel;
+    }
+    if (turn.wasFallback) {
+      wasFallbackDetected = true;
+    }
+
     // Save assistant message to history
     if (turn.message || (turn.tool_calls && turn.tool_calls.length > 0)) {
       messages.push({
@@ -105,7 +125,7 @@ export async function runReActLoop(
     // Nếu không có tool calls → Agent đã hoàn thành!
     if (!turn.tool_calls || turn.tool_calls.length === 0) {
       if (turn.message) {
-        return { reply: turn.message, steps: state.steps, usedTools: state.usedTools };
+        return { reply: formatFinalReply(turn.message), steps: state.steps, usedTools: state.usedTools };
       }
       break;
     }
@@ -216,7 +236,7 @@ export async function runReActLoop(
       }
 
       if (streamedReply) {
-        return { reply: streamedReply, steps: state.steps + 1, usedTools: state.usedTools };
+        return { reply: formatFinalReply(streamedReply), steps: state.steps + 1, usedTools: state.usedTools };
       }
     }
   }
@@ -224,7 +244,7 @@ export async function runReActLoop(
   // Quá số bước mà chưa xong
   const lastMsg = messages[messages.length - 1];
   if (lastMsg && lastMsg.role === 'model' && lastMsg.content) {
-    return { reply: lastMsg.content, steps: state.steps, usedTools: state.usedTools };
+    return { reply: formatFinalReply(lastMsg.content), steps: state.steps, usedTools: state.usedTools };
   }
 
   return { reply: 'Xin lỗi, hệ thống bị gián đoạn. Vui lòng hỏi lại.', steps: state.steps, usedTools: state.usedTools };

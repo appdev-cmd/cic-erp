@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Send, Bot, Loader2, Square, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { useAuth } from '../contexts/AuthContext';
 import { useEffectiveProfile } from '../contexts/ImpersonationContext';
 import { agentDefinitions } from '../services/ai/openclaw/agents/definitions';
@@ -208,9 +210,18 @@ const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode
         return;
       }
 
+      let friendlyError = '\n\n⚠️ Đã xảy ra lỗi kết nối. Vui lòng thử lại.';
+      if (errDetail.includes('Gemini API Key cá nhân') || errDetail.includes('Cài đặt (⚙️)')) {
+        friendlyError = `\n\n### ⚠️ Không thể kết nối với máy chủ AI\n\n` +
+          `**Nguyên nhân**: Máy chủ AI chính hiện đang gặp sự cố kết nối.\n\n` +
+          `**Giải pháp**: Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 2.0 Flash** sử dụng **API Key cá nhân** của bạn.\n\n` +
+          `Vui lòng vào phần **Cài đặt (⚙️)** ở thanh công cụ góc trên bên phải trang chat chính để cấu hình **API Key cá nhân** (lấy miễn phí từ **[Google AI Studio](https://aistudio.google.com/app/apikey)**).\n\n` +
+          `*Chi tiết: ${errDetail}*`;
+      }
+
       setMessages(prev => prev.map(m =>
         m.id === botMsgId
-          ? { ...m, content: '\n\n⚠️ Đã xảy ra lỗi kết nối. Vui lòng thử lại.', isStreaming: false }
+          ? { ...m, content: friendlyError, isStreaming: false }
           : m
       ));
     } finally {
@@ -290,7 +301,11 @@ const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode
               )}>
                 {msg.role === 'model' ? (
                   <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2">
-                    <ReactMarkdown components={MARKDOWN_COMPONENTS}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw]}
+                      components={MARKDOWN_COMPONENTS}
+                    >
                       {msg.content || (msg.isStreaming ? '...' : '')}
                     </ReactMarkdown>
                     {msg.isStreaming && (

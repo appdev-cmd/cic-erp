@@ -50,6 +50,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { generateSmartFileName, exportToHTML, exportToDOCX, exportToImage, copyImageToClipboard, exportToPDF } from '../utils/aiExportService';
 import { streamEnterpriseAI } from '../services/ai';
 import { getBusinessContext, invalidateBusinessContext } from '../services/contextService';
@@ -629,44 +630,64 @@ const AIAssistant: React.FC = () => {
     try {
       let models: string[] = [];
 
-      // Lấy từ Ollama Native Proxy
-      try {
-        const res = await fetch(`/api/ollama_native/tags`, { signal: AbortSignal.timeout(3000) });
-        if (res.ok) {
-          const data = await res.json() as { models?: { name: string }[] };
-          if (data.models && data.models.length > 0) {
-            models = [...models, ...data.models.map(m => m.name)];
-          }
-        }
-      } catch (err) { console.log('Ollama timeout:', err); }
+      const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname);
 
-      // Lấy từ vLLM Proxy
-      try {
-        const res = await fetch(`/api/vllm/models`, {
-          signal: AbortSignal.timeout(3000),
-          headers: { 'Authorization': `Bearer ${import.meta.env.VITE_LITELLM_KEY || ''}` }
-        });
-        if (res.ok) {
-          const data = await res.json() as { data?: { id: string }[] };
-          if (data.data && data.data.length > 0) {
-            models = [...models, ...data.data.map(m => m.id)];
+      if (!isLocal) {
+        // Môi trường Cloud: Dùng serverless function proxy hướng đến máy chủ vLLM local của doanh nghiệp
+        try {
+          const res = await fetch(`/api/ai-proxy/models`, {
+            signal: AbortSignal.timeout(5000),
+          });
+          if (res.ok) {
+            const data = await res.json() as { data?: { id: string }[] };
+            if (data.data && data.data.length > 0) {
+              models = [...models, ...data.data.map(m => m.id)];
+            }
           }
+        } catch (err) {
+          console.log('Production local AI proxy test failed:', err);
         }
-      } catch (err) { console.log('vLLM timeout:', err); }
+      } else {
+        // Môi trường Localhost: Sử dụng các cổng dev proxy thông thường
+        // Lấy từ Ollama Native Proxy
+        try {
+          const res = await fetch(`/api/ollama_native/tags`, { signal: AbortSignal.timeout(3000) });
+          if (res.ok) {
+            const data = await res.json() as { models?: { name: string }[] };
+            if (data.models && data.models.length > 0) {
+              models = [...models, ...data.models.map(m => m.name)];
+            }
+          }
+        } catch (err) { console.log('Ollama timeout:', err); }
 
-      // Lấy từ vLLM Proxy (Gemma)
-      try {
-        const res = await fetch(`/api/vllm_gemma/models`, {
-          signal: AbortSignal.timeout(3000),
-          headers: { 'Authorization': `Bearer ${import.meta.env.VITE_LITELLM_KEY || ''}` }
-        });
-        if (res.ok) {
-          const data = await res.json() as { data?: { id: string }[] };
-          if (data.data && data.data.length > 0) {
-            models = [...models, ...data.data.map(m => m.id)];
+        // Lấy từ vLLM Proxy
+        try {
+          const res = await fetch(`/api/vllm/models`, {
+            signal: AbortSignal.timeout(3000),
+            headers: { 'Authorization': `Bearer ${import.meta.env.VITE_LITELLM_KEY || ''}` }
+          });
+          if (res.ok) {
+            const data = await res.json() as { data?: { id: string }[] };
+            if (data.data && data.data.length > 0) {
+              models = [...models, ...data.data.map(m => m.id)];
+            }
           }
-        }
-      } catch (err) { console.log('vLLM Gemma timeout:', err); }
+        } catch (err) { console.log('vLLM timeout:', err); }
+
+        // Lấy từ vLLM Proxy (Gemma)
+        try {
+          const res = await fetch(`/api/vllm_gemma/models`, {
+            signal: AbortSignal.timeout(3000),
+            headers: { 'Authorization': `Bearer ${import.meta.env.VITE_LITELLM_KEY || ''}` }
+          });
+          if (res.ok) {
+            const data = await res.json() as { data?: { id: string }[] };
+            if (data.data && data.data.length > 0) {
+              models = [...models, ...data.data.map(m => m.id)];
+            }
+          }
+        } catch (err) { console.log('vLLM Gemma timeout:', err); }
+      }
 
       // Lấy từ localAIBaseURL nếu user nhập vào custom url không phải localhost
       if (!localAIBaseURL.includes('localhost') && !localAIBaseURL.includes('127.0.0.1') && !localAIBaseURL.includes('/api/vllm')) {
@@ -945,9 +966,23 @@ const AIAssistant: React.FC = () => {
         return;
       }
 
+      let friendlyError = `\n\n⚠️ Đã xảy ra lỗi kết nối.\n\n\`\`\`\n${errDetail}\n\`\`\``;
+      
+      if (errDetail.includes('Gemini API Key cá nhân') || errDetail.includes('Cài đặt (⚙️)')) {
+        friendlyError = `\n\n### ⚠️ Không thể kết nối với máy chủ AI\n\n` +
+          `**Nguyên nhân**: Máy chủ AI chính (\`${currentModel === 'gemma-4-26b' ? 'Gemma 4 26B' : currentModel}\`) hiện đang bận hoặc gặp sự cố kết nối.\n\n` +
+          `**Giải pháp khắc phục (Kênh dự phòng)**:\n` +
+          `Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 2.0 Flash** sử dụng **API Key cá nhân** của bạn để đảm bảo bảo mật và kiểm soát chi phí tối ưu cho doanh nghiệp.\n\n` +
+          `Để tiếp tục, bạn vui lòng cấu hình API Key cá nhân theo các bước sau:\n` +
+          `1. 🔑 Lấy API Key miễn phí tại **[Google AI Studio](https://aistudio.google.com/app/apikey)**.\n` +
+          `2. ⚙️ Bấm vào biểu tượng **Cài đặt (⚙️)** ở góc trên bên phải khung chat.\n` +
+          `3. 📝 Dán API Key của bạn vào ô **Gemini API Key** và bấm **Lưu**.\n\n` +
+          `*Chi tiết lỗi kỹ thuật: ${errDetail}*`;
+      }
+
       setMessages(prev => prev.map(m =>
         m.id === botMsgId
-          ? { ...m, content: `\n\n⚠️ Đã xảy ra lỗi kết nối.\n\n\`\`\`\n${errDetail}\n\`\`\``, isStreaming: false }
+          ? { ...m, content: friendlyError, isStreaming: false }
           : m
       ));
     } finally {
@@ -1393,6 +1428,7 @@ const AIAssistant: React.FC = () => {
                             <div className="prose prose-sm prose-indigo dark:prose-invert max-w-none break-words">
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeRaw]}
                                 urlTransform={(url: string) => url}
                                 components={MARKDOWN_COMPONENTS as any}
                               >

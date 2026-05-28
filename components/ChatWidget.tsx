@@ -3,6 +3,7 @@ import { MessageCircle, X, Send, Bot, User, Maximize2, Newspaper, Globe, Faceboo
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { streamChat } from '../services/ai';
 import { searchKnowledgeBase } from '../services/ragService';
 import { getBusinessContext } from '../services/contextService';
@@ -249,6 +250,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                                         <div className="prose dark:prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-headings:font-semibold prose-a:text-indigo-500 hover:prose-a:text-indigo-600 prose-pre:bg-slate-900 prose-pre:border prose-pre:border-slate-700">
                                             <ReactMarkdown
                                                 remarkPlugins={[remarkGfm]}
+                                                rehypePlugins={[rehypeRaw]}
                                                 components={{
                                                     ul: ({ node, ...props }) => <ul className="list-disc pl-5 my-2 space-y-1.5 marker:text-indigo-400" {...props} />,
                                                     ol: ({ node, ...props }) => <ol className="list-decimal pl-5 my-2 space-y-1.5 marker:text-indigo-400 font-medium" {...props} />,
