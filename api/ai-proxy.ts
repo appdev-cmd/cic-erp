@@ -42,15 +42,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const endpoint = pathMatch?.[1] || (req.query.endpoint as string) || 'chat/completions';
         const targetUrl = `${VLLM_BASE_URL}/${endpoint}`;
 
-        const isStream = req.body?.stream === true;
+        // Lấy stream flag an toàn bất kể req.body là Object hay String
+        const parsedBody = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const isStream = parsedBody?.stream === true;
+
+        // Tránh double-encoding JSON
+        const requestBody = req.method === 'POST'
+            ? (typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
+            : undefined;
+
+        // Định nghĩa headers phong phú, hỗ trợ skip tunnel warning và track user
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${VLLM_API_KEY}`,
+            'ngrok-skip-browser-warning': 'true',
+        };
+        if (req.headers['x-request-user-id']) {
+            headers['X-Request-User-Id'] = req.headers['x-request-user-id'] as string;
+        }
 
         const upstreamRes = await fetch(targetUrl, {
             method: req.method,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${VLLM_API_KEY}`,
-            },
-            body: req.method === 'POST' ? JSON.stringify(req.body) : undefined,
+            headers,
+            body: requestBody,
         });
 
         if (!upstreamRes.ok) {

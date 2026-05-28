@@ -882,7 +882,8 @@ Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doan
         
         if (fallback.provider === 'gemini' && !customGeminiKey) {
           console.warn('[callAgentTurn] Local model failed but no personal Gemini API Key configured for fallback');
-          throw new Error('Máy chủ AI chính gặp sự cố kết nối. Để kích hoạt kết nối dự phòng Gemini, vui lòng cấu hình API Key cá nhân của bạn trong phần Cài đặt (⚙️).');
+          const rootErr = err.message || String(err);
+          throw new Error(`Máy chủ AI chính gặp sự cố kết nối (Chi tiết lỗi: ${rootErr}). Để kích hoạt kết nối dự phòng Gemini, vui lòng cấu hình API Key cá nhân của bạn trong phần Cài đặt (⚙️).`);
         }
         
         console.warn(`[callAgentTurn] Model ${request.model} failed. Falling back to personal ${fallback.id}`);

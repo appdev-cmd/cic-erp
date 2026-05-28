@@ -40,19 +40,19 @@ export function canViewAllUnits(role: UserRole): boolean {
 // Navigation visibility
 // ═══════════════════════════════════════════
 
-/** HR unit code — Phòng Tổng Hợp */
-const HR_UNIT_CODE = 'HCNS';
+/** HR unit codes — Phòng Tổng hợp / Hành chính Nhân sự */
+const HR_UNIT_CODES = ['HCNS', 'TH'];
 
 /**
  * Can VIEW the Personnel section at all?
- * Only: Admin, Leadership, ChiefAccountant, AdminUnit of Phòng Tổng Hợp (HCNS)
+ * Only: Admin, Leadership, ChiefAccountant, AdminUnit/UnitLeader of Phòng Tổng Hợp (HCNS/TH)
  * 
  * Note: This is a hardcoded nav-visibility check because employees access
  * depends on unit code, which isn't in user_permissions.
  */
 export function canViewEmployees(role: UserRole, userUnitCode?: string): boolean {
     if (role === 'Admin' || role === 'Leadership' || role === 'ChiefAccountant') return true;
-    if ((role === 'AdminUnit' || role === 'UnitLeader') && userUnitCode === HR_UNIT_CODE) return true;
+    if ((role === 'AdminUnit' || role === 'UnitLeader') && userUnitCode && HR_UNIT_CODES.includes(userUnitCode)) return true;
     return false;
 }
 

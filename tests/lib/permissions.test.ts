@@ -47,19 +47,21 @@ describe('Permission Helpers', () => {
             expect(canViewEmployees('ChiefAccountant')).toBe(true);
         });
 
-        it('should allow AdminUnit if unit code is HCNS', () => {
+        it('should allow AdminUnit if unit code is HCNS or TH', () => {
             expect(canViewEmployees('AdminUnit', 'HCNS')).toBe(true);
+            expect(canViewEmployees('AdminUnit', 'TH')).toBe(true);
         });
 
-        it('should deny AdminUnit if unit code is not HCNS', () => {
+        it('should deny AdminUnit if unit code is not HCNS/TH', () => {
             expect(canViewEmployees('AdminUnit', 'IT')).toBe(false);
         });
 
-        it('should allow UnitLeader if unit code is HCNS', () => {
+        it('should allow UnitLeader if unit code is HCNS or TH', () => {
             expect(canViewEmployees('UnitLeader', 'HCNS')).toBe(true);
+            expect(canViewEmployees('UnitLeader', 'TH')).toBe(true);
         });
 
-        it('should deny UnitLeader if unit code is not HCNS', () => {
+        it('should deny UnitLeader if unit code is not HCNS/TH', () => {
             expect(canViewEmployees('UnitLeader', 'IT')).toBe(false);
         });
 

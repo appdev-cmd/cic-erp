@@ -7,18 +7,30 @@ const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function checkTable() {
-    console.log("Checking ai_logs table...");
-    const { data, error } = await supabase.from('ai_logs').select('*').limit(1);
+async function checkLogs() {
+    console.log("Fetching latest AI logs from Supabase...");
+    const { data, error } = await supabase
+        .from('ai_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
     
     if (error) {
-        console.error("Error:", error);
+        console.error("Error fetching logs:", error);
     } else {
-        console.log("Success! Data:", data);
-        if (data.length > 0) {
-           console.log("Keys:", Object.keys(data[0]));
-        }
+        console.log(`Success! Found ${data.length} logs.`);
+        data.forEach((log, index) => {
+            console.log(`\n--- [LOG ${index + 1}] ---`);
+            console.log(`Time: ${log.created_at}`);
+            console.log(`Model: ${log.model_id}`);
+            console.log(`Action: ${log.action_type}`);
+            console.log(`Success: ${log.success}`);
+            console.log(`Latency: ${log.latency_ms}ms`);
+            console.log(`Input Preview: ${log.input_preview}`);
+            console.log(`Output Preview: ${log.output_preview}`);
+            console.log(`Error Message: ${log.error_message}`);
+        });
     }
 }
 
-checkTable();
+checkLogs();
