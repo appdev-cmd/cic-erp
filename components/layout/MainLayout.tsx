@@ -23,6 +23,7 @@ import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import { useAutoTaskEngine } from '../../hooks/useAutoTaskEngine';
 import { TaskActionHandler } from '../tasks/TaskActionHandler';
 import { LazyAIAssistantPage as AIAssistantPage } from '../LazyPages';
+import { canViewEmployees } from '../../lib/permissions';
 
 const MainLayout: React.FC = () => {
     const navigate = useNavigate();
@@ -249,8 +250,9 @@ const MainLayout: React.FC = () => {
                         setActiveTab={(tab) => {
                             if (tab === 'hrm') {
                                 const role = profile?.role;
-                                const canViewEmployees = role && DEFAULT_ROLE_PERMISSIONS[role]?.employees?.includes('view');
-                                navigate(canViewEmployees ? '/hrm' : '/hrm/requests');
+                                const userUnitCode = profile?.unitCode;
+                                const hasHrmAccess = role && canViewEmployees(role, userUnitCode);
+                                navigate(hasHrmAccess ? '/hrm' : '/hrm/requests');
                             } else {
                                 navigate(`/${tab === 'dashboard' ? '' : tab}`);
                             }

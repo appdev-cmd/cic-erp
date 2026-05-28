@@ -55,6 +55,14 @@ describe('Permission Helpers', () => {
             expect(canViewEmployees('AdminUnit', 'IT')).toBe(false);
         });
 
+        it('should allow UnitLeader if unit code is HCNS', () => {
+            expect(canViewEmployees('UnitLeader', 'HCNS')).toBe(true);
+        });
+
+        it('should deny UnitLeader if unit code is not HCNS', () => {
+            expect(canViewEmployees('UnitLeader', 'IT')).toBe(false);
+        });
+
         it('should deny NVKD', () => {
             expect(canViewEmployees('NVKD')).toBe(false);
         });

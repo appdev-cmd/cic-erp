@@ -5,7 +5,7 @@ import { PermissionAction, PermissionResource, UserRole, UserPermission } from '
 import { useAuth } from '../contexts/AuthContext';
 import { useImpersonation } from '../contexts/ImpersonationContext';
 import { UnitVisibilityService } from '../services/unitVisibilityService';
-import { GLOBAL_VIEW_ROLES } from '../lib/permissions';
+import { GLOBAL_VIEW_ROLES, canViewEmployees } from '../lib/permissions';
 
 // Query keys
 const permissionKeys = {
@@ -149,6 +149,12 @@ export function usePermissionCheck() {
     const can = (resource: PermissionResource, action: PermissionAction): boolean => {
         // Admin role: full access to everything
         if (role === 'Admin') return true;
+
+        // Special case: Personnel/HRM viewing rights
+        if (resource === 'employees' && action === 'view') {
+            if (role && canViewEmployees(role, unitCode)) return true;
+        }
+
         const actions = permissionMap.get(resource);
         if (!actions) return false; // deny by default
         return actions.has(action);
