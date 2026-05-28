@@ -43,6 +43,16 @@ function getLocalAIBaseURL(model?: string): string {
 
   try {
     if (typeof window !== 'undefined') {
+      // Ưu tiên 1: Đọc từ localStorage nếu người dùng đã cấu hình Custom URL (khác mặc định '/api/vllm')
+      const customUrl = localStorage.getItem('cic_local_ai_base_url');
+      if (customUrl && customUrl !== '/api/vllm' && customUrl.trim() !== '') {
+        let v1Url = customUrl;
+        if (!v1Url.includes('/v1') && !v1Url.startsWith('/api/')) {
+          v1Url = v1Url.replace(/\/$/, '') + '/v1';
+        }
+        return v1Url;
+      }
+
       // Production (Vercel): dùng serverless function proxy — key được thêm server-side
       if (!isLocalhost) {
         return '/api/ai-proxy';

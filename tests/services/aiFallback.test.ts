@@ -50,7 +50,7 @@ describe('AI Gateway Fallback Tests', () => {
         model: 'gemma-4-26b',
         messages: [{ role: 'user', content: 'hello' }]
       })
-    ).rejects.toThrow('Máy chủ AI chính gặp sự cố kết nối. Để kích hoạt kết nối dự phòng Gemini, vui lòng cấu hình API Key cá nhân');
+    ).rejects.toThrow('Máy chủ AI chính gặp sự cố kết nối (Chi tiết lỗi: Connection refused). Để kích hoạt kết nối dự phòng Gemini, vui lòng cấu hình API Key cá nhân của bạn trong phần Cài đặt (⚙️).');
   });
 
   it('should fallback to Gemini if local model fails and custom Gemini key is set', async () => {

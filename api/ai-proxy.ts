@@ -9,8 +9,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
  * - Forward đầy đủ request body (model, messages, tools, etc.)
  */
 
-const VLLM_BASE_URL = process.env.VLLM_URL || 'https://ai-api.cic.com.vn:9443/v1';
-const VLLM_API_KEY = process.env.VLLM_API_KEY || process.env.VITE_LITELLM_KEY || 'sk-cic-2026';
+const VLLM_BASE_URL = (process.env.VLLM_URL && process.env.VLLM_URL !== 'undefined' && process.env.VLLM_URL.trim() !== '')
+    ? process.env.VLLM_URL
+    : 'https://ai-api.cic.com.vn:9443/v1';
+
+const VLLM_API_KEY = (process.env.VLLM_API_KEY && process.env.VLLM_API_KEY !== 'undefined' && process.env.VLLM_API_KEY.trim() !== '')
+    ? process.env.VLLM_API_KEY
+    : (process.env.VITE_LITELLM_KEY && process.env.VITE_LITELLM_KEY !== 'undefined' && process.env.VITE_LITELLM_KEY.trim() !== '')
+        ? process.env.VITE_LITELLM_KEY
+        : 'sk-cic-2026';
 
 const ALLOWED_ORIGINS = [
     'https://cic-erp.vercel.app',
