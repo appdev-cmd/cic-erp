@@ -1905,37 +1905,57 @@ const AIAssistant: React.FC = () => {
                   </p>
 
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 ml-1">Ollama Base URL</label>
-                      <input
-                        type="text"
-                        value={localAIBaseURL}
-                        onChange={(e) => setLocalAIBaseURL(e.target.value)}
-                        placeholder="http://localhost:11434/v1"
-                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 rounded-xl text-xs font-mono text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all"
-                      />
-                    </div>
+                    {_profile && ['Admin', 'Leadership'].includes(_profile.role || '') ? (
+                      // Giao diện cho Admin: Hiển thị đầy đủ ô nhập và nút lưu
+                      <>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 ml-1">Ollama Base URL</label>
+                          <input
+                            type="text"
+                            value={localAIBaseURL}
+                            onChange={(e) => setLocalAIBaseURL(e.target.value)}
+                            placeholder="http://localhost:11434/v1"
+                            className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 dark:focus:border-indigo-500 rounded-xl text-xs font-mono text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all"
+                          />
+                        </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <button
-                        onClick={testLocalAI}
-                        disabled={localAITesting}
-                        className="flex-1 px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-                      >
-                        {localAITesting ? (
-                          <><span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" /> Đang kiểm tra...</>
-                        ) : (
-                          <>🔍 Kiểm tra kết nối</>
-                        )}
-                      </button>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <button
+                            onClick={testLocalAI}
+                            disabled={localAITesting}
+                            className="flex-1 px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                            {localAITesting ? (
+                              <><span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" /> Đang kiểm tra...</>
+                            ) : (
+                              <>🔍 Kiểm tra kết nối</>
+                            )}
+                          </button>
 
-                      <button
-                        onClick={saveSettings}
-                        className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 cursor-pointer shadow-sm transition-all"
-                      >
-                        Lưu địa chỉ
-                      </button>
-                    </div>
+                          <button
+                            onClick={saveSettings}
+                            className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 cursor-pointer shadow-sm transition-all"
+                          >
+                            Lưu địa chỉ
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      // Giao diện cho User thường: Ẩn ô nhập URL, nút "Kiểm tra kết nối" chiếm 100% width
+                      <div className="w-full">
+                        <button
+                          onClick={testLocalAI}
+                          disabled={localAITesting}
+                          className="w-full px-4 py-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {localAITesting ? (
+                            <><span className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" /> Đang kiểm tra kết nối local...</>
+                          ) : (
+                            <>🔍 Kiểm tra kết nối máy chủ AI</>
+                          )}
+                        </button>
+                      </div>
+                    )}
 
                     {localAITestResult && (
                       <div className={cn(

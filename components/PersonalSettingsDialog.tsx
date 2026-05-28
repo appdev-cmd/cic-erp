@@ -272,8 +272,10 @@ const PersonalSettingsDialog: React.FC<PersonalSettingsDialogProps> = ({
                             <ThemeSection theme={theme} setTheme={setTheme} accent={accent} setAccent={setAccent} />
                         )}
 
-                        {/* Local AI Settings */}
-                        <LocalAISection />
+                        {/* Local AI Settings (Chỉ hiển thị cho Admin/Leadership) */}
+                        {profile && ['Admin', 'Leadership'].includes(profile.role || '') && (
+                            <LocalAISection />
+                        )}
 
                         {/* Avatar & Basic Info (readOnly for most fields) */}
                         <div className="flex gap-6">
