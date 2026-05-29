@@ -125,17 +125,44 @@ Deno.serve(async (req: Request) => {
                 validHistory.shift();
             }
 
-            const chatHistory = validHistory.map((msg) => ({
-                role: msg.role,
-                parts: [{ text: msg.content }],
-            }));
+            // Chuẩn hóa và nhóm gộp các tin nhắn trùng vai trò liên tiếp (Tránh lỗi Gemini 400 INVALID_ARGUMENT)
+            const chatHistory: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
+            for (const msg of validHistory) {
+                // Coi role 'model' hoặc 'assistant' là 'model', còn lại ('user', 'tool') đều là 'user'
+                const role: 'user' | 'model' = (msg.role === 'model' || msg.role === 'assistant') ? 'model' : 'user';
+                const content = msg.content || '';
+
+                if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === role) {
+                    // Ghép nối nội dung nếu trùng vai trò liên tiếp
+                    chatHistory[chatHistory.length - 1].parts[0].text += '\n\n' + content;
+                } else {
+                    chatHistory.push({
+                        role,
+                        parts: [{ text: content }]
+                    });
+                }
+            }
+
+            let lastMessage = body.newMessage || "";
+
+            // ĐẢM BẢO TUÂN THỦ NGHIÊM NGẶT QUY TẮC CỦA GEMINI:
+            // Vì tin nhắn gửi qua `sendMessageStream` luôn có vai trò mặc định là 'user',
+            // tin nhắn cuối cùng trong `chatHistory` bắt buộc phải có vai trò là 'model' (hoặc history trống).
+            // Nếu tin nhắn cuối trong `chatHistory` là 'user', chúng ta pop nó ra và ghép vào đầu `lastMessage`.
+            if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === 'user') {
+                const popped = chatHistory.pop();
+                const poppedText = popped?.parts[0]?.text || '';
+                if (poppedText) {
+                    lastMessage = poppedText + '\n\n' + lastMessage;
+                }
+            }
 
             const chat = model.startChat({
                 history: chatHistory,
                 generationConfig: { temperature: 0.3 },
             });
 
-            const result = await chat.sendMessageStream(body.newMessage || "");
+            const result = await chat.sendMessageStream(lastMessage);
 
             // Stream response using ReadableStream
             const stream = new ReadableStream({

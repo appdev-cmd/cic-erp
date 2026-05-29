@@ -13,8 +13,8 @@ import type { AIModel, AIProvider } from './types';
 export const AI_MODELS: AIModel[] = [
   // ─── Local Models (vLLM) ──────────────────
   {
-    id: 'qwen2.5-72b',
-    name: 'Qwen 2.5 72B (vLLM)',
+    id: 'qwen2.5-32b',
+    name: 'Qwen 2.5 32B (vLLM)',
     provider: 'local',
     contextWindow: 32768,
     supportsVision: false,
@@ -22,6 +22,17 @@ export const AI_MODELS: AIModel[] = [
     supportsToolCalling: true,
     isDefault: true,
     isEnabled: true,
+  },
+  {
+    id: 'qwen2.5-72b',
+    name: 'Qwen 2.5 72B (vLLM)',
+    provider: 'local',
+    contextWindow: 32768,
+    supportsVision: false,
+    supportsStreaming: true,
+    supportsToolCalling: true,
+    isDefault: false,
+    isEnabled: false, // Tắt do đã chuyển sang bản 32B
   },
   {
     id: 'gemma-4-26b',
@@ -57,7 +68,7 @@ export const AI_MODELS: AIModel[] = [
     supportsToolCalling: true,
     costPer1kInput: 0.0001,
     costPer1kOutput: 0.0004,
-    isEnabled: true,
+    isEnabled: false, // Vô hiệu hóa mặc định để gemini-1.5-flash làm fallback ổn định nhất
   },
   {
     id: 'gemini-1.5-flash',

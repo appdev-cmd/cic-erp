@@ -52,4 +52,5 @@ export type ReactAgentResult = {
   reply?: string;
   steps: number;
   usedTools: string[];
+  activeModel?: string; // Tên mô hình thực tế đã xử lý câu trả lời (sau fallback nếu có)
 };

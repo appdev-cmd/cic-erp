@@ -416,6 +416,8 @@ const AIAssistant: React.FC = () => {
     }
     return saved || 'gemma-4-26b';
   });
+  
+  const [onlineLocalModels, setOnlineLocalModels] = useState<string[]>(['qwen2.5-32b']);
 
 
 
@@ -708,7 +710,58 @@ const AIAssistant: React.FC = () => {
       models = Array.from(new Set(models));
 
       if (models.length > 0) {
-        setLocalAITestResult({ ok: true, models });
+        // KIỂM TRA SỨC KHỎE THỰC TẾ (ONLINE CHECK): Chỉ giữ lại các mô hình phản hồi 200 OK
+        const onlineModels: string[] = [];
+        await Promise.all(
+          models.map(async (modelId) => {
+            const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname);
+            
+            // Xây dựng endpoint test phù hợp
+            let testUrl = isLocal ? '/api/vllm/chat/completions' : '/api/ai-proxy/chat/completions';
+            if (!localAIBaseURL.includes('localhost') && !localAIBaseURL.includes('127.0.0.1') && !localAIBaseURL.includes('/api/vllm')) {
+              let v1Url = localAIBaseURL;
+              if (!v1Url.includes('/v1')) v1Url = v1Url.replace(/\/$/, '') + '/v1';
+              testUrl = `${v1Url}/chat/completions`;
+            }
+
+            try {
+              const res = await fetch(testUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${import.meta.env.VITE_LITELLM_KEY || 'sk-cic-2026'}`
+                },
+                body: JSON.stringify({
+                  model: modelId,
+                  messages: [{ role: 'user', content: 'ping' }],
+                  max_tokens: 1
+                }),
+                signal: AbortSignal.timeout(3500) // Timeout nhanh sau 3.5 giây để tránh đợi lâu
+              });
+              
+              if (res.ok) {
+                onlineModels.push(modelId);
+              }
+            } catch (err) {
+              console.log(`[testLocalAI] Model ${modelId} is offline:`, err);
+            }
+          })
+        );
+
+        if (onlineModels.length > 0) {
+          const sortedModels = onlineModels.sort();
+          setLocalAITestResult({ ok: true, models: sortedModels });
+          setOnlineLocalModels(sortedModels);
+
+          // Nếu model hiện tại đang chọn là local nhưng lại bị offline, tự động chọn model local online đầu tiên
+          const localModelsInRegistry = ['qwen2.5-32b', 'qwen2.5-72b', 'gemma-4-26b', 'qwen2.5-7b'];
+          if (localModelsInRegistry.includes(currentModel) && !sortedModels.includes(currentModel)) {
+            console.log(`[testLocalAI] Mô hình đang chọn ${currentModel} bị offline, tự động chuyển sang mô hình online: ${sortedModels[0]}`);
+            setCurrentModel(sortedModels[0]);
+          }
+        } else {
+          throw new Error('Không có mô hình nào đang hoạt động thực tế');
+        }
       } else {
         throw new Error('Không lấy được danh sách model');
       }
@@ -717,7 +770,7 @@ const AIAssistant: React.FC = () => {
     } finally {
       setLocalAITesting(false);
     }
-  }, [localAIBaseURL]);
+  }, [localAIBaseURL, currentModel]);
 
   useEffect(() => {
     testLocalAI();
@@ -915,6 +968,12 @@ const AIAssistant: React.FC = () => {
           : m
       ));
 
+      // Tự động chuyển đổi Dropdown model trên UI nếu phát hiện fallback trong ReAct loop
+      if (reactResult.activeModel && reactResult.activeModel !== currentModel) {
+        console.log(`[AIAssistant] Cập nhật Dropdown model trên UI từ ${currentModel} sang model thực tế phản hồi: ${reactResult.activeModel}`);
+        setCurrentModel(reactResult.activeModel);
+      }
+
       // Track usage (fire-and-forget)
       AgentConfigService.trackUsage(agentConf.id).catch(() => {});
 
@@ -968,16 +1027,30 @@ const AIAssistant: React.FC = () => {
 
       let friendlyError = `\n\n⚠️ Đã xảy ra lỗi kết nối.\n\n\`\`\`\n${errDetail}\n\`\`\``;
       
-      if (errDetail.includes('Gemini API Key cá nhân') || errDetail.includes('Cài đặt (⚙️)')) {
-        friendlyError = `\n\n### ⚠️ Không thể kết nối với máy chủ AI\n\n` +
-          `**Nguyên nhân**: Máy chủ AI chính (\`${currentModel === 'qwen2.5-72b' ? 'Qwen 2.5 72B' : currentModel === 'gemma-4-26b' ? 'Gemma 4 26B' : currentModel}\`) hiện đang bận hoặc gặp sự cố kết nối.\n\n` +
-          `**Giải pháp khắc phục (Kênh dự phòng)**:\n` +
+      const isGeminiIssue = 
+        errDetail.includes('Gemini API Key cá nhân') || 
+        errDetail.includes('Cài đặt (⚙️)') ||
+        errDetail.includes('v1main') ||
+        errDetail.includes('v1beta') ||
+        errDetail.includes('API version') ||
+        errDetail.includes('GoogleGenerativeAI') ||
+        errDetail.includes('API_KEY_INVALID') ||
+        errDetail.includes('apikey') ||
+        errDetail.includes('generativelanguage') ||
+        errDetail.includes('404') || 
+        errDetail.includes('403');
+
+      if (isGeminiIssue) {
+        friendlyError = `\n\n### ⚠️ Không thể kết nối với máy chủ AI (Kênh dự phòng gặp sự cố)\n\n` +
+          `**Nguyên nhân**: Máy chủ AI chính (\`${currentModel === 'qwen2.5-32b' ? 'Qwen 2.5 32B' : currentModel === 'qwen2.5-72b' ? 'Qwen 2.5 72B' : currentModel === 'gemma-4-26b' ? 'Gemma 4 26B' : currentModel}\`) hiện đang bận hoặc gặp sự cố kết nối (Ví dụ: Bạn đang chạy local và chưa kết nối vào mạng nội bộ/VPN của công ty).\n\n` +
+          `Đồng thời, **kênh dự phòng Gemini Cloud mặc định của hệ thống đã bị hết hạn hoặc không hợp lệ** (Lỗi: *${errDetail.substring(0, 150)}*).\n\n` +
+          `**Giải pháp khắc phục (Kích hoạt API Key cá nhân)**:\n` +
           `Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 2.0 Flash** sử dụng **API Key cá nhân** của bạn để đảm bảo bảo mật và kiểm soát chi phí tối ưu cho doanh nghiệp.\n\n` +
-          `Để tiếp tục, bạn vui lòng cấu hình API Key cá nhân theo các bước sau:\n` +
-          `1. 🔑 Lấy API Key miễn phí tại **[Google AI Studio](https://aistudio.google.com/app/apikey)**.\n` +
-          `2. ⚙️ Bấm vào biểu tượng **Cài đặt (⚙️)** ở góc trên bên phải khung chat.\n` +
-          `3. 📝 Dán API Key của bạn vào ô **Gemini API Key** và bấm **Lưu**.\n\n` +
-          `*Chi tiết lỗi kỹ thuật: ${errDetail}*`;
+          `Để tiếp tục sử dụng, bạn vui lòng cấu hình API Key cá nhân theo các bước sau:\n` +
+          `1. 🔑 Lấy API Key miễn phí ngay lập tức tại **[Google AI Studio](https://aistudio.google.com/app/apikey)**.\n` +
+          `2. ⚙️ Bấm vào biểu tượng **Cài đặt (⚙️)** ở góc trên bên phải khung chat này.\n` +
+          `3. 📝 Dán API Key vừa tạo của bạn vào ô **Google Gemini API Key** và bấm **Lưu**.\n\n` +
+          `*Sau khi lưu, hệ thống sẽ tự động sử dụng API Key cá nhân của bạn để tiếp tục xử lý các yêu cầu một cách trơn tru!*`;
       }
 
       setMessages(prev => prev.map(m =>
@@ -1184,9 +1257,21 @@ const AIAssistant: React.FC = () => {
                     title="Chọn Model AI"
                   >
                     <optgroup label="🖥️ Local AI (Bảo mật 100%)" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-                      <option value="qwen2.5-72b">🚀 Qwen 2.5 72B</option>
+                      {onlineLocalModels.map(modelId => {
+                        const labelMap: Record<string, string> = {
+                          'qwen2.5-32b': 'Qwen 2.5 32B',
+                          'qwen2.5-72b': 'Qwen 2.5 72B',
+                          'gemma-4-26b': 'Gemma 4 26B',
+                          'qwen2.5-7b': 'Qwen 2.5 7B'
+                        };
+                        return (
+                          <option key={modelId} value={modelId}>
+                            🚀 {labelMap[modelId] || modelId}
+                          </option>
+                        );
+                      })}
                     </optgroup>
-                    {['Admin', 'Leadership'].includes(_profile?.role || '') && (
+                    {((_profile?.role && ['Admin', 'Leadership'].includes(_profile.role)) || ['gemini-2.0-flash', 'gemini-1.5-pro', 'gpt-4o', 'deepseek-chat', 'deepseek-r1'].includes(currentModel)) && (
                       <optgroup label="🔑 Cloud AI" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
                         <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash</option>
                         <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro</option>

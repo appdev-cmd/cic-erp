@@ -211,12 +211,28 @@ const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode
       }
 
       let friendlyError = '\n\n⚠️ Đã xảy ra lỗi kết nối. Vui lòng thử lại.';
-      if (errDetail.includes('Gemini API Key cá nhân') || errDetail.includes('Cài đặt (⚙️)')) {
-        friendlyError = `\n\n### ⚠️ Không thể kết nối với máy chủ AI\n\n` +
-          `**Nguyên nhân**: Máy chủ AI chính hiện đang gặp sự cố kết nối.\n\n` +
-          `**Giải pháp**: Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 2.0 Flash** sử dụng **API Key cá nhân** của bạn.\n\n` +
-          `Vui lòng vào phần **Cài đặt (⚙️)** ở thanh công cụ góc trên bên phải trang chat chính để cấu hình **API Key cá nhân** (lấy miễn phí từ **[Google AI Studio](https://aistudio.google.com/app/apikey)**).\n\n` +
-          `*Chi tiết: ${errDetail}*`;
+      
+      const isGeminiIssue = 
+        errDetail.includes('Gemini API Key cá nhân') || 
+        errDetail.includes('Cài đặt (⚙️)') ||
+        errDetail.includes('v1main') ||
+        errDetail.includes('v1beta') ||
+        errDetail.includes('API version') ||
+        errDetail.includes('GoogleGenerativeAI') ||
+        errDetail.includes('API_KEY_INVALID') ||
+        errDetail.includes('apikey') ||
+        errDetail.includes('generativelanguage') ||
+        errDetail.includes('404') || 
+        errDetail.includes('403');
+
+      if (isGeminiIssue) {
+        friendlyError = `\n\n### ⚠️ Không thể kết nối với máy chủ AI (Kênh dự phòng gặp sự cố)\n\n` +
+          `**Nguyên nhân**: Máy chủ AI chính hiện đang gặp sự cố kết nối (Ví dụ: Bạn đang chạy local và chưa kết nối vào mạng nội bộ/VPN của công ty).\n\n` +
+          `Đồng thời, **kênh dự phòng Gemini Cloud mặc định của hệ thống đã bị hết hạn hoặc không hợp lệ** (Lỗi: *${errDetail.substring(0, 150)}*).\n\n` +
+          `**Giải pháp khắc phục (Kích hoạt API Key cá nhân)**:\n` +
+          `Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 2.0 Flash** sử dụng **API Key cá nhân** của bạn.\n\n` +
+          `Vui lòng vào phần **Cài đặt (⚙️)** ở thanh công cụ góc trên bên phải **khung chat chính** để cấu hình **API Key cá nhân** (lấy miễn phí từ **[Google AI Studio](https://aistudio.google.com/app/apikey)**).\n\n` +
+          `*Sau khi lưu ở trang chat chính, trợ lý AI sẽ tự động kích hoạt lại kênh dự phòng này!*`;
       }
 
       setMessages(prev => prev.map(m =>

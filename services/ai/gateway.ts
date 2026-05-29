@@ -316,7 +316,9 @@ async function* streamGemini(request: ChatRequest): AsyncGenerator<string> {
   // Chuẩn hóa và nhóm gộp các tin nhắn trùng vai trò liên tiếp (Tránh lỗi Gemini 400 INVALID_ARGUMENT)
   const chatHistory: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
   for (const msg of validHistory) {
-    const role: 'user' | 'model' = (msg.role === 'model') ? 'model' : 'user';
+    // Coi role 'model' hoặc 'assistant' là 'model', còn lại ('user', 'tool') đều là 'user'
+    const msgRole = msg.role as string;
+    const role: 'user' | 'model' = (msgRole === 'model' || msgRole === 'assistant') ? 'model' : 'user';
     const content = msg.content || '';
 
     if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === role) {
@@ -330,7 +332,19 @@ async function* streamGemini(request: ChatRequest): AsyncGenerator<string> {
     }
   }
 
-  const lastMessage = request.messages[request.messages.length - 1]?.content || '';
+  let lastMessage = request.messages[request.messages.length - 1]?.content || '';
+
+  // ĐẢM BẢO TUÂN THỦ NGHIÊM NGẶT QUY TẮC CỦA GEMINI:
+  // Vì tin nhắn gửi qua `sendMessageStream` luôn có vai trò mặc định là 'user',
+  // tin nhắn cuối cùng trong `chatHistory` bắt buộc phải có vai trò là 'model' (hoặc history trống).
+  // Nếu tin nhắn cuối trong `chatHistory` là 'user', chúng ta pop nó ra và ghép vào đầu `lastMessage`.
+  if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === 'user') {
+    const popped = chatHistory.pop();
+    const poppedText = popped?.parts[0]?.text || '';
+    if (poppedText) {
+      lastMessage = poppedText + '\n\n' + lastMessage;
+    }
+  }
 
   const chat = model.startChat({
     history: chatHistory,
@@ -902,6 +916,22 @@ Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doan
     };
   } catch (err: any) {
     console.error('[callAgentTurn] Error:', err);
+
+    // TỰ ĐỘNG THỬ LẠI KHÔNG TOOLS NẾU LOCAL MODEL BỊ LỖI TOOL CALLING/CHAT TEMPLATE:
+    // Nếu request đang chứa tools và gọi local model (isVllm) bị lỗi, thử lại cuộc gọi local không có tools
+    if (isVllm && request.tools && request.tools.length > 0) {
+      console.warn(`[callAgentTurn] Local model ${request.model} failed with tools. Retrying without tools...`);
+      try {
+        const result = await callAgentTurn({
+          ...request,
+          tools: undefined // Loại bỏ hoàn toàn tools
+        });
+        return result;
+      } catch (retryErr) {
+        console.error('[callAgentTurn] Retry without tools also failed:', retryErr);
+        // Nếu thử lại không tools vẫn lỗi (ví dụ local model sập hẳn), tiếp tục chạy luồng fallback bình thường dưới đây
+      }
+    }
 
     // Tự động fallback model nếu model chính lỗi
     if (!request.meta?.isFallback) {

@@ -1,8 +1,8 @@
 model_list:
   # === OLLAMA / VLLM Models ===
-  - model_name: qwen2.5-72b
+  - model_name: qwen2.5-32b
     litellm_params:
-      model: openai/qwen2.5-72b
+      model: openai/qwen2.5-32b
       api_base: http://localhost:8000/v1
       api_key: cic-local-2026
     model_info:

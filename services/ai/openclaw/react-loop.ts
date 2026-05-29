@@ -127,7 +127,7 @@ export async function runReActLoop(
     // Nếu không có tool calls → Agent đã hoàn thành!
     if (!turn.tool_calls || turn.tool_calls.length === 0) {
       if (turn.message) {
-        return { reply: formatFinalReply(turn.message), steps: state.steps, usedTools: state.usedTools };
+        return { reply: formatFinalReply(turn.message), steps: state.steps, usedTools: state.usedTools, activeModel: modelId };
       }
       break;
     }
@@ -238,7 +238,7 @@ export async function runReActLoop(
       }
 
       if (streamedReply) {
-        return { reply: formatFinalReply(streamedReply), steps: state.steps + 1, usedTools: state.usedTools };
+        return { reply: formatFinalReply(streamedReply), steps: state.steps + 1, usedTools: state.usedTools, activeModel: modelId };
       }
     }
   }
@@ -246,7 +246,7 @@ export async function runReActLoop(
   // Quá số bước mà chưa xong
   const lastMsg = messages[messages.length - 1];
   if (lastMsg && lastMsg.role === 'model' && lastMsg.content) {
-    return { reply: formatFinalReply(lastMsg.content), steps: state.steps, usedTools: state.usedTools };
+    return { reply: formatFinalReply(lastMsg.content), steps: state.steps, usedTools: state.usedTools, activeModel: modelId };
   }
 
   return { reply: 'Xin lỗi, hệ thống bị gián đoạn. Vui lòng hỏi lại.', steps: state.steps, usedTools: state.usedTools };
