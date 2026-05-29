@@ -2,6 +2,7 @@ import { Customer } from './customer';
 import { CustomerContact } from './customer';
 import { Employee } from './employee';
 import { Product } from './product';
+import { UserProfile } from './workflow';
 
 export interface CrmStageTemplate {
   id: string;
@@ -90,7 +91,7 @@ export interface CrmActivity {
   created_at: string;
   
   // Joined relations
-  creator?: Profile;
+  creator?: UserProfile;
 }
 
 export interface CrmDealProduct {

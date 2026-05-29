@@ -94,20 +94,14 @@ const RequestForm: React.FC<Props> = ({ isOpen, onClose, onSaved, employeeId, un
       let finalUnitId = unitId;
       if (unitId === 'all') {
         // Handle Dev Admin / All Units case
-        const { data: units } = await RequestService.getUnits ? await RequestService.getUnits() : { data: null };
-        if (!units && (window as any).supabase) {
-            const { data } = await (window as any).supabase.from('units').select('id').limit(1);
-            if (data && data.length > 0) finalUnitId = data[0].id;
+        const { dataClient } = await import('../../lib/dataClient');
+        const { data } = await dataClient.from('units').select('id').limit(1);
+        if (data && data.length > 0) {
+          finalUnitId = data[0].id;
         } else {
-             // fallback to direct supabase client if possible
-             const { dataClient } = await import('../../lib/dataClient');
-             const { data } = await dataClient.from('units').select('id').limit(1);
-             if (data && data.length > 0) finalUnitId = data[0].id;
-             else {
-                 alert('Không tìm thấy Đơn vị nào trong hệ thống để gán cho đề xuất này (Dành cho tài khoản Admin).');
-                 setLoading(false);
-                 return;
-             }
+          alert('Không tìm thấy Đơn vị nào trong hệ thống để gán cho đề xuất này (Dành cho tài khoản Admin).');
+          setLoading(false);
+          return;
         }
       }
       const details: Record<string, string> = {};

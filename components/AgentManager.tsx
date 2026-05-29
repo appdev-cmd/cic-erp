@@ -133,8 +133,11 @@ const AgentManager: React.FC = () => {
     EmployeeService.getAll().then(emps => setEmployees(emps.map(e => ({ id: e.id, name: e.name })))).catch(() => {});
   }, [fetchAgents]);
 
-  const handleToggleActive = async (agent: AgentConfigRow) => {
-    if (!canManage) return toast.error('Bạn không có quyền quản trị Agent');
+  const handleToggleActive = async (agent: AgentConfigRow): Promise<void> => {
+    if (!canManage) {
+      toast.error('Bạn không có quyền quản trị Agent');
+      return;
+    }
     try {
       await AgentConfigService.update(agent.id, { is_active: !agent.is_active });
       setAgents(prev => prev.map(a => a.id === agent.id ? { ...a, is_active: !a.is_active } : a));
@@ -238,7 +241,6 @@ const AgentManager: React.FC = () => {
               onClick={() => { 
                 setSelectedAgent(agent);
                 openPanel({
-                  id: `agent-${agent.id}`,
                   title: agent.name,
                   icon: renderIcon(agent.icon, 14),
                   component: (

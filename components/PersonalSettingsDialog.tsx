@@ -436,8 +436,7 @@ const LocalAISection: React.FC = () => {
                     <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Mô hình AI (Model)</label>
                     <select value={model} onChange={e => setModel(e.target.value)} className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 border-indigo-100 dark:border-indigo-900/50 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
                         <optgroup label="Local API (vLLM)">
-                            <option value="gemma-4-26b">Gemma 4 26B (vLLM)</option>
-                            <option value="qwen2.5-7b">Qwen 2.5 7B (vLLM)</option>
+                            <option value="qwen2.5-72b">Qwen 2.5 72B (vLLM)</option>
                         </optgroup>
                     </select>
                 </div>

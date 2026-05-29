@@ -69,7 +69,7 @@ const FacilityManager: React.FC = () => {
       const input = {
         name,
         type,
-        capacity: capacity === '' ? null : Number(capacity),
+        capacity: capacity === '' ? undefined : Number(capacity),
         location,
         color,
         metadata: metaObj,

@@ -55,6 +55,10 @@
     "services/ai/openclaw/**",
     "tests",
     "tests/**",
-    "test_query.ts"
+    "test_query.ts",
+    "scratch",
+    "scratch/**",
+    "tmp_test_*.ts",
+    "check_ai_logs.ts"
   ]
 }

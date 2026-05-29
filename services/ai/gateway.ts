@@ -28,7 +28,7 @@ function getConfig(): GatewayConfig {
   return {
     localBaseURL: getLocalAIBaseURL(),
     localApiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || '',
-    defaultModel: 'gemma-4-26b',   // LiteLLM model alias — Gemma 4 26B
+    defaultModel: 'qwen2.5-72b',   // LiteLLM model alias — Qwen 2.5 72B
     maxRetries: 2,
     timeoutMs: 120000,
     enableLogging: true,
@@ -43,6 +43,8 @@ function getLocalAIBaseURL(model?: string): string {
 
   try {
     if (typeof window !== 'undefined') {
+      let url = '/api/vllm';
+
       // Ưu tiên 1: Đọc từ localStorage nếu người dùng đã cấu hình Custom URL (khác mặc định '/api/vllm')
       const customUrl = localStorage.getItem('cic_local_ai_base_url');
       if (customUrl && customUrl !== '/api/vllm' && customUrl.trim() !== '') {
@@ -50,20 +52,26 @@ function getLocalAIBaseURL(model?: string): string {
         if (!v1Url.includes('/v1') && !v1Url.startsWith('/api/')) {
           v1Url = v1Url.replace(/\/$/, '') + '/v1';
         }
-        return v1Url;
+        url = v1Url;
+      } else if (!isLocalhost) {
+        // Production (Vercel): dùng serverless function proxy — key được thêm server-side
+        url = '/api/ai-proxy';
+      } else {
+        // Localhost: dùng Vite dev proxy
+        url = isGemma ? '/api/vllm_gemma' : '/api/vllm';
       }
 
-      // Production (Vercel): dùng serverless function proxy — key được thêm server-side
-      if (!isLocalhost) {
-        return '/api/ai-proxy';
+      // ĐẢM BẢO LUÔN TRẢ VỀ ABSOLUTE URL CHO OPENAI SDK TRÊN TRÌNH DUYỆT (Tránh lỗi Invalid URL)
+      if (url.startsWith('/')) {
+        url = window.location.origin + url;
       }
-      // Localhost: dùng Vite dev proxy
-      return isGemma ? '/api/vllm_gemma' : '/api/vllm';
+      return url;
     }
     // Server-side / Node: gọi trực tiếp
     return process.env.LOCAL_AI_BASE_URL || 'http://localhost:4000/v1';
   } catch {
-    return '/api/vllm';
+    const fallbackUrl = '/api/vllm';
+    return typeof window !== 'undefined' ? window.location.origin + fallbackUrl : fallbackUrl;
   }
 }
 
@@ -305,10 +313,22 @@ async function* streamGemini(request: ChatRequest): AsyncGenerator<string> {
     validHistory.shift();
   }
 
-  const chatHistory = validHistory.map(msg => ({
-    role: msg.role === 'model' ? 'model' : 'user',
-    parts: [{ text: msg.content }],
-  }));
+  // Chuẩn hóa và nhóm gộp các tin nhắn trùng vai trò liên tiếp (Tránh lỗi Gemini 400 INVALID_ARGUMENT)
+  const chatHistory: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
+  for (const msg of validHistory) {
+    const role: 'user' | 'model' = (msg.role === 'model') ? 'model' : 'user';
+    const content = msg.content || '';
+
+    if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].role === role) {
+      // Ghép nối nội dung nếu trùng vai trò liên tiếp
+      chatHistory[chatHistory.length - 1].parts[0].text += '\n\n' + content;
+    } else {
+      chatHistory.push({
+        role,
+        parts: [{ text: content }]
+      });
+    }
+  }
 
   const lastMessage = request.messages[request.messages.length - 1]?.content || '';
 

@@ -144,7 +144,7 @@ export async function exportToDOCX(markdownContent: string, fileName: string, ta
             new ImageRun({
               data: chartImageBlobs[chartIndex],
               transformation: { width: 500, height: 300 }
-            })
+            } as any)
           ]
         }));
         chartIndex++;
@@ -339,11 +339,11 @@ export async function exportToPDF(targetElementId: string, fileName: string) {
   if (!container) return;
 
   const opt = {
-    margin:       [10, 10, 10, 10],
+    margin:       [10, 10, 10, 10] as [number, number, number, number],
     filename:     `${fileName}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true, backgroundColor: null },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    image:        { type: 'jpeg' as const, quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true, backgroundColor: null as any },
+    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
   };
 
   try {

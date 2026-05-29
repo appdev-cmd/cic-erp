@@ -970,7 +970,7 @@ const AIAssistant: React.FC = () => {
       
       if (errDetail.includes('Gemini API Key cá nhân') || errDetail.includes('Cài đặt (⚙️)')) {
         friendlyError = `\n\n### ⚠️ Không thể kết nối với máy chủ AI\n\n` +
-          `**Nguyên nhân**: Máy chủ AI chính (\`${currentModel === 'gemma-4-26b' ? 'Gemma 4 26B' : currentModel}\`) hiện đang bận hoặc gặp sự cố kết nối.\n\n` +
+          `**Nguyên nhân**: Máy chủ AI chính (\`${currentModel === 'qwen2.5-72b' ? 'Qwen 2.5 72B' : currentModel === 'gemma-4-26b' ? 'Gemma 4 26B' : currentModel}\`) hiện đang bận hoặc gặp sự cố kết nối.\n\n` +
           `**Giải pháp khắc phục (Kênh dự phòng)**:\n` +
           `Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 2.0 Flash** sử dụng **API Key cá nhân** của bạn để đảm bảo bảo mật và kiểm soát chi phí tối ưu cho doanh nghiệp.\n\n` +
           `Để tiếp tục, bạn vui lòng cấu hình API Key cá nhân theo các bước sau:\n` +
@@ -1184,8 +1184,7 @@ const AIAssistant: React.FC = () => {
                     title="Chọn Model AI"
                   >
                     <optgroup label="🖥️ Local AI (Bảo mật 100%)" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-                      <option value="gemma-4-26b">💎 Gemma 4 26B</option>
-                      <option value="qwen2.5-vl-7b">👁️ Qwen-VL 7B</option>
+                      <option value="qwen2.5-72b">🚀 Qwen 2.5 72B</option>
                     </optgroup>
                     {['Admin', 'Leadership'].includes(_profile?.role || '') && (
                       <optgroup label="🔑 Cloud AI" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">

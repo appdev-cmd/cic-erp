@@ -100,6 +100,9 @@ export const aiPermissionService = {
                 quota_reset_at: perm?.quota_reset_at || '',
                 granted_by: perm?.granted_by || null,
                 notes: perm?.notes || null,
+                is_locked: perm?.is_locked || false,
+                locked_reason: perm?.locked_reason || null,
+                locked_at: perm?.locked_at || null,
                 created_at: perm?.created_at || '',
                 updated_at: perm?.updated_at || '',
                 profile: {

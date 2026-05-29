@@ -143,8 +143,8 @@ export const CrmActivityService = {
 
   create: async (activity: Partial<CrmActivity>): Promise<CrmActivity> => {
     // Demo logic: simulate AI scoring if activity is chat/note/call
-    let ai_score = undefined;
-    let ai_feedback = undefined;
+    let ai_score: number | undefined = undefined;
+    let ai_feedback: string | undefined = undefined;
     
     if (activity.description && activity.description.length > 50) {
       ai_score = Math.floor(Math.random() * 20) + 80; // 80-100

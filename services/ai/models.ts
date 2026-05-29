@@ -13,8 +13,8 @@ import type { AIModel, AIProvider } from './types';
 export const AI_MODELS: AIModel[] = [
   // ─── Local Models (vLLM) ──────────────────
   {
-    id: 'gemma-4-26b',
-    name: 'Gemma 4 26B (vLLM)',
+    id: 'qwen2.5-72b',
+    name: 'Qwen 2.5 72B (vLLM)',
     provider: 'local',
     contextWindow: 32768,
     supportsVision: false,
@@ -22,6 +22,17 @@ export const AI_MODELS: AIModel[] = [
     supportsToolCalling: true,
     isDefault: true,
     isEnabled: true,
+  },
+  {
+    id: 'gemma-4-26b',
+    name: 'Gemma 4 26B (vLLM)',
+    provider: 'local',
+    contextWindow: 32768,
+    supportsVision: false,
+    supportsStreaming: true,
+    supportsToolCalling: true,
+    isDefault: false,
+    isEnabled: false, // Tắt do đã đóng cụm Gemma 26B
   },
   {
     id: 'qwen2.5-7b',
@@ -32,7 +43,7 @@ export const AI_MODELS: AIModel[] = [
     supportsStreaming: true,
     supportsToolCalling: true,
     isDefault: false,
-    isEnabled: true,
+    isEnabled: false, // Tắt do đã đóng cụm Qwen 7B
   },
 
   // ─── Google Gemini ─────────────────────────

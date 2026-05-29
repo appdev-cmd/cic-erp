@@ -25,7 +25,7 @@ export const LeadsPage: React.FC = () => {
     try {
       setLoading(true);
       const [leadsData, stagesData] = await Promise.all([
-        CrmLeadService.getAll(selectedUnit === 'all' ? undefined : (typeof selectedUnit === 'string' ? selectedUnit : selectedUnit?.id)),
+        CrmLeadService.getAll(selectedUnit?.id === 'all' ? undefined : selectedUnit?.id),
         CrmStageTemplateService.getAll('lead')
       ]);
       setLeads(leadsData);

@@ -111,12 +111,12 @@ const LeadsKanbanView: React.FC<Props> = ({ leads, stages, onLeadUpdated }) => {
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-1">
                       {lead.assignee ? (
-                        <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden" title={lead.assignee.full_name}>
-                          {lead.assignee.avatar_url ? (
-                            <img src={lead.assignee.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                        <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden" title={lead.assignee.name}>
+                          {lead.assignee.avatar ? (
+                            <img src={lead.assignee.avatar} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
                             <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
-                              {lead.assignee.full_name?.charAt(0)}
+                              {lead.assignee.name?.charAt(0)}
                             </span>
                           )}
                         </div>

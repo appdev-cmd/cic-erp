@@ -6,6 +6,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { canViewEmployees } from '../../lib/permissions';
 import {
   CalendarDays,
   UserSearch,
@@ -37,6 +38,17 @@ interface ModuleCard {
 }
 
 const modules: ModuleCard[] = [
+  {
+    id: 'personnel-records',
+    title: 'Quản lý hồ sơ nhân sự',
+    description: 'Quản lý thông tin chi tiết nhân viên, hợp đồng lao động, quá trình công tác và sơ đồ tổ chức.',
+    icon: <Users size={28} />,
+    color: 'text-orange-600 dark:text-orange-400',
+    bgColor: 'bg-orange-50',
+    darkBgColor: 'dark:bg-orange-900/20',
+    path: '/personnel',
+    status: 'active',
+  },
   {
     id: 'leave',
     title: 'Quản lý Nghỉ phép',
@@ -197,6 +209,12 @@ const HRMPage: React.FC = () => {
       {/* Module Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {modules.map(mod => {
+          // Hide personnel-records card if the user doesn't have permission to view employees
+          if (mod.id === 'personnel-records') {
+            const hasAccess = currentEmployee?.role && canViewEmployees(currentEmployee.role, currentEmployee.unitCode);
+            if (!hasAccess) return null;
+          }
+
           // Hide facilities card if not Admin/AdminUnit
           if (mod.id === 'facilities' && currentEmployee?.role !== 'Admin' && currentEmployee?.role !== 'AdminUnit') {
             return null;

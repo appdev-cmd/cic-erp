@@ -26,6 +26,7 @@ export const RESOURCE_LABELS: Record<PermissionResource, string> = {
     leaves: 'Nghỉ phép',
     recruitment: 'Tuyển dụng',
     analytics: 'Phân tích kinh doanh',
+    crm: 'CRM',
 };
 
 // ─── Action Labels ────────────────────────────────────────
@@ -92,7 +93,7 @@ export const RESOURCES: PermissionResource[] = [
     'contracts', 'customers', 'products', 'payments',
     'employees', 'units', 'tasks', 'settings', 'permissions',
     'reports', 'news', 'projects', 'requests', 'leaves', 'recruitment',
-    'analytics',
+    'analytics', 'crm',
 ];
 
 // ─── Global view roles (xem toàn bộ đơn vị) ──────────────
