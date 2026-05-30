@@ -28,7 +28,7 @@ function getConfig(): GatewayConfig {
   return {
     localBaseURL: getLocalAIBaseURL(),
     localApiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || '',
-    defaultModel: 'qwen2.5-72b',   // LiteLLM model alias — Qwen 2.5 72B
+    defaultModel: 'qwen2.5-32b',   // LiteLLM model alias — Qwen 2.5 32B
     maxRetries: 2,
     timeoutMs: 120000,
     enableLogging: true,
@@ -297,7 +297,7 @@ async function* streamGemini(request: ChatRequest): AsyncGenerator<string> {
   const genAI = new GoogleGenerativeAI(apiKey);
 
   let validModelId = request.model;
-  if (!validModelId || validModelId === 'gemini-pro') validModelId = 'gemini-1.5-flash';
+  if (!validModelId || validModelId === 'gemini-pro') validModelId = 'gemini-2.0-flash';
 
   const model = genAI.getGenerativeModel({
     model: validModelId,
@@ -359,17 +359,17 @@ async function* streamGemini(request: ChatRequest): AsyncGenerator<string> {
       if (text) yield text;
     }
   } catch (err: any) {
-    // Auto-fallback gemini-2.0 → 1.5
+    // Auto-fallback gemini-2.0 → gemini-2.0-flash-lite (không dùng 1.5 đã deprecated)
     if (validModelId.includes('2.0') && (String(err).includes('404') || String(err).includes('not found'))) {
       const fallbackModel = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-2.0-flash-lite',
         systemInstruction: request.systemInstruction || 'Bạn là Trợ lý AI Enterprise của CIC ERP.',
       });
       const fallbackChat = fallbackModel.startChat({
         history: chatHistory,
         generationConfig: { temperature: request.temperature ?? 0.3 },
       });
-      yield '*(Chuyển sang Gemini 1.5 Flash)*\n\n';
+      yield '*(Chuyển sang Gemini 2.0 Flash Lite)*\n\n';
       const result = await fallbackChat.sendMessageStream(lastMessage);
       for await (const chunk of result.stream) {
         if (request.signal?.aborted) return;
@@ -915,7 +915,9 @@ Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doan
       wasFallback: request.meta?.isFallback || false
     };
   } catch (err: any) {
-    console.error('[callAgentTurn] Error:', err);
+    const errMsg = err.message || String(err);
+    const isTimeout = err?.name === 'AbortError' || errMsg.includes('timeout') || errMsg.includes('FUNCTION_INVOCATION_TIMEOUT') || errMsg.includes('504');
+    console.error(`[callAgentTurn] Error (model: ${request.model}, timeout: ${isTimeout}):`, errMsg);
 
     // TỰ ĐỘNG THỬ LẠI KHÔNG TOOLS NẾU LOCAL MODEL BỊ LỖI TOOL CALLING/CHAT TEMPLATE:
     // Nếu request đang chứa tools và gọi local model (isVllm) bị lỗi, thử lại cuộc gọi local không có tools

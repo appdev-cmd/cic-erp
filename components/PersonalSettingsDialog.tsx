@@ -402,7 +402,7 @@ const ThemeSection: React.FC<{
 // ═══ Local AI Settings sub-component ═══
 const LocalAISection: React.FC = () => {
     const [baseUrl, setBaseUrl] = useState(() => localStorage.getItem('cic_local_ai_base_url') || '/api/vllm');
-    const [model, setModel] = useState(() => localStorage.getItem('cic_local_ai_model') || 'gemma-4-26b');
+    const [model, setModel] = useState(() => localStorage.getItem('cic_local_ai_model') || 'qwen2.5-32b');
     const [priority, setPriority] = useState(() => localStorage.getItem('cic_local_ai_priority') === 'true');
 
     const handleSave = () => {

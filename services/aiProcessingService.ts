@@ -1,7 +1,7 @@
 /**
  * AI Processing Service — CIC ERP
  * 
- * Cung cấp các tiện ích AI sử dụng Gemini 1.5 Flash (vision, text generation):
+ * Cung cấp các tiện ích AI sử dụng Gemini 2.0 Flash (vision, text generation):
  * 1. OCR: Trích xuất text từ ảnh (PNG, JPG)
  * 2. Auto-tagging: Gọi AI tự động sinh tags từ nội dung
  */
@@ -35,7 +35,7 @@ function getGeminiKey(): string {
 }
 
 /**
- * Trích xuất văn bản từ hình ảnh (OCR) sử dụng Gemini 1.5 Flash
+ * Trích xuất văn bản từ hình ảnh (OCR) sử dụng Gemini 2.0 Flash
  */
 export async function extractTextFromImageAsOCR(file: File): Promise<string> {
     const apiKey = getGeminiKey();
@@ -67,7 +67,7 @@ export async function extractTextFromImageAsOCR(file: File): Promise<string> {
     };
 
     const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -118,7 +118,7 @@ export async function suggestTagsForContent(text: string): Promise<string[]> {
 
     try {
         const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

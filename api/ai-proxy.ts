@@ -72,6 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             method: req.method,
             headers,
             body: requestBody,
+            signal: AbortSignal.timeout(55000), // 55s — dưới maxDuration (60s) để Vercel không giết function
         });
 
         if (!upstreamRes.ok) {

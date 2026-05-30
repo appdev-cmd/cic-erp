@@ -451,7 +451,7 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                   {canManage ? (
                     <select
                       className="mt-1 w-full p-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded outline-none text-slate-800 dark:text-slate-200"
-                      value={editingForm.preferred_model || 'gemma-4-26b'}
+                      value={editingForm.preferred_model || 'qwen2.5-32b'}
                       onChange={e => setEditingForm(prev => ({ ...prev, preferred_model: e.target.value }))}
                     >
                       {/* Group by provider */}
@@ -477,7 +477,7 @@ const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                     </select>
                   ) : (
                     <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5 truncate">
-                      {getEnabledModels().find(m => m.id === agent.preferred_model)?.name || agent.preferred_model || 'Gemma 4 26B (mặc định)'}
+                      {getEnabledModels().find(m => m.id === agent.preferred_model)?.name || agent.preferred_model || 'Qwen 2.5 32B (mặc định)'}
                     </p>
                   )}
                 </div>

@@ -1,4 +1,9 @@
 {
+    "functions": {
+        "api/ai-proxy.ts": {
+            "maxDuration": 60
+        }
+    },
     "headers": [
         {
             "source": "/(.*)",

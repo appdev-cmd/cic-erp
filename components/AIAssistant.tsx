@@ -358,6 +358,9 @@ const LoadingState: React.FC = () => (
   </div>
 );
 
+// Danh sách model local THỰC SỰ đang hoạt động trên server (Whitelist)
+const KNOWN_WORKING_LOCAL_MODELS = ['qwen2.5-32b'];
+
 const AIAssistant: React.FC = () => {
   const { profile: _profile } = useEffectiveProfile();
   const [dbAgents, setDbAgents] = useState<DepartmentAgent[]>([]);
@@ -409,12 +412,12 @@ const AIAssistant: React.FC = () => {
   const [currentModel, setCurrentModel] = useState<string>(() => {
     const saved = localStorage.getItem(MODEL_STORAGE_KEY);
     // Auto-reset stale model nếu model cũ không còn trên vLLM
-    const staleModels = ['Qwen3.5', 'gemma-3-9b', 'gemma-2-9b', 'Qwen2.5-14B', 'qwen2.5-14b', 'cic-legal-14b', 'qwen-2.5-14b'];
+    const staleModels = ['Qwen3.5', 'gemma-3-9b', 'gemma-2-9b', 'Qwen2.5-14B', 'qwen2.5-14b', 'cic-legal-14b', 'qwen-2.5-14b', 'qwen2.5-72b', 'gemma-4-26b', 'qwen2.5-7b', 'qwen2.5-vl-7b'];
     if (saved && staleModels.some(s => saved.includes(s))) {
       localStorage.removeItem(MODEL_STORAGE_KEY);
-      return 'gemma-4-26b';
+      return 'qwen2.5-32b';
     }
-    return saved || 'gemma-4-26b';
+    return saved || 'qwen2.5-32b';
   });
   
   const [onlineLocalModels, setOnlineLocalModels] = useState<string[]>(['qwen2.5-32b']);
@@ -710,57 +713,21 @@ const AIAssistant: React.FC = () => {
       models = Array.from(new Set(models));
 
       if (models.length > 0) {
-        // KIỂM TRA SỨC KHỎE THỰC TẾ (ONLINE CHECK): Chỉ giữ lại các mô hình phản hồi 200 OK
-        const onlineModels: string[] = [];
-        await Promise.all(
-          models.map(async (modelId) => {
-            const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname);
-            
-            // Xây dựng endpoint test phù hợp
-            let testUrl = isLocal ? '/api/vllm/chat/completions' : '/api/ai-proxy/chat/completions';
-            if (!localAIBaseURL.includes('localhost') && !localAIBaseURL.includes('127.0.0.1') && !localAIBaseURL.includes('/api/vllm')) {
-              let v1Url = localAIBaseURL;
-              if (!v1Url.includes('/v1')) v1Url = v1Url.replace(/\/$/, '') + '/v1';
-              testUrl = `${v1Url}/chat/completions`;
-            }
+        // Chỉ lấy những model nằm trong whitelist đang thực sự online
+        const activeModels = models.filter(m => KNOWN_WORKING_LOCAL_MODELS.includes(m)).sort();
 
-            try {
-              const res = await fetch(testUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${import.meta.env.VITE_LITELLM_KEY || 'sk-cic-2026'}`
-                },
-                body: JSON.stringify({
-                  model: modelId,
-                  messages: [{ role: 'user', content: 'ping' }],
-                  max_tokens: 1
-                }),
-                signal: AbortSignal.timeout(3500) // Timeout nhanh sau 3.5 giây để tránh đợi lâu
-              });
-              
-              if (res.ok) {
-                onlineModels.push(modelId);
-              }
-            } catch (err) {
-              console.log(`[testLocalAI] Model ${modelId} is offline:`, err);
-            }
-          })
-        );
+        if (activeModels.length > 0) {
+          setLocalAITestResult({ ok: true, models: activeModels });
+          setOnlineLocalModels(activeModels);
 
-        if (onlineModels.length > 0) {
-          const sortedModels = onlineModels.sort();
-          setLocalAITestResult({ ok: true, models: sortedModels });
-          setOnlineLocalModels(sortedModels);
-
-          // Nếu model hiện tại đang chọn là local nhưng lại bị offline, tự động chọn model local online đầu tiên
-          const localModelsInRegistry = ['qwen2.5-32b', 'qwen2.5-72b', 'gemma-4-26b', 'qwen2.5-7b'];
-          if (localModelsInRegistry.includes(currentModel) && !sortedModels.includes(currentModel)) {
-            console.log(`[testLocalAI] Mô hình đang chọn ${currentModel} bị offline, tự động chuyển sang mô hình online: ${sortedModels[0]}`);
-            setCurrentModel(sortedModels[0]);
+          // Nếu model hiện tại là local nhưng không nằm trong danh sách online, tự đổi sang online model
+          const isLocalModel = currentModel.startsWith('qwen') || currentModel.startsWith('gemma');
+          if (isLocalModel && !activeModels.includes(currentModel)) {
+            console.log(`[testLocalAI] Mô hình đang chọn ${currentModel} bị offline, tự động chuyển sang: ${activeModels[0]}`);
+            setCurrentModel(activeModels[0]);
           }
         } else {
-          throw new Error('Không có mô hình nào đang hoạt động thực tế');
+          throw new Error('Không có mô hình nào trong whitelist đang hoạt động thực tế');
         }
       } else {
         throw new Error('Không lấy được danh sách model');
@@ -798,9 +765,8 @@ const AIAssistant: React.FC = () => {
   useEffect(() => {
     if (_profile) {
       const isAdminOrDev = ['Admin', 'Leadership'].includes(_profile.role || '');
-      const localModels = ['gemma-4-26b', 'qwen2.5-vl-7b'];
-      if (!isAdminOrDev && !localModels.includes(currentModel)) {
-        setCurrentModel('gemma-4-26b');
+      if (!isAdminOrDev && !KNOWN_WORKING_LOCAL_MODELS.includes(currentModel)) {
+        setCurrentModel(KNOWN_WORKING_LOCAL_MODELS[0] || 'qwen2.5-32b');
       }
     }
   }, [_profile, currentModel]);
@@ -1042,7 +1008,7 @@ const AIAssistant: React.FC = () => {
 
       if (isGeminiIssue) {
         friendlyError = `\n\n### ⚠️ Không thể kết nối với máy chủ AI (Kênh dự phòng gặp sự cố)\n\n` +
-          `**Nguyên nhân**: Máy chủ AI chính (\`${currentModel === 'qwen2.5-32b' ? 'Qwen 2.5 32B' : currentModel === 'qwen2.5-72b' ? 'Qwen 2.5 72B' : currentModel === 'gemma-4-26b' ? 'Gemma 4 26B' : currentModel}\`) hiện đang bận hoặc gặp sự cố kết nối (Ví dụ: Bạn đang chạy local và chưa kết nối vào mạng nội bộ/VPN của công ty).\n\n` +
+          `**Nguyên nhân**: Máy chủ AI chính (\`${currentModel === 'qwen2.5-32b' ? 'Qwen 2.5 32B' : currentModel}\`) hiện đang bận hoặc gặp sự cố kết nối (Ví dụ: Bạn đang chạy local và chưa kết nối vào mạng nội bộ/VPN của công ty).\n\n` +
           `Đồng thời, **kênh dự phòng Gemini Cloud mặc định của hệ thống đã bị hết hạn hoặc không hợp lệ** (Lỗi: *${errDetail.substring(0, 150)}*).\n\n` +
           `**Giải pháp khắc phục (Kích hoạt API Key cá nhân)**:\n` +
           `Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 2.0 Flash** sử dụng **API Key cá nhân** của bạn để đảm bảo bảo mật và kiểm soát chi phí tối ưu cho doanh nghiệp.\n\n` +
@@ -1260,9 +1226,6 @@ const AIAssistant: React.FC = () => {
                       {onlineLocalModels.map(modelId => {
                         const labelMap: Record<string, string> = {
                           'qwen2.5-32b': 'Qwen 2.5 32B',
-                          'qwen2.5-72b': 'Qwen 2.5 72B',
-                          'gemma-4-26b': 'Gemma 4 26B',
-                          'qwen2.5-7b': 'Qwen 2.5 7B'
                         };
                         return (
                           <option key={modelId} value={modelId}>

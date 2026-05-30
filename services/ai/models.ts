@@ -68,11 +68,11 @@ export const AI_MODELS: AIModel[] = [
     supportsToolCalling: true,
     costPer1kInput: 0.0001,
     costPer1kOutput: 0.0004,
-    isEnabled: false, // Vô hiệu hóa mặc định để gemini-1.5-flash làm fallback ổn định nhất
+    isEnabled: true, // Fallback chính khi local model gặp sự cố
   },
   {
     id: 'gemini-1.5-flash',
-    name: 'Gemini 1.5 Flash',
+    name: 'Gemini 1.5 Flash (Deprecated)',
     provider: 'gemini',
     contextWindow: 1048576,
     supportsVision: true,
@@ -80,7 +80,7 @@ export const AI_MODELS: AIModel[] = [
     supportsToolCalling: true,
     costPer1kInput: 0.000075,
     costPer1kOutput: 0.0003,
-    isEnabled: true,
+    isEnabled: false, // Đã bị Google ngừng hỗ trợ (404 on v1main)
   },
   {
     id: 'gemini-1.5-pro',

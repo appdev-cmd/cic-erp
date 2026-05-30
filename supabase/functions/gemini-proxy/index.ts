@@ -42,7 +42,7 @@ Deno.serve(async (req: Request) => {
 
         // ─── ACTION: analyze ────────────────────────────────────
         if (body.action === "analyze") {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
             const result = await model.generateContent({
                 contents: [{
                     role: "user",
@@ -60,7 +60,7 @@ Deno.serve(async (req: Request) => {
 
         // ─── ACTION: query ──────────────────────────────────────
         if (body.action === "query") {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
             const result = await model.generateContent({
                 contents: [{
                     role: "user",
@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
         // ─── ACTION: insights ───────────────────────────────────
         if (body.action === "insights") {
             const model = genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
+                model: "gemini-2.0-flash",
                 generationConfig: { responseMimeType: "application/json" },
             });
 
@@ -112,7 +112,7 @@ Deno.serve(async (req: Request) => {
                 body.modelId === "gemini-2.0-flash" ? "gemini-2.0-flash"
                     : body.modelId === "gemini-1.5-pro" ? "gemini-1.5-pro-latest"
                         : body.modelId === "gemini-pro" ? "gemini-pro"
-                            : "gemini-1.5-flash-latest";
+                            : "gemini-2.0-flash";
 
             const model = genAI.getGenerativeModel({
                 model: validModelId,
