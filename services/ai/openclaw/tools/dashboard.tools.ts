@@ -18,7 +18,7 @@ import { NotificationService } from '../../../notificationService';
 
 export const getDashboardKpiTool: OpenClawTool = {
   name: 'get_dashboard_kpi',
-  description: 'Lấy KPI tổng quan toàn công ty hoặc từng đơn vị: Ký kết, Doanh thu, Lợi nhuận QT, số hợp đồng. Dùng khi user hỏi "tổng quan", "KPI", "tiến độ". Hỗ trợ lọc theo Quý (Q1-Q4) hoặc Tháng (M1-M12).',
+  description: 'Lấy KPI tổng quan toàn công ty hoặc từng đơn vị: Ký kết, Doanh thu, Dòng tiền, Lợi nhuận QT, Công nợ, HĐ quá hạn, số hợp đồng. Dùng khi user hỏi "tổng quan", "KPI", "tiến độ". Hỗ trợ lọc theo Quý (Q1-Q4) hoặc Tháng (M1-M12).',
   schema: {
     unitId: { type: 'string', description: 'ID đơn vị (để trống = toàn công ty)' },
     year: { type: 'string', description: 'Năm (vd: 2026). Mặc định năm hiện tại.' },
@@ -27,46 +27,89 @@ export const getDashboardKpiTool: OpenClawTool = {
   execute: async (args, context: UserContext) => {
     const year = args.year ? parseInt(args.year) : new Date().getFullYear();
     const periodFilter = args.period || undefined;
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1) Đếm hợp đồng quá hạn & payments quá hạn từ DB
+    let qOverdue = supabase
+      .from('contracts')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'Processing')
+      .lt('end_date', today);
+
+    let qOverduePay = supabase
+      .from('payments')
+      .select('id', { count: 'exact', head: true })
+      .in('voucher_type', ['RECEIPT', 'VAT_INVOICE'])
+      .in('status', ['Chưa thanh toán', 'Pending', 'Chờ thanh toán'])
+      .lt('due_date', today);
+
+    if (args.unitId) {
+      qOverdue = qOverdue.eq('unit_id', args.unitId);
+      qOverduePay = qOverduePay.eq('contracts.unit_id', args.unitId);
+    }
+
+    const [{ count: overdueCount }, { count: overduePayCount }] = await Promise.all([
+      qOverdue,
+      qOverduePay
+    ]);
+    const overdueContracts = (overdueCount || 0) + (overduePayCount || 0);
 
     if (args.unitId) {
       // Sử dụng getWithStats để hỗ trợ period filter thay vì getStats (RPC không hỗ trợ period)
       const allUnits = await UnitService.getWithStats(year, periodFilter);
       const u = allUnits.find((unit: any) => unit.id === args.unitId || unit.code === args.unitId);
       if (!u) return { error: `Không tìm thấy đơn vị có mã ${args.unitId}` };
+
+      const signing = u.stats?.totalSigning || 0;
+      const revenue = u.stats?.totalRevenue || 0;
+      const cash = u.stats?.totalCash || 0;
+      const profit = u.stats?.totalProfit || 0;
+      const debt = Math.max(0, revenue - cash);
+
       return {
         nam: year,
         kyLoc: periodFilter || 'Cả năm',
         tenDonVi: u.name,
         maDonVi: u.code,
-        kyKet: fmtMoneyWithRaw(u.stats?.totalSigning || 0),
-        doanhThu: fmtMoneyWithRaw(u.stats?.totalRevenue || 0),
-        loiNhuanQT: fmtMoneyWithRaw(u.stats?.totalProfit || 0),
+        kyKet: fmtMoneyWithRaw(signing),
+        doanhThu: fmtMoneyWithRaw(revenue),
+        dongTien: fmtMoneyWithRaw(cash),
+        loiNhuanQT: fmtMoneyWithRaw(profit),
+        congNo: fmtMoneyWithRaw(debt),
+        hdQuaHan: overdueContracts,
         soHopDong: u.stats?.contractCount || 0,
       };
     }
 
     // Toàn công ty: lấy tất cả đơn vị + tổng (hỗ trợ period filter)
     const units = await UnitService.getWithStats(year, periodFilter);
-    let tongKyKet = 0, tongDoanhThu = 0, tongLoiNhuan = 0, tongSoHD = 0;
-
+    let tongKyKet = 0, tongDoanhThu = 0, tongDongTien = 0, tongLoiNhuan = 0, tongCongNo = 0, tongSoHD = 0;
 
     const results = units
       .filter(isBusinessUnit)
       .map((u: any) => {
         const signing = u.stats?.totalSigning || 0;
         const revenue = u.stats?.totalRevenue || 0;
+        const cash = u.stats?.totalCash || 0;
         const profit = u.stats?.totalProfit || 0;
         const count = u.stats?.contractCount || 0;
+        const debt = Math.max(0, revenue - cash);
+
         tongKyKet += signing;
         tongDoanhThu += revenue;
+        tongDongTien += cash;
         tongLoiNhuan += profit;
+        tongCongNo += debt;
         tongSoHD += count;
+
         return {
           tenDonVi: u.name,
           maDonVi: u.code,
           kyKet: fmtMoneyWithRaw(signing),
           doanhThu: fmtMoneyWithRaw(revenue),
+          dongTien: fmtMoneyWithRaw(cash),
           loiNhuanQT: fmtMoneyWithRaw(profit),
+          congNo: fmtMoneyWithRaw(debt),
           soHopDong: count,
         };
       });
@@ -78,7 +121,10 @@ export const getDashboardKpiTool: OpenClawTool = {
       tongHop: {
         tongKyKet: fmtMoneyWithRaw(tongKyKet),
         tongDoanhThu: fmtMoneyWithRaw(tongDoanhThu),
+        tongDongTien: fmtMoneyWithRaw(tongDongTien),
         tongLoiNhuan: fmtMoneyWithRaw(tongLoiNhuan),
+        tongCongNo: fmtMoneyWithRaw(tongCongNo),
+        tongSoHopDongQuaHan: overdueContracts,
         tongSoHopDong: tongSoHD,
       },
     };
