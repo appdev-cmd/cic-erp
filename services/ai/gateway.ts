@@ -512,7 +512,7 @@ async function* streamOpenAICompatible(
     messages,
     stream: true,
     temperature: isReasoner ? undefined : (request.temperature ?? 0.7),
-    max_tokens: provider === 'local' ? Math.min(request.maxTokens || 4096, 8000) : request.maxTokens,
+    max_tokens: provider === 'local' ? Math.min(request.maxTokens || 3000, 4000) : request.maxTokens,
   });
 
   let buffer = '';
@@ -848,7 +848,7 @@ export async function callAgentTurn(request: ChatRequest): Promise<{ message?: s
       messages: formattedMessages,
       temperature: request.temperature ?? 0.15,
       stream: false,
-      max_tokens: isVllmOrLocal ? 8000 : undefined,
+      max_tokens: isVllmOrLocal ? (request.maxTokens || 3000) : request.maxTokens,
     };
     // Always pass tools
     if (request.tools && request.tools.length > 0) {
