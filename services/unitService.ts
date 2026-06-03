@@ -165,27 +165,8 @@ export const UnitService = {
 
     getWithStats: async (year?: number | null, periodFilter?: string): Promise<Unit[]> => {
         try {
-            if (!periodFilter) {
-                const { data, error } = await supabase.rpc('get_units_with_stats', {
-                    p_year: year !== undefined && year !== null ? year : new Date().getFullYear()
-                });
-
-                if (!error && data) {
-                    return data.map((u: any) => ({
-                        ...mapUnit(u),
-                        functions: u.functions || '',
-                        stats: {
-                            contractCount: u.contract_count || 0,
-                            totalSigning: u.total_signing,
-                            totalRevenue: u.total_revenue,
-                            totalProfit: u.total_profit,
-                            totalRevenueProfit: u.total_revenue_profit || 0,
-                            totalCash: u.total_cash
-                        }
-                    }));
-                }
-            }
-
+            // FORCE FALLBACK - Bypass RPC to ensure correct period-aware financial stats and keep consistency with getStatsFallback
+            
             // Fallback / PeriodFilter JS aggregation
             const allUnits = await UnitService.getAll();
 

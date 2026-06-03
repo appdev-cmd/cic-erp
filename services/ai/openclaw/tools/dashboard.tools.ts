@@ -27,32 +27,10 @@ export const getDashboardKpiTool: OpenClawTool = {
   execute: async (args, context: UserContext) => {
     const year = args.year ? parseInt(args.year) : new Date().getFullYear();
     const periodFilter = args.period || undefined;
-    const today = new Date().toISOString().split('T')[0];
 
-    // 1) Đếm hợp đồng quá hạn & payments quá hạn từ DB
-    let qOverdue = supabase
-      .from('contracts')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'Processing')
-      .lt('end_date', today);
-
-    let qOverduePay = supabase
-      .from('payments')
-      .select('id', { count: 'exact', head: true })
-      .in('voucher_type', ['RECEIPT', 'VAT_INVOICE'])
-      .in('status', ['Chưa thanh toán', 'Pending', 'Chờ thanh toán'])
-      .lt('due_date', today);
-
-    if (args.unitId) {
-      qOverdue = qOverdue.eq('unit_id', args.unitId);
-      qOverduePay = qOverduePay.eq('contracts.unit_id', args.unitId);
-    }
-
-    const [{ count: overdueCount }, { count: overduePayCount }] = await Promise.all([
-      qOverdue,
-      qOverduePay
-    ]);
-    const overdueContracts = (overdueCount || 0) + (overduePayCount || 0);
+    // Lấy stats chính thống từ ContractService để đồng bộ 100% số liệu và cách tính HĐ quá hạn với Dashboard chính
+    const stats = await ContractService.getStatsFallback(args.unitId || 'all', year.toString(), periodFilter);
+    const overdueContracts = stats.expiredCount || 0;
 
     if (args.unitId) {
       // Sử dụng getWithStats để hỗ trợ period filter thay vì getStats (RPC không hỗ trợ period)
@@ -64,6 +42,7 @@ export const getDashboardKpiTool: OpenClawTool = {
       const revenue = u.stats?.totalRevenue || 0;
       const cash = u.stats?.totalCash || 0;
       const profit = u.stats?.totalProfit || 0;
+      const revProfit = u.stats?.totalRevenueProfit || 0;
       const debt = Math.max(0, revenue - cash);
 
       return {
@@ -75,15 +54,22 @@ export const getDashboardKpiTool: OpenClawTool = {
         doanhThu: fmtMoneyWithRaw(revenue),
         dongTien: fmtMoneyWithRaw(cash),
         loiNhuanQT: fmtMoneyWithRaw(profit),
+        loiNhuanDT: fmtMoneyWithRaw(revProfit),
         congNo: fmtMoneyWithRaw(debt),
         hdQuaHan: overdueContracts,
-        soHopDong: u.stats?.contractCount || 0,
+        soHopDong: stats.totalContracts || 0,
       };
     }
 
     // Toàn công ty: lấy tất cả đơn vị + tổng (hỗ trợ period filter)
     const units = await UnitService.getWithStats(year, periodFilter);
-    let tongKyKet = 0, tongDoanhThu = 0, tongDongTien = 0, tongLoiNhuan = 0, tongCongNo = 0, tongSoHD = 0;
+    const tongKyKet = stats.totalValue || 0;
+    const tongDoanhThu = stats.totalRevenue || 0;
+    const tongDongTien = stats.totalCash || 0;
+    const tongLoiNhuan = stats.totalProfit || 0;
+    const tongLoiNhuanDT = stats.totalRevenueProfit || 0;
+    let tongCongNo = 0;
+    const tongSoHD = stats.totalContracts || 0;
 
     const results = units
       .filter(isBusinessUnit)
@@ -92,15 +78,11 @@ export const getDashboardKpiTool: OpenClawTool = {
         const revenue = u.stats?.totalRevenue || 0;
         const cash = u.stats?.totalCash || 0;
         const profit = u.stats?.totalProfit || 0;
+        const revProfit = u.stats?.totalRevenueProfit || 0;
         const count = u.stats?.contractCount || 0;
         const debt = Math.max(0, revenue - cash);
 
-        tongKyKet += signing;
-        tongDoanhThu += revenue;
-        tongDongTien += cash;
-        tongLoiNhuan += profit;
         tongCongNo += debt;
-        tongSoHD += count;
 
         return {
           tenDonVi: u.name,
@@ -109,6 +91,7 @@ export const getDashboardKpiTool: OpenClawTool = {
           doanhThu: fmtMoneyWithRaw(revenue),
           dongTien: fmtMoneyWithRaw(cash),
           loiNhuanQT: fmtMoneyWithRaw(profit),
+          loiNhuanDT: fmtMoneyWithRaw(revProfit),
           congNo: fmtMoneyWithRaw(debt),
           soHopDong: count,
         };
@@ -123,6 +106,7 @@ export const getDashboardKpiTool: OpenClawTool = {
         tongDoanhThu: fmtMoneyWithRaw(tongDoanhThu),
         tongDongTien: fmtMoneyWithRaw(tongDongTien),
         tongLoiNhuan: fmtMoneyWithRaw(tongLoiNhuan),
+        tongLoiNhuanDT: fmtMoneyWithRaw(tongLoiNhuanDT),
         tongCongNo: fmtMoneyWithRaw(tongCongNo),
         tongSoHopDongQuaHan: overdueContracts,
         tongSoHopDong: tongSoHD,
