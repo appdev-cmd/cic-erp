@@ -142,7 +142,7 @@ export const AgentConfigService = {
           name: agent.name,
           department_id: agent.departmentId,
           description: agent.description,
-          preferred_model: agent.preferredModel || 'qwen2.5-32b',
+          preferred_model: agent.preferredModel || 'qwen3.5-35b',
           fallback_model: agent.fallbackModel || null,
           icon: agent.icon || 'Bot',
           color: agent.color || 'bg-slate-600',

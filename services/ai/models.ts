@@ -11,7 +11,18 @@ import type { AIModel, AIProvider } from './types';
 // ═══════════════════════════════════════
 
 export const AI_MODELS: AIModel[] = [
-  // ─── Local Models (vLLM) ──────────────────
+  // ─── Local Models (Ollama) ──────────────────
+  {
+    id: 'qwen3.5-35b',
+    name: 'Qwen 3.5 35B (Ollama)',
+    provider: 'local',
+    contextWindow: 16384,
+    supportsVision: true,
+    supportsStreaming: true,
+    supportsToolCalling: true,
+    isDefault: true,
+    isEnabled: true,
+  },
   {
     id: 'qwen2.5-32b',
     name: 'Qwen 2.5 32B (vLLM)',
@@ -20,8 +31,8 @@ export const AI_MODELS: AIModel[] = [
     supportsVision: false,
     supportsStreaming: true,
     supportsToolCalling: true,
-    isDefault: true,
-    isEnabled: true,
+    isDefault: false,
+    isEnabled: false, // Tắt do đã dừng container vLLM
   },
   {
     id: 'qwen2.5-72b',
@@ -32,7 +43,7 @@ export const AI_MODELS: AIModel[] = [
     supportsStreaming: true,
     supportsToolCalling: true,
     isDefault: false,
-    isEnabled: false, // Tắt do đã chuyển sang bản 32B
+    isEnabled: false,
   },
   {
     id: 'gemma-4-26b',
@@ -43,7 +54,7 @@ export const AI_MODELS: AIModel[] = [
     supportsStreaming: true,
     supportsToolCalling: true,
     isDefault: false,
-    isEnabled: false, // Tắt do đã đóng cụm Gemma 26B
+    isEnabled: false,
   },
   {
     id: 'qwen2.5-7b',
@@ -54,7 +65,7 @@ export const AI_MODELS: AIModel[] = [
     supportsStreaming: true,
     supportsToolCalling: true,
     isDefault: false,
-    isEnabled: false, // Tắt do đã đóng cụm Qwen 7B
+    isEnabled: false,
   },
 
   // ─── Google Gemini ─────────────────────────

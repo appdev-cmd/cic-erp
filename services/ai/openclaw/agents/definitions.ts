@@ -1,7 +1,7 @@
 import type { DepartmentAgent } from '../types';
 
 /** Tên model vLLM đang chạy trên server local */
-const VLLM_MODEL = 'qwen2.5-32b';
+const VLLM_MODEL = 'qwen3.5-35b';
 
 export const agentDefinitions: Record<string, DepartmentAgent> = {
    MASTER: {

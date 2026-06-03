@@ -77,7 +77,7 @@ export async function runReActLoop(
     maxSteps
   };
 
-  let modelId = overrideModel || agentConfig.preferredModel || 'qwen2.5-32b';
+  let modelId = overrideModel || agentConfig.preferredModel || 'qwen3.5-35b';
   let wasFallbackDetected = false;
 
   const formatFinalReply = (replyText: string): string => {

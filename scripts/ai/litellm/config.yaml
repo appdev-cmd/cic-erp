@@ -1,15 +1,14 @@
 model_list:
-  # === OLLAMA / VLLM Models ===
-  - model_name: qwen2.5-32b
+  - model_name: qwen3.5-35b
     litellm_params:
-      model: openai/qwen2.5-32b
-      api_base: http://localhost:8000/v1
-      api_key: cic-local-2026
+      model: openai/qwen3.5:35b-fast
+      api_base: http://localhost:11434/v1
+      api_key: "ollama"
     model_info:
-      max_tokens: 32768
-      max_input_tokens: 32768
-      max_output_tokens: 32768
+      max_tokens: 16384
+      max_input_tokens: 16384
+      max_output_tokens: 16384
 
 litellm_settings:
-  set_verbose: false
+  set_verbose: true
   drop_params: true

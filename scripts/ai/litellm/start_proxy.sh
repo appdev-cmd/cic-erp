@@ -7,6 +7,7 @@ sudo docker run -d \
     --name litellm_proxy \
     --network host \
     -e LITELLM_MASTER_KEY="sk-cic-2026" \
+    -e LITELLM_LOG="DEBUG" \
     -v "${SCRIPT_DIR}/config.yaml:/app/config.yaml:ro" \
     ghcr.io/berriai/litellm:main-latest \
     --config /app/config.yaml --port 4000

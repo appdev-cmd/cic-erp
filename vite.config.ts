@@ -223,6 +223,9 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_VLLM_GEMMA_URL || 'http://localhost:8002',
           changeOrigin: true,
           secure: false,  // Cho phép self-signed cert trên máy chủ nội bộ
+          headers: {
+            'Authorization': `Bearer ${env.VITE_LITELLM_KEY || 'sk-cic-2026'}`
+          },
           rewrite: (path) => path.replace(/^\/api\/vllm_gemma/, '/v1')
         },
         // LiteLLM / vLLM chung — target từ env hoặc fallback localhost dev
@@ -230,6 +233,9 @@ export default defineConfig(({ mode }) => {
           target: (env.VITE_VLLM_URL || 'http://localhost:4000') + '/v1',
           changeOrigin: true,
           secure: false,
+          headers: {
+            'Authorization': `Bearer ${env.VITE_LITELLM_KEY || 'sk-cic-2026'}`
+          },
           rewrite: (path) => path.replace(/^\/api\/vllm/, '')
         },
         // Gemini API proxy — tránh CORS khi gọi từ browser

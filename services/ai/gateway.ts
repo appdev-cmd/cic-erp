@@ -27,8 +27,8 @@ import type { AIProvider, ChatRequest, AILogEntry, GatewayConfig } from './types
 function getConfig(): GatewayConfig {
   return {
     localBaseURL: getLocalAIBaseURL(),
-    localApiKey: (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_LITELLM_KEY) || '',
-    defaultModel: 'qwen2.5-32b',   // LiteLLM model alias — Qwen 2.5 32B
+    localApiKey: (import.meta.env?.VITE_LITELLM_KEY) || (typeof process !== 'undefined' ? process.env?.VITE_LITELLM_KEY : '') || '',
+    defaultModel: 'qwen3.5-35b',   // LiteLLM model alias — Qwen 3.5 35B
     maxRetries: 2,
     timeoutMs: 120000,
     enableLogging: true,
