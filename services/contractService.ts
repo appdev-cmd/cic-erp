@@ -1604,7 +1604,7 @@ export const ContractService = {
         const { count, error } = await supabase
             .from('contracts')
             .select('*', { count: 'exact', head: true })
-            .or(`contract_code.eq.${contractCode},id.eq.${contractCode}`);
+            .or(`contract_code.eq."${contractCode}",id.eq."${contractCode}"`);
 
         if (error) {
             console.error('ContractService.exists:', error.message);
