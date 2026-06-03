@@ -1363,6 +1363,7 @@ export const ContractService = {
     update: async (id: string, data: Partial<Contract>): Promise<Contract | undefined> => {
         // Fetch old data for detailed audit log
         const oldContract = await ContractService.getById(id);
+        if (!oldContract) throw new Error(ERROR_MESSAGES.NOT_FOUND);
         const oldPayload = oldContract ? buildPayload(oldContract) : null;
 
         // 1. Validate
@@ -1371,6 +1372,90 @@ export const ContractService = {
         const errors = validateContract(data, false);
         if (errors.length > 0) {
             throw new Error(`${ERROR_MESSAGES.VALIDATION_ERROR}\n${errors.join('\n')}`);
+        }
+
+        const newId = data.contractCode || data.id;
+
+        // Check if primary key (id) needs to change
+        if (newId && newId !== id) {
+            console.log(`[ContractService.update] PK Migration: ${id} -> ${newId}`);
+
+            // A. Check if the new ID already exists
+            if (await ContractService.exists(newId)) {
+                throw new Error(ERROR_MESSAGES.DUPLICATE_ID);
+            }
+
+            // Lấy raw created_at để giữ nguyên thời điểm tạo gốc của hợp đồng
+            const { data: rawContract } = await supabase
+                .from('contracts')
+                .select('created_at')
+                .eq('id', id)
+                .maybeSingle();
+
+            // B. Create a complete payload with the new ID
+            const mergedData = { ...oldContract, ...data, id: newId };
+            const newPayload = buildPayload(mergedData);
+            newPayload.id = newId;
+            if (rawContract?.created_at) {
+                newPayload.created_at = rawContract.created_at;
+            }
+
+            // C. Insert new contract row
+            const { data: res, error: insertError } = await supabase
+                .from('contracts')
+                .insert(newPayload)
+                .select()
+                .single();
+
+            if (insertError) {
+                console.error('[ContractService.update] Insert new ID error:', insertError.message);
+                throw new Error(ERROR_MESSAGES.UPDATE_FAILED);
+            }
+
+            // D. Migrate foreign keys in related tables
+            try {
+                await supabase.from('payments').update({ contract_id: newId }).eq('contract_id', id);
+                await supabase.from('contract_business_plans').update({ contract_id: newId }).eq('contract_id', id);
+                await supabase.from('contract_task_definitions').update({ contract_id: newId }).eq('contract_id', id);
+                await supabase.from('contract_documents').update({ contract_id: newId }).eq('contract_id', id);
+                await supabase.from('contract_relations').update({ contract_id: newId }).eq('contract_id', id);
+                await supabase.from('contract_relations').update({ related_contract_id: newId }).eq('related_contract_id', id);
+                await supabase.from('contract_relations').update({ requested_by: newId }).eq('requested_by', id);
+            } catch (fkErr) {
+                console.warn('[ContractService.update] FK update warning:', fkErr);
+            }
+
+            // E. Delete the old contract row
+            const { error: deleteError } = await supabase
+                .from('contracts')
+                .delete()
+                .eq('id', id);
+
+            if (deleteError) {
+                console.error('[ContractService.update] Delete old ID error:', deleteError.message);
+            }
+
+            // Log operation
+            await logOperation('UPDATE', newId, newPayload, oldPayload || undefined);
+
+            // Notify UI & Telegram
+            const mapped = mapContract(res);
+            TelegramNotificationService.notifyContractChange({
+                eventType: 'updated',
+                contractTitle: mapped.title || newId,
+                contractId: newId,
+                value: mapped.value,
+                changedFields: ['contract_code_pk_migrated'],
+                changedBy: (await supabase.auth.getUser()).data.user?.email || undefined,
+            }).catch(() => { });
+
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('contract-updated', {
+                    detail: { contractId: newId, contract: mapped }
+                }));
+            }
+
+            return mapped;
         }
 
         // 2. Build payload (id is never updated — it's the PK used by all FK relationships)

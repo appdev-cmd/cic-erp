@@ -10,7 +10,11 @@ vi.mock('../../services/auditLogService', () => ({
     AuditLogService: { create: vi.fn().mockResolvedValue(null) },
 }));
 vi.mock('../../services/telegramNotificationService', () => ({
-    TelegramNotificationService: { notifyContractStatusChange: vi.fn(), notifyNewContract: vi.fn() },
+    TelegramNotificationService: { 
+        notifyContractStatusChange: vi.fn(), 
+        notifyNewContract: vi.fn(),
+        notifyContractChange: vi.fn().mockResolvedValue(null)
+    },
 }));
 vi.mock('../../services/contractTaskDefinitionService', () => ({
     ContractTaskDefinitionService: { onContractStatusChange: vi.fn().mockResolvedValue(null) },
@@ -354,6 +358,144 @@ describe('ContractService', () => {
             setupMock(null, { message: 'error', code: '500' });
             const stats = await ContractService.getStatsFallback('all', 'all');
             expect(stats.totalContracts).toBe(0);
+        });
+    });
+
+    // ── update ──────────────────────────────────────────────────────────────
+    describe('update', () => {
+        const mockContract = {
+            id: 'contract-1',
+            contract_code: 'CIC-2026-001',
+            title: 'Hợp đồng thử nghiệm',
+            contract_type: 'HĐ',
+            status: 'Processing',
+            stage: 'Signed',
+            value: 100_000_000,
+            has_vat: true,
+            vat_rate: 10,
+            unit_id: 'unit-A',
+            employee_id: 'emp-1',
+            party_a: 'Khách hàng A',
+            party_b: 'CIC',
+            signed_date: '2026-01-15',
+            start_date: '2026-01-20',
+            end_date: '2026-12-31',
+            created_at: '2026-01-15T09:00:00Z',
+            payments: [],
+            details: { lineItems: [], executionCosts: [], revenueSchedules: [] },
+            milestones: [],
+            payment_phases: [],
+            contacts: [],
+        };
+
+        it('performs normal update when ID does not change', async () => {
+            const selectMock = vi.fn().mockReturnValue(buildChain(mockContract));
+            const updateMock = vi.fn().mockReturnValue(buildChain(mockContract));
+            
+            vi.spyOn(dataClient, 'from').mockImplementation((table: string) => {
+                if (table === 'contracts') {
+                    return {
+                        select: selectMock,
+                        update: updateMock,
+                    } as any;
+                }
+                return buildChain(null);
+            });
+
+            // Mock getById
+            vi.spyOn(ContractService, 'getById').mockResolvedValue({
+                id: 'contract-1',
+                contractCode: 'CIC-2026-001',
+                title: 'Hợp đồng thử nghiệm',
+                contractType: 'HĐ',
+                unitId: 'unit-A',
+                partyA: 'Khách hàng A',
+                partyB: 'CIC',
+                value: 100_000_000,
+                status: 'Processing',
+                stage: 'Signed',
+                category: 'Mới',
+                salespersonId: 'emp-1',
+            } as any);
+
+            const result = await ContractService.update('contract-1', { title: 'New Title' });
+            expect(result).toBeDefined();
+            expect(updateMock).toHaveBeenCalled();
+        });
+
+        it('performs PK Migration when ID changes and new ID does not exist', async () => {
+            const insertMock = vi.fn().mockReturnValue(buildChain({
+                ...mockContract,
+                id: 'contract-new',
+                contract_code: 'contract-new',
+                title: 'Hợp đồng thử nghiệm'
+            }));
+
+            const deleteMock = vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ error: null })
+            });
+
+            const updateMock = vi.fn().mockReturnValue(buildChain([]));
+
+            vi.spyOn(dataClient, 'from').mockImplementation((table: string) => {
+                if (table === 'contracts') {
+                    return {
+                        select: () => buildChain({ created_at: '2026-01-15T09:00:00Z' }),
+                        insert: insertMock,
+                        delete: deleteMock,
+                    } as any;
+                }
+                // Mock for relation updates
+                return {
+                    update: updateMock,
+                } as any;
+            });
+
+            // Mock getById & exists internally
+            vi.spyOn(ContractService, 'getById').mockResolvedValue({
+                id: 'contract-1',
+                contractCode: 'CIC-2026-001',
+                title: 'Hợp đồng thử nghiệm',
+                contractType: 'HĐ',
+                unitId: 'unit-A',
+                partyA: 'Khách hàng A',
+                partyB: 'CIC',
+                clientInitials: '',
+                contacts: [],
+                content: '',
+                signedDate: '2026-01-15',
+                startDate: '2026-01-20',
+                endDate: '2026-12-31',
+                value: 100_000_000,
+                estimatedCost: 70_000_000,
+                actualCost: 0,
+                status: 'Processing',
+                stage: 'Signed',
+                category: 'Mới',
+                salespersonId: 'emp-1',
+            } as any);
+
+            vi.spyOn(ContractService, 'exists').mockResolvedValue(false);
+
+            const result = await ContractService.update('contract-1', { contractCode: 'contract-new' });
+
+            expect(result).toBeDefined();
+            expect(result!.id).toBe('contract-new');
+            expect(insertMock).toHaveBeenCalled();
+            expect(deleteMock).toHaveBeenCalled();
+            expect(updateMock).toHaveBeenCalled();
+        });
+
+        it('throws duplicate error if new ID already exists', async () => {
+            vi.spyOn(ContractService, 'getById').mockResolvedValue({
+                id: 'contract-1',
+                contractCode: 'CIC-2026-001',
+            } as any);
+            vi.spyOn(ContractService, 'exists').mockResolvedValue(true);
+
+            await expect(
+                ContractService.update('contract-1', { contractCode: 'contract-duplicate' })
+            ).rejects.toThrow('Mã hợp đồng đã tồn tại.');
         });
     });
 });
