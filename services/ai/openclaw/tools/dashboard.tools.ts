@@ -84,17 +84,7 @@ export const getDashboardKpiTool: OpenClawTool = {
 
         tongCongNo += debt;
 
-        return {
-          tenDonVi: u.name,
-          maDonVi: u.code,
-          kyKet: fmtMoneyWithRaw(signing),
-          doanhThu: fmtMoneyWithRaw(revenue),
-          dongTien: fmtMoneyWithRaw(cash),
-          loiNhuanQT: fmtMoneyWithRaw(profit),
-          loiNhuanDT: fmtMoneyWithRaw(revProfit),
-          congNo: fmtMoneyWithRaw(debt),
-          soHopDong: count,
-        };
+        return `${u.name} (${u.code || '—'}): Ký kết: ${fmtMoneyWithRaw(signing)}, Doanh thu: ${fmtMoneyWithRaw(revenue)}, Dòng tiền: ${fmtMoneyWithRaw(cash)}, Lợi nhuận QT: ${fmtMoneyWithRaw(profit)}, Lợi nhuận DT: ${fmtMoneyWithRaw(revProfit)}, Công nợ: ${fmtMoneyWithRaw(debt)}, Số HĐ: ${count}`;
       });
 
     return {
@@ -246,15 +236,9 @@ export const getUnitRankingTool: OpenClawTool = {
     const sorted = units
       .filter((u: any) => isBusinessUnit(u) && u.stats)
       .sort((a: any, b: any) => (b.stats?.[sortKey] || 0) - (a.stats?.[sortKey] || 0))
-      .map((u: any, i: number) => ({
-        hang: i + 1,
-        donVi: u.name,
-        maDonVi: u.code,
-        kyKet: fmtMoney(u.stats?.totalSigning || 0),
-        doanhThu: fmtMoney(u.stats?.totalRevenue || 0),
-        loiNhuan: fmtMoney(u.stats?.totalProfit || 0),
-        soHopDong: u.stats?.contractCount || 0,
-      }));
+      .map((u: any, i: number) => 
+        `Hạng ${i + 1}: ${u.name} (${u.code || '—'}) - Ký kết: ${fmtMoney(u.stats?.totalSigning || 0)}, Doanh thu: ${fmtMoney(u.stats?.totalRevenue || 0)}, Lợi nhuận: ${fmtMoney(u.stats?.totalProfit || 0)}, Số HĐ: ${u.stats?.contractCount || 0}`
+      );
 
     return {
       nam: year,

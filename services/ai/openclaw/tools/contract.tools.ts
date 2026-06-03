@@ -52,7 +52,10 @@ export const searchContractsTool: OpenClawTool = {
         partyA: c.partyA,
         value: fmtMoney(c.value || 0),
         status: c.status,
-        signedDate: c.signedDate
+        signedDate: c.signedDate,
+        lineItems: c.lineItems && c.lineItems.length > 0
+          ? c.lineItems.map((li: any) => `${li.name || '—'} (SL: ${li.quantity || 1})`).join(', ')
+          : '—'
       })),
       pagination: {
         page,

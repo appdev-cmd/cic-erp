@@ -10,8 +10,8 @@ test("test contract hallucination 2026", async () => {
     userId: 'test-user-id',
     fullName: 'Lê Văn Test',
     role: 'Leadership',
-    unitId: 'BGD',
-    unitName: 'Ban Giám Đốc'
+    unitId: 'DCS',
+    unitName: 'Trung tâm DCS'
   };
 
   const agentConfig = agentDefinitions.BGD;
@@ -20,7 +20,7 @@ test("test contract hallucination 2026", async () => {
 
   try {
     const result = await runReActLoop(
-      "liệt kê các hợp đồng bán enjiCAD năm 2026, có phân rõ đơn vị bán nhé",
+      "liệt kê các hợp đồng bán enjiCAD của DCS, có ghi rõ số lượng lics bán ra nhé",
       userContext,
       agentConfig,
       availableTools,
@@ -30,7 +30,7 @@ test("test contract hallucination 2026", async () => {
       (toolName, args) => {
         console.log(`\n[CALLBACK] Đang gọi tool: ${toolName} với args:`, JSON.stringify(args));
       },
-      'gemini-2.0-flash', // modelId - dùng gemini cho dễ chạy qua API cloud không cần vLLM local bận
+      'qwen3.5-35b', // modelId - chạy cục bộ
       (chunk) => {
         process.stdout.write(chunk);
       }

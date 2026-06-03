@@ -255,7 +255,12 @@ export const webSearchTool: OpenClawTool = {
         }
       });
       const data = await response.json();
-      return { success: true, query: args.query, results: data?.data?.slice(0, limit) || [] };
+      const results = (data?.data?.slice(0, limit) || []).map((r: any) => ({
+        title: r.title,
+        url: r.url,
+        snippet: r.description || r.snippet || (r.content ? r.content.substring(0, 300) + '...' : '')
+      }));
+      return { success: true, query: args.query, results };
     } catch (err: any) {
       return { error: 'Không thể tìm kiếm: ' + err.message };
     }
@@ -336,7 +341,21 @@ export const getLeadsTool: OpenClawTool = {
       const { data, error } = await query;
       if (error) throw error;
 
-      return { success: true, count: data.length, leads: data };
+      return {
+        success: true,
+        count: data.length,
+        leads: data.map((l: any) => ({
+          id: l.id,
+          companyName: l.company_name,
+          projectName: l.project_name || '—',
+          industry: l.industry || '—',
+          potentialScore: l.potential_score,
+          serviceNeed: l.service_need || '—',
+          urgencyReason: l.urgency_reason || '—',
+          status: l.status,
+          decisionMakers: Array.isArray(l.decision_makers) ? l.decision_makers.join(', ') : l.decision_makers || '—'
+        }))
+      };
     } catch (err: any) {
       return { error: err.message };
     }

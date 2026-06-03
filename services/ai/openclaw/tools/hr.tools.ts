@@ -210,9 +210,9 @@ export const getEmployeeWorkloadTool: OpenClawTool = {
     (emps || []).forEach((e: any) => { empMap[e.id] = e.name; });
 
     const sorted = Object.entries(workload)
-      .map(([id, w]) => ({ nhanVien: empMap[id] || id, dangLam: w.doing, quaHan: w.overdue, hoanThanh: w.done, tongTask: w.total }))
-      .sort((a, b) => b.dangLam - a.dangLam)
-      .slice(0, 10);
+      .sort((a, b) => b[1].doing - a[1].doing)
+      .slice(0, 10)
+      .map(([id, w]) => `${empMap[id] || id} (ID: ${id}): Đang làm ${w.doing}, Quá hạn ${w.overdue}, Hoàn thành ${w.done}, Tổng task ${w.total}`);
 
     return { top10: sorted };
   }

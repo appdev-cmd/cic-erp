@@ -101,22 +101,18 @@ export const getDebtReportTool: OpenClawTool = {
     }
 
     const sorted = Object.entries(customerDebt)
-      .map(([id, v]) => ({ khachHang: v.name, tongNo: fmtMoney(v.total), soKhoan: v.count, noTuNgay: v.oldest, khachHangId: id }))
+      .map(([id, v]) => ({ khachHang: v.name, tongNo: fmtMoney(v.total), soKhoan: v.count, noTuNgay: v.oldest, khachHangId: id, totalRaw: v.total }))
       .sort((a, b) => args.sortBy === 'age' ? (a.noTuNgay < b.noTuNgay ? -1 : 1) : 0);
 
     // Sort by amount desc by default
     if (args.sortBy !== 'age') {
-      sorted.sort((a, b) => {
-        const aVal = Object.values(customerDebt).find(v => v.name === a.khachHang)?.total || 0;
-        const bVal = Object.values(customerDebt).find(v => v.name === b.khachHang)?.total || 0;
-        return bVal - aVal;
-      });
+      sorted.sort((a, b) => b.totalRaw - a.totalRaw);
     }
 
     return {
       tongCongNo: fmtMoney(totalDebt),
       soKhachHangNo: Object.keys(customerDebt).length,
-      chiTiet: sorted.slice(0, 15),
+      chiTiet: sorted.slice(0, 15).map(c => `${c.khachHang} (ID: ${c.khachHangId}): Nợ ${c.tongNo} (${c.soKhoan} khoản, nợ từ ${c.noTuNgay || '—'})`),
     };
   }
 };
@@ -173,12 +169,9 @@ export const getCashflowSummaryTool: OpenClawTool = {
       }
     }
 
-    const rows = Object.entries(periods).map(([ky, v]) => ({
-      ky,
-      thuVao: fmtMoney(v.thu),
-      chiRa: fmtMoney(v.chi),
-      chenh: fmtMoney(v.thu - v.chi),
-    }));
+    const rows = Object.entries(periods).map(([ky, v]) => 
+      `${ky}: Thu ${fmtMoney(v.thu)}, Chi ${fmtMoney(v.chi)}, Chênh lệch ${fmtMoney(v.thu - v.chi)}`
+    );
 
     const totalThu = Object.values(periods).reduce((s, v) => s + v.thu, 0);
     const totalChi = Object.values(periods).reduce((s, v) => s + v.chi, 0);

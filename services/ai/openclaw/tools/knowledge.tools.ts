@@ -83,15 +83,9 @@ export const searchDocumentRegistryTool: OpenClawTool = {
 
       return {
         tongKetQua: data.length,
-        taiLieu: data.slice(0, 10).map((d: any) => ({
-          tieuDe: d.title,
-          danhMuc: d.docCategory,
-          loaiFile: d.mimeType || d.sourceType,
-          dungLuong: d.fileSize ? `${(d.fileSize / 1024).toFixed(0)} KB` : '—',
-          aiDaDoc: d.isAiIndexed ? 'Đã đọc' : 'Chưa đọc',
-          url: d.sourceUrl || '—',
-          lienKet: d.entityType ? `${d.entityType}: ${d.entityId}` : '—',
-        })),
+        taiLieu: data.slice(0, 10).map((d: any) => 
+          `${d.title} [${d.docCategory || 'Chưa phân loại'}] - Định dạng: ${d.mimeType || d.sourceType || '—'} (${d.fileSize ? `${(d.fileSize / 1024).toFixed(0)} KB` : '—'}), AI Index: ${d.isAiIndexed ? 'Đã đọc' : 'Chưa đọc'}, Link: ${d.sourceUrl || '—'}, Liên kết: ${d.entityType ? `${d.entityType}: ${d.entityId}` : '—'}`
+        ),
       };
     } catch (err: any) {
       return { error: 'Lỗi tìm kiếm: ' + err.message };
