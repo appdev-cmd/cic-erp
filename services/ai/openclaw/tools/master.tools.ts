@@ -37,7 +37,9 @@ export const delegateTaskTool: OpenClawTool = {
       console.log(`[MasterRouter] Giao task cho ${targetAgent.name}: "${args.instruction}"`);
 
       // 2. Prepare tools for target agent
-      const targetTools = erpToolsRegistry.filter(t => targetAgent.allowedTools.includes(t.name));
+      const targetTools = targetAgent.allowedTools.includes('*')
+        ? erpToolsRegistry
+        : erpToolsRegistry.filter(t => targetAgent.allowedTools.includes(t.name));
 
       // 3. Fire internal ReAct loop for sub-agent
       const result = await runReActLoop(
