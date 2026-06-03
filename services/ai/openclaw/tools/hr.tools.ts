@@ -154,7 +154,8 @@ export const getEmployeeWorkloadTool: OpenClawTool = {
     const { data: tasks } = await supabase
       .from('tasks')
       .select('id, title, assignees, status_id, due_date, completed_at')
-      .is('parent_id', null);
+      .is('parent_id', null)
+      .limit(2000);
 
     if (!tasks) return { message: 'Không có dữ liệu task.' };
 

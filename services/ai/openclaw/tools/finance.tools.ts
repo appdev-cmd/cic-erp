@@ -65,7 +65,8 @@ export const getDebtReportTool: OpenClawTool = {
       .select('id, amount, paid_amount, due_date, status, contract_id, contracts!inner(title, customer_contract_number, customer_id, unit_id, customers(name))')
       .in('voucher_type', ['RECEIPT', 'VAT_INVOICE'])
       .in('status', ['Chưa thanh toán', 'Pending', 'Chờ thanh toán', 'Đã xuất HĐ', 'Đã giao KH'])
-      .order('due_date');
+      .order('due_date')
+      .limit(500);
 
     if (forcedUnitId) {
       query = query.eq('contracts.unit_id', forcedUnitId);
@@ -140,7 +141,7 @@ export const getCashflowSummaryTool: OpenClawTool = {
       .select('amount, payment_date, voucher_type, status, contracts!inner(unit_id)')
       .gte('payment_date', dateFrom)
       .lte('payment_date', dateTo)
-      .in('status', ['Tiền về', 'Paid', 'Đã thanh toán', 'Đã xuất HĐ', 'Đã giao KH']);
+      .in('status', ['Tiền về', 'Paid', 'Đã thanh toán']);
 
     if (forcedUnitId) {
       query = query.eq('contracts.unit_id', forcedUnitId);
@@ -321,7 +322,7 @@ export const getExpenseBreakdownTool: OpenClawTool = {
   execute: async (args, context) => {
     const forcedUnitId = getUnitFilter(args, context as UserContext);
 
-    let query = supabase.from('payments').select('amount, expense_category, payment_date, contracts!inner(unit_id)').eq('voucher_type', 'EXPENSE').eq('status', 'Completed');
+    let query = supabase.from('payments').select('amount, expense_category, payment_date, contracts!inner(unit_id)').eq('voucher_type', 'EXPENSE').eq('status', 'Completed').limit(500);
     if (args.year) {
       query = query.gte('payment_date', `${args.year}-01-01`).lte('payment_date', `${args.year}-12-31`);
     }

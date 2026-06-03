@@ -378,7 +378,7 @@ export const getSmartInsightsTool: OpenClawTool = {
 
     // Build queries with unit filter
     let qContracts = supabase.from('contracts').select('id', { count: 'exact', head: true }).eq('status', 'Processing').lt('end_date', today);
-    let qPayments = supabase.from('payments').select('amount, paid_amount, due_date, status, contracts!inner(unit_id)').in('status', ['Chưa thanh toán', 'Pending', 'Đã xuất HĐ', 'Đã giao KH']);
+    let qPayments = supabase.from('payments').select('amount, paid_amount, due_date, status, contracts!inner(unit_id)').in('status', ['Chưa thanh toán', 'Pending', 'Đã xuất HĐ', 'Đã giao KH']).limit(500);
     let qTasks = supabase.from('tasks').select('id, due_date', { count: 'exact' }).lt('due_date', today).is('completed_at', null);
 
     if (forcedUnitId) {

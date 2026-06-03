@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { ContractService } from '../../../contractService';
+import { UnitService } from '../../../unitService';
 import type { OpenClawTool, UserContext } from '../types';
 import { dataClient as supabase } from '../../../../lib/dataClient';
 import { fmtMoney, fmtMoneyWithRaw, canViewAll, getUnitFilter } from './_helpers';
@@ -33,6 +34,9 @@ export const searchContractsTool: OpenClawTool = {
     const limit = args.limit ? Math.min(Number(args.limit), 100) : 10;
     const page = args.page ? Math.max(Number(args.page), 1) : 1;
 
+    const units = await UnitService.getAll();
+    const unitMap = units.reduce((acc: any, u: any) => { acc[u.id] = u.name; return acc; }, {});
+
     const res = await ContractService.list({
       page, limit,
       search: args.search,
@@ -53,6 +57,7 @@ export const searchContractsTool: OpenClawTool = {
         value: fmtMoney(c.value || 0),
         status: c.status,
         signedDate: c.signedDate,
+        unitName: c.unitId && unitMap[c.unitId] ? unitMap[c.unitId] : '—',
         lineItems: c.lineItems && c.lineItems.length > 0
           ? c.lineItems.map((li: any) => `${li.name || '—'} (SL: ${li.quantity || 1})`).join(', ')
           : '—'
@@ -86,6 +91,9 @@ export const getContractDetailTool: OpenClawTool = {
       return "Truy cập bị từ chối: Hợp đồng này không thuộc đơn vị của bạn.";
     }
 
+    const units = await UnitService.getAll();
+    const unitMap = units.reduce((acc: any, u: any) => { acc[u.id] = u.name; return acc; }, {});
+
     const totalValue = data.value || 0;
     const totalRevenue = data.actualRevenue || 0;
     const totalCash = data.cashReceived || 0;
@@ -111,9 +119,13 @@ export const getContractDetailTool: OpenClawTool = {
       riskFlags.push(`⚠️ ${overduePhases.length} đợt thanh toán trễ hạn`);
     }
 
+    const rawLineItems = data.lineItems || [];
+    const rawPaymentPhases = data.paymentPhases || [];
+
     return {
       title: data.title,
       code: data.contractCode,
+      donVi: data.unitId && unitMap[data.unitId] ? unitMap[data.unitId] : '—',
       giaTriHD: fmtMoney(totalValue),
       doanhThuThucHien: fmtMoney(totalRevenue),
       tienDaThu: fmtMoney(totalCash),
@@ -126,20 +138,37 @@ export const getContractDetailTool: OpenClawTool = {
       ngayKetThuc: data.endDate || '—',
       noiDungHopDong: data.content || '—',
       chiPhiUocTinh: fmtMoney(data.estimatedCost || 0),
-      sanPhamDichVu: data.lineItems?.map((li: any) => ({
+      tongSoSanPham: rawLineItems.length,
+      sanPhamDichVu: rawLineItems.slice(0, 15).map((li: any) => ({
         ten: li.name || '—',
         soLuong: li.quantity || 1,
         donGiaGoc: fmtMoney(li.inputPrice || 0),
         donGiaBan: fmtMoney(li.outputPrice || 0),
         loiNhuanDuKien: fmtMoney((li.outputPrice || 0) - (li.inputPrice || 0))
       })),
-      cacDotThanhToan: data.paymentPhases?.map((p: any) => ({
+      tongSoDotThanhToan: rawPaymentPhases.length,
+      cacDotThanhToan: rawPaymentPhases.slice(0, 15).map((p: any) => ({
         soTien: fmtMoney(p.amount || 0),
         trangThai: p.status,
         hanChot: p.dueDate || '—',
         quaHan: (p.status === 'Chưa thanh toán' || p.status === 'Pending') && p.dueDate && p.dueDate < today
       })),
+      phanBoDoanhThu: {
+        donVi: data.unitAllocations ? data.unitAllocations.map((a: any) => ({
+          tenDonVi: unitMap[a.unitId] || a.unitId,
+          tiLe: `${a.percent || 0}%`,
+          vaiTro: a.role === 'lead' ? 'Chủ trì' : 'Phối hợp'
+        })) : [],
+        nhanSu: data.employeeAllocations ? data.employeeAllocations.map((a: any) => ({
+          maNhanSu: a.employeeId,
+          tiLe: `${a.percent || 0}%`,
+          vaiTro: a.role || '—'
+        })) : []
+      },
       canhBaoRuiRo: riskFlags.length > 0 ? riskFlags : ['✅ Không có cảnh báo'],
+      chuY: rawLineItems.length > 15 || rawPaymentPhases.length > 15
+        ? "Danh sách sản phẩm dịch vụ hoặc đợt thanh toán đã bị cắt bớt tối đa 15 dòng để tránh quá tải token. Hãy thông báo cho user về tổng số lượng thực tế."
+        : undefined
     };
   }
 };

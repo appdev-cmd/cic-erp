@@ -156,7 +156,7 @@ export const analyzeBottleneckTool: OpenClawTool = {
 
     const today = new Date().toISOString().split('T')[0];
 
-    let overdueTasksQuery = supabase.from('tasks').select('id, title, assigned_to, due_date').lt('due_date', today).is('completed_at', null).limit(50);
+    let overdueTasksQuery = supabase.from('tasks').select('id, title, assignees, due_date').lt('due_date', today).is('completed_at', null).limit(50);
     let overdueContractsQuery = supabase.from('contracts').select('id, name, end_date, unit_id').eq('status', 'Processing').lt('end_date', today).limit(20);
 
     if (forcedUnitId) {
@@ -182,9 +182,12 @@ export const analyzeBottleneckTool: OpenClawTool = {
     // Tính workload theo nhân viên (filtered by unit)
     const workloadMap: Record<string, number> = {};
     overdueTasks.forEach(t => {
-      if (t.assigned_to && (!forcedUnitId || empIds.has(t.assigned_to))) {
-        workloadMap[t.assigned_to] = (workloadMap[t.assigned_to] || 0) + 1;
-      }
+      const assignees: string[] = t.assignees || [];
+      assignees.forEach(aId => {
+        if (!forcedUnitId || empIds.has(aId)) {
+          workloadMap[aId] = (workloadMap[aId] || 0) + 1;
+        }
+      });
     });
 
     const empMap = new Map(employees.map((e: any) => [e.id, e.name]));
@@ -258,8 +261,8 @@ export const forecastNextQuarterTool: OpenClawTool = {
     const r1 = getQRange(prevQ, prevYear);
     const r2 = getQRange(prev2Q, prev2Year);
 
-    let q1Query = supabase.from('contracts').select('value, revenue').gte('signed_date', r1.from).lte('signed_date', r1.to);
-    let q2Query = supabase.from('contracts').select('value, revenue').gte('signed_date', r2.from).lte('signed_date', r2.to);
+    let q1Query = supabase.from('contracts').select('value, actual_revenue').gte('signed_date', r1.from).lte('signed_date', r1.to);
+    let q2Query = supabase.from('contracts').select('value, actual_revenue').gte('signed_date', r2.from).lte('signed_date', r2.to);
     let pipelineQuery = supabase.from('contracts').select('value').eq('status', 'Processing').gte('end_date', new Date().toISOString().split('T')[0]);
 
     if (forcedUnitId) {
@@ -272,7 +275,7 @@ export const forecastNextQuarterTool: OpenClawTool = {
 
     const calcTotals = (rows: any[]) => ({
       signing: (rows || []).reduce((s: number, r: any) => s + (r.value || 0), 0),
-      revenue: (rows || []).reduce((s: number, r: any) => s + (r.revenue || 0), 0),
+      revenue: (rows || []).reduce((s: number, r: any) => s + (r.actual_revenue || 0), 0),
     });
 
     const q1 = calcTotals(q1Res.data || []);
