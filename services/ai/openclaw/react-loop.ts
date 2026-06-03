@@ -40,17 +40,34 @@ export async function runReActLoop(
   overrideModel?: string,
   onStream?: (chunk: string) => void
 ): Promise<ReactAgentResult> {
-  const toolsSchema = availableTools.map((t) => ({
-    type: 'function' as const,
-    function: {
-      name: t.name,
-      description: t.description,
-      parameters: {
-        type: 'object',
-        properties: t.schema,
+  const toolsSchema = availableTools.map((t) => {
+    const properties: Record<string, any> = {};
+    const required: string[] = [];
+
+    if (t.schema) {
+      for (const [key, prop] of Object.entries(t.schema)) {
+        const propClone = { ...prop };
+        if (propClone.required === true) {
+          required.push(key);
+        }
+        delete propClone.required;
+        properties[key] = propClone;
+      }
+    }
+
+    return {
+      type: 'function' as const,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: {
+          type: 'object',
+          properties,
+          required: required.length > 0 ? required : undefined,
+        },
       },
-    },
-  }));
+    };
+  });
 
   const systemContent =
     OPENCLAW_SYSTEM_PROMPT_PREFIX +

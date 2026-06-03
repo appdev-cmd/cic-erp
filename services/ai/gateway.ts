@@ -495,14 +495,16 @@ async function* streamOpenAICompatible(
     messages.push({ role: sysRole, content: sysContent });
   }
   for (const msg of request.messages) {
-    let role = msg.role === 'model' ? 'assistant' : msg.role;
-    let content = msg.content;
-    // Convert system → user only for Gemma
-    if (role === 'system' && needsSysWorkaround) {
-      role = 'user';
-      content = `[HỆ THỐNG - CHỈ DẪN]\n${content}`;
+    const out = { ...msg };
+    if (out.role === 'model') {
+      out.role = 'assistant';
     }
-    messages.push({ role, content });
+    // Convert system → user only for Gemma
+    if (out.role === 'system' && needsSysWorkaround) {
+      out.role = 'user';
+      out.content = `[HỆ THỐNG - CHỈ DẪN]\n${out.content}`;
+    }
+    messages.push(out);
   }
 
   const isReasoner = request.model.includes('reasoner');
@@ -513,6 +515,7 @@ async function* streamOpenAICompatible(
     stream: true,
     temperature: isReasoner ? undefined : (request.temperature ?? 0.7),
     max_tokens: provider === 'local' ? Math.min(request.maxTokens || 3000, 4000) : request.maxTokens,
+    tools: request.tools && request.tools.length > 0 ? request.tools : undefined,
   });
 
   let buffer = '';

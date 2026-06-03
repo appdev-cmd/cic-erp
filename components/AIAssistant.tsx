@@ -897,11 +897,23 @@ const AIAssistant: React.FC = () => {
       let finalContent = '';
       let streamContent = '';
 
+      const filteredTools = agentConf.allowedTools?.includes('*')
+        ? mergedTools
+        : mergedTools.filter(t => agentConf.allowedTools?.includes(t.name));
+      console.log('[AIAssistant] DEBUG TOOLS FOR REACT LOOP:', {
+        currentAgentId: currentAgent,
+        agentConfId: agentConf?.id,
+        agentConfAllowedTools: agentConf?.allowedTools,
+        mergedToolsCount: mergedTools?.length,
+        filteredToolsCount: filteredTools?.length,
+        filteredTools: filteredTools.map(t => t.name)
+      });
+
       const reactResult = await runReActLoop(
         userMsg.content,
         _userContext,
         agentConf,
-        mergedTools.filter(t => agentConf.allowedTools?.includes(t.name)), // Lọc theo allowedTools
+        filteredTools, // Lọc theo allowedTools
         history,
         8,
         controller.signal,

@@ -137,9 +137,11 @@ const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode
       const mergedTools = await AgentToolConfigService.getMergedTools(erpToolsRegistry);
 
       // SECURITY (C4): Only allow tools that the agent config permits
-      const filteredTools = agent.allowedTools?.length
-          ? mergedTools.filter(t => agent.allowedTools!.includes(t.name))
-          : mergedTools;
+      const filteredTools = agent.allowedTools?.includes('*')
+          ? mergedTools
+          : (agent.allowedTools?.length
+              ? mergedTools.filter(t => agent.allowedTools!.includes(t.name))
+              : mergedTools);
 
       // SECURITY (C12): Check AI permission before running agent loop
       const permission = await aiPermissionService.getMyPermission();
