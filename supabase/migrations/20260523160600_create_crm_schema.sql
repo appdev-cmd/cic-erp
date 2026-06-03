@@ -231,14 +231,14 @@ FOR EACH ROW EXECUTE FUNCTION auto_create_contract_from_deal();
 
 -- Seed initial templates
 INSERT INTO public.crm_stage_templates (entity_type, name, color, sort_order, is_win, is_lose) VALUES
-('lead', 'Đầu mối mới khởi tạo', '#3B82F6', 1, false, false),
+('lead', 'Đầu mối mới khởi tạo', '#93C5FD', 1, false, false),
 ('lead', 'Phân loại tiềm năng thấp', '#60A5FA', 2, false, false),
-('lead', 'Phân loại tiềm năng cao', '#93C5FD', 3, true, false),
-('lead', 'Thất bại', '#F87171', 4, false, true),
-('deal', 'Cơ hội mới', '#F59E0B', 1, false, false),
-('deal', 'Báo giá sơ bộ', '#FBBF24', 2, false, false),
-('deal', 'Dùng thử/Hỗ trợ', '#FCD34D', 3, false, false),
-('deal', 'Báo giá chính thức', '#FDE68A', 4, false, false),
+('lead', 'Phân loại tiềm năng cao', '#3B82F6', 3, true, false),
+('lead', 'Không tiềm năng', '#F87171', 4, false, true),
+('deal', 'Cơ hội mới', '#FDE68A', 1, false, false),
+('deal', 'Báo giá sơ bộ', '#FCD34D', 2, false, false),
+('deal', 'Dùng thử/Hỗ trợ', '#FBBF24', 3, false, false),
+('deal', 'Báo giá chính thức', '#F59E0B', 4, false, false),
 ('deal', 'Chốt đơn mua', '#10B981', 5, true, false),
 ('deal', 'Tạm dừng', '#EF4444', 6, false, true),
 ('deal', 'Close deal', '#374151', 7, false, true)

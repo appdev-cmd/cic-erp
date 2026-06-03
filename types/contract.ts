@@ -58,6 +58,7 @@ export interface DirectCostDetail {
   name: string;
   amount: number;
   formula?: string; // Công thức gốc (VD: "1000*70%") — lưu để hiện lại khi mở form
+  isLocked?: boolean; // Khóa không cho tính tự động đè lên khi sửa thủ công
 }
 
 export interface ForeignCurrencyInfo {

@@ -170,6 +170,8 @@ export const router = createBrowserRouter([
             // CRM
             { path: 'crm', element: <Navigate to="/crm/leads" replace /> },
             { path: 'crm/leads', element: <CrmLeadsPage /> },
+            { path: 'crm/leads/new', element: <CrmLeadsPage /> },
+            { path: 'crm/leads/:id', element: <CrmLeadsPage /> },
             { path: 'crm/companies', element: <CrmCompaniesPage /> },
             { path: 'crm/contacts', element: <CrmContactsPage /> },
             { path: 'crm/deals', element: <CrmDealsPage /> },

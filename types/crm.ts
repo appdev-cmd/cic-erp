@@ -33,6 +33,7 @@ export interface CrmLead {
   title: string;
   name?: string;
   company_name?: string;
+  customer_id?: string;
   phone?: string;
   email?: string;
   source?: string;
@@ -43,9 +44,11 @@ export interface CrmLead {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  products?: any[]; // JSONB danh sách sản phẩm
   
   // Joined relations
   stage?: CrmStageTemplate;
+  customer?: Customer;
   assignee?: Employee;
   creator?: Employee;
   activities?: CrmActivity[];

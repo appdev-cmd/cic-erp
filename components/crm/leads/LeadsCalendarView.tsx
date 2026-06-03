@@ -46,7 +46,7 @@ const LeadsCalendarView: React.FC<Props> = ({ leads }) => {
       {/* Calendar Grid */}
       <div className="flex-1 flex flex-col">
         {/* Week Days */}
-        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
           {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => (
             <div key={day} className="p-2 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
               {day}
@@ -65,7 +65,7 @@ const LeadsCalendarView: React.FC<Props> = ({ leads }) => {
               <div 
                 key={day.toISOString()} 
                 className={`min-h-[100px] border-b border-r border-slate-200 dark:border-slate-700 p-2 flex flex-col gap-1 transition-colors
-                  ${!isCurrentMonth ? 'bg-slate-50/50 dark:bg-slate-800/20' : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50'}
+                  ${!isCurrentMonth ? 'bg-slate-50/50 dark:bg-slate-800' : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800'}
                   ${idx % 7 === 6 ? 'border-r-0' : ''}
                 `}
               >

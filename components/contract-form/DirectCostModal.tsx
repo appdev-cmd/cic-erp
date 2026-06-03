@@ -1,7 +1,9 @@
-// Direct Cost Modal component - extracted from ContractForm
-// Includes auto-calculation toggles for Thuế nhà thầu & Phí chuyển tiền
+
+
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Trash2, Save, Calculator, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Trash2, Save, Calculator, ToggleLeft, ToggleRight, Lock, Unlock } from 'lucide-react';
 import { DirectCostDetail, LineItem } from '../../types';
 import { ExchangeRateService } from '../../services/exchangeRateService';
 import Modal from '../ui/Modal';
@@ -134,38 +136,51 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
         shareCount: number = 1,
         supplierTotalVal: number = 0
     ) => {
-        // Filter out ALL auto entries — both by ID and by name patterns
+        const lockedTax = details.find(d => isAutoTaxEntry(d) && d.isLocked);
+        const lockedTransfer = details.find(d => isAutoTransferEntry(d) && d.isLocked);
+
+        // Filter out ALL auto entries — both by ID and by name patterns, keeping locked ones
         let newDetails = details.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
 
         if (tax) {
-            const taxFormula = `${total}/0.9*0.1`;
-            newDetails = [
-                { id: AUTO_TAX_ID, name: 'Thuế nhà thầu', amount: calcContractorTax(total), formula: taxFormula },
-                ...newDetails,
-            ];
+            if (lockedTax) {
+                newDetails = [lockedTax, ...newDetails];
+            } else {
+                const taxFormula = `${total}/0.9*0.1`;
+                newDetails = [
+                    { id: AUTO_TAX_ID, name: 'Thuế nhà thầu', amount: calcContractorTax(total), formula: taxFormula },
+                    ...newDetails,
+                ];
+            }
         }
 
         if (transfer !== 'none') {
-            const sc = Math.max(shareCount, 1);
-            const fee = calcTransferFee(total, transfer, rate, sc, supplierTotalVal);
-            const label = transfer === 'domestic'
-                ? 'Phí chuyển tiền trong nước'
-                : 'Phí chuyển tiền nước ngoài';
-            let transferFormula: string;
-            if (transfer === 'domestic') {
-                const stv = Math.max(supplierTotalVal, total, 1);
-                transferFormula = stv > total
-                    ? `Max(${stv}*0.07%,22k)*(${total}/${stv})`
-                    : `Max(${total}*0.07%,22k)`;
+            let transferEntry: DirectCostDetail;
+            if (lockedTransfer) {
+                transferEntry = lockedTransfer;
             } else {
-                const stv = Math.max(supplierTotalVal, total, 1);
-                transferFormula = stv > total
-                    ? `${total}*0.5%+10*${rate}*(${total}/${stv})`
-                    : `${total}*0.5%+10*${rate}`;
+                const sc = Math.max(shareCount, 1);
+                const fee = calcTransferFee(total, transfer, rate, sc, supplierTotalVal);
+                const label = transfer === 'domestic'
+                    ? 'Phí chuyển tiền trong nước'
+                    : 'Phí chuyển tiền nước ngoài';
+                let transferFormula: string;
+                if (transfer === 'domestic') {
+                    const stv = Math.max(supplierTotalVal, total, 1);
+                    transferFormula = stv > total
+                        ? `Max(${stv}*0.07%,22k)*(${total}/${stv})`
+                        : `Max(${total}*0.07%,22k)`;
+                } else {
+                    const stv = Math.max(supplierTotalVal, total, 1);
+                    transferFormula = stv > total
+                        ? `${total}*0.5%+10*${rate}*(${total}/${stv})`
+                        : `${total}*0.5%+10*${rate}`;
+                }
+                transferEntry = { id: AUTO_TRANSFER_ID, name: label, amount: fee, formula: transferFormula };
             }
+
             // Insert after tax if present, else at start
             const insertIdx = newDetails.findIndex(d => d.id === AUTO_TAX_ID);
-            const transferEntry: DirectCostDetail = { id: AUTO_TRANSFER_ID, name: label, amount: fee, formula: transferFormula };
             if (insertIdx >= 0) {
                 newDetails.splice(insertIdx + 1, 0, transferEntry);
             } else {
@@ -175,7 +190,6 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
 
         return newDetails;
     }, [calcContractorTax, calcTransferFee]);
-
     // Toggle contractor tax
     const handleToggleTax = () => {
         const newVal = !contractorTax;
@@ -360,29 +374,82 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                             return (
                                 <div key={detail.id} className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg border border-indigo-100 dark:border-indigo-800/40">
                                     <Calculator size={14} className="text-indigo-400 flex-shrink-0" />
-                                    <span className="flex-1 text-xs font-bold text-indigo-700 dark:text-indigo-300">{detail.name}</span>
-                                    <div className="w-44">
-                                        <CurrencyCalculator
-                                            value={detail.amount || 0}
-                                            onChange={(vnd) => {
+                                    <div className="flex-1 flex items-center gap-2">
+                                        <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">{detail.name}</span>
+                                        {detail.isLocked && (
+                                            <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[9px] font-black rounded uppercase tracking-wider animate-pulse">
+                                                Sửa tay
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-44">
+                                            <CurrencyCalculator
+                                                value={detail.amount || 0}
+                                                onChange={(vnd) => {
+                                                    setTempCostDetails(prev => {
+                                                        const newDetails = [...prev];
+                                                        newDetails[realIndex] = { 
+                                                            ...newDetails[realIndex], 
+                                                            amount: vnd,
+                                                            isLocked: true // Khóa khi người dùng chỉnh sửa trực tiếp số tiền
+                                                        };
+                                                        return newDetails;
+                                                    });
+                                                }}
+                                                formula={detail.formula}
+                                                onFormulaChange={(f) => {
+                                                    setTempCostDetails(prev => {
+                                                        const newDetails = [...prev];
+                                                        newDetails[realIndex] = { 
+                                                            ...newDetails[realIndex], 
+                                                            formula: f,
+                                                            isLocked: true // Khóa khi người dùng chỉnh sửa công thức trực tiếp
+                                                        };
+                                                        return newDetails;
+                                                    });
+                                                }}
+                                                formatVND={formatVND}
+                                                inputClassName="w-full bg-white/60 dark:bg-slate-800/60 rounded-md px-2 py-1 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-rose-500 pr-6"
+                                                textColorClass="text-rose-500"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
                                                 setTempCostDetails(prev => {
                                                     const newDetails = [...prev];
-                                                    newDetails[realIndex] = { ...newDetails[realIndex], amount: vnd };
-                                                    return newDetails;
+                                                    if (newDetails[realIndex].isLocked) {
+                                                        // Mở khóa -> xóa cờ isLocked và tính lại tự động
+                                                        const updatedDetails = prev.map((d, idx) => {
+                                                            if (idx === realIndex) {
+                                                                const { isLocked, ...rest } = d;
+                                                                return rest;
+                                                            }
+                                                            return d;
+                                                        });
+                                                        return updateAutoCosts(updatedDetails, contractorTax, transferFeeType, inputTotal, usdRate, supplierShareCount, supplierTotalValue);
+                                                    } else {
+                                                        // Khóa thủ công -> đặt isLocked = true
+                                                        const updatedDetails = [...prev];
+                                                        updatedDetails[realIndex] = { ...updatedDetails[realIndex], isLocked: true };
+                                                        return updatedDetails;
+                                                    }
                                                 });
                                             }}
-                                            formula={detail.formula}
-                                            onFormulaChange={(f) => {
-                                                setTempCostDetails(prev => {
-                                                    const newDetails = [...prev];
-                                                    newDetails[realIndex] = { ...newDetails[realIndex], formula: f };
-                                                    return newDetails;
-                                                });
-                                            }}
-                                            formatVND={formatVND}
-                                            inputClassName="w-full bg-white/60 dark:bg-slate-800/60 rounded-md px-2 py-1 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-rose-500 pr-6"
-                                            textColorClass="text-rose-500"
-                                        />
+                                            className={`p-1.5 rounded-lg border transition-all ${
+                                                detail.isLocked
+                                                    ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/20'
+                                                    : 'bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400'
+                                            }`}
+                                            title={
+                                                detail.isLocked
+                                                    ? 'Đã sửa thủ công (Đã khóa). Click để mở khóa và tính tự động.'
+                                                    : 'Đang tính tự động. Click để khóa giá trị hiện tại.'
+                                            }
+                                        >
+                                            {detail.isLocked ? <Lock size={12} /> : <Unlock size={12} />}
+                                        </button>
                                     </div>
                                 </div>
                             );

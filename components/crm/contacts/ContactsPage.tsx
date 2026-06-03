@@ -43,7 +43,7 @@ export const ContactsPage: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
-                <thead className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 uppercase">
+                <thead className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 uppercase">
                   <tr>
                     <th className="px-6 py-4 font-medium">Họ và Tên</th>
                     <th className="px-6 py-4 font-medium">Công ty</th>
@@ -55,7 +55,7 @@ export const ContactsPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {contacts.map((contact) => (
-                    <tr key={contact.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <tr key={contact.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 font-medium text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline">
                           <User className="w-4 h-4 text-slate-400" />

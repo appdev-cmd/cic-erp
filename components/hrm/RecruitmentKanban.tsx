@@ -62,8 +62,15 @@ const RecruitmentKanban: React.FC<Props> = ({ jobOpenings, initialJobId, refresh
   };
 
   const handleDragStart = (e: React.DragEvent, appId: string) => {
-    setDraggedAppId(appId);
+    e.dataTransfer.setData('text/plain', appId);
     e.dataTransfer.effectAllowed = 'move';
+    
+    // Sử dụng setTimeout với 0ms để đẩy việc cập nhật state vào macrotask queue tiếp theo.
+    // Điều này giúp trình duyệt chụp được hình ảnh drag preview từ card gốc ở trạng thái 100% rõ nét
+    // trước khi React cập nhật state và làm mờ card gốc.
+    setTimeout(() => {
+      setDraggedAppId(appId);
+    }, 0);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -167,7 +174,11 @@ const RecruitmentKanban: React.FC<Props> = ({ jobOpenings, initialJobId, refresh
                         draggable
                         onDragStart={(e) => handleDragStart(e, app.id)}
                         onClick={() => setSelectedApp(app)}
-                        className={`bg-white dark:bg-slate-800 p-2.5 lg:p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing hover:shadow transition-all group relative ${draggedAppId === app.id ? 'opacity-40 border-dashed border-indigo-400 dark:border-indigo-500 shadow-none' : ''}`}
+                        className={`bg-white dark:bg-slate-800 p-2.5 lg:p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing hover:shadow group relative ${
+                          draggedAppId === app.id 
+                            ? 'opacity-30 border-dashed border-indigo-400 dark:border-indigo-500 shadow-none transition-none' 
+                            : 'transition-[border-color,box-shadow,background-color] duration-200'
+                        }`}
                       >
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 dark:bg-indigo-400 rounded-l-lg opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         

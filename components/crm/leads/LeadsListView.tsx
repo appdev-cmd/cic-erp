@@ -5,14 +5,15 @@ import { MoreVertical } from 'lucide-react';
 
 interface Props {
   leads: CrmLead[];
+  onLeadClick: (lead: CrmLead) => void;
 }
 
-const LeadsListView: React.FC<Props> = ({ leads }) => {
+const LeadsListView: React.FC<Props> = ({ leads, onLeadClick }) => {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 uppercase">
+          <thead className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 uppercase">
             <tr>
               <th className="px-6 py-4 font-medium">Tên Lead</th>
               <th className="px-6 py-4 font-medium">Trạng thái</th>
@@ -24,9 +25,12 @@ const LeadsListView: React.FC<Props> = ({ leads }) => {
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
             {leads.map((lead) => (
-              <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+              <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                 <td className="px-6 py-4">
-                  <div className="font-medium text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline">
+                  <div 
+                    onClick={() => onLeadClick(lead)}
+                    className="font-medium text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline"
+                  >
                     {lead.title}
                   </div>
                   {(lead.phone || lead.email) && (
@@ -44,7 +48,7 @@ const LeadsListView: React.FC<Props> = ({ leads }) => {
                       border: `1px solid ${lead.stage?.color || '#D1D5DB'}`
                     }}
                   >
-                    {lead.stage?.name || 'Chưa phân loại'}
+                    {(lead.stage?.name === 'Thất bại' ? 'Không tiềm năng' : lead.stage?.name) || 'Chưa phân loại'}
                   </span>
                 </td>
                 <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">

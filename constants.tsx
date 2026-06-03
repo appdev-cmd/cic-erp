@@ -94,6 +94,7 @@ export const CONTRACT_STATUS_LABELS: Record<string, string> = {
 export const NAV_ITEMS = [
   { id: 'dashboard', label: 'Tổng quan', icon: <LayoutDashboard size={20} /> },
   { id: 'tasks', label: 'Công việc', icon: <CheckSquare size={20} /> },
+  { id: 'crm', label: 'CRM (Kinh doanh)', icon: <Target size={20} /> },
   { id: 'contracts', label: 'Hợp đồng', icon: <FileText size={20} /> },
   { id: 'payments', label: 'Tài chính', icon: <Package size={20} /> },
   { id: 'projects', label: 'Dự án', icon: <Landmark size={20} /> },
@@ -102,7 +103,6 @@ export const NAV_ITEMS = [
   { id: 'hrm', label: 'Nhân sự HR', icon: <Briefcase size={20} /> },
   { id: 'ai-assistant', label: 'AI Agent', icon: <BrainCircuit size={20} /> },
   { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
-  { id: 'crm', label: 'CRM (Kinh doanh)', icon: <Target size={20} /> },
 
   { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} />, devOnly: true },
 

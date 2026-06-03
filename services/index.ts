@@ -11,6 +11,7 @@ export * from './permissionService';
 export { TaxLookupService } from './taxLookupService';
 export { UnitVisibilityService } from './unitVisibilityService';
 export { CrmLeadService, CrmDealService, CrmStageTemplateService, CrmActivityService } from './crmService';
+export { CrmSeedService } from './crmSeedService';
 export * from './ExecutionCostService';
 export * from './googleDriveService';
 export * from './driveInitService';

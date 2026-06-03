@@ -192,6 +192,7 @@ const MainLayout: React.FC = () => {
         if (path.startsWith('/products')) return 'products';
         if (path.startsWith('/units')) return 'units';
         if (path.startsWith('/settings')) return 'settings';
+        if (path.startsWith('/crm')) return 'crm';
         return 'dashboard';
     };
 

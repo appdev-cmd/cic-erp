@@ -8,9 +8,9 @@ export const DealsPage: React.FC = () => {
 
   // Mock data for initial structure
   const stages = [
-    { id: '1', name: 'Cơ hội mới', color: '#F59E0B', count: 1, value: 50000000 },
-    { id: '2', name: 'Báo giá sơ bộ', color: '#FBBF24', count: 1, value: 120000000 },
-    { id: '3', name: 'Thương thảo', color: '#3B82F6', count: 0, value: 0 },
+    { id: '1', name: 'Cơ hội mới', color: '#FDE68A', count: 1, value: 50000000 },
+    { id: '2', name: 'Báo giá sơ bộ', color: '#FCD34D', count: 1, value: 120000000 },
+    { id: '3', name: 'Thương thảo', color: '#FBBF24', count: 0, value: 0 },
     { id: '4', name: 'Chốt đơn (Won)', color: '#10B981', count: 1, value: 250000000 }
   ];
 
@@ -65,23 +65,23 @@ export const DealsPage: React.FC = () => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-900 p-4">
+        <div className="flex-1 min-h-0 flex flex-col bg-slate-50 dark:bg-slate-900 p-4 overflow-hidden">
           {viewMode === 'kanban' ? (
             <div className="flex h-full overflow-x-auto gap-4 pb-4">
               {stages.map(stage => {
                 const stageDeals = deals.filter(d => d.stageId === stage.id);
                 return (
-                  <div key={stage.id} className="flex flex-col flex-shrink-0 w-80 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
-                    <div className="p-3 border-b-2" style={{ borderBottomColor: stage.color }}>
+                  <div key={stage.id} className="flex flex-col flex-1 min-w-0 bg-slate-100 dark:bg-slate-800 rounded-xl h-full">
+                    <div className="p-3 rounded-t-xl" style={{ backgroundColor: stage.color || '#3B82F6' }}>
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-semibold text-slate-800 dark:text-slate-100 uppercase text-sm truncate">
+                        <h3 className="font-bold text-white uppercase text-sm truncate drop-shadow-sm">
                           {stage.name}
                         </h3>
-                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-700 px-2 py-0.5 rounded-full shadow-sm">
+                        <span className="text-xs font-medium text-white bg-white/20 px-2 py-0.5 rounded-full shadow-sm">
                           {stageDeals.length}
                         </span>
                       </div>
-                      <div className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      <div className="text-sm font-bold text-white/90 drop-shadow-sm">
                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stage.value)}
                       </div>
                     </div>
@@ -100,15 +100,20 @@ export const DealsPage: React.FC = () => {
                           </div>
                         </div>
                       ))}
+                      {stageDeals.length === 0 && (
+                        <div className="flex-1 min-h-[150px] flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                          <span className="text-sm text-slate-400 dark:text-slate-500">Kéo thả vào đây</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="flex-1 overflow-auto bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800">
               <table className="w-full text-sm text-left">
-                <thead className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 uppercase">
+                <thead className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 uppercase">
                   <tr>
                     <th className="px-6 py-4 font-medium">Tên Cơ Hội</th>
                     <th className="px-6 py-4 font-medium">Khách hàng</th>
@@ -117,7 +122,7 @@ export const DealsPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {deals.map(deal => (
-                    <tr key={deal.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <tr key={deal.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                       <td className="px-6 py-4 text-indigo-600 dark:text-indigo-400 font-medium">{deal.title}</td>
                       <td className="px-6 py-4 text-slate-700 dark:text-slate-300">{deal.company}</td>
                       <td className="px-6 py-4 text-slate-900 dark:text-slate-100 font-medium">

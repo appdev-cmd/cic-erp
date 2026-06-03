@@ -214,6 +214,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
             {isOpen && createPortal(
                 <div
                     ref={dropdownRef}
+                    data-portal-dropdown="true"
                     style={{
                         position: 'fixed',
                         top: dropdownPos.top,

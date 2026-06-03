@@ -56,49 +56,65 @@ export function recalculateAutoCostsForList(items: LineItem[]): LineItem[] {
             }
         }
 
-        // Clean up current auto entries
+        // Clean up current auto entries, keeping locked ones
+        const lockedTax = details.find(d => isAutoTaxEntry(d) && d.isLocked);
+        const lockedTransfer = details.find(d => isAutoTransferEntry(d) && d.isLocked);
+
         let newDetails = details.filter(d => !isAutoTaxEntry(d) && !isAutoTransferEntry(d));
 
         // 1. Calculate Contractor Tax
         if (hasTax) {
-            const taxAmount = Math.round(itemValue / 0.9 * 0.1);
-            newDetails = [
-                { id: AUTO_TAX_ID, name: 'Thuế nhà thầu', amount: taxAmount, formula: `${itemValue}/0.9*0.1` },
-                ...newDetails
-            ];
+            if (lockedTax) {
+                newDetails = [lockedTax, ...newDetails];
+            } else {
+                const taxAmount = Math.round(itemValue / 0.9 * 0.1);
+                newDetails = [
+                    { id: AUTO_TAX_ID, name: 'Thuế nhà thầu', amount: taxAmount, formula: `${itemValue}/0.9*0.1` },
+                    ...newDetails
+                ];
+            }
         }
 
         // 2. Calculate Transfer Fee
         if (transferType !== 'none' && item.supplier) {
-            const group = supplierGroups[item.supplier];
-            const supplierTotalValue = group ? group.totalVal : itemValue;
-            const stv = Math.max(supplierTotalValue, itemValue, 1);
-
-            let fee = 0;
-            let formula = '';
-            if (transferType === 'domestic') {
-                const totalSupplierFee = Math.max(Math.round(stv * 0.0007), 22000);
-                fee = Math.round(totalSupplierFee * (itemValue / stv));
-                formula = stv > itemValue
-                    ? `Max(${stv}*0.07%,22k)*(${itemValue}/${stv})`
-                    : `Max(${itemValue}*0.07%,22k)`;
-            } else if (transferType === 'international') {
-                fee = Math.round(itemValue * 0.005 + 10 * usdRate * (itemValue / stv));
-                formula = stv > itemValue
-                    ? `${itemValue}*0.5%+10*${usdRate}*(${itemValue}/${stv})`
-                    : `${itemValue}*0.5%+10*${usdRate}`;
-            }
-
-            const label = transferType === 'domestic'
-                ? 'Phí chuyển tiền trong nước'
-                : 'Phí chuyển tiền nước ngoài';
-
-            const insertIdx = newDetails.findIndex(d => d.id === AUTO_TAX_ID);
-            const newTransferEntry = { id: AUTO_TRANSFER_ID, name: label, amount: fee, formula };
-            if (insertIdx >= 0) {
-                newDetails.splice(insertIdx + 1, 0, newTransferEntry);
+            if (lockedTransfer) {
+                const insertIdx = newDetails.findIndex(d => d.id === AUTO_TAX_ID);
+                if (insertIdx >= 0) {
+                    newDetails.splice(insertIdx + 1, 0, lockedTransfer);
+                } else {
+                    newDetails = [lockedTransfer, ...newDetails];
+                }
             } else {
-                newDetails = [newTransferEntry, ...newDetails];
+                const group = supplierGroups[item.supplier];
+                const supplierTotalValue = group ? group.totalVal : itemValue;
+                const stv = Math.max(supplierTotalValue, itemValue, 1);
+
+                let fee = 0;
+                let formula = '';
+                if (transferType === 'domestic') {
+                    const totalSupplierFee = Math.max(Math.round(stv * 0.0007), 22000);
+                    fee = Math.round(totalSupplierFee * (itemValue / stv));
+                    formula = stv > itemValue
+                        ? `Max(${stv}*0.07%,22k)*(${itemValue}/${stv})`
+                        : `Max(${itemValue}*0.07%,22k)`;
+                } else if (transferType === 'international') {
+                    fee = Math.round(itemValue * 0.005 + 10 * usdRate * (itemValue / stv));
+                    formula = stv > itemValue
+                        ? `${itemValue}*0.5%+10*${usdRate}*(${itemValue}/${stv})`
+                        : `${itemValue}*0.5%+10*${usdRate}`;
+                }
+
+                const label = transferType === 'domestic'
+                    ? 'Phí chuyển tiền trong nước'
+                    : 'Phí chuyển tiền nước ngoài';
+
+                const insertIdx = newDetails.findIndex(d => d.id === AUTO_TAX_ID);
+                const newTransferEntry = { id: AUTO_TRANSFER_ID, name: label, amount: fee, formula };
+                if (insertIdx >= 0) {
+                    newDetails.splice(insertIdx + 1, 0, newTransferEntry);
+                } else {
+                    newDetails = [newTransferEntry, ...newDetails];
+                }
             }
         }
 

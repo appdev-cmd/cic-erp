@@ -919,21 +919,8 @@ Bạn BẮT BUỘC PHẢI DÙNG CÔNG CỤ khi cần truy xuất thông tin doan
     const isTimeout = err?.name === 'AbortError' || errMsg.includes('timeout') || errMsg.includes('FUNCTION_INVOCATION_TIMEOUT') || errMsg.includes('504');
     console.error(`[callAgentTurn] Error (model: ${request.model}, timeout: ${isTimeout}):`, errMsg);
 
-    // TỰ ĐỘNG THỬ LẠI KHÔNG TOOLS NẾU LOCAL MODEL BỊ LỖI TOOL CALLING/CHAT TEMPLATE:
-    // Nếu request đang chứa tools và gọi local model (isVllm) bị lỗi, thử lại cuộc gọi local không có tools
-    if (isVllm && request.tools && request.tools.length > 0) {
-      console.warn(`[callAgentTurn] Local model ${request.model} failed with tools. Retrying without tools...`);
-      try {
-        const result = await callAgentTurn({
-          ...request,
-          tools: undefined // Loại bỏ hoàn toàn tools
-        });
-        return result;
-      } catch (retryErr) {
-        console.error('[callAgentTurn] Retry without tools also failed:', retryErr);
-        // Nếu thử lại không tools vẫn lỗi (ví dụ local model sập hẳn), tiếp tục chạy luồng fallback bình thường dưới đây
-      }
-    }
+    // LƯU Ý: Đã loại bỏ cơ chế "Thử lại không tools" vì nó gây ra lỗi AI tự bịa đặt số liệu tài chính giả.
+    // Nếu mô hình local lỗi/tràn context, hệ thống sẽ tự động chạy xuống luồng fallback sang Gemini giữ nguyên tools bên dưới.
 
     // Tự động fallback model nếu model chính lỗi
     if (!request.meta?.isFallback) {
