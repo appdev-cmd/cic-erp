@@ -161,10 +161,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         if (isDevBypass) return;
 
-        // Refresh session when user returns to the tab after being away
-        const handleVisibilityChange = async () => {
-            if (document.visibilityState === 'visible') {
-                console.log('[AuthContext] Tab visible again – refreshing session...');
+        const REFRESH_LOCK_KEY = 'cic-erp-session-refresh-lock';
+        const LOCK_TIMEOUT_MS = 10000; // 10s lock timeout
+        const MIN_EXPIRY_REMAINING_S = 15 * 60; // 15 minutes in seconds
+
+        // Hàm kiểm tra và thực hiện làm mới session an toàn
+        const safeRefreshSession = async (reason: string) => {
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            if (!currentSession || !currentSession.expires_at) return;
+
+            // Kiểm tra thời hạn còn lại của token
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            const secondsToExpiry = currentSession.expires_at - nowSeconds;
+
+            // Nếu token vẫn còn hạn dài (> 15 phút), không cần làm mới
+            if (secondsToExpiry > MIN_EXPIRY_REMAINING_S) {
+                return;
+            }
+
+            // Cơ chế lock đa tab bằng localStorage
+            const nowMs = Date.now();
+            const lockValue = localStorage.getItem(REFRESH_LOCK_KEY);
+            if (lockValue) {
+                const lockTime = parseInt(lockValue, 10);
+                if (nowMs - lockTime < LOCK_TIMEOUT_MS) {
+                    console.log(`[AuthContext] Refresh lock is active, skipping refresh request from: ${reason}`);
+                    return; // Một tab khác đang refresh, bỏ qua
+                }
+            }
+
+            // Chiếm lock
+            localStorage.setItem(REFRESH_LOCK_KEY, nowMs.toString());
+            console.log(`[AuthContext] Token near expiry (${Math.round(secondsToExpiry / 60)}m left) – Refreshing session (triggered by: ${reason})...`);
+            
+            try {
                 const { data, error } = await supabase.auth.refreshSession();
                 if (error) {
                     console.warn('[AuthContext] Session refresh failed:', error.message);
@@ -172,19 +202,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     syncAuthSession(data.session);
                     console.log('[AuthContext] Session refreshed successfully');
                 }
+            } catch (err) {
+                console.error('[AuthContext] Error during session refresh:', err);
+            } finally {
+                // Giải phóng lock
+                localStorage.removeItem(REFRESH_LOCK_KEY);
+            }
+        };
+
+        // Refresh session khi tab được active trở lại
+        const handleVisibilityChange = async () => {
+            if (document.visibilityState === 'visible') {
+                await safeRefreshSession('visibilitychange');
             }
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
-        // Periodic refresh every 3.5 hours (JWT default expiry = 1h, but Supabase auto-refreshes)
-        // This is a safety net for long idle periods
+        // Định kỳ kiểm tra session mỗi 5 phút
         const refreshInterval = setInterval(async () => {
-            console.log('[AuthContext] Periodic session refresh...');
-            const { data, error } = await supabase.auth.refreshSession();
-            if (!error && data.session) {
-                syncAuthSession(data.session);
-            }
-        }, 3.5 * 60 * 60 * 1000); // 3.5 hours
+            await safeRefreshSession('interval_check');
+        }, 5 * 60 * 1000); // 5 minutes
 
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);

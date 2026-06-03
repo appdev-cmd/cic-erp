@@ -390,6 +390,7 @@ const ContractFormInSlidePanel: React.FC<{ contractId?: string; cloneFrom?: any 
                     handleClose();
                 } catch (e: any) {
                     toast.error('Lỗi: ' + (e.message || e));
+                    throw e;
                 }
             }}
             onCancel={handleCancel}
@@ -482,6 +483,7 @@ export const LazyContractFormPage: React.FC = () => {
                             }
                         } catch (e: any) {
                             toast.error("Lỗi: " + (e.message || e));
+                            throw e;
                         }
                     }}
                     onCancel={() => navigate(-1)}

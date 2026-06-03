@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
-  X, Save, Plus, Users, Hash, ArrowLeft, ArrowRight
+  X, Save, Plus, Users, Hash, ArrowLeft, ArrowRight, Loader2
 } from 'lucide-react';
 import {
   ContractType, ContractClassification, LineItem, UnitAllocation, EmployeeAllocation,
@@ -48,6 +48,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const { profile } = useAuth();
   const isEditing = !!contract && !isCloning;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ==================== DATA OPTIONS ====================
   const [units, setUnits] = useState<Unit[]>([]);
@@ -133,8 +134,14 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   const [vatRate, setVatRate] = useState(contract?.vatRate ?? 0);
 
   // ==================== CONTRACT SYNC (Edit/Clone Mode) ====================
+  const syncedContractIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (contract) {
+      const syncKey = isCloning ? `${contract.id}_clone` : contract.id;
+      if (syncedContractIdRef.current === syncKey) return;
+      syncedContractIdRef.current = syncKey;
+
       setContractType(contract.contractType || 'HĐ');
       setUnitId(contract.unitId || '');
       setCoordinatingUnitId(contract.coordinatingUnitId || '');
@@ -327,8 +334,8 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     const fetchStt = async () => {
       try {
         if (isEditing || !unitId) return;
-        // Don't auto-fetch if user has manually touched STT (unless cloning)
-        if (!isCloning && isIdTouched) return;
+        // Don't auto-fetch if user has manually touched STT
+        if (isIdTouched) return;
         const year = new Date(signedDate).getFullYear();
         const nextNum = await ContractService.getNextContractNumber(unitId, year, true);
         const stt = nextNum.toString().padStart(3, '0');
@@ -540,18 +547,26 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       toast.error("Vui lòng nhập đầy đủ thông tin bắt buộc (Đơn vị, Sale, Khách hàng)");
       return;
     }
+    if (isSubmitting) return;
+
     // Check duplicate contract number before saving
     if (!isEditing && formContractId) {
       try {
+        setIsSubmitting(true);
         const exists = await ContractService.exists(formContractId);
         if (exists) {
           toast.error(`Số hiệu HĐ "${formContractId}" đã tồn tại! Vui lòng đổi STT.`);
           setDuplicateWarning(true);
+          setIsSubmitting(false);
           return;
         }
       } catch (err) {
         console.error('Duplicate check failed:', err);
+        setIsSubmitting(false);
+        return;
       }
+    } else {
+      setIsSubmitting(true);
     }
     const payload = {
       id: isEditing ? contract?.id : undefined, // PK: preserved on edit, auto-set from contractCode on create
@@ -603,7 +618,14 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       selectedTaskTemplateId,
       customTasks,
     };
-    onSave(payload);
+    
+    try {
+      await onSave(payload);
+    } catch (err) {
+      console.error('Save failed:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ==================== RENDER ====================
@@ -943,7 +965,7 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
       {/* FOOTER */}
       <div className="px-8 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800 flex justify-between items-center">
         <div className="flex items-center gap-6">
-          <button type="button" onClick={() => { localStorage.removeItem('contract_form_draft'); onCancel(); }} className="px-6 py-3 text-slate-400 hover:text-rose-500 font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2">
+          <button type="button" disabled={isSubmitting} onClick={() => { localStorage.removeItem('contract_form_draft'); onCancel(); }} className="px-6 py-3 text-slate-400 hover:text-rose-500 font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
             <X size={14} /> Hủy bỏ
           </button>
         </div>
@@ -951,8 +973,9 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           {currentStep > 1 ? (
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={handleBack}
-              className="px-8 py-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-[20px] font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm flex items-center gap-2"
+              className="px-8 py-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 rounded-[20px] font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ArrowLeft size={16} /> Quay lại
             </button>
@@ -961,19 +984,30 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
           {currentStep < 4 ? (
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={handleNext}
-              className="px-10 py-3 bg-indigo-600 text-white rounded-[20px] font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none hover:scale-105 active:scale-95"
+              className="px-10 py-3 bg-indigo-600 text-white rounded-[20px] font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Tiếp tục <ArrowRight size={16} />
             </button>
           ) : (
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={() => { localStorage.removeItem('contract_form_draft'); handleSave(); }}
-              className="px-10 py-3 bg-emerald-500 text-white rounded-[20px] font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-200 dark:shadow-none hover:scale-105 active:scale-95"
+              className="px-10 py-3 bg-emerald-500 text-white rounded-[20px] font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-200 dark:shadow-none hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save size={16} strokeWidth={2.5} />
-              Hoàn tất & Lưu
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                <>
+                  <Save size={16} strokeWidth={2.5} />
+                  Hoàn tất & Lưu
+                </>
+              )}
             </button>
           )}
         </div>

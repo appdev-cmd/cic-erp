@@ -155,6 +155,7 @@ const ContractFormInPanel: React.FC<{ contractId?: string; cloneFrom?: any; onSu
                     closePanel();
                 } catch (e: any) {
                     toast.error('Lỗi: ' + (e.message || e));
+                    throw e;
                 }
             }}
             onCancel={() => closePanel()}
@@ -224,6 +225,7 @@ export const ContractFormPage: React.FC = () => {
                         navigate(ROUTES.CONTRACTS);
                     } catch (e: any) {
                         toast.error("Lỗi: " + (e.message || e));
+                        throw e;
                     }
                 }}
                 onCancel={() => navigate(-1)}
