@@ -31,6 +31,8 @@ import {
   ClipboardList,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
+  XCircle,
   Clock,
   Sparkles,
   Zap,
@@ -119,7 +121,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
   // Dashboard Metrics
   const [stats, setStats] = useState({
     actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
-    statusCounts: { processing: 0, suspended: 0, handover: 0, acceptance: 0, completed: 0 }
+    statusCounts: { processing: 0, suspended: 0, cancelled: 0, handover: 0, acceptance: 0, completed: 0 }
   });
 
   // Chỉ tiêu ĐHCĐ cấp công ty
@@ -223,6 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
             statusCounts: {
               processing: Number((statsData as any)?.processingCount) || 0,
               suspended: Number((statsData as any)?.suspendedCount) || 0,
+              cancelled: Number((statsData as any)?.cancelledCount) || 0,
               handover: Number((statsData as any)?.handoverCount) || 0,
               acceptance: Number((statsData as any)?.acceptanceCount) || 0,
               completed: Number((statsData as any)?.completedCount) || 0
@@ -234,7 +237,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         if (!isCancelled) {
           setStats({
             actual: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
-            statusCounts: { processing: 0, suspended: 0, handover: 0, acceptance: 0, completed: 0 }
+            statusCounts: { processing: 0, suspended: 0, cancelled: 0, handover: 0, acceptance: 0, completed: 0 }
           });
         }
       }
@@ -664,10 +667,11 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
           <KPIItem title="Dòng tiền" metric="cash" stats={stats.actual} target={effectiveTarget} companyTarget={null} yoy={{ value: '0', isUp: true, lastYearTotal: 0 }} color="cyan" icon={<Wallet size={20} />} />
         </div>
 
-        {/* Status Highlights — 5 contract statuses */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* Status Highlights — 6 contract statuses */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatusCard label="Đang thực hiện" count={stats.statusCounts.processing} icon={<Clock size={18} className="text-orange-600 dark:text-orange-400" />} color="orange" />
-          <StatusCard label="Tạm dừng/Huỷ" count={stats.statusCounts.suspended} icon={<AlertCircle size={18} className="text-rose-600 dark:text-rose-400" />} color="rose" />
+          <StatusCard label="Tạm dừng" count={stats.statusCounts.suspended} icon={<AlertTriangle size={18} className="text-amber-600 dark:text-amber-400" />} color="amber" />
+          <StatusCard label="Hủy" count={stats.statusCounts.cancelled} icon={<XCircle size={18} className="text-rose-600 dark:text-rose-400" />} color="rose" />
           <StatusCard label="Bàn giao" count={stats.statusCounts.handover} icon={<PackageCheck size={18} className="text-cyan-600 dark:text-cyan-400" />} color="cyan" />
           <StatusCard label="Nghiệm thu/TL" count={stats.statusCounts.acceptance} icon={<ClipboardList size={18} className="text-blue-600 dark:text-blue-400" />} color="blue" />
           <StatusCard label="Hoàn thành" count={stats.statusCounts.completed} icon={<CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400" />} color="emerald" />

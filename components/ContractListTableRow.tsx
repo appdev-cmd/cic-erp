@@ -340,10 +340,11 @@ export const ContractListTableRow: React.FC<ContractListTableRowProps> = ({
                 disabled={changingStatusId === contract.id}
                 className={`group/status flex items-center justify-start gap-1 px-2 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-bold shadow-sm transition-all focus:ring-2 focus:ring-orange-500 cursor-pointer whitespace-nowrap ${contract.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 hover:bg-emerald-500/20' :
                   contract.status === 'Processing' ? 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 hover:bg-orange-500/20' :
-                    contract.status === 'Suspended' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 hover:bg-rose-500/20' :
-                      contract.status === 'Handover' ? 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 hover:bg-cyan-500/20' :
-                        contract.status === 'Acceptance' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 hover:bg-blue-500/20' :
-                          'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    contract.status === 'Suspended' ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 hover:bg-amber-500/20' :
+                      contract.status === 'Cancelled' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 hover:bg-rose-500/20' :
+                        contract.status === 'Handover' ? 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 hover:bg-cyan-500/20' :
+                          contract.status === 'Acceptance' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 hover:bg-blue-500/20' :
+                            'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 title="Click để đổi trạng thái"
               >
@@ -373,9 +374,10 @@ export const ContractListTableRow: React.FC<ContractListTableRowProps> = ({
                         }`}
                     >
                       <span className={`w-2 h-2 rounded-full ${s.value === 'Processing' ? 'bg-orange-500' :
-                        s.value === 'Suspended' ? 'bg-rose-500' :
-                          s.value === 'Handover' ? 'bg-cyan-500' :
-                            s.value === 'Acceptance' ? 'bg-blue-500' : 'bg-emerald-500'
+                        s.value === 'Suspended' ? 'bg-amber-500' :
+                          s.value === 'Cancelled' ? 'bg-rose-500' :
+                            s.value === 'Handover' ? 'bg-cyan-500' :
+                              s.value === 'Acceptance' ? 'bg-blue-500' : 'bg-emerald-500'
                         }`} />
                       {s.label}
                       {contract.status === s.value && <Check size={14} className="ml-auto text-indigo-500" />}
@@ -528,10 +530,11 @@ export const ContractListMobileCard: React.FC<ContractListTableRowProps> = ({
             disabled={changingStatusId === contract.id}
             className={`group/status flex items-center justify-start gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition-all focus:ring-2 focus:ring-orange-500 cursor-pointer whitespace-nowrap ${contract.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400' :
               contract.status === 'Processing' ? 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400' :
-                contract.status === 'Suspended' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400' :
-                  contract.status === 'Handover' ? 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400' :
-                    contract.status === 'Acceptance' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400' :
-                      'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                contract.status === 'Suspended' ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' :
+                  contract.status === 'Cancelled' ? 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400' :
+                    contract.status === 'Handover' ? 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400' :
+                      contract.status === 'Acceptance' ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400' :
+                        'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
               }`}
           >
             {changingStatusId === contract.id ? (
@@ -559,9 +562,10 @@ export const ContractListMobileCard: React.FC<ContractListTableRowProps> = ({
                     }`}
                 >
                   <span className={`w-2 h-2 rounded-full ${s.value === 'Processing' ? 'bg-orange-500' :
-                    s.value === 'Suspended' ? 'bg-rose-500' :
-                      s.value === 'Handover' ? 'bg-cyan-500' :
-                        s.value === 'Acceptance' ? 'bg-blue-500' : 'bg-emerald-500'
+                    s.value === 'Suspended' ? 'bg-amber-500' :
+                      s.value === 'Cancelled' ? 'bg-rose-500' :
+                        s.value === 'Handover' ? 'bg-cyan-500' :
+                          s.value === 'Acceptance' ? 'bg-blue-500' : 'bg-emerald-500'
                     }`} />
                   {s.label}
                   {contract.status === s.value && <Check size={14} className="ml-auto text-indigo-500" />}

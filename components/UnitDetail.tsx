@@ -28,6 +28,7 @@ import { usePermissionCheck } from '../hooks/usePermissions';
 import { useSlidePanelSafe } from '../contexts/SlidePanelContext';
 
 import { formatDate } from '../utils/formatters';
+import { getStatusColor } from '../utils/contractHelpers';
 import UnitAgentChat from './UnitAgentChat';
 
 interface UnitDetailProps {
@@ -162,6 +163,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
         'Pending_Sign': 'Chờ ký',
         'Processing': 'Đang thực hiện',
         'Suspended': 'Tạm dừng',
+        'Cancelled': 'Hủy',
         'Acceptance': 'Nghiệm thu',
         'Liquidated': 'Thanh lý',
         'Completed': 'Hoàn thành',
@@ -383,7 +385,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                 <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{c.partyA}</p>
                                 <p className="text-xs text-slate-500">{formatCurrency(c.value)}</p>
                             </div>
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Processing' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'}`}>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${getStatusColor(c.status)}`}>
                                 {getStatusVi(c.status)}
                             </span>
                         </div>
@@ -482,7 +484,7 @@ const UnitDetail: React.FC<UnitDetailProps> = ({ unitId, onBack, onViewContract,
                                     <p className="text-sm text-slate-600 dark:text-slate-400 truncate max-w-[200px]">{c.content || '—'}</p>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${c.status === 'Processing' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : c.status === 'Completed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : c.status === 'Suspended' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'}`}>
+                                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${getStatusColor(c.status)}`}>
                                         {getStatusVi(c.status)}
                                     </span>
                                 </td>

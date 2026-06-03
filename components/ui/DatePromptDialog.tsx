@@ -10,7 +10,7 @@ interface DatePromptDialogProps {
     description?: string;
     icon?: React.ReactNode;
     confirmLabel?: string;
-    colorScheme?: 'rose' | 'cyan' | 'orange';
+    colorScheme?: 'rose' | 'cyan' | 'orange' | 'amber';
 }
 
 /**
@@ -43,6 +43,11 @@ const DatePromptDialog: React.FC<DatePromptDialogProps> = ({
             iconBg: 'bg-orange-100 dark:bg-orange-900/30',
             iconText: 'text-orange-600 dark:text-orange-400',
             btn: 'bg-orange-600 hover:bg-orange-700 shadow-orange-100',
+        },
+        amber: {
+            iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+            iconText: 'text-amber-600 dark:text-amber-400',
+            btn: 'bg-amber-600 hover:bg-amber-700 shadow-amber-100',
         },
     };
     const c = colors[colorScheme];

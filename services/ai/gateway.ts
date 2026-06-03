@@ -46,8 +46,12 @@ function getLocalAIBaseURL(model?: string): string {
       let url = '/api/vllm';
 
       // Ưu tiên 1: Đọc từ localStorage nếu người dùng đã cấu hình Custom URL (khác mặc định '/api/vllm')
-      const customUrl = localStorage.getItem('cic_local_ai_base_url');
-      if (customUrl && customUrl !== '/api/vllm' && customUrl.trim() !== '') {
+      let customUrl = localStorage.getItem('cic_local_ai_base_url')?.trim() || '';
+      if (customUrl.startsWith('api/')) {
+        customUrl = '/' + customUrl;
+      }
+
+      if (customUrl && customUrl !== '/api/vllm' && customUrl !== '') {
         let v1Url = customUrl;
         if (!v1Url.includes('/v1') && !v1Url.startsWith('/api/')) {
           v1Url = v1Url.replace(/\/$/, '') + '/v1';
@@ -495,7 +499,7 @@ async function* streamOpenAICompatible(
     messages.push({ role: sysRole, content: sysContent });
   }
   for (const msg of request.messages) {
-    const out = { ...msg };
+    const out: any = { ...msg };
     if (out.role === 'model') {
       out.role = 'assistant';
     }

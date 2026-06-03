@@ -507,6 +507,7 @@ export const ContractService = {
         totalCash: number,
         processingCount: number,
         suspendedCount: number,
+        cancelledCount: number,
         handoverCount: number,
         acceptanceCount: number,
         completedCount: number,
@@ -645,7 +646,7 @@ export const ContractService = {
         };
 
         // Count statuses from unfiltered data (but respecting unit + salesperson filter)
-        const statusCounts = { processingCount: 0, suspendedCount: 0, handoverCount: 0, acceptanceCount: 0, completedCount: 0, newContractsCount: 0, renewalContractsCount: 0 };
+        const statusCounts = { processingCount: 0, suspendedCount: 0, cancelledCount: 0, handoverCount: 0, acceptanceCount: 0, completedCount: 0, newContractsCount: 0, renewalContractsCount: 0 };
         (statusData || []).forEach((c: any) => {
             if (isFilteringByUnit) {
                 let matchedPct = 0;
@@ -662,6 +663,7 @@ export const ContractService = {
 
             if (c.status === 'Processing') statusCounts.processingCount++;
             else if (c.status === 'Suspended') statusCounts.suspendedCount++;
+            else if (c.status === 'Cancelled') statusCounts.cancelledCount++;
             else if (c.status === 'Handover') statusCounts.handoverCount++;
             else if (c.status === 'Acceptance') statusCounts.acceptanceCount++;
             else if (c.status === 'Completed') statusCounts.completedCount++;
@@ -677,6 +679,7 @@ export const ContractService = {
         const unitBreakdown: Record<string, { count: number, value: number }> = {};
 
         const financials = (data || []).reduce((acc, curr: any) => {
+            if (curr.status === 'Cancelled') return acc;
             const val = curr.value || 0;
             const adminProfit = curr.admin_profit || 0;
 
@@ -756,6 +759,8 @@ export const ContractService = {
         totalCash: number,
         activeCount: number,
         pendingCount: number,
+        cancelledCount: number,
+        completedCount?: number,
         newContractsCount?: number,
         renewalContractsCount?: number
     }> => {
@@ -789,6 +794,7 @@ export const ContractService = {
         processingCount: number,
         acceptanceCount: number,
         suspendedCount: number,
+        cancelledCount: number,
         handoverCount: number,
         newContractsCount: number,
         renewalContractsCount: number
@@ -804,7 +810,7 @@ export const ContractService = {
                 totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0,
                 totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0,
                 activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0,
-                processingCount: 0, acceptanceCount: 0, suspendedCount: 0,
+                processingCount: 0, acceptanceCount: 0, suspendedCount: 0, cancelledCount: 0,
                 handoverCount: 0, newContractsCount: 0, renewalContractsCount: 0
             };
         }
@@ -870,8 +876,6 @@ export const ContractService = {
             const estimatedCost = curr.estimated_cost || 0;
             const hasVat = curr.has_vat !== false;
             const vatRate = curr.vat_rate ?? 10;
-            // ★ FIX Bug #6: Bỏ dead code biến expectedRevenue (không được dùng ngoài expectedProfit).
-            // expectedProfit chỉ cần khi DB admin_profit null/undefined (legacy contract).
             const expectedProfit = curr.admin_profit !== null && curr.admin_profit !== undefined
                 ? Number(curr.admin_profit)
                 : ((curr.expected_revenue ?? (hasVat && vatRate > 0 ? Math.round(val / (1 + vatRate / 100)) : val)) - estimatedCost);
@@ -879,13 +883,11 @@ export const ContractService = {
             // Stats from contract (only if signed_date matches filter)
             if (isSignedMatch) {
                 acc.totalContracts++;
-                acc.totalValue += val * fraction;
-                acc.totalProfit += expectedProfit * fraction;
-                acc.totalSigningProfit += expectedProfit * fraction;
                 
                 acc.activeCount += (['Processing', 'Acceptance', 'Handover'].includes(curr.status) ? 1 : 0);
                 acc.pendingCount += (curr.status === 'Pending' ? 1 : 0);
                 acc.suspendedCount += (curr.status === 'Suspended' ? 1 : 0);
+                acc.cancelledCount += (curr.status === 'Cancelled' ? 1 : 0);
                 acc.completedCount += (curr.status === 'Completed' ? 1 : 0);
                 acc.acceptanceCount += (curr.status === 'Acceptance' ? 1 : 0);
                 acc.processingCount += (curr.status === 'Processing' ? 1 : 0);
@@ -893,17 +895,27 @@ export const ContractService = {
                 acc.expiredCount += (
                     ['Processing', 'Acceptance'].includes(curr.status) && curr.end_date && new Date(curr.end_date) < new Date() ? 1 : 0
                 );
+
+                // KPI tài chính ký kết chỉ tính cho các hợp đồng KHÔNG BỊ HỦY
+                if (curr.status !== 'Cancelled') {
+                    acc.totalValue += val * fraction;
+                    acc.totalProfit += expectedProfit * fraction;
+                    acc.totalSigningProfit += expectedProfit * fraction;
+                }
             }
             
-            // Calculate period financials using the shared helper
-            const { revenueInPeriod, cashInPeriod, revProfitInPeriod } = calculatePeriodFinancials(curr, isInPeriod);
-            
-            acc.totalRevenue += revenueInPeriod * fraction;
-            acc.totalCash += cashInPeriod * fraction;
-            acc.totalRevenueProfit += revProfitInPeriod * fraction;
+            // KPI tài chính doanh thu/tiền về trong kỳ chỉ tính cho các hợp đồng KHÔNG BỊ HỦY
+            if (curr.status !== 'Cancelled') {
+                // Calculate period financials using the shared helper
+                const { revenueInPeriod, cashInPeriod, revProfitInPeriod } = calculatePeriodFinancials(curr, isInPeriod);
+                
+                acc.totalRevenue += revenueInPeriod * fraction;
+                acc.totalCash += cashInPeriod * fraction;
+                acc.totalRevenueProfit += revProfitInPeriod * fraction;
+            }
 
             return acc;
-        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, suspendedCount: 0, handoverCount: 0 });
+        }, { totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalSigningProfit: 0, totalRevenueProfit: 0, totalCash: 0, activeCount: 0, pendingCount: 0, completedCount: 0, expiredCount: 0, processingCount: 0, acceptanceCount: 0, suspendedCount: 0, cancelledCount: 0, handoverCount: 0 });
     },
 
     /**
@@ -1114,6 +1126,7 @@ export const ContractService = {
         }
 
         (data || []).forEach((c: any) => {
+            if (c.status === 'Cancelled') return;
             let sharePct = 100;
             if (isFilteringByUnit) {
                 sharePct = getUnitSharePct(c, unitId);

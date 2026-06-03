@@ -58,7 +58,8 @@ export const STATUS_COLORS: Record<string, string> = {
     'Processing': 'bg-blue-500/20 text-blue-400',
     'Active': 'bg-green-500/20 text-green-400',
     'Completed': 'bg-green-500/20 text-green-400',
-    'Suspended': 'bg-red-500/20 text-red-400',
+    'Suspended': 'bg-yellow-500/20 text-yellow-400',
+    'Cancelled': 'bg-red-500/20 text-red-400',
 };
 
 /** Default empty admin costs object */

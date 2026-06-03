@@ -229,6 +229,7 @@ export const UnitService = {
                 let totalCash = 0;
 
                 (contracts || []).forEach((c: any) => {
+                    if (c.status === 'Cancelled') return;
                     const sharePct = getUnitSharePct(c, u.id);
                     if (sharePct === 0) return;
 

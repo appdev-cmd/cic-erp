@@ -284,6 +284,7 @@ export const EmployeeService = {
             let completedContracts = 0;
 
             (contracts || []).forEach((c: any) => {
+                if (c.status === 'Cancelled') return;
                 let fraction = 0;
 
                 // Check if primary employee
@@ -404,7 +405,7 @@ export const EmployeeService = {
 
             const { data: contracts, error } = await supabase
                 .from('contracts')
-                .select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, employee_id, employee_allocations')
+                .select('id, value, actual_revenue, admin_profit, rev_profit, cash_received, status, employee_id, employee_allocations')
                 .gte('signed_date', startDate)
                 .lte('signed_date', endDate);
 
@@ -418,6 +419,7 @@ export const EmployeeService = {
                 let totalCash = 0;
 
                 (contracts || []).forEach((c: any) => {
+                    if (c.status === 'Cancelled') return;
                     let fraction = 0;
                     if (c.employee_id === emp.id) {
                         const allocs: any[] = c.employee_allocations || [];

@@ -69,7 +69,8 @@ export const PRODUCT_CATEGORIES = PRODUCT_CATEGORY_MAP.map(c => c.label) as read
 export const CONTRACT_STATUS_LABELS: Record<string, string> = {
   // Active statuses
   'Processing': 'Đang thực hiện',
-  'Suspended': 'Tạm dừng/Huỷ',
+  'Suspended': 'Tạm dừng',
+  'Cancelled': 'Hủy',
   'Handover': 'Bàn giao',
   'Acceptance': 'Nghiệm thu/TL',
   'PendingSettlement': 'Chờ quyết toán - PD DA',
@@ -85,7 +86,6 @@ export const CONTRACT_STATUS_LABELS: Record<string, string> = {
   'Reviewing': 'Đang xem xét',
   'Expired': 'Hết hạn',
   'Terminated': 'Chấm dứt',
-  'Cancelled': 'Đã hủy',
   'Liquidated': 'Thanh lý',
   'Overdue_Advance': 'Quá hạn tạm ứng',
   'Overdue_Payment': 'Quá hạn thanh toán',

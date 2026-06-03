@@ -144,6 +144,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
   const [showAcceptanceDialog, setShowAcceptanceDialog] = useState(false);
   const [showHandoverDialog, setShowHandoverDialog] = useState(false);
   const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
+  const [showCancelledDialog, setShowCancelledDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
@@ -622,8 +623,13 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                 )}
                 {contract.suspendedDate && (
                   <div className="flex items-center gap-1.5 text-xs font-medium">
-                    <AlertCircle size={14} className="text-rose-500" />
-                    <span className="text-slate-500 dark:text-slate-400">Tạm dừng: <b className="text-rose-600 dark:text-rose-400">{formatDate(contract.suspendedDate)}</b></span>
+                    <AlertCircle size={14} className={contract.status === 'Cancelled' ? 'text-rose-500' : 'text-amber-500'} />
+                    <span className="text-slate-500 dark:text-slate-400">
+                      {contract.status === 'Cancelled' ? 'Hủy hợp đồng: ' : 'Tạm dừng: '}
+                      <b className={contract.status === 'Cancelled' ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}>
+                        {formatDate(contract.suspendedDate)}
+                      </b>
+                    </span>
                   </div>
                 )}
               </div>
@@ -804,13 +810,21 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Chuyển trạng thái:</span>
             <div className="flex gap-2 flex-wrap">
-              {(['Processing', 'Suspended', 'Handover', 'Acceptance', 'PendingSettlement'] as const)
+              {(['Processing', 'Suspended', 'Cancelled', 'Handover', 'Acceptance', 'PendingSettlement'] as const)
                 .filter(s => s !== contract.status)
                 .map(targetStatus => {
-                  const labels: Record<string, string> = { Processing: 'Đang thực hiện', Suspended: 'Tạm dừng', Handover: 'Bàn giao', Acceptance: 'Nghiệm thu/TL', PendingSettlement: 'Chờ QT-PD DA' };
+                  const labels: Record<string, string> = { 
+                    Processing: 'Đang thực hiện', 
+                    Suspended: 'Tạm dừng', 
+                    Cancelled: 'Hủy', 
+                    Handover: 'Bàn giao', 
+                    Acceptance: 'Nghiệm thu/TL', 
+                    PendingSettlement: 'Chờ QT-PD DA' 
+                  };
                   const colors: Record<string, string> = {
                     Processing: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-200 dark:hover:bg-orange-900/50 border-orange-200 dark:border-orange-800',
-                    Suspended: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 border-rose-200 dark:border-rose-800',
+                    Suspended: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 border-amber-200 dark:border-amber-800',
+                    Cancelled: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 border-rose-200 dark:border-rose-800',
                     Handover: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400 hover:bg-cyan-200 dark:hover:bg-cyan-900/50 border-cyan-200 dark:border-cyan-800',
                     Acceptance: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 border-blue-200 dark:border-blue-800',
                     PendingSettlement: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-900/50 border-violet-200 dark:border-violet-800',
@@ -825,6 +839,8 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
                           setShowHandoverDialog(true);
                         } else if (targetStatus === 'Suspended') {
                           setShowSuspendedDialog(true);
+                        } else if (targetStatus === 'Cancelled') {
+                          setShowCancelledDialog(true);
                         } else {
                           // Processing: chuyển thẳng không cần ngày
                           ContractService.update(contract.id, { status: targetStatus } as any)
@@ -1074,7 +1090,7 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
         title="Tạm dừng hợp đồng"
         description="Nhập ngày tạm dừng thực hiện hợp đồng"
         confirmLabel="Xác nhận tạm dừng"
-        colorScheme="rose"
+        colorScheme="amber"
         onConfirm={async (isoDate) => {
           setShowSuspendedDialog(false);
           const updateData: Record<string, any> = { status: 'Suspended', suspendedDate: isoDate };
@@ -1082,6 +1098,26 @@ const ContractDetail: React.FC<ContractDetailProps> = ({ contract: initialContra
             await ContractService.update(contract!.id, updateData as any);
             setContract(prev => prev ? { ...prev, ...updateData } as any : prev);
             toast.success('Đã chuyển trạng thái → Tạm dừng');
+          } catch (err: any) {
+            toast.error('Lỗi: ' + (err.message || err));
+          }
+        }}
+      />
+      {/* Cancelled Date Dialog */}
+      <DatePromptDialog
+        isOpen={showCancelledDialog}
+        onClose={() => setShowCancelledDialog(false)}
+        title="Hủy hợp đồng"
+        description="Nhập ngày hủy thực hiện hợp đồng"
+        confirmLabel="Xác nhận hủy"
+        colorScheme="rose"
+        onConfirm={async (isoDate) => {
+          setShowCancelledDialog(false);
+          const updateData: Record<string, any> = { status: 'Cancelled', suspendedDate: isoDate };
+          try {
+            await ContractService.update(contract!.id, updateData as any);
+            setContract(prev => prev ? { ...prev, ...updateData } as any : prev);
+            toast.success('Đã chuyển trạng thái → Hủy');
           } catch (err: any) {
             toast.error('Lỗi: ' + (err.message || err));
           }

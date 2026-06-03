@@ -5,7 +5,7 @@ let supabaseUrl = '';
 let supabaseKey = '';
 
 try {
-    const envPath = path.join(__dirname, '../.env.local');
+    const envPath = path.join(__dirname, '..', '.env.local');
     if (fs.existsSync(envPath)) {
         const content = fs.readFileSync(envPath, 'utf8');
         const lines = content.split('\n');
@@ -24,12 +24,16 @@ try {
 }
 
 if (!supabaseUrl || !supabaseKey) {
-    console.error("Không tìm thấy Supabase URL hoặc Key trong .env.local!");
+    console.error("Không tìm thấy Supabase URL hoặc Key!");
     process.exit(1);
 }
 
-// Lấy 3 logs gần nhất, sắp xếp theo thời gian giảm dần
-const url = `${supabaseUrl}/rest/v1/ai_logs?select=id,success,error_message,created_at,model_id,action_type,input_preview,output_preview,metadata&order=created_at.desc&limit=3`;
+// Thử query 5 logs mới nhất mà không order by created_at (để tránh timeout nếu thiếu index)
+// Hoặc order theo created_at nhưng giới hạn thời gian trong hôm nay
+const today = new Date().toISOString().split('T')[0];
+const url = `${supabaseUrl}/rest/v1/ai_logs?select=id,success,error_message,created_at,model_id,action_type,input_preview,output_preview&created_at=gte.${today}&limit=5`;
+
+console.log("Truy vấn URL:", url);
 
 fetch(url, {
     method: 'GET',
@@ -39,26 +43,18 @@ fetch(url, {
         'Content-Type': 'application/json'
     }
 })
-.then(res => {
-    if (!res.ok) {
-        return res.text().then(err => { throw new Error(`HTTP ${res.status}: ${err}`); });
-    }
-    return res.json();
-})
+.then(res => res.json())
 .then(data => {
-    console.log(`Thành công! Tìm thấy ${data.length} logs gần nhất.`);
+    console.log(`Tìm thấy ${data.length} logs trong ngày hôm nay:`);
     data.forEach((log, index) => {
         console.log(`\n--- [LOG ${index + 1}] ---`);
         console.log(`ID: ${log.id}`);
         console.log(`Thời gian: ${log.created_at}`);
         console.log(`Mô hình: ${log.model_id}`);
-        console.log(`Thành công: ${log.success}`);
         console.log(`Câu hỏi: ${log.input_preview}`);
         console.log(`Câu trả lời: ${log.output_preview}`);
-        console.log(`Metadata:`, JSON.stringify(log.metadata, null, 2));
-        console.log(`Lỗi: ${log.error_message}`);
     });
 })
 .catch(err => {
-    console.error("Lỗi truy vấn:", err.message);
+    console.error("Lỗi:", err.message);
 });

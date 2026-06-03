@@ -46,7 +46,8 @@ import {
   Image as ImageIcon,
   ClipboardCopy,
   Shield,
-  BrainCircuit
+  BrainCircuit,
+  RefreshCw
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -623,7 +624,13 @@ const AIAssistant: React.FC = () => {
     localStorage.setItem(CUSTOM_GEMINI_KEY, customGeminiKey);
     localStorage.setItem(CUSTOM_OPENAI_KEY, customOpenAIKey);
     localStorage.setItem(CUSTOM_DEEPSEEK_KEY, customDeepseekKey);
-    localStorage.setItem('cic_local_ai_base_url', localAIBaseURL);
+    
+    let normalizedURL = localAIBaseURL.trim();
+    if (normalizedURL.startsWith('api/')) {
+      normalizedURL = '/' + normalizedURL;
+      setLocalAIBaseURL(normalizedURL);
+    }
+    localStorage.setItem('cic_local_ai_base_url', normalizedURL);
     setShowSettings(false);
     toast.success('Đã lưu cấu hình!');
   };
@@ -695,8 +702,12 @@ const AIAssistant: React.FC = () => {
       }
 
       // Lấy từ localAIBaseURL nếu user nhập vào custom url không phải localhost
-      if (!localAIBaseURL.includes('localhost') && !localAIBaseURL.includes('127.0.0.1') && !localAIBaseURL.includes('/api/vllm')) {
-        let v1Url = localAIBaseURL;
+      let checkUrl = localAIBaseURL.trim();
+      if (checkUrl.startsWith('api/')) {
+        checkUrl = '/' + checkUrl;
+      }
+      if (!checkUrl.includes('localhost') && !checkUrl.includes('127.0.0.1') && !checkUrl.includes('/api/vllm')) {
+        let v1Url = checkUrl;
         if (!v1Url.includes('/v1')) v1Url = v1Url.replace(/\/$/, '') + '/v1';
         try {
           const res = await fetch(`${v1Url}/models`, { signal: AbortSignal.timeout(3000) });
@@ -1509,6 +1520,17 @@ const AIAssistant: React.FC = () => {
 
                       {msg.role === 'model' && !msg.isStreaming && msg.content && (
                         <div className="absolute -bottom-6 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10" data-html2canvas-ignore="true">
+                          <button
+                            onClick={() => {
+                              const promptText = `Tôi phát hiện số liệu trong báo cáo trên của bạn có thể có sai sót hoặc bịa đặt. Hãy kiểm tra lại thật kỹ cơ sở dữ liệu bằng các công cụ (tools) truy vấn thật và đính chính lại toàn bộ số liệu chính xác cho tôi. Nếu không có số liệu thật trong database, bạn phải báo là không có chứ không được tự tiện tạo ra số liệu mẫu.`;
+                              handleSend(promptText);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm cursor-pointer transition-colors"
+                            title="Rà soát & Sửa lỗi số liệu"
+                          >
+                            <RefreshCw size={12} />
+                          </button>
+
                           <button
                             onClick={() => handleCopy(msg.id, msg.content)}
                             className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm cursor-pointer transition-colors"

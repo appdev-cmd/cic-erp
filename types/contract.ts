@@ -1,6 +1,7 @@
 export type ContractStatus =
   | 'Processing'      // Đang thực hiện (sau khi ký)
-  | 'Suspended'       // Tạm dừng/Huỷ
+  | 'Suspended'       // Tạm dừng
+  | 'Cancelled'       // Hủy
   | 'Handover'        // Bàn giao
   | 'Acceptance'      // Nghiệm thu/Thanh lý
   | 'Completed';      // Hoàn thành (tự động khi VAT ≥ value + tiền về ≥ value)

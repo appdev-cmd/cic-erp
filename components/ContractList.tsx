@@ -111,7 +111,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   // Data state
   const [salespeople, setSalespeople] = useState<Employee[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
-  const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalRevenueProfit: 0, totalCash: 0, processingCount: 0, suspendedCount: 0, handoverCount: 0, acceptanceCount: 0, completedCount: 0 });
+  const [metrics, setMetrics] = useState({ totalContracts: 0, totalValue: 0, totalRevenue: 0, totalProfit: 0, totalRevenueProfit: 0, totalCash: 0, processingCount: 0, suspendedCount: 0, cancelledCount: 0, handoverCount: 0, acceptanceCount: 0, completedCount: 0 });
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [statsCollapsed, setStatsCollapsed] = useState(() => {
@@ -143,7 +143,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
     newStatus: string;
     dateField: string;
     title: string;
-    colorScheme: 'rose' | 'cyan';
+    colorScheme: 'rose' | 'cyan' | 'amber';
   } | null>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -174,11 +174,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
 
     const datePromptMap: Record<string, string> = {
       'Handover': 'Nhập ngày bàn giao (dd/mm/yyyy):',
-      'Suspended': 'Nhập ngày tạm dừng/huỷ (dd/mm/yyyy):',
+      'Suspended': 'Nhập ngày tạm dừng (dd/mm/yyyy):',
+      'Cancelled': 'Nhập ngày hủy (dd/mm/yyyy):',
     };
     const dateFieldMap: Record<string, string> = {
       'Handover': 'handoverDate',
       'Suspended': 'suspendedDate',
+      'Cancelled': 'suspendedDate',
     };
 
     // Acceptance: mở dialog thay vì prompt
@@ -195,8 +197,8 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
         contractId,
         newStatus,
         dateField: dateFieldMap[newStatus],
-        title: newStatus === 'Handover' ? 'Ngày bàn giao' : 'Ngày tạm dừng/huỷ',
-        colorScheme: newStatus === 'Handover' ? 'cyan' : 'rose',
+        title: newStatus === 'Handover' ? 'Ngày bàn giao' : (newStatus === 'Suspended' ? 'Ngày tạm dừng' : 'Ngày hủy'),
+        colorScheme: newStatus === 'Handover' ? 'cyan' : (newStatus === 'Suspended' ? 'amber' : 'rose'),
       });
       setStatusDropdownId(null);
       return;

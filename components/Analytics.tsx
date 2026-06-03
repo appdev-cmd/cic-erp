@@ -279,10 +279,10 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     const filteredContracts = contracts;
 
     // Active contracts only — nhất quán với SQL RPC get_brands_with_stats:
-    // chỉ lấy hợp đồng đang hoạt động (không tính Draft, Cancelled, Suspended...)
+    // chỉ lấy hợp đồng đang hoạt động (không tính Draft, Cancelled...)
     const activeContracts = useMemo(
         () => filteredContracts.filter(c =>
-            ['Processing', 'Handover', 'Acceptance', 'Completed'].includes(c.status)
+            ['Processing', 'Suspended', 'Handover', 'Acceptance', 'Completed'].includes(c.status)
         ),
         [filteredContracts]
     );
