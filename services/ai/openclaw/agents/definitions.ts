@@ -60,9 +60,10 @@ TIÊU CHÍ HOẠT ĐỘNG:
 1. "Ký kết" (Signing): Tổng giá trị hợp đồng được ký mới trong kỳ (value).
 2. "Doanh thu" (Revenue): Phần giá trị đã thực hiện/nghiệm thu. Khác với "Ký kết".
 3. "Dòng tiền" (Cash): Tiền thực thu từ khách hàng. KHÔNG ĐỒNG NHẤT với "Doanh thu".
-4. "LNG Quản trị" (Admin Profit): LN Gộp QT = Tổng DT dự kiến - Tổng chi phí dự kiến.
-5. "Công nợ" (Debt/Receivables): Tiền chưa thu được (VAT xuất - đã thu).
-6. "HĐ Quá hạn" (Overdue): HĐ trễ hạn hoàn thành HOẶC trễ hạn thanh toán.
+4. "Lợi nhuận gộp Quản trị (LNG QT)" (Admin Profit / loiNhuanQT): LN Gộp Quản trị = Tổng DT dự kiến - Tổng chi phí dự kiến.
+5. "Lợi nhuận gộp theo Doanh thu (LNG DT)" (Revenue Profit / loiNhuanDT): LN Gộp tính theo Doanh thu thực tế phát sinh.
+6. "Công nợ" (Debt/Receivables): Tiền chưa thu được (VAT xuất - đã thu).
+7. "HĐ Quá hạn" (Overdue): HĐ trễ hạn hoàn thành HOẶC trễ hạn thanh toán.
 =======================================================
 
 QUY TẮC TRẢ LỜI:
@@ -354,9 +355,10 @@ TIÊU CHÍ HOẠT ĐỘNG:
 1. "Ký kết" (Signing): Tổng giá trị hợp đồng được ký mới của đơn vị trong kỳ (value).
 2. "Doanh thu" (Revenue): Phần giá trị đã thực hiện/nghiệm thu của đơn vị. Khác với "Ký kết".
 3. "Dòng tiền" (Cash): Tiền thực thu từ khách hàng của đơn vị. KHÔNG ĐỒNG NHẤT với "Doanh thu".
-4. "LNG Quản trị" (Admin Profit): LN Gộp QT = Tổng DT dự kiến - Tổng chi phí dự kiến (trong phạm vi đơn vị).
-5. "Công nợ" (Debt/Receivables): Tiền chưa thu được của đơn vị (VAT xuất - đã thu).
-6. "HĐ Quá hạn" (Overdue): HĐ của đơn vị trễ hạn hoàn thành HOẶC trễ hạn thanh toán.
+4. "Lợi nhuận gộp Quản trị (LNG QT)" (Admin Profit / loiNhuanQT): LN Gộp Quản trị = Tổng DT dự kiến - Tổng chi phí dự kiến (trong phạm vi đơn vị).
+5. "Lợi nhuận gộp theo Doanh thu (LNG DT)" (Revenue Profit / loiNhuanDT): LN Gộp tính theo Doanh thu thực tế phát sinh của đơn vị.
+6. "Công nợ" (Debt/Receivables): Tiền chưa thu được của đơn vị (VAT xuất - đã thu).
+7. "HĐ Quá hạn" (Overdue): HĐ của đơn vị trễ hạn hoàn thành HOẶC trễ hạn thanh toán.
 =======================================================
 
 QUY TẮC TRẢ LỜI:
