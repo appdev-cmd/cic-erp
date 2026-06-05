@@ -18,6 +18,9 @@ interface FilterState {
   activities: string;
   clientPath: string;
   searchQuery: string;
+  region: string[];
+  scoreMin: string;
+  scoreMax: string;
 }
 
 interface LeadAdvancedFilterProps {
@@ -42,12 +45,22 @@ export const LeadAdvancedFilter: React.FC<LeadAdvancedFilterProps> = ({ onFilter
     activities: '',
     clientPath: '',
     searchQuery: '',
+    region: [],
+    scoreMin: '',
+    scoreMax: '',
   });
 
   const presets = [
     { id: 'MY LEADS IN PROGRESS', label: 'LEAD CỦA TÔI ĐANG XỬ LÝ' },
     { id: 'ALL CLOSED', label: 'TẤT CẢ ĐÃ ĐÓNG' },
     { id: 'ALL IN PROGRESS', label: 'TẤT CẢ ĐANG XỬ LÝ', isPinned: true },
+  ];
+
+  const regionOptions = [
+    { id: 'north', label: 'Miền Bắc' },
+    { id: 'central', label: 'Miền Trung' },
+    { id: 'south', label: 'Miền Nam' },
+    { id: 'unknown', label: 'Chưa xác định' },
   ];
 
   const sourceOptions = [
@@ -59,11 +72,10 @@ export const LeadAdvancedFilter: React.FC<LeadAdvancedFilterProps> = ({ onFilter
   ];
 
   const statusOptions = [
-    { id: 'Đầu mối mới khởi tạo', label: 'Đầu mối mới khởi tạo' },
-    { id: 'Phân loại tiềm năng thấp', label: 'Phân loại tiềm năng thấp' },
-    { id: 'Phân loại tiềm năng cao', label: 'Phân loại tiềm năng cao' },
-    { id: 'Cơ hội tốt', label: 'Cơ hội tốt' },
-    { id: 'Không phải cơ hội', label: 'Không phải cơ hội' },
+    { id: 'Mới', label: 'Mới' },
+    { id: 'Đang xử lý', label: 'Đang xử lý' },
+    { id: 'Tiềm năng cao', label: 'Tiềm năng cao' },
+    { id: 'Không tiềm năng', label: 'Không tiềm năng' },
   ];
 
   const communicationOptions = [
@@ -114,6 +126,9 @@ export const LeadAdvancedFilter: React.FC<LeadAdvancedFilterProps> = ({ onFilter
       activities: '',
       clientPath: '',
       searchQuery: '',
+      region: [],
+      scoreMin: '',
+      scoreMax: '',
     };
     setFilters(defaultFilters);
     onFilterChange(defaultFilters);
@@ -180,6 +195,24 @@ export const LeadAdvancedFilter: React.FC<LeadAdvancedFilterProps> = ({ onFilter
           {renderSummaryToken('source', sourceOptions)}
           {renderSummaryToken('status', statusOptions)}
           {renderSummaryToken('communication', communicationOptions)}
+          {renderSummaryToken('region', regionOptions)}
+
+          {(filters.scoreMin || filters.scoreMax) && (
+            <div className="flex items-center gap-1 px-2 py-1 bg-sky-100 dark:bg-sky-900/50 text-sky-800 dark:text-sky-300 text-sm rounded max-w-[200px]">
+              <span className="truncate">Score: {filters.scoreMin || '0'}-{filters.scoreMax || '100'}</span>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const newFilters = { ...filters, scoreMin: '', scoreMax: '' };
+                  setFilters(newFilters);
+                  onFilterChange(newFilters);
+                }}
+                className="hover:text-sky-900 dark:hover:text-sky-200 p-0.5 shrink-0"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
 
           <div className="flex items-center min-w-[120px] flex-1">
             <span className="text-slate-500 dark:text-slate-400 mr-2 text-sm">+ tìm kiếm</span>
@@ -327,6 +360,43 @@ export const LeadAdvancedFilter: React.FC<LeadAdvancedFilterProps> = ({ onFilter
                   initialOptions={[]}
                   placeholder="Nhập tên nhân viên..."
                 />
+              </div>
+
+              {/* Field: Region */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-slate-500 dark:text-slate-400">Vùng miền</label>
+                <MultiSelectCheckbox
+                  options={regionOptions}
+                  selectedIds={filters.region}
+                  onChange={(selectedIds) => setFilters(prev => ({ ...prev, region: selectedIds }))}
+                  placeholder=""
+                />
+              </div>
+
+              {/* Field: Score Range */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-slate-500 dark:text-slate-400">Điểm số (Score)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={filters.scoreMin}
+                    onChange={(e) => setFilters(prev => ({ ...prev, scoreMin: e.target.value }))}
+                    className="w-full p-2 border border-slate-200 dark:border-slate-800 rounded bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500"
+                    placeholder="Min"
+                    min={0}
+                    max={100}
+                  />
+                  <span className="text-slate-400">-</span>
+                  <input
+                    type="number"
+                    value={filters.scoreMax}
+                    onChange={(e) => setFilters(prev => ({ ...prev, scoreMax: e.target.value }))}
+                    className="w-full p-2 border border-slate-200 dark:border-slate-800 rounded bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500"
+                    placeholder="Max"
+                    min={0}
+                    max={100}
+                  />
+                </div>
               </div>
             </div>
 

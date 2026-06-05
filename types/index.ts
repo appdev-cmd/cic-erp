@@ -22,7 +22,7 @@ export { DEFAULT_WORKFLOW_STEPS } from './contract';
 export type { Customer, CustomerContact, CustomerBank } from './customer';
 
 // Employee & Unit domain
-export type { Employee, Unit } from './employee';
+export type { Employee, Unit, EmployeeTimeline, EmployeeTimelineType } from './employee';
 
 // Product domain
 export type { ProductCategory, LicenseType, Brand, ProductSupplier, Product } from './product';

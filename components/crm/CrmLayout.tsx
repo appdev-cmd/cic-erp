@@ -12,6 +12,7 @@ export const CrmLayout: React.FC<{ children?: React.ReactNode }> = ({ children }
     { name: 'Cơ hội (Deals)', path: ROUTES.CRM_DEALS },
     { name: 'Báo giá (Quotes)', path: ROUTES.CRM_QUOTES },
     { name: 'Sản phẩm & Dịch vụ (Products)', path: ROUTES.CRM_PRODUCTS },
+    { name: 'Cấu hình', path: ROUTES.CRM_SETTINGS },
   ];
 
   return (

@@ -33,6 +33,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     const [searchQuery, setSearchQuery] = useState('');
     const [unitFilter, setUnitFilter] = useState<string>('all');
     const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'resigned'>('active');
 
     // Data state
     const [allPersonnel, setAllPersonnel] = useState<Employee[]>([]);
@@ -186,6 +187,11 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
             );
         }
 
+        // Filter by status
+        if (statusFilter !== 'all') {
+            filtered = filtered.filter(p => (p.status || 'active') === statusFilter);
+        }
+
         // Sort by position priority, then unit, then name
         return [...filtered].sort((a, b) => {
             const priorityA = getPositionPriority(a.position, a.roleCode);
@@ -196,7 +202,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
             if (unitA !== unitB) return unitA.localeCompare(unitB);
             return a.name.localeCompare(b.name);
         });
-    }, [allPersonnel, unitFilter, searchQuery, units, visibleUnits]);
+    }, [allPersonnel, unitFilter, searchQuery, units, visibleUnits, statusFilter]);
 
     // Total and pagination (based on filtered results)
     const totalCount = filteredAll.length;
@@ -211,7 +217,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     // Reset page on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [unitFilter, searchQuery]);
+    }, [unitFilter, searchQuery, statusFilter]);
 
     const handleSave = async (data: any) => {
         try {
@@ -347,6 +353,19 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                 </div>
                             </>
                         )}
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="relative">
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value as any)}
+                            className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-300 outline-none transition-all cursor-pointer"
+                        >
+                            <option value="active">Đang làm việc</option>
+                            <option value="resigned">Đã nghỉ việc</option>
+                            <option value="all">Tất cả trạng thái</option>
+                        </select>
                     </div>
 
                     {/* Search */}
@@ -566,7 +585,14 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                                     )}
                                                 </div>
                                                 <div className="truncate">
-                                                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">{person.name}</h3>
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">{person.name}</h3>
+                                                        {(person.status || 'active') === 'resigned' && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 shrink-0">
+                                                                Đã nghỉ
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{person.position || person.roleCode || '—'}</p>
                                                 </div>
                                             </div>
@@ -690,9 +716,16 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight mb-1">
-                                                        {person.name}
-                                                    </h3>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight">
+                                                            {person.name}
+                                                        </h3>
+                                                        {(person.status || 'active') === 'resigned' && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 shrink-0">
+                                                                Đã nghỉ
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
                                                         {person.position || person.roleCode || 'Nhân viên'}
                                                     </p>

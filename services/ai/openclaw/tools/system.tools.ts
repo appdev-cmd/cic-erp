@@ -3,7 +3,7 @@ import type { OpenClawTool, UserContext } from '../types';
 import { dataClient as supabase } from '../../../../lib/dataClient';
 import { TaskService } from '../../../taskService';
 import { NotificationService } from '../../../notificationService';
-import { canViewAll } from './_helpers';
+import { canViewAll, getUnitFilter } from './_helpers';
 
 // ═══════════════════════════════════════════════
 // createTaskAiTool
@@ -106,7 +106,7 @@ export const approveTaskTool: OpenClawTool = {
 
 export const exportDocumentTool: OpenClawTool = {
   name: 'export_document',
-  description: '[\u26A0\uFE0F QUAN TRỌNG: TUYỆT ĐỐI KHÔNG DÙNG TOOL NÀY NẾU USER CHỈ NÓI "LẬP BÁO CÁO" HAY "THỐNG KÊ". CHỈ ĐƯỢC CHẠY KHI USER NÓI RÕ "XUẤT FILE", "TẢI FILE", HOẶC "TẢI XUỐNG"] Tạo và tải file báo cáo. \\nLƯU Ý: \\n1. Báo cáo hãy viết dài, phân tích sâu.\\n2. Hãy tận dụng markdown \` \`\`\`chart \` để nhúng biểu đồ.\\n3. Chọn format=html nếu có biểu đồ.',
+  description: 'Tạo và xuất file báo cáo (Word/HTML). CHỈ dùng khi user yêu cầu rõ "xuất file", "tải file", "tải xuống". KHÔNG dùng khi chỉ "lập báo cáo" chung chung.',
   schema: {
     title: { type: 'string', description: 'Tên báo cáo' },
     content: { type: 'string', description: 'Nội dung văn bản Markdown cực kỳ chi tiết có kèm biểu đồ ` ```chart ` nếu phù hợp' },
@@ -290,6 +290,77 @@ export const sendNotificationEmailTool: OpenClawTool = {
     } catch (err: any) {
       return { error: err.message };
     }
+  }
+};
+
+// ═══════════════════════════════════════════════
+// searchTasksTool
+// ═══════════════════════════════════════════════
+export const searchTasksTool: OpenClawTool = {
+  name: 'search_tasks',
+  description: 'Tìm kiếm công việc (tasks) trên hệ thống Kanban. Có thể lọc theo tiêu đề, trạng thái, người được giao, hoặc độ ưu tiên.',
+  schema: {
+    search: { type: 'string', description: 'Từ khóa tìm kiếm trong tiêu đề công việc' },
+    priority: { type: 'string', enum: ['high', 'medium', 'low'], description: 'Độ ưu tiên' },
+    isCompleted: { type: 'boolean', description: 'true: đã hoàn thành, false: chưa hoàn thành' },
+    limit: { type: 'number', description: 'Số lượng tối đa (mặc định 10, tối đa 50)' }
+  },
+  execute: async (args, context: UserContext) => {
+    const forcedUnitId = getUnitFilter(args, context);
+    const limit = args.limit ? Math.min(Number(args.limit), 50) : 10;
+
+    let query = supabase
+      .from('tasks')
+      .select('id, title, assignees, priority, due_date, completed_at, status_id, task_statuses(name, is_done)')
+      .is('parent_id', null)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (args.search) {
+      query = query.ilike('title', `%${args.search}%`);
+    }
+    if (args.priority) {
+      query = query.eq('priority', args.priority);
+    }
+
+    if (args.isCompleted !== undefined) {
+      if (args.isCompleted) {
+        query = query.not('completed_at', 'is', null);
+      } else {
+        query = query.is('completed_at', null);
+      }
+    }
+
+    if (forcedUnitId) {
+      const { data: emps } = await supabase.from('employees').select('id').eq('unit_id', forcedUnitId);
+      const empIds = (emps || []).map((e: any) => e.id);
+      if (empIds.length > 0) {
+        const empFilterStr = empIds.map(id => `assignees.cs.{${id}}`).join(',');
+        query = query.or(empFilterStr);
+      } else {
+        return { total: 0, tasks: [], message: 'Không tìm thấy công việc nào của đơn vị.' };
+      }
+    }
+
+    const { data: tasks, error } = await query;
+    if (error) throw error;
+
+    const { data: emps } = await supabase.from('employees').select('id, name');
+    const empMap = (emps || []).reduce((acc: any, e: any) => { acc[e.id] = e.name; return acc; }, {});
+
+    return {
+      total: tasks?.length || 0,
+      tasks: (tasks || []).map((t: any) => ({
+        id: t.id,
+        tieuDe: t.title,
+        trangThai: t.task_statuses?.name || '—',
+        doUuTien: t.priority,
+        hanChot: t.due_date || '—',
+        nguoiThucHien: t.assignees?.map((aId: string) => empMap[aId] || aId).join(', ') || '—',
+        daHoanThanh: !!t.completed_at,
+        link: `/tasks?taskId=${t.id}`
+      }))
+    };
   }
 };
 

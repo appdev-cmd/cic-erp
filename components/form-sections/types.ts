@@ -26,6 +26,8 @@ export interface FormData {
     emergencyPhone: string;
     contractType: string;
     contractEndDate: string;
+    hometown: string;
+    status: 'active' | 'resigned';
     target: { signing: number; revenue: number; adminProfit: number; revProfit: number; cash: number };
 }
 
@@ -35,4 +37,5 @@ export interface FormSectionProps {
     units?: Unit[];
     readOnly?: boolean; // When true, most fields are disabled (used in Personal Settings)
     isPersonalSettings?: boolean; // Special mode for Personal Settings dialog
+    isSelfEdit?: boolean; // When editing own profile as non-HR
 }

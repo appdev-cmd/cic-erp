@@ -444,6 +444,15 @@ export const GoogleDriveService = {
     },
 
     /**
+     * Build path for employee folder.
+     * Path: ['CIC-Document', '_NhanSu', '{employee_id}_{employee_name}']
+     */
+    buildEmployeeFolderPath(employeeId: string, employeeName: string): string[] {
+        const sanitized = employeeName.replace(/[/\\?%*:|"<>]/g, '_').substring(0, 80);
+        return [ROOT_FOLDER_NAME, '_NhanSu', `${employeeId}_${sanitized}`];
+    },
+
+    /**
      * Build path for unit root folder.
      */
     buildUnitFolderPath(unitId: string): string[] {

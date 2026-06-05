@@ -14,6 +14,7 @@ import {
     ContractSection,
     FormData
 } from './form-sections';
+import { useAuth } from '../contexts/AuthContext';
 
 /**
  * Normalize date string to YYYY-MM-DD for native date input.
@@ -64,10 +65,13 @@ const initialFormData: FormData = {
     emergencyPhone: '',
     contractType: '',
     contractEndDate: '',
+    hometown: '',
+    status: 'active' as any,
     target: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
 };
 
 const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialData, onSubmit }) => {
+    const { profile } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -75,6 +79,12 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
     const [formData, setFormData] = useState<FormData>(initialFormData);
     const [units, setUnits] = useState<Unit[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const isSelfEdit = !!profile && !!initialData && (profile.employeeId === initialData.id || profile.email === initialData.email);
+    const isHR = profile?.role === 'Admin' || profile?.role === 'Leadership' || 
+                 (['AdminUnit', 'UnitLeader'].includes(profile?.role || '') && 
+                  ['HCNS', 'TH'].includes(profile?.unitCode || ''));
+    const isActualSelfEdit = isSelfEdit && !isHR;
 
     // Fetch units on open
     useEffect(() => {
@@ -116,6 +126,8 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
                 emergencyPhone: initialData.emergencyPhone || '',
                 contractType: initialData.contractType || '',
                 contractEndDate: normalizeDate(initialData.contractEndDate),
+                hometown: initialData.hometown || '',
+                status: initialData.status || 'active',
                 target: initialData.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
             });
 
@@ -145,6 +157,8 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
                 ...initialFormData,
                 dateJoined: new Date().toISOString().split('T')[0],
                 contractType: 'Full-time',
+                hometown: '',
+                status: 'active',
             });
             setPreviewUrl('');
             setAvatarFile(null);
@@ -244,7 +258,9 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
                 emergencyContact: formData.emergencyContact,
                 emergencyPhone: formData.emergencyPhone,
                 contractType: formData.contractType,
-                contractEndDate: formData.contractEndDate || null
+                contractEndDate: formData.contractEndDate || null,
+                hometown: formData.hometown,
+                status: formData.status || 'active'
             };
 
             if (initialData?.id) submitData.id = initialData.id;
@@ -290,21 +306,21 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
 
                     {/* Avatar & Basic Info */}
                     <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                        <AvatarSection previewUrl={previewUrl} onFileChange={handleFileChange} />
-                        <BasicInfoSection formData={formData} setFormData={setFormData} units={units} />
+                        <AvatarSection previewUrl={previewUrl} onFileChange={handleFileChange} readOnly={isActualSelfEdit} />
+                        <BasicInfoSection formData={formData} setFormData={setFormData} units={units} isSelfEdit={isActualSelfEdit} />
                     </div>
 
                     {/* Personal Info */}
-                    <PersonalSection formData={formData} setFormData={setFormData} />
+                    <PersonalSection formData={formData} setFormData={setFormData} isSelfEdit={isActualSelfEdit} />
 
                     {/* Emergency Contact */}
-                    <EmergencyContactSection formData={formData} setFormData={setFormData} />
+                    <EmergencyContactSection formData={formData} setFormData={setFormData} readOnly={isActualSelfEdit} />
 
                     {/* Education */}
-                    <EducationSection formData={formData} setFormData={setFormData} />
+                    <EducationSection formData={formData} setFormData={setFormData} readOnly={isActualSelfEdit} />
 
                     {/* Contract */}
-                    <ContractSection formData={formData} setFormData={setFormData} />
+                    <ContractSection formData={formData} setFormData={setFormData} readOnly={isActualSelfEdit} />
 
                     {/* Actions - Sticky Footer */}
                     <div className="sticky bottom-0 flex justify-end gap-3 pt-4 border-t dark:border-slate-800 bg-white dark:bg-slate-900 -mx-4 sm:-mx-6 px-4 sm:px-6 pb-4">

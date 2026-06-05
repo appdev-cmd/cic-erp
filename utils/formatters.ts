@@ -146,3 +146,19 @@ export function generateSlug(str: string): string {
         .replace(/^-|-$/g, ''); // trim hyphens at start and end
 }
 
+/**
+ * Định dạng tiền tệ rút gọn tiếng Việt (Ví dụ: 2.5 tỷ, 150 triệu, 500.000 ₫)
+ * @param amount - Số tiền cần định dạng (VND)
+ */
+export function formatCurrencyCompact(amount?: number | null): string {
+    if (!amount) return '0 ₫';
+    if (amount >= 1e9) {
+        return `${(amount / 1e9).toFixed(1).replace(/\.0$/, '')} tỷ`;
+    }
+    if (amount >= 1e6) {
+        return `${(amount / 1e6).toFixed(1).replace(/\.0$/, '')} triệu`;
+    }
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+}
+
+

@@ -79,6 +79,7 @@ export const TOOL_ACL: Record<string, ToolACLEntry> = {
   // ═══ Customer Tools ═══════════════════════════════════
   search_customers:              { allowedRoles: '*',                       dataScope: 'company', isWriteAction: false, sensitivity: 'internal' },
   get_customer_360:              { allowedRoles: [...FINANCE_ROLES, UNIT_LEADER, NVKD], dataScope: 'unit', isWriteAction: false, sensitivity: 'confidential' },
+  get_crm_pipeline:              { allowedRoles: [...FINANCE_ROLES, UNIT_LEADER, NVKD], dataScope: 'unit', isWriteAction: false, sensitivity: 'internal' },
 
   // ═══ Product Tools ════════════════════════════════════
   search_products:               { allowedRoles: '*',                       dataScope: 'company', isWriteAction: false, sensitivity: 'public' },
@@ -97,6 +98,7 @@ export const TOOL_ACL: Record<string, ToolACLEntry> = {
   approve_task:                  { allowedRoles: [ADMIN, LEADERSHIP, UNIT_LEADER], dataScope: 'personal', isWriteAction: true, sensitivity: 'confidential' },
   export_document:               { allowedRoles: [ADMIN, LEADERSHIP, ACCOUNTANT, CHIEF_ACCOUNTANT, UNIT_LEADER, MARKETING], dataScope: 'unit', isWriteAction: true, sensitivity: 'internal' },
   send_notification_email:       { allowedRoles: [ADMIN, LEADERSHIP, UNIT_LEADER], dataScope: 'company', isWriteAction: true, sensitivity: 'internal' },
+  search_tasks:                  { allowedRoles: [...UNIT_ROLES],           dataScope: 'unit',    isWriteAction: false, sensitivity: 'internal' },
 
   // ═══ Knowledge Tools ══════════════════════════════════
   search_knowledge_base:         { allowedRoles: '*',                       dataScope: 'company', isWriteAction: false, sensitivity: 'public' },
@@ -106,6 +108,7 @@ export const TOOL_ACL: Record<string, ToolACLEntry> = {
   create_smart_plan:             { allowedRoles: PLANNING_ROLES,            dataScope: 'unit',    isWriteAction: true,  sensitivity: 'confidential' },
   analyze_bottleneck:            { allowedRoles: PLANNING_ROLES,            dataScope: 'unit',    isWriteAction: false, sensitivity: 'confidential' },
   forecast_next_quarter:         { allowedRoles: [...FINANCE_ROLES, UNIT_LEADER], dataScope: 'unit', isWriteAction: false, sensitivity: 'confidential' },
+  get_project_status:            { allowedRoles: [...FINANCE_ROLES, UNIT_LEADER], dataScope: 'unit', isWriteAction: false, sensitivity: 'internal' },
 
   // ═══ Master Tools ═════════════════════════════════════
   delegate_task_to_agent:        { allowedRoles: '*',                       dataScope: 'company', isWriteAction: false, sensitivity: 'internal' },

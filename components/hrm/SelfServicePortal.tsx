@@ -3,37 +3,118 @@
 // Cổng thông tin dành riêng cho User (Nhân viên)
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { toast } from 'sonner';
 import {
     User, CalendarDays, Clock, FileText, Settings,
-    ChevronRight, MapPin, Briefcase, Mail, Phone, ExternalLink
+    ChevronRight, MapPin, Briefcase, Mail, Phone, ExternalLink, Loader2, Home, CreditCard
 } from 'lucide-react';
+import { EmployeeService } from '../../services';
+import { Employee } from '../../types';
+import DateInput from '../ui/DateInput';
 
 export const SelfServicePortal: React.FC = () => {
     const { profile } = useAuth();
     const [activeTab, setActiveTab] = useState<'profile' | 'payslips' | 'assets'>('profile');
+    const [employee, setEmployee] = useState<Employee | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Edit fields state
+    const [name, setName] = useState('');
+    const [dateOfBirth, setDateOfBirth] = useState('');
+    const [hometown, setHometown] = useState('');
+    const [idNumber, setIdNumber] = useState('');
+    const [address, setAddress] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const fetchEmployeeData = async () => {
+        if (!profile?.employeeId) {
+            setIsLoading(false);
+            return;
+        }
+        setIsLoading(true);
+        try {
+            const data = await EmployeeService.getById(profile.employeeId);
+            if (data) {
+                setEmployee(data);
+                setName(data.name || '');
+                setDateOfBirth(data.dateOfBirth || '');
+                setHometown(data.hometown || '');
+                setIdNumber(data.idNumber || '');
+                setAddress(data.address || '');
+            }
+        } catch (error) {
+            console.error('Error fetching employee profile:', error);
+            toast.error('Lỗi khi tải thông tin hồ sơ');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchEmployeeData();
+    }, [profile?.employeeId]);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!profile?.employeeId) return;
+
+        if (!name.trim()) {
+            toast.error('Họ và tên không được để trống');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await EmployeeService.update(profile.employeeId, {
+                name: name.trim(),
+                dateOfBirth: dateOfBirth || null,
+                hometown: hometown.trim(),
+                idNumber: idNumber.trim(),
+                address: address.trim()
+            });
+            
+            toast.success('Cập nhật thông tin hồ sơ thành công!');
+            
+            // Phát sự kiện để các component khác cập nhật
+            window.dispatchEvent(new CustomEvent('employee-changed'));
+            
+            // Tải lại dữ liệu
+            fetchEmployeeData();
+        } catch (error) {
+            console.error('Error saving employee profile:', error);
+            toast.error('Có lỗi xảy ra khi lưu thông tin.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     return (
         <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6 animate-fade-in">
             {/* User Header Profile */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center md:items-start gap-6 border border-slate-200 dark:border-slate-800 relative shadow-sm">
-                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-slate-100 dark:bg-slate-800 border-4 border-white dark:border-slate-900 flex items-center justify-center font-black text-4xl text-slate-400 dark:text-slate-600 shadow-md">
-                    {profile?.fullName?.charAt(0) || 'U'}
+                <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-slate-100 dark:bg-slate-800 border-4 border-white dark:border-slate-900 flex items-center justify-center font-black text-4xl text-slate-400 dark:text-slate-600 shadow-md overflow-hidden shrink-0">
+                    {employee?.avatar ? (
+                        <img src={employee.avatar} alt={name} className="w-full h-full object-cover" />
+                    ) : (
+                        name?.charAt(0) || profile?.fullName?.charAt(0) || 'U'
+                    )}
                 </div>
                 <div className="flex-1 text-center md:text-left">
-                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100">{profile?.fullName || 'Nhân viên mới'}</h1>
-                    <p className="text-indigo-600 dark:text-indigo-400 font-semibold mb-4">{profile?.role || 'User'}</p>
+                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100">
+                        {isLoading ? 'Đang tải...' : (name || profile?.fullName || 'Nhân viên mới')}
+                    </h1>
+                    <p className="text-indigo-600 dark:text-indigo-400 font-semibold mb-4">
+                        {employee?.position || profile?.role || 'User'}
+                    </p>
 
                     <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-6 gap-y-2 text-sm text-slate-500 dark:text-slate-400">
-                        <span className="flex items-center gap-1.5"><Mail size={16} /> {profile?.email}</span>
-                        <span className="flex items-center gap-1.5"><Briefcase size={16} /> Vai trò hệ thống: {profile?.role}</span>
-                        {profile?.unitCode && <span className="flex items-center gap-1.5"><MapPin size={16} /> {profile?.unitCode}</span>}
+                        <span className="flex items-center gap-1.5"><Mail size={16} /> {employee?.email || profile?.email}</span>
+                        {employee?.phone && <span className="flex items-center gap-1.5"><Phone size={16} /> {employee.phone}</span>}
+                        {profile?.unitCode && <span className="flex items-center gap-1.5"><MapPin size={16} /> {profile.unitCode}</span>}
                     </div>
                 </div>
-                <button className="hidden md:flex absolute top-6 right-6 items-center gap-2 px-3 py-1.5 text-sm font-semibold text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition">
-                    <Settings size={16} /> Chỉnh sửa
-                </button>
             </div>
 
             {/* Quick Action Grid */}
@@ -54,28 +135,102 @@ export const SelfServicePortal: React.FC = () => {
 
                 <div className="p-6">
                     {activeTab === 'profile' && (
-                        <div className="space-y-6">
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Cập nhật hồ sơ (Demo)</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Họ và Tên</label>
-                                    <input type="text" readOnly value={profile?.fullName || ''} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Mã Hệ Thống Nội Bộ</label>
-                                    <input type="text" readOnly value={profile?.employeeId?.slice(0, 8) || 'NV---'} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">CCCD / CMND</label>
-                                    <input type="text" placeholder="Thêm CCCD..." className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">STK Ngân hàng</label>
-                                    <input type="text" placeholder="Số tài khoản nhận lương" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition" />
-                                </div>
+                        isLoading ? (
+                            <div className="py-12 flex justify-center items-center">
+                                <Loader2 className="animate-spin text-indigo-500" size={32} />
+                                <span className="ml-3 text-sm text-slate-500">Đang tải hồ sơ...</span>
                             </div>
-                            <button className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-sm">Lưu cập nhật</button>
-                        </div>
+                        ) : (
+                            <form onSubmit={handleSave} className="space-y-6">
+                                <div className="flex justify-between items-center border-b dark:border-slate-800 pb-3">
+                                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Cập nhật hồ sơ cá nhân</h3>
+                                    <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">Bạn được tự sửa các thông tin cơ bản bên dưới</span>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    {/* 5 editable fields */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Họ và Tên</label>
+                                        <input 
+                                            type="text" 
+                                            value={name} 
+                                            onChange={(e) => setName(e.target.value)}
+                                            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition text-sm font-medium" 
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Ngày tháng năm sinh</label>
+                                        <DateInput 
+                                            value={dateOfBirth} 
+                                            onChange={setDateOfBirth}
+                                            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition text-sm" 
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Quê quán</label>
+                                        <input 
+                                            type="text" 
+                                            value={hometown} 
+                                            onChange={(e) => setHometown(e.target.value)}
+                                            placeholder="Nhập quê quán..."
+                                            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition text-sm font-medium" 
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Số CCCD / CMND</label>
+                                        <input 
+                                            type="text" 
+                                            value={idNumber} 
+                                            onChange={(e) => setIdNumber(e.target.value)}
+                                            placeholder="Nhập số CCCD..."
+                                            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition text-sm font-medium" 
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5 sm:col-span-2">
+                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Địa chỉ liên hệ</label>
+                                        <input 
+                                            type="text" 
+                                            value={address} 
+                                            onChange={(e) => setAddress(e.target.value)}
+                                            placeholder="Nhập địa chỉ hiện tại..."
+                                            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition text-sm font-medium" 
+                                        />
+                                    </div>
+
+                                    {/* Readonly info fields */}
+                                    <div className="sm:col-span-2 pt-4 border-t dark:border-slate-800">
+                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Thông tin công tác (Chỉ đọc)</h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-150 dark:border-slate-800">
+                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-850">
+                                                <span className="text-xs text-slate-400">Mã nhân viên:</span>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{employee?.employeeCode || '—'}</span>
+                                            </div>
+                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-850">
+                                                <span className="text-xs text-slate-400">Chức vụ:</span>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{employee?.position || '—'}</span>
+                                            </div>
+                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-850">
+                                                <span className="text-xs text-slate-400">Ngày vào làm:</span>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{employee?.dateJoined ? new Date(employee.dateJoined).toLocaleDateString('vi-VN') : '—'}</span>
+                                            </div>
+                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-850">
+                                                <span className="text-xs text-slate-400">Loại HĐ Lao động:</span>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{employee?.contractType || '—'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end pt-4">
+                                    <button 
+                                        type="submit" 
+                                        disabled={isSaving}
+                                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-sm text-sm flex items-center gap-2 transition disabled:opacity-50 cursor-pointer"
+                                    >
+                                        {isSaving && <Loader2 size={16} className="animate-spin" />}
+                                        Lưu cập nhật
+                                    </button>
+                                </div>
+                            </form>
+                        )
                     )}
                     {activeTab === 'payslips' && (
                         <div className="py-8 text-center">
@@ -98,7 +253,7 @@ export const SelfServicePortal: React.FC = () => {
 };
 
 const QuickActionBtn: React.FC<{ icon: React.ReactNode, title: string, color: string, bg: string }> = ({ icon, title, color, bg }) => (
-    <button className={`group flex flex-col p-5 rounded-2xl border border-slate-200 dark:border-slate-800 transition-all hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 bg-white dark:bg-slate-900`}>
+    <button className={`group flex flex-col p-5 rounded-2xl border border-slate-200 dark:border-slate-800 transition-all hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 bg-white dark:bg-slate-900 cursor-pointer`}>
         <div className="flex justify-between items-start w-full">
             <div className={`p-3 rounded-xl ${bg} ${color}`}>{icon}</div>
             <ExternalLink size={16} className="text-slate-300 dark:text-slate-700 group-hover:text-indigo-400 transition" />

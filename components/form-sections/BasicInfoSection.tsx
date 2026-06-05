@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 const disabledClass = 'bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-70';
 
-const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, units, readOnly, isPersonalSettings }) => {
+const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, units, readOnly, isPersonalSettings, isSelfEdit }) => {
     const [showTelegramGuide, setShowTelegramGuide] = useState(false);
     const { profile } = useAuth();
     const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -126,8 +126,8 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
                     type="text"
                     value={formData.employeeCode}
                     onChange={e => setFormData({ ...formData, employeeCode: e.target.value })}
-                    disabled={readOnly}
-                    className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500 ${readOnly ? disabledClass : ''}`}
+                    disabled={readOnly || isSelfEdit}
+                    className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500 ${readOnly || isSelfEdit ? disabledClass : ''}`}
                     placeholder="NV001"
                 />
             </div>
@@ -138,8 +138,8 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
                     required
                     value={formData.unitId}
                     onChange={e => setFormData({ ...formData, unitId: e.target.value })}
-                    disabled={readOnly}
-                    className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500 ${readOnly ? disabledClass : ''}`}
+                    disabled={readOnly || isSelfEdit}
+                    className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500 ${readOnly || isSelfEdit ? disabledClass : ''}`}
                 >
                     <option value="">-- Chọn đơn vị --</option>
                     {units?.map(unit => (
@@ -154,15 +154,15 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
                     type="text"
                     value={formData.position}
                     onChange={e => setFormData({ ...formData, position: e.target.value })}
-                    disabled={readOnly}
-                    className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 ${readOnly ? disabledClass : ''}`}
+                    disabled={readOnly || isSelfEdit}
+                    className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 ${readOnly || isSelfEdit ? disabledClass : ''}`}
                     placeholder="Chuyên viên, Trưởng phòng..."
                 />
             </div>
 
             <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Ngày vào làm</label>
-                {readOnly ? (
+                {readOnly || isSelfEdit ? (
                     <input
                         type="text"
                         value={formData.dateJoined}
@@ -178,6 +178,21 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
                 )}
             </div>
 
+            {!isSelfEdit && (
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Trạng thái làm việc</label>
+                    <select
+                        value={formData.status || 'active'}
+                        onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+                        disabled={readOnly}
+                        className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500 ${readOnly ? disabledClass : ''}`}
+                    >
+                        <option value="active">Đang làm việc</option>
+                        <option value="resigned">Đã nghỉ việc</option>
+                    </select>
+                </div>
+            )}
+
             <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
                     <Mail size={14} /> Email *
@@ -187,8 +202,8 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
                     type="email"
                     value={formData.email}
                     onChange={e => setFormData({ ...formData, email: e.target.value })}
-                    disabled={readOnly}
-                    className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 ${readOnly ? disabledClass : ''}`}
+                    disabled={readOnly || isSelfEdit}
+                    className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 ${readOnly || isSelfEdit ? disabledClass : ''}`}
                     placeholder="email@company.vn"
                 />
             </div>
@@ -201,7 +216,8 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
                     type="tel"
                     value={formData.phone}
                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800"
+                    disabled={readOnly || isSelfEdit}
+                    className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 ${readOnly || isSelfEdit ? disabledClass : ''}`}
                     placeholder="0901234567"
                 />
             </div>
@@ -244,11 +260,11 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
                             setShowOtpInput(false);
                             setOtpCode('');
                         }}
-                        disabled={(readOnly && !isPersonalSettings) || (isPersonalSettings && formData.telegram_verified)}
-                        className={`flex-1 px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500 ${((readOnly && !isPersonalSettings) || formData.telegram_verified) ? disabledClass : ''}`}
+                        disabled={(readOnly && !isPersonalSettings) || (isPersonalSettings && formData.telegram_verified) || isSelfEdit}
+                        className={`flex-1 px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500 ${((readOnly && !isPersonalSettings) || formData.telegram_verified || isSelfEdit) ? disabledClass : ''}`}
                         placeholder="VD: 123456789 (Nhập ID dạng số)"
                     />
-                    {isPersonalSettings && !formData.telegram_verified && formData.telegram && (
+                    {isPersonalSettings && !formData.telegram_verified && formData.telegram && !isSelfEdit && (
                         <button
                             type="button"
                             onClick={handleSendOtp}

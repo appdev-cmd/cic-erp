@@ -1,5 +1,6 @@
 import { dataClient as supabase } from '../lib/dataClient';
 import { CrmLead, CrmActivity } from '../types';
+import type { RegionType } from '../types/crm';
 
 export const CrmSeedService = {
   /**
@@ -170,23 +171,29 @@ export const CrmSeedService = {
         .select()
         .single();
 
-      // 4. Resolve Stage IDs from templates
+      // 4. Resolve Stage IDs từ templates (pipeline mới, tolerant với tên cũ)
       const { data: stages, error: stagesError } = await supabase
         .from('crm_stage_templates')
         .select('id, name')
         .eq('entity_type', 'lead');
 
-      if (stagesError || !stages) {
+      if (stagesError || !stages || stages.length === 0) {
         throw new Error('Không thể lấy danh sách trạng thái của Leads: ' + (stagesError?.message || 'Không có trạng thái nào.'));
       }
 
-      const stageNew = stages.find(s => s.name.includes('khởi tạo'))?.id || stages[0].id;
-      const stageLow = stages.find(s => s.name.includes('tiềm năng thấp'))?.id || stages[0].id;
-      const stageHigh = stages.find(s => s.name.includes('tiềm năng cao'))?.id || stages[0].id;
+      const stageByName = (names: string[]): string => {
+        for (const n of names) {
+          const f = stages.find(s => s.name === n || s.name.toLowerCase().includes(n.toLowerCase()));
+          if (f) return f.id;
+        }
+        return stages[0].id;
+      };
+      const stageMoi         = stageByName(['Mới', 'khởi tạo']);
+      const stageXuLy        = stageByName(['Đang xử lý', 'tiềm năng thấp', 'Đã liên hệ', 'Đủ điều kiện']);
+      const stageTiemNang    = stageByName(['Tiềm năng cao', 'Chuyển đổi', 'Hoàn thành']);
+      const stageKhongTiemNang = stageByName(['Không tiềm năng', 'Không đủ ĐK', 'Mất', 'Thất bại']);
 
-      // 5. Insert mock Leads
-      
-      // Lead 1: Bùi Quang Hùng (from mockup)
+      // 5. Insert mock Lead 1 (Bùi Quang Hùng — từ mockup)
       const { data: lead1, error: lead1Err } = await supabase
         .from('crm_leads')
         .insert({
@@ -195,10 +202,12 @@ export const CrmSeedService = {
           company_name: '[CRM-TEST] CIC Company',
           phone: '0912345678',
           email: 'hung.bq@cic.com',
-          source: 'Live chat - Open Channel',
-          stage_id: stageNew,
+          source: 'website',
+          source_detail: 'Live chat - Homepage CIC',
+          region: 'north',
+          stage_id: stageMoi,
           expected_value: 0,
-          assigned_to: currentUserId,
+          assigned_to: null, // chưa phân cho ai — nằm trong kho đơn vị
           created_by: currentUserId,
           unit_id: targetUnitId
         })
@@ -207,14 +216,26 @@ export const CrmSeedService = {
 
       if (lead1Err) throw new Error('Lỗi tạo lead mẫu 1: ' + lead1Err.message);
 
-      // Generate 19 additional mock leads
+      // Generate 19 additional mock leads phủ đủ pipeline mới
       const firstNames = ['Trần', 'Phạm', 'Nguyễn', 'Lê', 'Hoàng', 'Vũ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý'];
       const middleNames = ['Thị', 'Văn', 'Quốc', 'Minh', 'Hữu', 'Đức', 'Thu', 'Thanh', 'Hải', 'Ngọc'];
       const lastNames = ['Anh', 'Hoàng', 'Mai', 'Linh', 'Sơn', 'Dũng', 'Lan', 'Hoa', 'Tùng', 'Đạt', 'Hùng', 'Cường', 'Nam', 'Trang'];
-      
-      const sources = ['Webinar Form', 'Google Ads', 'Facebook Campaign', 'Cold Call', 'Referral', 'Partner', 'Website', 'Event'];
-      const mockStages = [stageNew, stageLow, stageHigh];
-      
+
+      // Nguồn theo enum mới + chi tiết nguồn + vùng miền (showcase Lead Sources + region)
+      const sourceProfiles: { source: string; detail: string; region: RegionType }[] = [
+        { source: 'website',  detail: '/dich-vu-tu-van-bim',     region: 'north'   },
+        { source: 'referral', detail: 'Anh Minh - Vinaconex',     region: 'north'   },
+        { source: 'event',    detail: 'Vietbuild HCM 06/2026',    region: 'south'   },
+        { source: 'social',   detail: 'Zalo OA CIC Đà Nẵng',      region: 'central' },
+        { source: 'email',    detail: 'Newsletter Q2/2026',       region: 'north'   },
+        { source: 'phone',    detail: 'Hotline 1800-1234',        region: 'south'   },
+        { source: 'import',   detail: 'DS hội thảo BIM T5.xlsx',  region: 'unknown' },
+        { source: 'api',      detail: 'HubSpot sync',             region: 'central' },
+      ];
+
+      // Phủ đủ 4 cột pipeline để demo Kanban
+      const stageCycle = [stageMoi, stageXuLy, stageTiemNang, stageKhongTiemNang];
+
       const companiesData = [
         { name: customer2 ? customer2.name : '[CRM-TEST] Giải pháp Vintech', id: customer2?.id || null },
         { name: customer3 ? customer3.name : '[CRM-TEST] Tập đoàn Xây dựng Delta', id: customer3?.id || null },
@@ -225,26 +246,26 @@ export const CrmSeedService = {
         { name: '[CRM-TEST] Viettel Solutions', id: null },
         { name: '[CRM-TEST] Tập đoàn Masan', id: null }
       ];
-      
+
       const productCatalog = [
-        { id: '1', product_name: 'Giấy phép ERP v2.0 (License)', unit: 'Gói', unit_price: 50000000 },
-        { id: '2', product_name: 'Dịch vụ Tư vấn Triển khai', unit: 'Man-day', unit_price: 2500000 },
-        { id: '3', product_name: 'Máy chủ Cloud (12 tháng)', unit: 'Gói', unit_price: 15000000 },
-        { id: '4', product_name: 'Module Kế toán nâng cao', unit: 'Module', unit_price: 30000000 },
-        { id: '5', product_name: 'Phí bảo trì hệ thống (Năm 2)', unit: 'Năm', unit_price: 18000000 },
-        { id: '6', product_name: 'Đào tạo nhân sự sử dụng', unit: 'Buổi', unit_price: 1500000 }
+        { id: 'revit',       product_name: 'Autodesk Revit (License)',      unit: 'Gói',     unit_price: 50000000 },
+        { id: 'navisworks',  product_name: 'Autodesk Navisworks Manage',    unit: 'Gói',     unit_price: 38000000 },
+        { id: 'autocad',     product_name: 'Autodesk AutoCAD',              unit: 'Gói',     unit_price: 28000000 },
+        { id: 'consulting_bim', product_name: 'Tư vấn triển khai BIM',      unit: 'Man-day', unit_price: 2500000 },
+        { id: 'training',    product_name: 'Đào tạo Revit/Navisworks',      unit: 'Buổi',    unit_price: 1500000 },
+        { id: 'support',     product_name: 'Support contract (Năm)',        unit: 'Năm',     unit_price: 18000000 }
       ];
-      
+
       const additionalLeads: Partial<CrmLead>[] = [];
       for (let i = 0; i < 19; i++) {
         const name = `[CRM-TEST] ${firstNames[i % firstNames.length]} ${middleNames[i % middleNames.length]} ${lastNames[i % lastNames.length]}`;
-        const source = sources[i % sources.length];
-        const title = `${name} - Yêu cầu từ ${source}`;
+        const sp = sourceProfiles[i % sourceProfiles.length];
+        const title = `${name} - Lead từ ${sp.source}`;
         const companyObj = companiesData[i % companiesData.length];
         const company_name = companyObj.name;
         const customer_id = companyObj.id;
-        const stage_id = mockStages[Math.floor(Math.random() * mockStages.length)];
-        
+        const stage_id = stageCycle[i % stageCycle.length];
+
         // Random created_at between 1 and 15 days ago
         const daysAgo = Math.floor(Math.random() * 15) + 1;
         const createdAtDate = new Date();
@@ -254,35 +275,47 @@ export const CrmSeedService = {
         // Assign products for some leads (~40% of them)
         let products: any[] | undefined = undefined;
         let expected_value = 0;
-        
+
         if (i % 3 === 0 || i % 5 === 0) {
-           products = [];
-           const numProducts = Math.floor(Math.random() * 4) + 1; // 1 to 4 products
-           const shuffledCatalog = [...productCatalog].sort(() => 0.5 - Math.random());
-           const selectedCatalog = shuffledCatalog.slice(0, numProducts);
-           
-           for (const item of selectedCatalog) {
-             let quantity = 1;
-             if (item.unit === 'Man-day') quantity = Math.floor(Math.random() * 20) + 5; // 5 to 24
-             if (item.unit === 'Buổi') quantity = Math.floor(Math.random() * 10) + 2; // 2 to 11
-             if (item.unit === 'Gói' && item.id === '3') quantity = Math.floor(Math.random() * 3) + 1; // 1 to 3 years
-             
-             products.push({
-               id: item.id + '_' + Date.now().toString().slice(-4),
-               product_name: item.product_name,
-               unit: item.unit,
-               unit_price: item.unit_price,
-               quantity: quantity,
-               total_price: item.unit_price * quantity
-             });
-           }
-           expected_value = products.reduce((sum, p) => sum + p.total_price, 0);
+          products = [];
+          const numProducts = Math.floor(Math.random() * 4) + 1; // 1 to 4 products
+          const shuffledCatalog = [...productCatalog].sort(() => 0.5 - Math.random());
+          const selectedCatalog = shuffledCatalog.slice(0, numProducts);
+
+          for (const item of selectedCatalog) {
+            let quantity = 1;
+            if (item.unit === 'Man-day') quantity = Math.floor(Math.random() * 20) + 5; // 5 to 24
+            if (item.unit === 'Buổi') quantity = Math.floor(Math.random() * 10) + 2; // 2 to 11
+            if (item.unit === 'Năm') quantity = Math.floor(Math.random() * 3) + 1; // 1 to 3 years
+            const total = item.unit_price * quantity;
+
+            products.push({
+              id: item.id + '_' + Math.random().toString(36).slice(2, 6),
+              productId: item.id,
+              productName: item.product_name,
+              product_name: item.product_name,
+              unit: item.unit,
+              quantity,
+              unit_price: item.unit_price,
+              price: item.unit_price,
+              total_price: total,
+              total,
+            });
+          }
+          expected_value = products.reduce((sum, p) => sum + p.total_price, 0);
         }
-        
+
         // Random phone number
         const phone = '09' + Math.floor(10000000 + Math.random() * 90000000).toString();
-        // Generate email from name
         const email = `test_lead_${i}@example.com`;
+
+        // Ghi nhận completion theo stage cuối (Bitrix24-style)
+        let completion: Partial<CrmLead> = {};
+        if (stage_id === stageTiemNang) {
+          completion = { is_opportunity: true, completion_result: 'deal', completed_at: createdAtDate.toISOString() };
+        } else if (stage_id === stageKhongTiemNang) {
+          completion = { is_opportunity: false, completion_result: 'unqualified', completion_note: 'Không đủ điều kiện / không có nhu cầu SPDV của CIC', completed_at: createdAtDate.toISOString() };
+        }
 
         additionalLeads.push({
           title,
@@ -291,21 +324,25 @@ export const CrmSeedService = {
           customer_id: customer_id || undefined,
           phone,
           email,
-          source,
+          source: sp.source,
+          source_detail: sp.detail,
+          region: sp.region,
           stage_id,
           expected_value,
-          assigned_to: currentUserId,
+          assigned_to: null as any, // tất cả lead mẫu đều chưa phân cho ai (kho đơn vị)
           created_by: currentUserId,
           unit_id: targetUnitId,
           created_at: createdAtDate.toISOString(),
-          products
+          products,
+          ...completion,
         });
       }
-      
+
       // Batch insert the additional leads
       const { error: batchErr } = await supabase.from('crm_leads').insert(additionalLeads);
       if (batchErr) {
         console.error('Lỗi khi batch insert leads:', batchErr);
+        throw new Error('Lỗi tạo leads mẫu (kiểm tra đã apply migration chưa): ' + batchErr.message);
       }
 
       // 6. Seed mock Activities for Lead 1 (Bùi Quang Hùng - Homepage CIC)

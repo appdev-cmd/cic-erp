@@ -34,4 +34,5 @@ export const ROUTES = {
     CRM_DEALS: '/crm/deals',
     CRM_QUOTES: '/crm/quotes',
     CRM_PRODUCTS: '/crm/products',
+    CRM_SETTINGS: '/crm/settings',
 } as const;

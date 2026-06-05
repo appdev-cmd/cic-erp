@@ -135,6 +135,7 @@ export const AuditLogService = {
 
         // Human-readable field labels for showing what changed
         const fieldLabels: Record<string, string> = {
+            // Contract fields
             title: 'Tiêu đề',
             value: 'Giá trị HĐ',
             status: 'Trạng thái',
@@ -160,6 +161,36 @@ export const AuditLogService = {
             legal_approved: 'Pháp lý duyệt',
             finance_approved: 'Tài chính duyệt',
             revenue_schedules: 'Lịch xuất HĐ doanh thu',
+            // CRM Lead fields
+            name: 'Tên liên hệ',
+            company_name: 'Công ty',
+            phone: 'Số điện thoại',
+            email: 'Email',
+            source: 'Nguồn',
+            source_detail: 'Chi tiết nguồn',
+            region: 'Vùng miền',
+            stage_id: 'Trạng thái',
+            expected_value: 'Giá trị ước tính',
+            assigned_to: 'Người phụ trách',
+            completion_result: 'Kết quả',
+            is_opportunity: 'Là cơ hội',
+            // CRM Deal fields
+            amount: 'Giá trị deal',
+            expected_revenue: 'Doanh thu kỳ vọng',
+            probability: 'Xác suất (%)',
+            expected_close_date: 'Ngày dự kiến chốt',
+            lost_reason: 'Lý do thua',
+            tags: 'Nhãn',
+            // Contact fields
+            position: 'Chức vụ',
+            decision_role: 'Vai trò quyết định',
+            linkedin_url: 'LinkedIn',
+            zalo: 'Zalo',
+            birthday: 'Ngày sinh',
+            // Company fields
+            company_size: 'Quy mô công ty',
+            annual_revenue: 'Doanh thu năm',
+            crm_owner: 'Account Manager',
         };
 
         // Fields to ignore when computing changed fields
@@ -172,8 +203,8 @@ export const AuditLogService = {
 
         switch (action) {
             case 'INSERT': {
-                const title = newData?.title;
-                return title ? `Tạo mới hợp đồng "${title}"` : 'Tạo mới hợp đồng';
+                const title = newData?.title || newData?.name;
+                return title ? `Tạo mới "${title}"` : 'Tạo mới bản ghi';
             }
 
             case 'UPDATE': {
@@ -270,8 +301,8 @@ export const AuditLogService = {
             }
 
             case 'DELETE': {
-                const title = oldData?.title;
-                return title ? `Xóa hợp đồng "${title}"` : 'Xóa hợp đồng';
+                const title = oldData?.title || oldData?.name;
+                return title ? `Xóa "${title}"` : 'Xóa bản ghi';
             }
 
             case 'APPROVE_LEGAL':
@@ -282,6 +313,15 @@ export const AuditLogService = {
                 return '❌ Từ chối phê duyệt';
             case 'SUBMIT_LEGAL':
                 return '📤 Gửi duyệt Pháp lý';
+            // CRM actions
+            case 'CLAIM':
+                return '✋ Nhận lead từ kho đơn vị';
+            case 'COMPLETE_LEAD':
+                return '✅ Hoàn thành lead';
+            case 'DEAL_WON':
+                return '🎉 Deal thắng!';
+            case 'DEAL_LOST':
+                return '❌ Deal thua: ' + (newData?.lost_reason || '');
             default:
                 return action;
         }

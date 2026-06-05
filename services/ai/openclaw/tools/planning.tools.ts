@@ -4,6 +4,7 @@ import { ContractService } from '../../../contractService';
 import { EmployeeService } from '../../../employeeService';
 import { UnitService } from '../../../unitService';
 import { TaskService } from '../../../taskService';
+import { ProjectService } from '../../../projectService';
 import type { OpenClawTool, UserContext } from '../types';
 import { fmtMoney, isBusinessUnit, canViewAll, getUnitFilter } from './_helpers';
 
@@ -318,6 +319,57 @@ export const forecastNextQuarterTool: OpenClawTool = {
     md += `- **Pipeline HĐ đang thực hiện:** ${fmtMoney(pipeline)} (sẽ tiếp tục ghi nhận doanh thu)\n\n`;
     md += `### Biểu đồ xu hướng\n\`\`\`chart\n${chartJson}\n\`\`\`\n\n`;
     md += `> *(AI Instruction: Nhận xét xu hướng, nêu rõ yếu tố rủi ro và cơ hội, đề xuất KPI cụ thể cho Q${targetQ})*`;
+    return md;
+  }
+};
+
+// ═══════════════════════════════════════════════
+// getProjectStatusTool
+// ═══════════════════════════════════════════════
+export const getProjectStatusTool: OpenClawTool = {
+  name: 'get_project_status',
+  description: 'Truy xuất thông tin tiến độ hoàn thành, giá trị hợp đồng, phòng ban chủ quản của các dự án tư vấn BIM đang thực hiện. Dùng khi user hỏi "tiến độ dự án", "dự án BIM", "dự án đang làm".',
+  schema: {
+    unit_id: { type: 'string', description: 'ID đơn vị cần lọc (để trống = toàn công ty)' },
+    status: { type: 'string', description: 'Trạng thái dự án để lọc (VD: Potential, Ongoing, Completed, Suspended)' },
+  },
+  execute: async (args, context: UserContext) => {
+    // SECURITY: Unit scope
+    const forcedUnitId = getUnitFilter(args, context);
+
+    const [projects, units] = await Promise.all([
+      ProjectService.getAll(),
+      UnitService.getAll(),
+    ]);
+
+    const unitMap = new Map(units.map((u: any) => [u.id, u.name]));
+
+    let filtered = projects;
+
+    if (forcedUnitId) {
+      filtered = filtered.filter(p => p.unitId === forcedUnitId);
+    }
+    if (args.status) {
+      filtered = filtered.filter(p => p.status === args.status);
+    }
+
+    let md = `## 🏗️ TIẾN ĐỘ DỰ ÁN BIM\n`;
+    md += `_Số lượng dự án tìm thấy: ${filtered.length}_\n\n`;
+
+    if (filtered.length === 0) {
+      md += `Không có dự án nào phù hợp với bộ lọc hiện tại.\n`;
+      return md;
+    }
+
+    md += `| Mã dự án | Tên dự án | Khách hàng | Đơn vị | Tiến độ | Giá trị | Trạng thái |\n`;
+    md += `|---|---|---|---|---|---|---|\n`;
+
+    filtered.forEach(p => {
+      const unitName = unitMap.get(p.unitId || '') || 'N/A';
+      md += `| ${p.code || 'N/A'} | [${p.name}](/projects/${p.id}) | ${p.clientName || 'N/A'} | ${unitName} | ${p.progress}% | ${fmtMoney(p.contractValue)} | ${p.status} |\n`;
+    });
+
+    md += `\n> *(AI Instruction: Phân tích danh sách dự án, nhận diện các dự án bị chậm tiến độ (tiến độ thấp so với timeline dự kiến), hoặc có giá trị lớn cần lưu ý để cập nhật)*`;
     return md;
   }
 };

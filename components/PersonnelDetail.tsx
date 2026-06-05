@@ -8,14 +8,15 @@ import {
     Pencil, DollarSign, LayoutDashboard, CreditCard, Heart, MapPin,
     GraduationCap, Shield, ExternalLink, Plus, Trash2, FolderOpen, Link2, X
 } from 'lucide-react';
-import { EmployeeService, ContractService, UnitService } from '../services';
+import { EmployeeService, ContractService, UnitService, EmployeeTimelineService, GoogleDriveService } from '../services';
 import { EmployeeDocumentService, EmployeeDocument } from '../services/employeeDocumentService';
 import PersonnelForm from './PersonnelForm';
 import { ContractsHRTab, SalaryHistoryTab, AssetsTab } from './hrm/CoreHRTabs';
-import { Employee, Contract, Unit, UserRole } from '../types';
+import { Employee, Contract, Unit, UserRole, EmployeeTimeline, EmployeeTimelineType } from '../types';
 import { formatDate } from '../utils/formatters';
 import DateInput from './ui/DateInput';
 import { useSlidePanelSafe } from '../contexts/SlidePanelContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface PersonnelDetailProps {
     personnelId: string;
@@ -38,7 +39,7 @@ interface PersonnelStats {
     target: { signing: number; revenue: number; adminProfit: number; revProfit: number; cash: number };
 }
 
-type DetailTab = 'overview' | 'documents' | 'kpi' | 'contracts' | 'hr_contracts' | 'salary' | 'assets';
+type DetailTab = 'overview' | 'timeline' | 'documents' | 'kpi' | 'contracts' | 'hr_contracts' | 'salary' | 'assets';
 
 const DOC_TYPE_OPTIONS = [
     { value: 'degree', label: 'Bằng cấp' },
@@ -57,11 +58,13 @@ const DOC_TYPE_ICONS: Record<string, { bg: string; color: string }> = {
 };
 
 const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, onViewContract }) => {
+    const { profile } = useAuth();
     const [person, setPerson] = useState<Employee | null>(null);
     const [unit, setUnit] = useState<Unit | null>(null);
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [stats, setStats] = useState<PersonnelStats | null>(null);
     const [documents, setDocuments] = useState<EmployeeDocument[]>([]);
+    const [timeline, setTimeline] = useState<EmployeeTimeline[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [showAllContracts, setShowAllContracts] = useState(false);
@@ -75,10 +78,32 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
         localStorage.setItem('cic-erp-personnel-tab', tab);
     };
     const [kpiYear, setKpiYear] = useState(new Date().getFullYear());
+    
+    // Document state
     const [showDocForm, setShowDocForm] = useState(false);
     const [editingDoc, setEditingDoc] = useState<EmployeeDocument | null>(null);
     const [docForm, setDocForm] = useState({ name: '', docType: 'other' as string, description: '', url: '', issuedDate: '', expiryDate: '' });
+    
+    // Timeline state
+    const [showTimelineForm, setShowTimelineForm] = useState(false);
+    const [editingTimeline, setEditingTimeline] = useState<EmployeeTimeline | null>(null);
+    const [timelineForm, setTimelineForm] = useState({
+        type: 'other' as EmployeeTimelineType,
+        title: '',
+        decisionNumber: '',
+        effectiveDate: '',
+        description: '',
+        attachmentUrl: '',
+    });
+    
+    const [isUploading, setIsUploading] = useState(false);
     const slidePanel = useSlidePanelSafe();
+
+    const isHR = profile?.role === 'Admin' || profile?.role === 'Leadership' || 
+                 (['AdminUnit', 'UnitLeader'].includes(profile?.role || '') && 
+                  ['HCNS', 'TH'].includes(profile?.unitCode || ''));
+    const isSelf = !!person && (profile?.employeeId === person.id || profile?.email === person.email);
+    const isAllowedToEdit = isHR || isSelf;
 
     const currentYear = new Date().getFullYear();
     const filteredContracts = contracts.filter(c => {
@@ -97,16 +122,18 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
             if (personData) {
                 setPerson(personData);
                 const realId = personData.id;
-                const [unitData, statsData, contractsData, docsData] = await Promise.all([
+                const [unitData, statsData, contractsData, docsData, timelineData] = await Promise.all([
                     UnitService.getById(personData.unitId),
                     EmployeeService.getStats(realId, year),
                     ContractService.getByEmployeeId(realId),
                     EmployeeDocumentService.getByEmployeeId(realId),
+                    EmployeeTimelineService.getByEmployeeId(realId),
                 ]);
                 setUnit(unitData || null);
                 setStats(statsData);
                 setContracts(contractsData);
                 setDocuments(docsData);
+                setTimeline(timelineData);
             }
         } catch (error) {
             console.error('Error fetching personnel data:', error);
@@ -194,6 +221,110 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
         setShowDocForm(true);
     };
 
+    // Google Drive Upload Handler
+    const handleDriveUpload = async (e: React.ChangeEvent<HTMLInputElement>, targetField: 'document' | 'timeline') => {
+        const file = e.target.files?.[0];
+        if (!file || !person) return;
+
+        setIsUploading(true);
+        const uploadToast = toast.loading('Đang tải tài liệu lên Google Drive...');
+        try {
+            const folderPath = GoogleDriveService.buildEmployeeFolderPath(person.id, person.name);
+            const folder = await GoogleDriveService.getOrCreatePath(folderPath);
+            const result = await GoogleDriveService.uploadFile(file, folder.id);
+            
+            if (targetField === 'document') {
+                setDocForm(p => ({ ...p, url: result.webViewLink || '' }));
+                if (!docForm.name) {
+                    setDocForm(p => ({ ...p, name: file.name.substring(0, file.name.lastIndexOf('.')) || file.name }));
+                }
+            } else if (targetField === 'timeline') {
+                setTimelineForm(p => ({ ...p, attachmentUrl: result.webViewLink || '' }));
+            }
+            
+            toast.success(`Tải lên thành công: ${file.name}`, { id: uploadToast });
+        } catch (error: any) {
+            console.error('Error uploading to Google Drive:', error);
+            toast.error(`Lỗi tải lên Google Drive: ${error.message || 'Không rõ nguyên nhân'}`, { id: uploadToast });
+        } finally {
+            setIsUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    // Timeline CRUD
+    const resetTimelineForm = () => {
+        setTimelineForm({
+            type: 'other',
+            title: '',
+            decisionNumber: '',
+            effectiveDate: '',
+            description: '',
+            attachmentUrl: '',
+        });
+        setEditingTimeline(null);
+        setShowTimelineForm(false);
+    };
+
+    const handleTimelineSubmit = async () => {
+        if (!timelineForm.title.trim()) {
+            toast.error('Vui lòng nhập tiêu đề lộ trình');
+            return;
+        }
+        if (!timelineForm.effectiveDate) {
+            toast.error('Vui lòng chọn ngày hiệu lực');
+            return;
+        }
+        if (!person) return;
+
+        try {
+            if (editingTimeline) {
+                await EmployeeTimelineService.update(editingTimeline.id, {
+                    ...timelineForm,
+                    employeeId: person.id,
+                });
+                toast.success('Cập nhật lộ trình thành công');
+            } else {
+                await EmployeeTimelineService.create({
+                    ...timelineForm,
+                    employeeId: person.id,
+                });
+                toast.success('Thêm mốc lộ trình thành công');
+            }
+            const timelineData = await EmployeeTimelineService.getByEmployeeId(person.id);
+            setTimeline(timelineData);
+            resetTimelineForm();
+        } catch (error) {
+            console.error('Error saving timeline:', error);
+            toast.error('Có lỗi xảy ra khi lưu lộ trình');
+        }
+    };
+
+    const handleTimelineDelete = async (id: string) => {
+        if (!person || !confirm('Bạn có chắc chắn muốn xóa mốc lộ trình này?')) return;
+        try {
+            await EmployeeTimelineService.delete(id);
+            setTimeline(prev => prev.filter(t => t.id !== id));
+            toast.success('Đã xóa mốc lộ trình');
+        } catch (error) {
+            console.error('Error deleting timeline:', error);
+            toast.error('Lỗi khi xóa mốc lộ trình');
+        }
+    };
+
+    const startEditTimeline = (item: EmployeeTimeline) => {
+        setEditingTimeline(item);
+        setTimelineForm({
+            type: item.type,
+            title: item.title,
+            decisionNumber: item.decisionNumber || '',
+            effectiveDate: item.effectiveDate,
+            description: item.description || '',
+            attachmentUrl: item.attachmentUrl || '',
+        });
+        setShowTimelineForm(true);
+    };
+
     const formatCurrency = (val: number) => (val || 0).toLocaleString('vi-VN') + ' ₫';
 
     const getStatusColor = (status: string) => {
@@ -230,6 +361,7 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
 
     const tabs: { id: DetailTab; label: string; icon: any; count?: number }[] = [
         { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard },
+        { id: 'timeline', label: 'Lộ trình', icon: Award, count: timeline.length },
         { id: 'hr_contracts', label: 'HĐ Lao động', icon: Shield },
         { id: 'salary', label: 'Lương', icon: DollarSign },
         { id: 'assets', label: 'Tài sản', icon: CreditCard },
@@ -270,6 +402,159 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
     );
 
     const inputCls = "w-full px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none";
+
+    const TIMELINE_TYPE_OPTIONS = [
+        { value: 'promotion', label: 'Bổ nhiệm / Điều động', color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900/50' },
+        { value: 'reward', label: 'Khen thưởng', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/50' },
+        { value: 'discipline', label: 'Kỷ luật', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/50' },
+        { value: 'salary_change', label: 'Thay đổi lương', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50' },
+        { value: 'other', label: 'Khác', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/50' },
+    ];
+
+    const renderTimeline = () => (
+        <div className="space-y-6">
+            {/* Timeline Form (HR only) */}
+            {isHR && showTimelineForm && (
+                <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">{editingTimeline ? 'Sửa mốc lộ trình' : 'Thêm mốc lộ trình mới'}</h3>
+                        <button onClick={resetTimelineForm} className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><X size={16} /></button>
+                    </div>
+                    <div className="p-5 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Loại lộ trình <span className="text-red-500">*</span></label>
+                                <select className={inputCls} value={timelineForm.type} onChange={e => setTimelineForm(p => ({ ...p, type: e.target.value as any }))}>
+                                    {TIMELINE_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Tiêu đề quyết định <span className="text-red-500">*</span></label>
+                                <input className={inputCls} value={timelineForm.title} onChange={e => setTimelineForm(p => ({ ...p, title: e.target.value }))} placeholder="VD: Bổ nhiệm Trưởng phòng HCNS" />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Số quyết định</label>
+                                <input className={inputCls} value={timelineForm.decisionNumber} onChange={e => setTimelineForm(p => ({ ...p, decisionNumber: e.target.value }))} placeholder="VD: QĐ-01/2026/CIC" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Ngày có hiệu lực <span className="text-red-500">*</span></label>
+                                <DateInput value={timelineForm.effectiveDate} onChange={(v: string) => setTimelineForm(p => ({ ...p, effectiveDate: v }))} className={inputCls} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Mô tả chi tiết</label>
+                            <textarea className={`${inputCls} min-h-[80px] py-2 resize-y`} value={timelineForm.description} onChange={e => setTimelineForm(p => ({ ...p, description: e.target.value }))} placeholder="Nội dung tóm tắt quyết định..." />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 flex justify-between items-center">
+                                <span className="flex items-center gap-1.5"><Link2 size={12} /> Tài liệu quyết định (Link Google Drive)</span>
+                                {isUploading && <span className="text-[10px] text-indigo-600 dark:text-indigo-400 animate-pulse">Đang tải lên...</span>}
+                            </label>
+                            <div className="flex gap-2">
+                                <input className={`${inputCls} flex-1`} value={timelineForm.attachmentUrl} onChange={e => setTimelineForm(p => ({ ...p, attachmentUrl: e.target.value }))} placeholder="https://drive.google.com/..." />
+                                <div className="relative">
+                                    <input type="file" id="timeline-file-upload" className="hidden" disabled={isUploading} onChange={(e) => handleDriveUpload(e, 'timeline')} />
+                                    <label htmlFor="timeline-file-upload" className={`px-4 py-2 text-sm font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer flex items-center gap-1.5 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <FolderOpen size={16} /> Tải lên Drive
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <button onClick={resetTimelineForm} className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Hủy</button>
+                            <button onClick={handleTimelineSubmit} className="px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">{editingTimeline ? 'Cập nhật' : 'Thêm'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Timeline View */}
+            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <h3 className="text-base font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                        <Award size={18} className="text-indigo-500" /> Lộ trình công tác
+                    </h3>
+                    {isHR && (
+                        <button onClick={() => { resetTimelineForm(); setShowTimelineForm(true); }}
+                            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
+                            <Plus size={14} /> Ghi nhận mốc mới
+                        </button>
+                    )}
+                </div>
+
+                {timeline.length > 0 ? (
+                    <div className="p-6">
+                        <div className="relative border-l-2 border-slate-200 dark:border-slate-800 ml-4 pl-6 space-y-8">
+                            {timeline.map(item => {
+                                const typeObj = TIMELINE_TYPE_OPTIONS.find(o => o.value === item.type) || TIMELINE_TYPE_OPTIONS[4];
+                                return (
+                                    <div key={item.id} className="relative group">
+                                        {/* Dot on line */}
+                                        <div className={`absolute -left-[31px] top-1.5 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${typeObj.bg.replace('bg-', 'bg-').split(' ')[0] || 'bg-slate-500'}`} />
+                                        
+                                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                                            <div className="space-y-1.5 flex-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${typeObj.bg} ${typeObj.color}`}>
+                                                        {typeObj.label}
+                                                    </span>
+                                                    {item.decisionNumber && (
+                                                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                                                            Số QĐ: {item.decisionNumber}
+                                                        </span>
+                                                    )}
+                                                    <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 md:hidden">
+                                                        Hiệu lực: {formatDate(item.effectiveDate)}
+                                                    </span>
+                                                </div>
+                                                <h4 className="text-base font-black text-slate-900 dark:text-slate-100">{item.title}</h4>
+                                                {item.description && (
+                                                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl whitespace-pre-wrap">{item.description}</p>
+                                                )}
+                                                {item.attachmentUrl && (
+                                                    <a href={item.attachmentUrl} target="_blank" rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline pt-1">
+                                                        <Link2 size={12} /> Xem quyết định đính kèm (Drive)
+                                                    </a>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center md:items-end gap-3 md:flex-col shrink-0">
+                                                <span className="text-sm font-black text-slate-500 dark:text-slate-400 hidden md:block">
+                                                    {formatDate(item.effectiveDate)}
+                                                </span>
+                                                {isHR && (
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => startEditTimeline(item)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors" title="Sửa"><Pencil size={14} /></button>
+                                                        <button onClick={() => handleTimelineDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors" title="Xóa"><Trash2 size={14} /></button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-center py-16">
+                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Award size={28} className="text-slate-400" />
+                        </div>
+                        <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">Chưa ghi nhận lộ trình</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 mb-4">Các quyết định bổ nhiệm, khen thưởng, kỷ luật sẽ xuất hiện ở đây.</p>
+                        {isHR && (
+                            <button onClick={() => { resetTimelineForm(); setShowTimelineForm(true); }}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors">
+                                <Plus size={14} /> Ghi nhận mốc đầu tiên
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
     // ===== TAB: OVERVIEW (merged with profile info) =====
     const renderOverview = () => (
@@ -385,10 +670,19 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
+                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 flex justify-between items-center">
                                 <span className="flex items-center gap-1.5"><Link2 size={12} /> Link Google Drive / URL</span>
+                                {isUploading && <span className="text-[10px] text-indigo-600 dark:text-indigo-400 animate-pulse">Đang tải lên...</span>}
                             </label>
-                            <input className={inputCls} value={docForm.url} onChange={e => setDocForm(p => ({ ...p, url: e.target.value }))} placeholder="https://drive.google.com/..." />
+                            <div className="flex gap-2">
+                                <input className={`${inputCls} flex-1`} value={docForm.url} onChange={e => setDocForm(p => ({ ...p, url: e.target.value }))} placeholder="https://drive.google.com/..." />
+                                <div className="relative">
+                                    <input type="file" id="doc-file-upload" className="hidden" disabled={isUploading} onChange={(e) => handleDriveUpload(e, 'document')} />
+                                    <label htmlFor="doc-file-upload" className={`px-4 py-2 text-sm font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer flex items-center gap-1.5 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <FolderOpen size={16} /> Tải lên Drive
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Mô tả</label>
@@ -631,7 +925,9 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
                 <div className="h-20 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 relative">
                     <div className="absolute top-4 right-4 flex items-center gap-2">
                         {stats && stats.signingProgress >= 100 && (<div className="flex items-center gap-2 px-3 py-1.5 bg-white/20 backdrop-blur-sm rounded-lg text-white"><Award size={14} /><span className="font-bold text-xs">Đạt KPI</span></div>)}
-                        <button onClick={() => setIsEditing(true)} className="p-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-colors" title="Chỉnh sửa thông tin"><Pencil size={18} /></button>
+                        {isAllowedToEdit && (
+                            <button onClick={() => setIsEditing(true)} className="p-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-colors" title="Chỉnh sửa thông tin"><Pencil size={18} /></button>
+                        )}
                     </div>
                 </div>
                 <div className="px-6 py-5">
@@ -682,6 +978,7 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
             {/* Tab Content */}
             <div>
                 {activeTab === 'overview' && renderOverview()}
+                {activeTab === 'timeline' && renderTimeline()}
                 {activeTab === 'hr_contracts' && <ContractsHRTab employeeId={person.id} />}
                 {activeTab === 'salary' && <SalaryHistoryTab employeeId={person.id} />}
                 {activeTab === 'assets' && <AssetsTab employeeId={person.id} />}

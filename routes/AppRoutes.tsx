@@ -55,6 +55,7 @@ import {
     LazyCrmDealsPage as CrmDealsPage,
     LazyCrmQuotesPage as CrmQuotesPage,
     LazyCrmProductsPage as CrmProductsPage,
+    LazyCrmSettingsPage as CrmSettingsPage,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -177,6 +178,7 @@ export const router = createBrowserRouter([
             { path: 'crm/deals', element: <CrmDealsPage /> },
             { path: 'crm/quotes', element: <CrmQuotesPage /> },
             { path: 'crm/products', element: <CrmProductsPage /> },
+            { path: 'crm/settings', element: <CrmSettingsPage /> },
 
             // 404 Fallback
             { path: '*', element: <Navigate to="/" replace /> },

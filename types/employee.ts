@@ -32,6 +32,23 @@ export interface Employee {
   emergencyPhone?: string; // SĐT khẩn cấp
   contractType?: string; // Loại hợp đồng LĐ
   contractEndDate?: string; // Ngày hết hạn HĐ
+  hometown?: string; // Quê quán
+  status?: 'active' | 'resigned'; // Trạng thái làm việc
+}
+
+export type EmployeeTimelineType = 'promotion' | 'reward' | 'discipline' | 'salary_change' | 'other';
+
+export interface EmployeeTimeline {
+  id: string;
+  employeeId: string;
+  type: EmployeeTimelineType;
+  title: string;
+  decisionNumber?: string;
+  effectiveDate: string;
+  description?: string;
+  attachmentUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Unit {

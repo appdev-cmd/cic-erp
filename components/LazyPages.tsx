@@ -100,6 +100,7 @@ const ContactsPage = lazyWithRetry(() => import('./crm/contacts/ContactsPage'));
 const DealsPage = lazyWithRetry(() => import('./crm/deals/DealsPage'));
 const QuotesPage = lazyWithRetry(() => import('./crm/quotes/QuotesPage'));
 const ProductsPage = lazyWithRetry(() => import('./crm/products/ProductsPage'));
+const CrmSettingsPage = lazyWithRetry(() => import('./crm/settings/CrmSettingsPage'));
 
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
@@ -1075,6 +1076,7 @@ export const LazyCrmContactsPage: React.FC = () => withSuspense(<ContactsPage />
 export const LazyCrmDealsPage: React.FC = () => withSuspense(<DealsPage />);
 export const LazyCrmQuotesPage: React.FC = () => withSuspense(<QuotesPage />);
 export const LazyCrmProductsPage: React.FC = () => withSuspense(<ProductsPage />);
+export const LazyCrmSettingsPage: React.FC = () => withSuspense(<CrmSettingsPage />);
 
 
 // Settings / System

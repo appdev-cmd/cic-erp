@@ -11,9 +11,6 @@ import { EmployeeService } from '../../../employeeService';
 import { TaskService } from '../../../taskService';
 import { NotificationService } from '../../../notificationService';
 import { marketingToolsRegistry } from './marketingTools';
-import type { OpenClawTool, UserContext } from '../types';
-import { dataClient as supabase } from '../../../../lib/dataClient';
-import { fmtMoney, fmtMoneyWithRaw, calcChange, canViewAll, isBusinessUnit, getUnitFilter } from './_helpers';
 
 // ═══════════════════════════════════════════════
 // searchCustomersTool
@@ -199,6 +196,87 @@ export const getCustomer360Tool: OpenClawTool = {
     md += `\n*(AI Instruction: Phân tích tổng quan khách hàng này: đánh giá mức độ quan trọng, rủi ro công nợ, và gợi ý hành động)*`;
 
     return md;
+  }
+};
+
+// ═══════════════════════════════════════════════
+// getCrmPipelineTool
+// ═══════════════════════════════════════════════
+export const getCrmPipelineTool: OpenClawTool = {
+  name: 'get_crm_pipeline',
+  description: 'Tổng hợp phễu bán hàng CRM (CRM Pipeline): số lượng Leads, Deals, và tỷ lệ chuyển đổi qua các giai đoạn (Stages). Dùng khi user hỏi "CRM", "phễu bán hàng", "lead mới", "deal".',
+  schema: {
+    unitId: { type: 'string', description: 'ID đơn vị cần lọc (để trống = toàn công ty)' }
+  },
+  execute: async (args, context: UserContext) => {
+    const forcedUnitId = getUnitFilter(args, context);
+
+    const { CrmLeadService, CrmDealService, CrmStageTemplateService } = await import('../../../crmService');
+
+    // Load song song dữ liệu
+    const [leads, deals, leadStages, dealStages] = await Promise.all([
+      CrmLeadService.getAll(forcedUnitId || undefined),
+      CrmDealService.getAll(forcedUnitId || undefined),
+      CrmStageTemplateService.getAll('lead'),
+      CrmStageTemplateService.getAll('deal')
+    ]);
+
+    // Thống kê Leads theo Stages
+    const leadCountByStage: Record<string, number> = {};
+    leadStages.forEach((s: any) => { leadCountByStage[s.name] = 0; });
+    leads.forEach((l: any) => {
+      const stageName = l.stage?.name || 'Chưa phân loại';
+      leadCountByStage[stageName] = (leadCountByStage[stageName] || 0) + 1;
+    });
+
+    // Thống kê Deals theo Stages
+    const dealCountByStage: Record<string, number> = {};
+    const dealValueByStage: Record<string, number> = {};
+    dealStages.forEach((s: any) => {
+      dealCountByStage[s.name] = 0;
+      dealValueByStage[s.name] = 0;
+    });
+    deals.forEach((d: any) => {
+      const stageName = d.stage?.name || 'Chưa phân loại';
+      dealCountByStage[stageName] = (dealCountByStage[stageName] || 0) + 1;
+      dealValueByStage[stageName] = (dealValueByStage[stageName] || 0) + (d.value || 0);
+    });
+
+    const totalLeads = leads.length;
+    const totalDeals = deals.length;
+    const totalDealsValue = deals.reduce((sum: number, d: any) => sum + (d.value || 0), 0);
+
+    const units = await UnitService.getAll();
+    const unitMap = units.reduce((acc: any, u: any) => { acc[u.id] = u.name; return acc; }, {});
+
+    return {
+      tongLeads: totalLeads,
+      tongDeals: totalDeals,
+      tongGiaTriDeals: fmtMoney(totalDealsValue),
+      leadsTheoGiaiDoan: leadCountByStage,
+      dealsTheoGiaiDoan: Object.keys(dealCountByStage).map(stage => ({
+        giaiDoan: stage,
+        soLuong: dealCountByStage[stage],
+        giaTri: fmtMoney(dealValueByStage[stage])
+      })),
+      topLeadsMoi: leads.slice(0, 5).map((l: any) => ({
+        ten: l.name,
+        congTy: l.company || '—',
+        nguon: l.source || '—',
+        giaiDoan: l.stage?.name || '—',
+        nguoiPhuTrach: l.assignee?.full_name || '—'
+      })),
+      topDealsLon: deals
+        .sort((a: any, b: any) => (b.value || 0) - (a.value || 0))
+        .slice(0, 5)
+        .map((d: any) => ({
+          ten: d.title,
+          giaTri: fmtMoney(d.value || 0),
+          khachHang: d.customer?.name || '—',
+          giaiDoan: d.stage?.name || '—',
+          nguoiPhuTrach: d.assignee?.full_name || '—'
+        }))
+    };
   }
 };
 

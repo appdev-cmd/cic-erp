@@ -3,31 +3,31 @@ import type { OpenClawTool } from '../types';
 import { marketingToolsRegistry } from './marketingTools';
 
 import { searchContractsTool, getContractDetailTool, getContractStatsTool, getOverdueContractsTool, getContractExpiryTimelineTool } from './contract.tools';
-import { searchCustomersTool, getCustomer360Tool } from './customer.tools';
+import { searchCustomersTool, getCustomer360Tool, getCrmPipelineTool } from './customer.tools';
 import { searchProductsTool, getBrandsReportTool } from './product.tools';
 import { searchPaymentsTool, getDebtReportTool, getCashflowSummaryTool, getRevenueForecastTool, getExpenseBreakdownTool, getBudgetVarianceReportTool } from './finance.tools';
 import { searchEmployeesTool, getEmployeeRankingTool, getEmployeeWorkloadTool, getHrHeadcountStatsTool } from './hr.tools';
-import { createTaskAiTool, approveTaskTool, exportDocumentTool, sendNotificationEmailTool } from './system.tools';
+import { createTaskAiTool, approveTaskTool, exportDocumentTool, sendNotificationEmailTool, searchTasksTool } from './system.tools';
 import { getDashboardKpiTool, getComparativeReportTool, getUnitRankingTool, getDailyBriefingTool, getComprehensiveReportTool, getSmartInsightsTool } from './dashboard.tools';
 import { searchKnowledgeBaseTool, searchDocumentRegistryTool } from './knowledge.tools';
 import { delegateTaskTool } from './master.tools';
-import { createSmartPlanTool, analyzeBottleneckTool, forecastNextQuarterTool } from './planning.tools';
+import { createSmartPlanTool, analyzeBottleneckTool, forecastNextQuarterTool, getProjectStatusTool } from './planning.tools';
 import { getLeaveSummaryTool, getAttendanceReportTool, getContractLaborExpiryTool, getEmployeeProfile360Tool } from './hrExtended.tools';
 import { getRecruitmentPipelineTool, getSalaryInsightsTool, getPayrollSummaryTool, getOnboardingStatusTool } from './hrFinance.tools';
 
 export {
     searchContractsTool, getContractDetailTool, getContractStatsTool, getOverdueContractsTool, getContractExpiryTimelineTool,
-    searchCustomersTool, getCustomer360Tool,
+    searchCustomersTool, getCustomer360Tool, getCrmPipelineTool,
     searchProductsTool, getBrandsReportTool,
     searchPaymentsTool, getDebtReportTool, getCashflowSummaryTool, getRevenueForecastTool, getExpenseBreakdownTool, getBudgetVarianceReportTool,
     searchEmployeesTool, getEmployeeRankingTool, getEmployeeWorkloadTool, getHrHeadcountStatsTool,
     getLeaveSummaryTool, getAttendanceReportTool, getContractLaborExpiryTool, getEmployeeProfile360Tool,
     getRecruitmentPipelineTool, getSalaryInsightsTool, getPayrollSummaryTool, getOnboardingStatusTool,
-    createTaskAiTool, approveTaskTool, exportDocumentTool, sendNotificationEmailTool,
+    createTaskAiTool, approveTaskTool, exportDocumentTool, sendNotificationEmailTool, searchTasksTool,
     getDashboardKpiTool, getComparativeReportTool, getUnitRankingTool, getDailyBriefingTool, getComprehensiveReportTool, getSmartInsightsTool,
     searchKnowledgeBaseTool, searchDocumentRegistryTool,
     delegateTaskTool,
-    createSmartPlanTool, analyzeBottleneckTool, forecastNextQuarterTool,
+    createSmartPlanTool, analyzeBottleneckTool, forecastNextQuarterTool, getProjectStatusTool,
 };
 
 import { createGuardedTool } from '../permissionGuard';
@@ -79,4 +79,8 @@ export const erpToolsRegistry: OpenClawTool[] = [
   createGuardedTool(getSalaryInsightsTool),
   createGuardedTool(getPayrollSummaryTool),
   createGuardedTool(getOnboardingStatusTool),
+  // New Tools (Phase 2, 3 & 4 additions)
+  createGuardedTool(searchTasksTool),
+  createGuardedTool(getCrmPipelineTool),
+  createGuardedTool(getProjectStatusTool),
 ];

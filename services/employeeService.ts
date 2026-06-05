@@ -47,7 +47,9 @@ const mapEmployee = (s: any): Employee => {
         telegram: s.telegram || '',
         telegram_verified: s.telegram_verified || false,
         specialization: s.specialization || '',
-        certificates: s.certificates || ''
+        certificates: s.certificates || '',
+        hometown: s.hometown || '',
+        status: s.status || 'active'
     };
 };
 
@@ -164,7 +166,9 @@ export const EmployeeService = {
             // Additional fields
             telegram: payload.telegram,
             specialization: payload.specialization,
-            certificates: payload.certificates
+            certificates: payload.certificates,
+            hometown: payload.hometown,
+            status: payload.status || 'active'
         };
 
         const { data, error } = await supabase.from('employees').insert(dbPayload).select().single();
@@ -205,6 +209,8 @@ export const EmployeeService = {
         if (payload.telegram_verified !== undefined) dbPayload.telegram_verified = payload.telegram_verified;
         if (payload.specialization !== undefined) dbPayload.specialization = payload.specialization;
         if (payload.certificates !== undefined) dbPayload.certificates = payload.certificates;
+        if (payload.hometown !== undefined) dbPayload.hometown = payload.hometown;
+        if (payload.status !== undefined) dbPayload.status = payload.status;
 
         if (Object.keys(dbPayload).length === 0) {
             throw new Error('No fields to update');

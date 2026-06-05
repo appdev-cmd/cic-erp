@@ -1,138 +1,264 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
+import { useLayoutContext } from '../../../contexts/LayoutContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useSlidePanel } from '../../../contexts/SlidePanelContext';
+import { CrmDealService, CrmStageTemplateService } from '../../../services';
+import { CrmDeal, CrmStageTemplate } from '../../../types';
+import { toast } from 'sonner';
 import { CrmLayout } from '../CrmLayout';
-import { Search, Filter, Plus, DollarSign, LayoutGrid, List, Calendar as CalendarIcon } from 'lucide-react';
+import { LayoutGrid, List, Plus, Search, Briefcase, Filter, Trophy, XCircle, Users } from 'lucide-react';
+import DealsKanbanView from './DealsKanbanView';
+import DealsListView from './DealsListView';
+import DealDetailsPanel from './DealDetailsPanel';
+import { formatCurrency } from '../../../utils/formatters';
 
 export const DealsPage: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const { selectedUnit } = useLayoutContext();
+  const { profile } = useAuth();
+  const { openPanel, closePanel } = useSlidePanel();
+
+  const [deals, setDeals] = useState<CrmDeal[]>([]);
+  const [stages, setStages] = useState<CrmStageTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'negotiating' | 'won' | 'lost'>('all');
+  const { id: urlId } = useParams<{ id: string }>();
+  const initialUrlChecked = useRef(false);
 
-  // Mock data for initial structure
-  const stages = [
-    { id: '1', name: 'Cơ hội mới', color: '#FDE68A', count: 1, value: 50000000 },
-    { id: '2', name: 'Báo giá sơ bộ', color: '#FCD34D', count: 1, value: 120000000 },
-    { id: '3', name: 'Thương thảo', color: '#FBBF24', count: 0, value: 0 },
-    { id: '4', name: 'Chốt đơn (Won)', color: '#10B981', count: 1, value: 250000000 }
-  ];
+  useEffect(() => {
+    fetchData();
+  }, [selectedUnit]);
 
-  const deals = [
-    { id: '101', title: 'Cung cấp Phần mềm ERP - CIC', stageId: '1', amount: 50000000, company: 'Công ty Cổ phần Đầu tư CIC' },
-    { id: '102', title: 'Triển khai giải pháp số hóa BIM', stageId: '2', amount: 120000000, company: 'Tập đoàn Công nghệ Giga' },
-    { id: '103', title: 'Dịch vụ Đào tạo & Chuyển giao công nghệ', stageId: '4', amount: 250000000, company: 'Công ty Cổ phần Đầu tư CIC' }
-  ];
+  useEffect(() => {
+    if (!initialUrlChecked.current && deals.length > 0) {
+      if (urlId) {
+        window.history.replaceState(null, '', '/crm/deals');
+
+        if (urlId === 'new') {
+          handleDealClick();
+        } else {
+          const targetDeal = deals.find(d => d.id === urlId);
+          if (targetDeal) {
+            handleDealClick(targetDeal);
+          }
+        }
+        initialUrlChecked.current = true;
+      } else {
+        const params = new URLSearchParams(window.location.search);
+        const dealId = params.get('id');
+        const isNew = params.get('new');
+
+        if (dealId) {
+          const targetDeal = deals.find(d => d.id === dealId);
+          if (targetDeal) {
+            handleDealClick(targetDeal);
+            initialUrlChecked.current = true;
+          }
+        } else if (isNew === 'true') {
+          handleDealClick();
+          initialUrlChecked.current = true;
+        } else {
+          initialUrlChecked.current = true;
+        }
+      }
+    }
+  }, [deals, urlId]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [dealsData, stagesData] = await Promise.all([
+        CrmDealService.getAll(selectedUnit?.id === 'all' ? undefined : selectedUnit?.id),
+        CrmStageTemplateService.getAll('deal')
+      ]);
+
+      // Color map for deal stages
+      const colorMap: Record<string, string> = {
+        'Khách hàng tiềm năng': '#93C5FD',
+        'Đang thương lượng': '#3B82F6',
+        'Đề xuất': '#8B5CF6',
+        'Thương thảo hợp đồng': '#F59E0B',
+        'Thắng': '#10B981',
+        'Thua': '#EF4444',
+      };
+      const correctedStages = stagesData.map(s => ({ ...s, color: colorMap[s.name] || s.color }));
+
+      setDeals(dealsData);
+      setStages(correctedStages);
+    } catch (error: any) {
+      toast.error('Lỗi tải dữ liệu Deals: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDealClick = (deal?: CrmDeal) => {
+    openPanel({
+      title: deal ? 'Deal: ' + deal.title : 'Tạo Deal mới',
+      url: deal ? `/crm/deals/${deal.id}` : '/crm/deals/new',
+      icon: <Briefcase className="text-indigo-600 dark:text-indigo-400" size={20} />,
+      component: (
+        <DealDetailsPanel
+          deal={deal}
+          stages={stages}
+          onClose={() => {
+            closePanel();
+          }}
+          onSave={fetchData}
+        />
+      ),
+      width: '1000px'
+    });
+  };
+
+  // Client-side search filter
+  const filteredDeals = deals.filter(deal => {
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      const match =
+        deal.title?.toLowerCase().includes(lowerQuery) ||
+        deal.customer?.name?.toLowerCase().includes(lowerQuery) ||
+        deal.contact?.name?.toLowerCase().includes(lowerQuery) ||
+        deal.assignee?.name?.toLowerCase().includes(lowerQuery);
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  // Quick filter
+  const quickFilteredDeals = filteredDeals.filter(deal => {
+    switch (quickFilter) {
+      case 'negotiating':
+        return !deal.stage?.is_win && !deal.stage?.is_lose;
+      case 'won':
+        return !!deal.stage?.is_win;
+      case 'lost':
+        return !!deal.stage?.is_lose;
+      default:
+        return true;
+    }
+  });
+
+  // Stats
+  const totalAmount = filteredDeals.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const wonCount = filteredDeals.filter(d => d.stage?.is_win).length;
+  const lostCount = filteredDeals.filter(d => d.stage?.is_lose).length;
 
   return (
     <CrmLayout>
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col animate-in fade-in duration-350">
         {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shrink-0 gap-4">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+        <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 gap-4">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* Search */}
+            <div className="relative flex-1 sm:flex-initial">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Tìm kiếm Cơ hội..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Tìm deal, khách hàng..."
+                className="w-full sm:w-64 pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-200 focus:border-indigo-500 focus:outline-none transition-colors"
               />
             </div>
-            <button className="p-2 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors">
-              <Filter className="w-4 h-4" />
-            </button>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            {/* View Toggle */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-950 p-1 rounded-lg">
               <button
                 onClick={() => setViewMode('kanban')}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === 'kanban' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                className={`p-1.5 rounded-md transition-all cursor-pointer ${viewMode === 'kanban' ? 'bg-white dark:bg-slate-800 shadow-sm text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                title="Kanban View"
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                className={`p-1.5 rounded-md transition-all cursor-pointer ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 shadow-sm text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                title="List View"
               >
                 <List className="w-4 h-4" />
               </button>
             </div>
 
-            <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm">
+            {/* Create Deal Button */}
+            <button
+              onClick={() => handleDealClick()}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-colors shadow-sm shadow-indigo-100 dark:shadow-none cursor-pointer"
+            >
               <Plus className="w-4 h-4" />
-              Tạo Cơ hội mới
+              Tạo Deal mới
             </button>
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 min-h-0 flex flex-col bg-slate-50 dark:bg-slate-900 p-4 overflow-hidden">
-          {viewMode === 'kanban' ? (
-            <div className="flex h-full overflow-x-auto gap-4 pb-4">
-              {stages.map(stage => {
-                const stageDeals = deals.filter(d => d.stageId === stage.id);
-                return (
-                  <div key={stage.id} className="flex flex-col flex-1 min-w-0 bg-slate-100 dark:bg-slate-800 rounded-xl h-full">
-                    <div className="p-3 rounded-t-xl" style={{ backgroundColor: stage.color || '#3B82F6' }}>
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-bold text-white uppercase text-sm truncate drop-shadow-sm">
-                          {stage.name}
-                        </h3>
-                        <span className="text-xs font-medium text-white bg-white/20 px-2 py-0.5 rounded-full shadow-sm">
-                          {stageDeals.length}
-                        </span>
-                      </div>
-                      <div className="text-sm font-bold text-white/90 drop-shadow-sm">
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stage.value)}
-                      </div>
-                    </div>
+        {/* Quick Filter Tabs */}
+        <div className="flex items-center gap-1 px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 overflow-x-auto">
+          {[
+            { key: 'all' as const, label: 'Tất cả', icon: Briefcase, count: filteredDeals.length },
+            { key: 'negotiating' as const, label: 'Đang thương lượng', icon: Users },
+            { key: 'won' as const, label: 'Thắng', icon: Trophy, count: wonCount, highlight: wonCount > 0 },
+            { key: 'lost' as const, label: 'Thua', icon: XCircle, count: lostCount },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setQuickFilter(tab.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
+                quickFilter === tab.key
+                  ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              <tab.icon className="w-3.5 h-3.5" />
+              {tab.label}
+              {tab.count !== undefined && (
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  tab.highlight && quickFilter !== tab.key
+                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                    : quickFilter === tab.key
+                      ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
 
-                    <div className="flex-1 p-2 overflow-y-auto space-y-2">
-                      {stageDeals.map(deal => (
-                        <div key={deal.id} className="bg-white dark:bg-slate-800 p-3 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow cursor-pointer">
-                          <h4 className="font-medium text-slate-900 dark:text-slate-100 text-sm mb-2 line-clamp-2">
-                            {deal.title}
-                          </h4>
-                          <div className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 mb-2">
-                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(deal.amount)}
-                          </div>
-                          <div className="text-xs text-slate-600 dark:text-slate-400 truncate">
-                            {deal.company}
-                          </div>
-                        </div>
-                      ))}
-                      {stageDeals.length === 0 && (
-                        <div className="flex-1 min-h-[150px] flex items-center justify-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
-                          <span className="text-sm text-slate-400 dark:text-slate-500">Kéo thả vào đây</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Total pipeline value */}
+          <div className="ml-auto text-xs font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+            Pipeline: <span className="text-indigo-600 dark:text-indigo-400">{formatCurrency(totalAmount)}</span>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 min-h-0 flex flex-col bg-slate-50 dark:bg-slate-950 p-4 overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : (
-            <div className="flex-1 overflow-auto bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 uppercase">
-                  <tr>
-                    <th className="px-6 py-4 font-medium">Tên Cơ Hội</th>
-                    <th className="px-6 py-4 font-medium">Khách hàng</th>
-                    <th className="px-6 py-4 font-medium">Giá trị</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {deals.map(deal => (
-                    <tr key={deal.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                      <td className="px-6 py-4 text-indigo-600 dark:text-indigo-400 font-medium">{deal.title}</td>
-                      <td className="px-6 py-4 text-slate-700 dark:text-slate-300">{deal.company}</td>
-                      <td className="px-6 py-4 text-slate-900 dark:text-slate-100 font-medium">
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(deal.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              {viewMode === 'kanban' && (
+                <DealsKanbanView
+                  deals={quickFilteredDeals}
+                  stages={stages}
+                  onDealUpdated={fetchData}
+                  onDealClick={handleDealClick}
+                />
+              )}
+              {viewMode === 'list' && (
+                <div className="flex-1 overflow-auto">
+                  <DealsListView
+                    deals={quickFilteredDeals}
+                    onDealClick={handleDealClick}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
