@@ -33,7 +33,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     const [searchQuery, setSearchQuery] = useState('');
     const [unitFilter, setUnitFilter] = useState<string>('all');
     const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
-    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'resigned'>('active');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'probation' | 'resigned' | 'working'>('working');
 
     // Data state
     const [allPersonnel, setAllPersonnel] = useState<Employee[]>([]);
@@ -188,7 +188,12 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
         }
 
         // Filter by status
-        if (statusFilter !== 'all') {
+        if (statusFilter === 'working') {
+            filtered = filtered.filter(p => {
+                const s = p.status || 'active';
+                return s === 'active' || s === 'probation';
+            });
+        } else if (statusFilter !== 'all') {
             filtered = filtered.filter(p => (p.status || 'active') === statusFilter);
         }
 
@@ -362,7 +367,9 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                             onChange={(e) => setStatusFilter(e.target.value as any)}
                             className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-300 outline-none transition-all cursor-pointer"
                         >
-                            <option value="active">Đang làm việc</option>
+                            <option value="working">Đang làm việc & Thử việc</option>
+                            <option value="active">Chính thức</option>
+                            <option value="probation">Đang thử việc</option>
                             <option value="resigned">Đã nghỉ việc</option>
                             <option value="all">Tất cả trạng thái</option>
                         </select>
@@ -587,11 +594,15 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                                 <div className="truncate">
                                                     <div className="flex items-center gap-2">
                                                         <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">{person.name}</h3>
-                                                        {(person.status || 'active') === 'resigned' && (
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 shrink-0">
+                                                        {(person.status || 'active') === 'resigned' ? (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 shrink-0">
                                                                 Đã nghỉ
                                                             </span>
-                                                        )}
+                                                        ) : person.status === 'probation' ? (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 shrink-0">
+                                                                Thử việc
+                                                            </span>
+                                                        ) : null}
                                                     </div>
                                                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{person.position || person.roleCode || '—'}</p>
                                                 </div>
@@ -720,11 +731,15 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                                         <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight">
                                                             {person.name}
                                                         </h3>
-                                                        {(person.status || 'active') === 'resigned' && (
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 shrink-0">
+                                                        {(person.status || 'active') === 'resigned' ? (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400 shrink-0">
                                                                 Đã nghỉ
                                                             </span>
-                                                        )}
+                                                        ) : person.status === 'probation' ? (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 shrink-0">
+                                                                Thử việc
+                                                            </span>
+                                                        ) : null}
                                                     </div>
                                                     <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
                                                         {person.position || person.roleCode || 'Nhân viên'}

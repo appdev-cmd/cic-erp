@@ -320,10 +320,15 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
           ? { completed_at: null as any, is_opportunity: null as any, completion_result: null as any }
           : {};
 
+      const notesPayload: Partial<CrmLead> = note
+        ? { transition_notes: { ...(lead.transition_notes || {}), [pendingStage.name]: note } }
+        : {};
+
       await CrmLeadService.update(lead.id, {
         ...updatedData,
         ...levelPayload,
         ...losePayload,
+        ...notesPayload,
         stage_id: pendingStage.id,
       });
       setStageId(pendingStage.id);
@@ -399,7 +404,10 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
     if (!lead || !pendingLevelChange) return;
     const level = pendingLevelChange;
     try {
-      await CrmLeadService.update(lead.id, { potential_level: level });
+      const notesPayload: Partial<CrmLead> = note
+        ? { transition_notes: { ...(lead.transition_notes || {}), [`level:${level}`]: note } }
+        : {};
+      await CrmLeadService.update(lead.id, { potential_level: level, ...notesPayload });
       setPotentialLevel(level);
       try {
         await CrmActivityService.create({
@@ -1503,6 +1511,7 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
           onConfirm={handleStageTransitionConfirm}
           targetStage={pendingStage}
           lead={lead}
+          initialNote={(lead.transition_notes as any)?.[pendingStage.name] || ''}
         />
       )}
 
@@ -1517,6 +1526,7 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
           title="Cập nhật mức tiềm năng"
           noteLabel={`Ghi chú đánh giá → ${POTENTIAL_LEVEL_LABELS[pendingLevelChange]}`}
           confirmLabel="Lưu mức tiềm năng"
+          initialNote={(lead.transition_notes as any)?.[`level:${pendingLevelChange}`] || ''}
         />
       )}
 

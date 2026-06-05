@@ -117,7 +117,10 @@ const LeadsKanbanView: React.FC<Props> = ({ leads, stages, onLeadUpdated, onLead
         : leavingPool
           ? { completed_at: null as any, is_opportunity: null as any, completion_result: null as any }
           : {};
-      await CrmLeadService.update(lead.id, { ...updatedData, ...losePayload, stage_id: stage.id });
+      const notesPayload: Partial<CrmLead> = note
+        ? { transition_notes: { ...(lead.transition_notes || {}), [stage.name]: note } }
+        : {};
+      await CrmLeadService.update(lead.id, { ...updatedData, ...losePayload, ...notesPayload, stage_id: stage.id });
 
       // Ghi nhận ghi chú vào lịch sử
       if (note) {
@@ -351,6 +354,7 @@ const LeadsKanbanView: React.FC<Props> = ({ leads, stages, onLeadUpdated, onLead
         onConfirm={handleTransitionConfirm}
         targetStage={pendingTransition.stage}
         lead={pendingTransition.lead}
+        initialNote={(pendingTransition.lead.transition_notes as any)?.[pendingTransition.stage.name] || ''}
       />
     )}
     </>

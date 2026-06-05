@@ -948,9 +948,15 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
                                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold uppercase ${
                                         person.status === 'resigned'
                                             ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-                                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                            : person.status === 'probation'
+                                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                     }`}>
-                                        {person.status === 'resigned' ? 'Đã nghỉ việc' : 'Đang làm việc'}
+                                        {person.status === 'resigned' 
+                                            ? 'Đã nghỉ việc' 
+                                            : person.status === 'probation' 
+                                                ? 'Đang thử việc' 
+                                                : 'Đang làm việc'}
                                     </span>
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400"><Building size={12} />{unit?.name || 'N/A'}</span>
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-xs font-medium text-indigo-600 dark:text-indigo-400"><FileText size={12} />{contracts.length} hợp đồng</span>

@@ -252,7 +252,7 @@ export const recruitmentService = {
             phone: data.candidate.phone,
             employee_code: `NV${Math.floor(1000 + Math.random() * 9000)}`,
             position: data.job_opening?.title || 'New Hire',
-            status: 'active',
+            status: 'probation',
             join_date: new Date().toISOString().split('T')[0]
           })
           .select()

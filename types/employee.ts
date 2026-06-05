@@ -33,7 +33,7 @@ export interface Employee {
   contractType?: string; // Loại hợp đồng LĐ
   contractEndDate?: string; // Ngày hết hạn HĐ
   hometown?: string; // Quê quán
-  status?: 'active' | 'resigned'; // Trạng thái làm việc
+  status?: 'active' | 'probation' | 'resigned'; // Trạng thái làm việc
 }
 
 export type EmployeeTimelineType = 'promotion' | 'reward' | 'discipline' | 'salary_change' | 'other';

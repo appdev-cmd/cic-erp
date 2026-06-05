@@ -23,7 +23,8 @@ ALTER TABLE crm_leads
   ADD COLUMN IF NOT EXISTS ai_score_contribution INT DEFAULT 0,
   ADD COLUMN IF NOT EXISTS potential_level  TEXT DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS address          TEXT DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS contact_position TEXT DEFAULT NULL;
+  ADD COLUMN IF NOT EXISTS contact_position TEXT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS transition_notes JSONB DEFAULT '{}'::jsonb;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'crm_leads_region_check') THEN

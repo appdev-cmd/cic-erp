@@ -8,17 +8,24 @@ import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 import {
     User, CalendarDays, Clock, FileText, Settings,
-    ChevronRight, MapPin, Briefcase, Mail, Phone, ExternalLink, Loader2, Home, CreditCard
+    ChevronRight, MapPin, Briefcase, Mail, Phone, ExternalLink, Loader2, Home, CreditCard,
+    CheckCircle2, ListChecks, GraduationCap
 } from 'lucide-react';
 import { EmployeeService } from '../../services';
 import { Employee } from '../../types';
 import DateInput from '../ui/DateInput';
+import { OnboardingService } from '../../services/onboardingService';
 
 export const SelfServicePortal: React.FC = () => {
     const { profile } = useAuth();
-    const [activeTab, setActiveTab] = useState<'profile' | 'payslips' | 'assets'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'payslips' | 'assets' | 'onboarding'>('profile');
     const [employee, setEmployee] = useState<Employee | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Onboarding states
+    const [onboardingChecklist, setOnboardingChecklist] = useState<any>(null);
+    const [onboardingItems, setOnboardingItems] = useState<any[]>([]);
+    const [assistingItems, setAssistingItems] = useState<any[]>([]);
 
     // Edit fields state
     const [name, setName] = useState('');
@@ -35,7 +42,7 @@ export const SelfServicePortal: React.FC = () => {
         }
         setIsLoading(true);
         try {
-            const data = await EmployeeService.getById(profile.employeeId);
+            const data = await EmployeeService.getById(profile!.employeeId);
             if (data) {
                 setEmployee(data);
                 setName(data.name || '');
@@ -52,8 +59,61 @@ export const SelfServicePortal: React.FC = () => {
         }
     };
 
+    const fetchOnboardingData = async () => {
+        if (!profile?.employeeId) return;
+        try {
+            const allChecklists = await OnboardingService.getChecklists();
+            // Find active onboarding checklist for this employee
+            const myChecklist = allChecklists.find(
+                c => c.employee_id === profile?.employeeId && c.status === 'in_progress'
+            );
+            if (myChecklist) {
+                setOnboardingChecklist(myChecklist);
+                const items = await OnboardingService.getChecklistItems(myChecklist.id);
+                setOnboardingItems(items);
+            } else {
+                setOnboardingChecklist(null);
+                setOnboardingItems([]);
+            }
+
+            // Find assisting items in active checklists for other employees
+            const activeOtherChecklists = allChecklists.filter(
+                c => c.status === 'in_progress' && c.employee_id !== profile?.employeeId
+            );
+            const allAssisting: any[] = [];
+            for (const cl of activeOtherChecklists) {
+                const items = await OnboardingService.getChecklistItems(cl.id);
+                const mine = items.filter(i => i.assignee_id === profile?.employeeId && i.status !== 'completed');
+                if (mine.length > 0) {
+                    mine.forEach(item => {
+                        allAssisting.push({
+                            ...item,
+                            new_hire_name: cl.employee_name,
+                            new_hire_code: cl.employee_code
+                        });
+                    });
+                }
+            }
+            setAssistingItems(allAssisting);
+        } catch (error) {
+            console.error('Error fetching onboarding data for portal:', error);
+        }
+    };
+
+    const handleToggleOnboardingItem = async (item: any) => {
+        const nextStatus = item.status === 'completed' ? 'pending' : 'completed';
+        try {
+            await OnboardingService.updateItemStatus(item.id, nextStatus);
+            toast.success('Cập nhật trạng thái nhiệm vụ thành công');
+            fetchOnboardingData();
+        } catch {
+            toast.error('Lỗi cập nhật trạng thái nhiệm vụ');
+        }
+    };
+
     useEffect(() => {
         fetchEmployeeData();
+        fetchOnboardingData();
     }, [profile?.employeeId]);
 
     const handleSave = async (e: React.FormEvent) => {
@@ -67,9 +127,9 @@ export const SelfServicePortal: React.FC = () => {
 
         setIsSaving(true);
         try {
-            await EmployeeService.update(profile.employeeId, {
+            await EmployeeService.update(profile!.employeeId, {
                 name: name.trim(),
-                dateOfBirth: dateOfBirth || null,
+                dateOfBirth: dateOfBirth || undefined,
                 hometown: hometown.trim(),
                 idNumber: idNumber.trim(),
                 address: address.trim()
@@ -131,6 +191,9 @@ export const SelfServicePortal: React.FC = () => {
                     <button onClick={() => setActiveTab('profile')} className={`flex-1 flex justify-center py-4 text-sm font-bold border-b-2 transition ${activeTab === 'profile' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Thông tin cá nhân</button>
                     <button onClick={() => setActiveTab('payslips')} className={`flex-1 flex justify-center py-4 text-sm font-bold border-b-2 transition ${activeTab === 'payslips' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Lịch sử nhận lương</button>
                     <button onClick={() => setActiveTab('assets')} className={`flex-1 flex justify-center py-4 text-sm font-bold border-b-2 transition ${activeTab === 'assets' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Tài sản cấp phát</button>
+                    {(onboardingChecklist || assistingItems.length > 0) && (
+                        <button onClick={() => setActiveTab('onboarding')} className={`flex-1 flex justify-center py-4 text-sm font-bold border-b-2 transition ${activeTab === 'onboarding' ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Nhiệm vụ Hội nhập</button>
+                    )}
                 </div>
 
                 <div className="p-6">
@@ -244,6 +307,86 @@ export const SelfServicePortal: React.FC = () => {
                             <Briefcase size={48} className="mx-auto text-slate-300 dark:text-slate-700 mb-4" />
                             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-200">Tài sản hiện tại trống</h3>
                             <p className="text-sm text-slate-500 mt-1">Bạn chưa được Cấp phát bất kỳ Laptop/Thiết bị nào do công ty quản lý.</p>
+                        </div>
+                    )}
+                    {activeTab === 'onboarding' && (
+                        <div className="space-y-6">
+                            {onboardingChecklist && (
+                                <div className="space-y-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b dark:border-slate-800 pb-3">
+                                        <div className="text-left">
+                                            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                                <GraduationCap className="text-fuchsia-500" size={18} />
+                                                Lộ trình hội nhập của bạn
+                                            </h3>
+                                            <p className="text-xs text-slate-500 mt-0.5">Vui lòng thực hiện các công việc cần thiết chuẩn bị nhận việc chính thức.</p>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400">
+                                            <span>Tiến độ hoàn thành:</span>
+                                            <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{onboardingChecklist.progress}%</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Progress bar */}
+                                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                        <div className="h-full bg-indigo-500 rounded-full transition-all duration-305" style={{ width: `${onboardingChecklist.progress}%` }} />
+                                    </div>
+
+                                    <div className="space-y-3 mt-4">
+                                        {onboardingItems.map(item => {
+                                            const canToggle = item.assignee_id === profile?.employeeId || !item.assignee_id;
+                                            return (
+                                                <div key={item.id} className={`flex items-start gap-4 p-4 rounded-xl border ${item.status === 'completed' ? 'bg-slate-50/50 dark:bg-slate-800/20 border-slate-200/50 dark:border-slate-800/50 opacity-60' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm'}`}>
+                                                    <button
+                                                        onClick={() => canToggle && handleToggleOnboardingItem(item)}
+                                                        disabled={!canToggle}
+                                                        className={`mt-0.5 rounded-full p-0.5 flex-shrink-0 transition-colors ${item.status === 'completed' ? 'text-emerald-500' : canToggle ? 'text-slate-350 dark:text-slate-650 hover:text-emerald-555 cursor-pointer' : 'text-slate-200 cursor-not-allowed'}`}
+                                                    >
+                                                        <CheckCircle2 size={22} fill="currentColor" className="text-white dark:text-slate-900" />
+                                                    </button>
+                                                    <div className="flex-1 min-w-0 text-left">
+                                                        <h4 className={`text-sm font-bold ${item.status === 'completed' ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-850 dark:text-slate-200'}`}>{item.title}</h4>
+                                                        {item.notes && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{item.notes}</p>}
+                                                        <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
+                                                            <User size={10} /> Phụ trách: <span className="font-bold">{item.assignee_name || 'HR Team'}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {assistingItems.length > 0 && (
+                                <div className="space-y-4 pt-4 border-t dark:border-slate-800">
+                                    <div className="border-b dark:border-slate-800 pb-3 text-left">
+                                        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                            <ListChecks className="text-emerald-500" size={18} />
+                                            Nhiệm vụ hỗ trợ đồng nghiệp mới
+                                        </h3>
+                                        <p className="text-xs text-slate-500 mt-0.5">Các công việc bạn được phân công hỗ trợ hoặc làm Buddy cho nhân sự mới.</p>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {assistingItems.map(item => (
+                                            <div key={item.id} className="flex items-start gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+                                                <button
+                                                    onClick={() => handleToggleOnboardingItem(item)}
+                                                    className="mt-0.5 rounded-full p-0.5 flex-shrink-0 text-slate-350 dark:text-slate-650 hover:text-emerald-555 transition cursor-pointer"
+                                                >
+                                                    <CheckCircle2 size={22} fill="currentColor" className="text-white dark:text-slate-900" />
+                                                </button>
+                                                <div className="flex-1 min-w-0 text-left">
+                                                    <span className="inline-block px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[9px] font-bold rounded uppercase tracking-wider mb-2">Hỗ trợ: {item.new_hire_name} ({item.new_hire_code})</span>
+                                                    <h4 className="text-sm font-bold text-slate-850 dark:text-slate-200">{item.title}</h4>
+                                                    {item.notes && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{item.notes}</p>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

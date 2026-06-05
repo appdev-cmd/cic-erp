@@ -22,6 +22,8 @@ interface StageTransitionModalProps {
   title?: string;
   noteLabel?: string;
   confirmLabel?: string;
+  /** Ghi chú cũ điền sẵn (khi quay lại trạng thái/mức đã từng qua). */
+  initialNote?: string;
 }
 
 const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
@@ -33,6 +35,7 @@ const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
   title,
   noteLabel,
   confirmLabel,
+  initialNote,
 }) => {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [note, setNote] = useState('');
@@ -64,9 +67,9 @@ const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
         }
       });
       setFormData(initial);
-      setNote('');
+      setNote(initialNote || '');
     }
-  }, [isOpen, lead, requiredFields]);
+  }, [isOpen, lead, requiredFields, initialNote]);
 
   const allFieldsFilled = useMemo(() => {
     return requiredFields.every((field) => {
@@ -249,6 +252,11 @@ const StageTransitionModal: React.FC<StageTransitionModalProps> = ({
                 rows={3}
                 className={inputCls + ' resize-none'}
               />
+              {initialNote && (
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  Đã điền sẵn lý do từ lần trước — giữ nguyên hoặc chỉnh sửa nếu cần.
+                </p>
+              )}
             </div>
           )}
         </div>

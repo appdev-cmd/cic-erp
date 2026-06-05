@@ -5,6 +5,7 @@ interface DateInputProps {
     onChange: (value: string) => void;
     placeholder?: string;
     className?: string;
+    readOnly?: boolean;
 }
 
 /**
@@ -12,7 +13,7 @@ interface DateInputProps {
  * Internally stores YYYY-MM-DD for DB compatibility.
  * Calendar icon button opens native date picker.
  */
-const DateInput: React.FC<DateInputProps> = ({ value, onChange, placeholder = 'dd/mm/yyyy', className = '' }) => {
+const DateInput: React.FC<DateInputProps> = ({ value, onChange, placeholder = 'dd/mm/yyyy', className = '', readOnly = false }) => {
     const hiddenRef = useRef<HTMLInputElement>(null);
 
     // Convert YYYY-MM-DD → dd/mm/yyyy for display
@@ -85,12 +86,14 @@ const DateInput: React.FC<DateInputProps> = ({ value, onChange, placeholder = 'd
                 placeholder={placeholder}
                 className={className}
                 maxLength={10}
+                readOnly={readOnly}
             />
             {/* Calendar icon button to open native picker */}
             <button
                 type="button"
                 onClick={openPicker}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                disabled={readOnly}
+                className={`absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 dark:hover:text-slate-300 transition-colors ${readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
                 tabIndex={-1}
             >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

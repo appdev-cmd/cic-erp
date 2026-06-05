@@ -9,7 +9,10 @@
 ALTER TABLE crm_leads
   ADD COLUMN IF NOT EXISTS potential_level  TEXT DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS address          TEXT DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS contact_position TEXT DEFAULT NULL;
+  ADD COLUMN IF NOT EXISTS contact_position TEXT DEFAULT NULL,
+  -- Lưu ghi chú gần nhất theo từng trạng thái/mức đã chuyển (key = tên stage hoặc 'level:<mức>')
+  -- để điền sẵn khi quay lại trạng thái đã từng qua.
+  ADD COLUMN IF NOT EXISTS transition_notes JSONB DEFAULT '{}'::jsonb;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'crm_leads_potential_level_check') THEN

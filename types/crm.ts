@@ -144,6 +144,8 @@ export interface CrmLead {
   // Thông tin bắt buộc khi sang "Tiềm năng cao"
   address?: string;          // địa chỉ công ty
   contact_position?: string; // chức danh liên hệ chính
+  // Ghi chú gần nhất theo từng trạng thái/mức (key = tên stage hoặc 'level:<mức>')
+  transition_notes?: Record<string, string>;
   assigned_to?: string;
   unit_id?: string;
   created_by?: string;

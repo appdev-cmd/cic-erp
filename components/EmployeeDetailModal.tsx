@@ -86,9 +86,15 @@ const EmployeeDetailModal: React.FC<EmployeeDetailModalProps> = ({ isOpen, onClo
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                                     employee.status === 'resigned' 
                                         ? 'bg-rose-500 text-white' 
-                                        : 'bg-emerald-500 text-white'
+                                        : employee.status === 'probation'
+                                            ? 'bg-amber-500 text-white'
+                                            : 'bg-emerald-500 text-white'
                                 }`}>
-                                    {employee.status === 'resigned' ? 'Đã nghỉ việc' : 'Đang làm việc'}
+                                    {employee.status === 'resigned' 
+                                        ? 'Đã nghỉ việc' 
+                                        : employee.status === 'probation'
+                                            ? 'Đang thử việc'
+                                            : 'Đang làm việc'}
                                 </span>
                                 {employee.employeeCode && (
                                     <span className="px-2 py-0.5 bg-white/20 rounded text-xs">{employee.employeeCode}</span>

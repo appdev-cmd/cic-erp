@@ -188,6 +188,7 @@ const BasicInfoSection: React.FC<FormSectionProps> = ({ formData, setFormData, u
                         className={`w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500 ${readOnly ? disabledClass : ''}`}
                     >
                         <option value="active">Đang làm việc</option>
+                        <option value="probation">Đang thử việc</option>
                         <option value="resigned">Đã nghỉ việc</option>
                     </select>
                 </div>

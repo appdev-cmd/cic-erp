@@ -27,7 +27,7 @@ export interface FormData {
     contractType: string;
     contractEndDate: string;
     hometown: string;
-    status: 'active' | 'resigned';
+    status: 'active' | 'probation' | 'resigned';
     target: { signing: number; revenue: number; adminProfit: number; revProfit: number; cash: number };
 }
 

@@ -1151,7 +1151,11 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
                       onboard_date: offerData.onboard_date
                     } : a));
                     setShowOfferModal(false);
-                    toast.success('Đã cập nhật trạng thái thành công');
+                    if (offerData.targetStage === 'hired') {
+                      toast.success('Đã tuyển thành công! Hệ thống đã tự động tạo hồ sơ nhân viên và khởi chạy quy trình hội nhập.');
+                    } else {
+                      toast.success('Đã cập nhật trạng thái thành công');
+                    }
                   } catch (e) {
                     console.error(e);
                     toast.error('Có lỗi xảy ra khi cập nhật');
