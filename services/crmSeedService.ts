@@ -309,12 +309,16 @@ export const CrmSeedService = {
         const phone = '09' + Math.floor(10000000 + Math.random() * 90000000).toString();
         const email = `test_lead_${i}@example.com`;
 
-        // Ghi nhận completion theo stage cuối (Bitrix24-style)
+        // Ghi nhận completion + mức tiềm năng theo stage cuối (Bitrix24-style)
         let completion: Partial<CrmLead> = {};
-        if (stage_id === stageTiemNang) {
-          completion = { is_opportunity: true, completion_result: 'deal', completed_at: createdAtDate.toISOString() };
+        if (stage_id === stageXuLy) {
+          // Lead đang xử lý: gán mức tiềm năng mẫu (rất thấp/thấp/trung bình) để demo badge
+          const inProgressLevels = ['very_low', 'low', 'medium'] as const;
+          completion = { potential_level: inProgressLevels[i % inProgressLevels.length] };
+        } else if (stage_id === stageTiemNang) {
+          completion = { potential_level: 'high', is_opportunity: true, completion_result: 'deal', completed_at: createdAtDate.toISOString() };
         } else if (stage_id === stageKhongTiemNang) {
-          completion = { is_opportunity: false, completion_result: 'unqualified', completion_note: 'Không đủ điều kiện / không có nhu cầu SPDV của CIC', completed_at: createdAtDate.toISOString() };
+          completion = { potential_level: 'none', is_opportunity: false, completion_result: 'unqualified', completion_note: 'Không đủ điều kiện / không có nhu cầu SPDV của CIC', completed_at: createdAtDate.toISOString() };
         }
 
         additionalLeads.push({

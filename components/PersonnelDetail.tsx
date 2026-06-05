@@ -101,7 +101,7 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
 
     const isHR = profile?.role === 'Admin' || profile?.role === 'Leadership' || 
                  (['AdminUnit', 'UnitLeader'].includes(profile?.role || '') && 
-                  ['HCNS', 'TH'].includes(profile?.unitCode || ''));
+                  ['HCNS', 'TH'].includes((profile?.unitCode || '').toUpperCase()));
     const isSelf = !!person && (profile?.employeeId === person.id || profile?.email === person.email);
     const isAllowedToEdit = isHR || isSelf;
 

@@ -83,7 +83,7 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
     const isSelfEdit = !!profile && !!initialData && (profile.employeeId === initialData.id || profile.email === initialData.email);
     const isHR = profile?.role === 'Admin' || profile?.role === 'Leadership' || 
                  (['AdminUnit', 'UnitLeader'].includes(profile?.role || '') && 
-                  ['HCNS', 'TH'].includes(profile?.unitCode || ''));
+                  ['HCNS', 'TH'].includes((profile?.unitCode || '').toUpperCase()));
     const isActualSelfEdit = isSelfEdit && !isHR;
 
     // Fetch units on open

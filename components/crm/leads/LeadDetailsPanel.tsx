@@ -66,6 +66,9 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [sourceDetail, setSourceDetail] = useState('');
   const [region, setRegion] = useState<RegionType>('unknown');
+  const [address, setAddress] = useState('');
+  const [contactPosition, setContactPosition] = useState('');
+  const [potentialLevel, setPotentialLevel] = useState<PotentialLevel | undefined>(undefined);
   const [claimedName, setClaimedName] = useState<string | null>(null); // optimistic sau khi tự nhận
 
   // Duplicate detection
@@ -95,6 +98,9 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
       setAssignedTo(lead.assigned_to || null);
       setSourceDetail((lead as any).source_detail || '');
       setRegion(((lead as any).region as RegionType) || 'unknown');
+      setAddress(lead.address || '');
+      setContactPosition(lead.contact_position || '');
+      setPotentialLevel(lead.potential_level);
       
       const parsedProducts = (lead.products || []).map((p: any) => ({
         id: p.id || Math.random().toString(36).substring(2, 9),
@@ -150,6 +156,9 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
       setActivities([]);
       setSourceDetail('');
       setRegion('unknown');
+      setAddress('');
+      setContactPosition('');
+      setPotentialLevel(undefined);
       setDuplicateWarning([]);
     }
   }, [lead, stages]);
@@ -257,25 +266,28 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
     if (targetStage.id === stageId) return; // Same stage — no-op
 
     const action = resolveStageAction(lead, targetStage);
-    if (action === 'complete') {
-      // Stage "Tiềm năng cao" (win) → Open CompleteLeadModal
-      setShowCompleteModal(true);
-    } else if (action === 'transition') {
-      // Missing required fields, or lose stage (needs reason) → StageTransitionModal
+    if (action === 'transition') {
+      // Cần field bắt buộc / ghi chú / lý do đóng → StageTransitionModal
       setPendingStage(targetStage);
       setShowTransitionModal(true);
     } else {
-      // 'direct' — đủ điều kiện / lùi stage → cập nhật ngay
+      // 'direct' — lùi về "Mới"; nếu rời ao Không tiềm năng thì xoá dấu hoàn tất
       setStageId(targetStage.id);
-      handleAutoSaveStage(targetStage.id);
+      handleAutoSaveStage(targetStage);
     }
   };
 
+  const currentStageName = () => stages.find(s => s.id === stageId)?.name || '';
+
   // Auto-save stage change (used for backward transitions)
-  const handleAutoSaveStage = async (newStageId: string) => {
+  const handleAutoSaveStage = async (targetStage: CrmStageTemplate) => {
     if (!lead) return;
     try {
-      await CrmLeadService.update(lead.id, { stage_id: newStageId });
+      const leavingPool = isLoseStage(currentStageName()) && !isLoseStage(targetStage.name);
+      const exitPool: Partial<CrmLead> = leavingPool
+        ? { completed_at: null as any, is_opportunity: null as any, completion_result: null as any }
+        : {};
+      await CrmLeadService.update(lead.id, { ...exitPool, stage_id: targetStage.id });
       toast.success('Đã cập nhật trạng thái');
       onSave();
     } catch (err: any) {
@@ -284,32 +296,58 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
   };
 
   // Callback from StageTransitionModal: fields validated, save & move
-  const handleStageTransitionConfirm = async (updatedData: Partial<CrmLead>) => {
+  const handleStageTransitionConfirm = async (updatedData: Partial<CrmLead>, note: string) => {
     if (!lead || !pendingStage) return;
     try {
-      // Lose stages → record completion bookkeeping (closed, not an opportunity)
-      const losePayload: Partial<CrmLead> = isLoseStage(pendingStage.name)
+      const losing = isLoseStage(pendingStage.name);
+      const leavingPool = isLoseStage(currentStageName()) && !losing;
+
+      // Đồng bộ potential_level theo stage đích
+      const levelPayload: Partial<CrmLead> = isHighPotentialStage(pendingStage.name)
+        ? { potential_level: 'high' }
+        : losing
+          ? { potential_level: 'none' }
+          : {};
+
+      const losePayload: Partial<CrmLead> = losing
         ? {
             is_opportunity: false,
             completed_at: new Date().toISOString(),
             completion_result: pendingStage.name.toLowerCase().includes('mất') ? 'lost' : 'unqualified',
+            completion_note: note,
           }
-        : {};
+        : leavingPool
+          ? { completed_at: null as any, is_opportunity: null as any, completion_result: null as any }
+          : {};
 
-      // Save lead with updated fields + new stage
       await CrmLeadService.update(lead.id, {
         ...updatedData,
+        ...levelPayload,
         ...losePayload,
         stage_id: pendingStage.id,
       });
       setStageId(pendingStage.id);
+      if (levelPayload.potential_level) setPotentialLevel(levelPayload.potential_level);
       // Update local state with the validated fields
       if (updatedData.source) setSource(updatedData.source);
       if (updatedData.company_name) setCompanyName(updatedData.company_name);
       if (updatedData.name) setName(updatedData.name);
       if (updatedData.email) setEmail(updatedData.email);
       if (updatedData.phone) setPhone(updatedData.phone);
-      
+      if ((updatedData as any).address) setAddress((updatedData as any).address);
+      if ((updatedData as any).contact_position) setContactPosition((updatedData as any).contact_position);
+
+      // Ghi chú vào lịch sử
+      if (note) {
+        try {
+          await CrmActivityService.create({
+            lead_id: lead.id,
+            activity_type: 'Note',
+            description: `Chuyển sang "${pendingStage.name}": ${note}`,
+          });
+        } catch (_) { /* không chặn luồng chính */ }
+      }
+
       toast.success(`Đã chuyển sang "${pendingStage.name}"`);
       onSave();
     } catch (err: any) {
@@ -317,6 +355,64 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
     } finally {
       setShowTransitionModal(false);
       setPendingStage(null);
+    }
+  };
+
+  // ── Mức tiềm năng (selector trong "Đang xử lý") ──────────────────
+  const handlePotentialLevelSelect = (level: PotentialLevel) => {
+    if (!lead || level === potentialLevel) return;
+
+    if (level === 'high' || level === 'none') {
+      // Đổi stage (qua modal gating đủ thông tin / lý do đóng)
+      const target = mapPotentialLevelToStage(level, stages);
+      if (!target) {
+        toast.error('Không tìm thấy trạng thái đích.');
+        return;
+      }
+      setPendingStage(target);
+      setShowTransitionModal(true);
+      return;
+    }
+
+    // Mức trong "Đang xử lý": nâng mức bắt buộc ghi chú; hạ mức cập nhật thẳng
+    if (isLevelUp(potentialLevel, level)) {
+      setPendingLevelChange(level);
+    } else {
+      void saveLevelDirect(level);
+    }
+  };
+
+  const saveLevelDirect = async (level: PotentialLevel) => {
+    if (!lead) return;
+    try {
+      await CrmLeadService.update(lead.id, { potential_level: level });
+      setPotentialLevel(level);
+      toast.success(`Đã cập nhật mức: ${POTENTIAL_LEVEL_LABELS[level]}`);
+      onSave();
+    } catch (err: any) {
+      toast.error('Lỗi cập nhật mức tiềm năng: ' + err.message);
+    }
+  };
+
+  const handleLevelChangeConfirm = async (_updated: Partial<CrmLead>, note: string) => {
+    if (!lead || !pendingLevelChange) return;
+    const level = pendingLevelChange;
+    try {
+      await CrmLeadService.update(lead.id, { potential_level: level });
+      setPotentialLevel(level);
+      try {
+        await CrmActivityService.create({
+          lead_id: lead.id,
+          activity_type: 'Note',
+          description: `Đánh giá mức tiềm năng → ${POTENTIAL_LEVEL_LABELS[level]}: ${note}`,
+        });
+      } catch (_) { /* ignore */ }
+      toast.success(`Đã nâng mức: ${POTENTIAL_LEVEL_LABELS[level]}`);
+      onSave();
+    } catch (err: any) {
+      toast.error('Lỗi cập nhật mức tiềm năng: ' + err.message);
+    } finally {
+      setPendingLevelChange(null);
     }
   };
 
@@ -393,6 +489,9 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
         source: source || undefined,
         source_detail: sourceDetail || undefined,
         region: region || 'unknown',
+        address: address || undefined,
+        contact_position: contactPosition || undefined,
+        potential_level: potentialLevel,
         stage_id: stageId || undefined,
         expected_value: totalExpectedValue,
         assigned_to: assignedTo || undefined,
@@ -601,14 +700,16 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
 
         {/* Action Shortcuts */}
         <div className="flex items-center gap-2.5 pr-8 shrink-0">
-          <button 
-            onClick={() => setShowCompleteModal(true)}
-            disabled={!lead}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-violet-500 hover:bg-violet-600 dark:bg-violet-600 dark:hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
-          >
-            <ArrowRightCircle size={14} />
-            HOÀN THÀNH
-          </button>
+          {/* CHUYỂN ĐỔI — chỉ hiện khi lead ở stage "Tiềm năng cao" */}
+          {lead && isHighPotentialStage(currentStageName()) && (
+            <button
+              onClick={() => setShowCompleteModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-violet-500 hover:bg-violet-600 dark:bg-violet-600 dark:hover:bg-violet-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
+            >
+              <ArrowRightCircle size={14} />
+              CHUYỂN ĐỔI
+            </button>
+          )}
         </div>
       </div>
 
@@ -653,6 +754,35 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
           </div>
         </div>
       </div>
+
+      {/* 2b. Mức tiềm năng — chỉ hiện ở "Đang xử lý" / "Tiềm năng cao" */}
+      {lead && (isInProgressStage(currentStageName()) || isHighPotentialStage(currentStageName())) && (
+        <div className="px-6 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 flex items-center gap-3 overflow-x-auto select-scrollbar-none">
+          <span className="flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider shrink-0">
+            <TrendingUp size={13} /> Mức tiềm năng
+          </span>
+          <div className="flex items-center gap-1.5">
+            {(['very_low', 'low', 'medium', 'high', 'none'] as PotentialLevel[]).map((lvl) => {
+              const active = potentialLevel === lvl;
+              return (
+                <button
+                  key={lvl}
+                  type="button"
+                  onClick={() => handlePotentialLevelSelect(lvl)}
+                  className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer whitespace-nowrap ${
+                    active
+                      ? 'text-white border-transparent'
+                      : 'text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                  style={active ? { backgroundColor: POTENTIAL_LEVEL_COLORS[lvl] } : undefined}
+                >
+                  {POTENTIAL_LEVEL_LABELS[lvl]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 3. Tab slide bar */}
       <div className="px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
@@ -746,6 +876,7 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
                              className="bg-transparent border-none p-0 text-[15px] font-medium text-sky-600 dark:text-sky-400 focus:ring-0 w-full"
                            />
                            <div className="text-[13px] text-slate-500 mt-1 space-y-1">
+                             <input type="text" value={contactPosition} onChange={e => setContactPosition(e.target.value)} placeholder="Chức danh (vd: Trưởng phòng Kỹ thuật)" className="bg-transparent border-none p-0 w-full focus:ring-0 text-slate-500 placeholder:text-slate-300"/>
                              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Số điện thoại *" className="bg-transparent border-none p-0 w-full focus:ring-0 text-slate-500 placeholder:text-slate-300"/>
                              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email *" className="bg-transparent border-none p-0 w-full focus:ring-0 text-slate-500 placeholder:text-slate-300"/>
                            </div>
@@ -770,12 +901,19 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
                                 </a>
                               )}
                             </div>
-                           <input 
-                             type="text" 
-                             value={companyName} 
+                           <input
+                             type="text"
+                             value={companyName}
                              onChange={e => setCompanyName(e.target.value)}
                              placeholder="Nhập tên công ty..."
                              className="bg-transparent border-none p-0 text-[15px] font-medium text-slate-900 dark:text-slate-100 focus:ring-0 w-full"
+                           />
+                           <input
+                             type="text"
+                             value={address}
+                             onChange={e => setAddress(e.target.value)}
+                             placeholder="Địa chỉ công ty..."
+                             className="bg-transparent border-none p-0 mt-1 text-[13px] text-slate-500 focus:ring-0 w-full placeholder:text-slate-300"
                            />
                          </div>
                          <div className="flex gap-2.5 text-slate-300 dark:text-slate-600 pt-4">
@@ -1367,7 +1505,21 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
         />
       )}
 
-      {/* Complete Lead Modal (final stage — Bitrix24-style) */}
+      {/* Mức tiềm năng — nâng mức trong "Đang xử lý" (bắt buộc ghi chú, không đổi stage) */}
+      {lead && pendingLevelChange && mapPotentialLevelToStage(pendingLevelChange, stages) && (
+        <StageTransitionModal
+          isOpen={!!pendingLevelChange}
+          onClose={() => setPendingLevelChange(null)}
+          onConfirm={handleLevelChangeConfirm}
+          targetStage={mapPotentialLevelToStage(pendingLevelChange, stages)!}
+          lead={lead}
+          title="Cập nhật mức tiềm năng"
+          noteLabel={`Ghi chú đánh giá → ${POTENTIAL_LEVEL_LABELS[pendingLevelChange]}`}
+          confirmLabel="Lưu mức tiềm năng"
+        />
+      )}
+
+      {/* Complete Lead Modal — chỉ mở qua nút CHUYỂN ĐỔI (stage Tiềm năng cao) */}
       {lead && (
         <CompleteLeadModal
           isOpen={showCompleteModal}

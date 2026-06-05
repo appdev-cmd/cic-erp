@@ -76,10 +76,18 @@ export const LeadsPage: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [leadsData, stagesData] = await Promise.all([
+      const [leadsData, poolData, stagesData] = await Promise.all([
         CrmLeadService.getAll(selectedUnit?.id === 'all' ? undefined : selectedUnit?.id),
+        CrmLeadService.getNoPotentialPool(), // ao "Không tiềm năng" — toàn công ty
         CrmStageTemplateService.getAll('lead')
       ]);
+
+      // Hợp nhất lead theo unit + ao Không tiềm năng (dedup theo id):
+      // ao bổ sung lead lose của các unit khác để cả công ty khai thác lại.
+      const byId = new Map<string, CrmLead>();
+      for (const l of leadsData) byId.set(l.id, l);
+      for (const l of poolData) if (!byId.has(l.id)) byId.set(l.id, l);
+      const mergedLeads = Array.from(byId.values());
       
       // Color map cho 4 stages mới
       const colorMap: Record<string, string> = {
@@ -99,8 +107,8 @@ export const LeadsPage: React.FC = () => {
         'Mất': '#6B7280',
       };
       const correctedStages = stagesData.map(s => ({ ...s, color: colorMap[s.name] || s.color }));
-      
-      setLeads(leadsData);
+
+      setLeads(mergedLeads);
       setStages(correctedStages);
     } catch (error: any) {
       toast.error('Lỗi tải dữ liệu Leads: ' + error.message);
@@ -326,11 +334,12 @@ export const LeadsPage: React.FC = () => {
           ) : (
             <>
               {viewMode === 'kanban' && (
-                <LeadsKanbanView 
-                  leads={quickFilteredLeads} 
-                  stages={stages} 
-                  onLeadUpdated={fetchData} 
-                  onLeadClick={handleLeadClick} 
+                <LeadsKanbanView
+                  leads={quickFilteredLeads}
+                  stages={stages}
+                  onLeadUpdated={fetchData}
+                  onLeadClick={handleLeadClick}
+                  currentUnitId={selectedUnit?.id === 'all' ? undefined : selectedUnit?.id}
                 />
               )}
               {viewMode === 'list' && (

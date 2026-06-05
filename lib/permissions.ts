@@ -52,7 +52,7 @@ const HR_UNIT_CODES = ['HCNS', 'TH'];
  */
 export function canViewEmployees(role: UserRole, userUnitCode?: string): boolean {
     if (role === 'Admin' || role === 'Leadership' || role === 'ChiefAccountant') return true;
-    if ((role === 'AdminUnit' || role === 'UnitLeader') && userUnitCode && HR_UNIT_CODES.includes(userUnitCode)) return true;
+    if ((role === 'AdminUnit' || role === 'UnitLeader') && userUnitCode && HR_UNIT_CODES.includes(userUnitCode.toUpperCase())) return true;
     return false;
 }
 
