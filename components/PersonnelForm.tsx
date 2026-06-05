@@ -80,7 +80,10 @@ const PersonnelForm: React.FC<PersonnelFormProps> = ({ isOpen, onClose, initialD
     const [units, setUnits] = useState<Unit[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
 
-    const isSelfEdit = !!profile && !!initialData && (profile.employeeId === initialData.id || profile.email === initialData.email);
+    const isSelfEdit = !!profile && !!initialData && (
+        (!!profile.employeeId && !!initialData.id && profile.employeeId === initialData.id) || 
+        (!!profile.email && !!initialData.email && profile.email === initialData.email)
+    );
     const isHR = profile?.role === 'Admin' || profile?.role === 'Leadership' || 
                  (['AdminUnit', 'UnitLeader'].includes(profile?.role || '') && 
                   ['HCNS', 'TH'].includes((profile?.unitCode || '').toUpperCase()));

@@ -102,7 +102,10 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
     const isHR = profile?.role === 'Admin' || profile?.role === 'Leadership' || 
                  (['AdminUnit', 'UnitLeader'].includes(profile?.role || '') && 
                   ['HCNS', 'TH'].includes((profile?.unitCode || '').toUpperCase()));
-    const isSelf = !!person && (profile?.employeeId === person.id || profile?.email === person.email);
+    const isSelf = !!person && (
+        (!!profile?.employeeId && !!person.id && profile.employeeId === person.id) || 
+        (!!profile?.email && !!person.email && profile.email === person.email)
+    );
     const isAllowedToEdit = isHR || isSelf;
 
     const currentYear = new Date().getFullYear();
@@ -942,6 +945,13 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
                                     {person.position && (<p className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mt-0.5">{ROLE_LABELS[person.position as UserRole] || person.position}</p>)}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold uppercase ${
+                                        person.status === 'resigned'
+                                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+                                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                    }`}>
+                                        {person.status === 'resigned' ? 'Đã nghỉ việc' : 'Đang làm việc'}
+                                    </span>
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400"><Building size={12} />{unit?.name || 'N/A'}</span>
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-xs font-medium text-indigo-600 dark:text-indigo-400"><FileText size={12} />{contracts.length} hợp đồng</span>
                                 </div>

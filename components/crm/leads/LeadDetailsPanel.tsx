@@ -358,23 +358,24 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
     }
   };
 
-  // ── Mức tiềm năng (selector trong "Đang xử lý") ──────────────────
+  // ── Mức tiềm năng (selector trong "Đang xử lý" / "Tiềm năng cao") ──
   const handlePotentialLevelSelect = (level: PotentialLevel) => {
     if (!lead || level === potentialLevel) return;
 
-    if (level === 'high' || level === 'none') {
-      // Đổi stage (qua modal gating đủ thông tin / lý do đóng)
-      const target = mapPotentialLevelToStage(level, stages);
-      if (!target) {
-        toast.error('Không tìm thấy trạng thái đích.');
-        return;
-      }
+    const target = mapPotentialLevelToStage(level, stages);
+    if (!target) {
+      toast.error('Không tìm thấy trạng thái đích.');
+      return;
+    }
+
+    // Mức ứng với stage KHÁC stage hiện tại → chuyển stage (gating + ghi chú)
+    if (target.id !== stageId) {
       setPendingStage(target);
       setShowTransitionModal(true);
       return;
     }
 
-    // Mức trong "Đang xử lý": nâng mức bắt buộc ghi chú; hạ mức cập nhật thẳng
+    // Cùng stage (đổi mức trong "Đang xử lý"): nâng mức bắt buộc ghi chú; hạ mức cập nhật thẳng
     if (isLevelUp(potentialLevel, level)) {
       setPendingLevelChange(level);
     } else {
