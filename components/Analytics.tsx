@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
@@ -11,6 +11,8 @@ import {
     Inbox, Users, Package, X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useSlidePanel } from '../contexts/SlidePanelContext';
+import ContractDetail from './ContractDetail';
 import {
     ContractService, UnitService, EmployeeService,
     PaymentService, HistoricalProductionService,
@@ -166,6 +168,50 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
 
     const [showUnitSelector, setShowUnitSelector] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<'overview' | 'cashflow' | 'product_brand' | 'employee_customer'>('overview');
+
+    const { openPanel, closePanel } = useSlidePanel();
+
+    const handleOpenContractDetail = useCallback((id: string, code: string) => {
+        openPanel({
+            title: `Chi tiết Hợp đồng ${code}`,
+            component: (
+                <div className="p-4 md:p-6 lg:p-8">
+                    <ContractDetail
+                        contractId={id}
+                        onBack={() => closePanel()}
+                        onEdit={(contract) => {
+                            import('./ContractForm').then(({ default: ContractFormComponent }) => {
+                                openPanel({
+                                    title: `Chỉnh sửa ${contract.contractCode}`,
+                                    component: (
+                                        <ContractFormComponent
+                                            contract={contract}
+                                            isInsidePanel={true}
+                                            onSave={async (data: any) => {
+                                                const { ContractService: service } = await import('../services');
+                                                await service.update(contract.id, data);
+                                                toast.success('Cập nhật hợp đồng thành công!');
+                                                closePanel();
+                                                window.dispatchEvent(new CustomEvent('contract-updated', { detail: contract.id }));
+                                            }}
+                                            onCancel={() => closePanel()}
+                                        />
+                                    )
+                                });
+                            });
+                        }}
+                        onDelete={async () => {
+                            const { ContractService: service } = await import('../services');
+                            await service.delete(id);
+                            closePanel();
+                            toast.success('Đã xóa hợp đồng');
+                        }}
+                    />
+                </div>
+            ),
+        });
+    }, [openPanel, closePanel]);
 
     const [drillDown, setDrillDown] = useState<{
         isOpen: boolean;
@@ -584,6 +630,101 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             .slice(0, 5);
     }, [activeContracts, products, brands]);
 
+    // 12. Top Sold Products by Quantity
+    const productQuantityData = useMemo(() => {
+        const productMap = new Map<string, number>();
+        activeContracts.forEach(c => {
+            if (c.lineItems && Array.isArray(c.lineItems)) {
+                c.lineItems.forEach((li: any) => {
+                    if (li.productId) {
+                        const qty = li.quantity || 1;
+                        productMap.set(li.productId, (productMap.get(li.productId) || 0) + qty);
+                    }
+                });
+            }
+        });
+        return Array.from(productMap.entries())
+            .map(([id, qty]) => ({
+                id,
+                type: 'PRODUCT_QTY',
+                name: products.find(p => p.id === id)?.name || 'Sản phẩm ẩn',
+                value: qty
+            }))
+            .filter(d => d.value > 0)
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5);
+    }, [activeContracts, products]);
+
+    // 13. Top Brands by Sold Quantity
+    const brandQuantityData = useMemo(() => {
+        const brandMap = new Map<string, number>();
+        activeContracts.forEach(c => {
+            if (c.lineItems && Array.isArray(c.lineItems)) {
+                c.lineItems.forEach((li: any) => {
+                    const product = products.find(p => p.id === li.productId);
+                    if (product && product.brandId) {
+                        const qty = li.quantity || 1;
+                        brandMap.set(product.brandId, (brandMap.get(product.brandId) || 0) + qty);
+                    }
+                });
+            }
+        });
+        return Array.from(brandMap.entries())
+            .map(([id, qty]) => ({
+                id,
+                type: 'BRAND_QTY',
+                name: brands.find(b => b.id === id)?.name || 'Hãng khác',
+                value: qty
+            }))
+            .filter(d => d.value > 0)
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5);
+    }, [activeContracts, products, brands]);
+
+    // 14. Brand Profit Structure
+    const brandProfitStructureData = useMemo(() => {
+        const brandMap = new Map<string, number>(); // brandId -> totalProfit
+        activeContracts.forEach(c => {
+            if (c.lineItems && Array.isArray(c.lineItems)) {
+                c.lineItems.forEach((li: any) => {
+                    const product = products.find(p => p.id === li.productId);
+                    if (product && product.brandId) {
+                        const lineRevenue = (li.outputPrice || 0) * (li.quantity || 1);
+                        const proportion = c.value > 0 ? lineRevenue / c.value : 0;
+                        const allocatedProfit = ((c.adminProfit || 0) + (c.revProfit || 0)) * proportion; // tổng LN gộp
+                        brandMap.set(product.brandId, (brandMap.get(product.brandId) || 0) + allocatedProfit);
+                    }
+                });
+            }
+        });
+        const sortedBrands = Array.from(brandMap.entries())
+            .map(([id, profit]) => ({
+                id,
+                type: 'BRAND_PROFIT_STRUCTURE',
+                name: brands.find(b => b.id === id)?.name || 'Hãng khác',
+                value: profit
+            }))
+            .filter(d => d.value > 0)
+            .sort((a, b) => b.value - a.value);
+
+        if (sortedBrands.length <= 10) {
+            return sortedBrands;
+        }
+
+        const top10 = sortedBrands.slice(0, 10);
+        const otherProfit = sortedBrands.slice(10).reduce((sum, d) => sum + d.value, 0);
+
+        return [
+            ...top10,
+            {
+                id: 'other_brands',
+                type: 'BRAND_PROFIT_STRUCTURE_OTHER',
+                name: 'Khác',
+                value: otherProfit
+            }
+        ];
+    }, [activeContracts, products, brands]);
+
     const formatCurrency = (val: number) => {
         const abs = Math.abs(val);
         const sign = val < 0 ? '-' : '';
@@ -635,27 +776,90 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 if (catRevenue > 0) matches.push({ contract: c, displayValue: catRevenue });
             });
             matches.sort((a, b) => b.displayValue - a.displayValue);
+        } else if (data.type === 'PRODUCT_QTY') {
+            activeContracts.forEach(c => {
+                const prodQty = (c.lineItems || []).reduce((sum: number, li: any) => {
+                    if (li.productId === data.id) {
+                        return sum + (li.quantity || 1);
+                    }
+                    return sum;
+                }, 0);
+                if (prodQty > 0) matches.push({ contract: c, displayValue: prodQty });
+            });
+            matches.sort((a, b) => b.displayValue - a.displayValue);
+        } else if (data.type === 'BRAND_QTY') {
+            activeContracts.forEach(c => {
+                const brandQty = (c.lineItems || []).reduce((sum: number, li: any) => {
+                    const product = products.find(p => p.id === li.productId);
+                    if (product?.brandId === data.id) {
+                        return sum + (li.quantity || 1);
+                    }
+                    return sum;
+                }, 0);
+                if (brandQty > 0) matches.push({ contract: c, displayValue: brandQty });
+            });
+            matches.sort((a, b) => b.displayValue - a.displayValue);
+        } else if (data.type === 'BRAND_PROFIT_STRUCTURE') {
+            activeContracts.forEach(c => {
+                const brandRevenue = (c.lineItems || []).reduce((sum: number, li: any) => {
+                    const product = products.find(p => p.id === li.productId);
+                    if (product?.brandId === data.id) {
+                        return sum + (li.outputPrice || 0) * (li.quantity || 1);
+                    }
+                    return sum;
+                }, 0);
+                if (brandRevenue > 0) {
+                    const proportion = c.value > 0 ? brandRevenue / c.value : 0;
+                    const allocatedProfit = ((c.adminProfit || 0) + (c.revProfit || 0)) * proportion;
+                    if (allocatedProfit > 0) {
+                        matches.push({ contract: c, displayValue: allocatedProfit });
+                    }
+                }
+            });
+            matches.sort((a, b) => b.displayValue - a.displayValue);
+        } else if (data.type === 'BRAND_PROFIT_STRUCTURE_OTHER') {
+            const topBrandIds = new Set(brandProfitStructureData.slice(0, 10).map(b => b.id));
+            activeContracts.forEach(c => {
+                const otherBrandRevenue = (c.lineItems || []).reduce((sum: number, li: any) => {
+                    const product = products.find(p => p.id === li.productId);
+                    if (product?.brandId && !topBrandIds.has(product.brandId)) {
+                        return sum + (li.outputPrice || 0) * (li.quantity || 1);
+                    }
+                    return sum;
+                }, 0);
+                if (otherBrandRevenue > 0) {
+                    const proportion = c.value > 0 ? otherBrandRevenue / c.value : 0;
+                    const allocatedProfit = ((c.adminProfit || 0) + (c.revProfit || 0)) * proportion;
+                    if (allocatedProfit > 0) {
+                        matches.push({ contract: c, displayValue: allocatedProfit });
+                    }
+                }
+            });
+            matches.sort((a, b) => b.displayValue - a.displayValue);
         }
 
         if (matches.length === 0) return null;
+
+        const isQty = data.type === 'PRODUCT_QTY' || data.type === 'BRAND_QTY';
 
         return (
             <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
                 <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">Chi tiết Hợp đồng ({matches.length}):</p>
                 <div className="space-y-1.5 min-w-[440px] max-h-[200px] overflow-y-auto pr-2 select-text pointer-events-auto styled-scrollbar">
                     {matches.map(({ contract: c, displayValue }) => (
-                        <Link
+                        <button
                             key={c.id}
-                            to={`/?contractId=${c.id}`}
-                            className="flex justify-between items-center text-[13px] gap-4 hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-2 -mx-2 py-1.5 transition-all text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 group"
+                            type="button"
+                            onClick={() => handleOpenContractDetail(c.id, c.contractCode)}
+                            className="w-full flex justify-between items-center text-[13px] gap-4 hover:bg-slate-100 dark:hover:bg-slate-800 rounded px-2 -mx-2 py-1.5 transition-all text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 group cursor-pointer text-left focus:outline-none"
                         >
                             <span className="truncate max-w-[320px] font-medium" title={c.title}>
                                 {c.contractCode} - {c.title}
                             </span>
                             <span className="font-bold text-slate-900 group-hover:text-indigo-600 dark:text-slate-100 dark:group-hover:text-indigo-400 shrink-0">
-                                {formatCurrencyCompact(displayValue)}
+                                {isQty ? `${displayValue} SP` : formatCurrencyCompact(displayValue)}
                             </span>
-                        </Link>
+                        </button>
                     ))}
                 </div>
             </div>
@@ -672,12 +876,15 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                     className="rounded-xl shadow-xl p-5 border max-w-xl w-[500px] z-50 pointer-events-auto"
                 >
                     <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">{label || data.name}</p>
-                    {payload.map((entry: any, index: number) => (
-                        <p key={index} className="text-sm font-black flex justify-between gap-4" style={{ color: entry.color }}>
-                            <span>{entry.name}:</span>
-                            <span>{formatCurrency(entry.value)}</span>
-                        </p>
-                    ))}
+                    {payload.map((entry: any, index: number) => {
+                        const isQty = entry.dataKey === 'value' && (data.type === 'PRODUCT_QTY' || data.type === 'BRAND_QTY');
+                        return (
+                            <p key={index} className="text-sm font-black flex justify-between gap-4" style={{ color: entry.color }}>
+                                <span>{entry.name}:</span>
+                                <span>{isQty ? `${entry.value} sản phẩm` : formatCurrency(entry.value)}</span>
+                            </p>
+                        );
+                    })}
                     {data.type && renderHoverTable(data)}
                 </div>
             );
@@ -786,384 +993,561 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 />
             </div>
 
-            {/* ═══ Top Charts Row ═══ */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* 1. Revenue Structure — Donut */}
-                <ChartCard
-                    title={`Cơ cấu Doanh thu ${selectedUnit.id === 'all' ? '(Theo Đơn vị)' : '(Theo Nhân sự)'}`}
-                    subtitle="Tỷ trọng đóng góp vào tổng doanh thu"
-                    index={0}
+            {/* Tabs Navigation */}
+            <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl flex flex-wrap gap-1.5 shadow-inner">
+                <button
+                    onClick={() => setActiveTab('overview')}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black transition-all duration-200 cursor-pointer ${
+                        activeTab === 'overview'
+                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md transform scale-[1.02]'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                    }`}
                 >
-                    {structureData.length === 0 ? (
-                        <EmptyState message="Chưa có dữ liệu doanh thu" />
-                    ) : (
-                        <>
-                            <div className="h-[280px] relative">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={structureData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={70}
-                                            outerRadius={95}
-                                            paddingAngle={4}
-                                            dataKey="value"
-                                            cornerRadius={6}
-                                        >
-                                            {structureData.map((_, index) => (
-                                                <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} strokeWidth={0} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip content={<CustomTooltip />} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                {/* Center label */}
-                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                    <p className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase tracking-widest">Tổng</p>
-                                    <p className="text-xl font-black text-slate-900 dark:text-white mt-1">{formatCurrencyGlobal(pieTotal)}</p>
-                                </div>
-                            </div>
-                            {/* Custom Legend */}
-                            <div className="mt-4 space-y-2.5">
-                                {structureData.slice(0, 5).map((d, i) => (
-                                    <div key={i} className="flex items-center justify-between group cursor-default">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-3 h-3 rounded-md transition-transform group-hover:scale-125" style={{ backgroundColor: getChartColors()[i % getChartColors().length] }} />
-                                            <span className="text-sm font-bold text-slate-600 dark:text-slate-300 truncate max-w-[160px]">{d.name}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-bold text-slate-400 dark:text-slate-500">{pieTotal > 0 ? ((d.value / pieTotal) * 100).toFixed(1) : '0'}%</span>
-                                            <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                <div className="h-full rounded-full" style={{ width: `${Math.min(100, (d.value / (Math.max(...structureData.map(x => x.value)) || 1)) * 100)}%`, backgroundColor: getChartColors()[i % getChartColors().length] }} />
-                                            </div>
+                    <BarChart3 size={18} />
+                    Tổng quan & Doanh thu
+                </button>
+                <button
+                    onClick={() => setActiveTab('cashflow')}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black transition-all duration-200 cursor-pointer ${
+                        activeTab === 'cashflow'
+                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md transform scale-[1.02]'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                    }`}
+                >
+                    <Wallet size={18} />
+                    Dòng tiền & Thanh toán
+                </button>
+                <button
+                    onClick={() => setActiveTab('product_brand')}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black transition-all duration-200 cursor-pointer ${
+                        activeTab === 'product_brand'
+                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md transform scale-[1.02]'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                    }`}
+                >
+                    <Package size={18} />
+                    Sản phẩm & Đối tác
+                </button>
+                <button
+                    onClick={() => setActiveTab('employee_customer')}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black transition-all duration-200 cursor-pointer ${
+                        activeTab === 'employee_customer'
+                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md transform scale-[1.02]'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
+                    }`}
+                >
+                    <Users size={18} />
+                    Hiệu suất & Khách hàng
+                </button>
+            </div>
+
+            {/* Tabs Content */}
+            {activeTab === 'overview' && (
+                <>
+                    {/* ═══ Top Charts Row ═══ */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* 1. Revenue Structure — Donut */}
+                        <ChartCard
+                            title={`Cơ cấu Doanh thu ${selectedUnit.id === 'all' ? '(Theo Đơn vị)' : '(Theo Nhân sự)'}`}
+                            subtitle="Tỷ trọng đóng góp vào tổng doanh thu"
+                            index={0}
+                        >
+                            {structureData.length === 0 ? (
+                                <EmptyState message="Chưa có dữ liệu doanh thu" />
+                            ) : (
+                                <>
+                                    <div className="h-[280px] relative">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={structureData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={70}
+                                                    outerRadius={95}
+                                                    paddingAngle={4}
+                                                    dataKey="value"
+                                                    cornerRadius={6}
+                                                >
+                                                    {structureData.map((_, index) => (
+                                                        <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} strokeWidth={0} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip content={<CustomTooltip />} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        {/* Center label */}
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                            <p className="text-[10px] font-black text-slate-300 dark:text-slate-500 uppercase tracking-widest">Tổng</p>
+                                            <p className="text-xl font-black text-slate-900 dark:text-white mt-1">{formatCurrencyGlobal(pieTotal)}</p>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </ChartCard>
+                                    {/* Custom Legend */}
+                                    <div className="mt-4 space-y-2.5">
+                                        {structureData.slice(0, 5).map((d, i) => (
+                                            <div key={i} className="flex items-center justify-between group cursor-default">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-3 h-3 rounded-md transition-transform group-hover:scale-125" style={{ backgroundColor: getChartColors()[i % getChartColors().length] }} />
+                                                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300 truncate max-w-[160px]">{d.name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500">{pieTotal > 0 ? ((d.value / pieTotal) * 100).toFixed(1) : '0'}%</span>
+                                                    <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, (d.value / (Math.max(...structureData.map(x => x.value)) || 1)) * 100)}%`, backgroundColor: getChartColors()[i % getChartColors().length] }} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </ChartCard>
 
-                {/* 2. Plan vs Actual */}
-                <ChartCard
-                    title="Kế hoạch vs Thực tế"
-                    subtitle="So sánh doanh thu thực tế với mục tiêu đặt ra"
-                    index={1}
-                >
-                    {planVsActualData.length === 0 ? (
-                        <EmptyState message="Chưa có dữ liệu kế hoạch" />
-                    ) : (
-                        <div className="h-[340px]">
+                        {/* 2. Plan vs Actual */}
+                        <ChartCard
+                            title="Kế hoạch vs Thực tế"
+                            subtitle="So sánh doanh thu thực tế với mục tiêu đặt ra"
+                            index={1}
+                        >
+                            {planVsActualData.length === 0 ? (
+                                <EmptyState message="Chưa có dữ liệu kế hoạch" />
+                            ) : (
+                                <div className="h-[340px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={planVsActualData} barCategoryGap={20}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} dy={10} />
+                                            <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                            <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
+                                            <Bar dataKey="Actual" name="Thực tế" fill={getAccentColor()} radius={[6, 6, 0, 0]} barSize={32} />
+                                            <Bar dataKey="Target" name="Kế hoạch" fill={getMutedBarFill()} radius={[6, 6, 0, 0]} barSize={32} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </ChartCard>
+                    </div>
+
+                    {/* ═══ 3. Monthly Trend ═══ */}
+                    <ChartCard
+                        title="Xu hướng theo tháng"
+                        subtitle="Biến động Doanh thu & Lợi nhuận hàng tháng"
+                        index={2}
+                    >
+                        <div className="h-[360px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={planVsActualData} barCategoryGap={20}>
+                                <AreaChart data={monthlyTrendData}>
+                                    <defs>
+                                        <linearGradient id="colorRevAnalytics" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={getAccentColor()} stopOpacity={0.2} />
+                                            <stop offset="95%" stopColor={getAccentColor()} stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorProfitAnalytics" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
                                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} dy={10} />
                                     <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
-                                    <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
-                                    <Bar dataKey="Actual" name="Thực tế" fill={getAccentColor()} radius={[6, 6, 0, 0]} barSize={32} />
-                                    <Bar dataKey="Target" name="Kế hoạch" fill={getMutedBarFill()} radius={[6, 6, 0, 0]} barSize={32} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </ChartCard>
-            </div>
-
-            {/* ═══ 3. Monthly Trend ═══ */}
-            <ChartCard
-                title="Xu hướng theo tháng"
-                subtitle="Biến động Doanh thu & Lợi nhuận hàng tháng"
-                index={2}
-            >
-                <div className="h-[360px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={monthlyTrendData}>
-                            <defs>
-                                <linearGradient id="colorRevAnalytics" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={getAccentColor()} stopOpacity={0.2} />
-                                    <stop offset="95%" stopColor={getAccentColor()} stopOpacity={0} />
-                                </linearGradient>
-                                <linearGradient id="colorProfitAnalytics" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} dy={10} />
-                            <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
-                            <Tooltip content={<CustomTooltip />} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
-                            <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
-                            <Area type="monotone" dataKey="DoanhThu" name="Doanh thu" stroke={getAccentColor()} strokeWidth={3} fillOpacity={1} fill="url(#colorRevAnalytics)" activeDot={{ r: 5, strokeWidth: 2 }} />
-                            <Area type="monotone" dataKey="LoiNhuan" name="Lợi nhuận" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfitAnalytics)" activeDot={{ r: 5, strokeWidth: 2 }} />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-            </ChartCard>
-
-            {/* ═══ 4. Cashflow ═══ */}
-            <ChartCard
-                title="Dòng tiền Thu – Chi"
-                subtitle="Phân tích luồng tiền vào/ra hàng tháng"
-                index={3}
-            >
-                <div className="h-[360px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={cashflowData}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} dy={10} />
-                            <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
-                            <Tooltip content={<CustomTooltip />} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
-                            <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
-                            <Bar dataKey="Thu" name="Dòng tiền vào" fill="#10b981" radius={[6, 6, 0, 0]} barSize={28} />
-                            <Bar dataKey="Chi" name="Dòng tiền ra" fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={28} />
-                            <Line type="monotone" dataKey="Rong" name="Dòng tiền ròng" stroke="#0ea5e9" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 2, fill: '#0ea5e9' }} />
-                        </ComposedChart>
-                    </ResponsiveContainer>
-                </div>
-            </ChartCard>
-
-            {/* ═══ Customer & Product Insights ═══ */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Top Customers */}
-                <ChartCard title="Top Khách hàng" subtitle="Hàng đầu theo Danh thu" index={4}>
-                    {topCustomersData.length === 0 ? <EmptyState message="Chưa có dữ liệu khách hàng" /> : (
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={topCustomersData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
-                                    <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                    <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={100} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
-                                    <Bar
-                                        dataKey="value"
-                                        name="Doanh thu"
-                                        fill="#f97316"
-                                        radius={[0, 4, 4, 0]}
-                                        barSize={16}
-                                        style={{ cursor: 'pointer' }}
-                                    >
-                                        {topCustomersData.map((_, index) => (
-                                            <Cell key={`cell-${index}`} fill={['#ea580c', '#f97316', '#fb923c', '#fdba74', '#fed7aa'][index]} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </ChartCard>
-
-                {/* Top Brands */}
-                <ChartCard title="Top Hãng / Đối tác" subtitle="Đóng góp nhiều doanh thu nhất" index={5}>
-                    {topBrandsData.length === 0 ? <EmptyState message="Chưa có dữ liệu hãng" /> : (
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={topBrandsData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
-                                    <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                    <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={80} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
-                                    <Bar
-                                        dataKey="value"
-                                        name="Doanh thu"
-                                        fill="#0ea5e9"
-                                        radius={[0, 4, 4, 0]}
-                                        barSize={16}
-                                        style={{ cursor: 'pointer' }}
-                                    >
-                                        {topBrandsData.map((_, index) => (
-                                            <Cell key={`cell-${index}`} fill={['#0284c7', '#0ea5e9', '#38bdf8', '#7dd3fc', '#bae6fd'][index]} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </ChartCard>
-
-                {/* Categories */}
-                <ChartCard title="Nhóm Sản Phẩm" subtitle="Tỷ trọng doanh thu theo nhóm" index={6}>
-                    {productCategoryData.length === 0 ? <EmptyState message="Chưa có dữ liệu sản phẩm" /> : (
-                        <div className="h-[300px] relative">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
-                                    <Pie
-                                        data={productCategoryData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={50}
-                                        outerRadius={80}
-                                        paddingAngle={4}
-                                        dataKey="value"
-                                        cornerRadius={4}
-                                    >
-                                        {productCategoryData.map((_, index) => (
-                                            <Cell key={`cell-${index}`} fill={['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#f43f5e'][index % 7]} strokeWidth={0} />
-                                        ))}
-                                    </Pie>
                                     <Tooltip content={<CustomTooltip />} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
-                                    <Legend
-                                        verticalAlign="bottom"
-                                        height={60}
-                                        content={(props) => {
-                                            return (
-                                                <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-4 px-2">
-                                                    {props.payload?.map((entry, index) => (
-                                                        <div key={`item-${index}`} className="flex items-center gap-1.5 min-w-fit">
-                                                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
-                                                            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 capitalize whitespace-nowrap">{entry.value}</span>
+                                    <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
+                                    <Area type="monotone" dataKey="DoanhThu" name="Doanh thu" stroke={getAccentColor()} strokeWidth={3} fillOpacity={1} fill="url(#colorRevAnalytics)" activeDot={{ r: 5, strokeWidth: 2 }} />
+                                    <Area type="monotone" dataKey="LoiNhuan" name="Lợi nhuận" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfitAnalytics)" activeDot={{ r: 5, strokeWidth: 2 }} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </ChartCard>
+
+                    {/* ═══ 5. Historical Comparison YoY ═══ */}
+                    {historicalComparisonData.length > 0 && (
+                        <ChartCard
+                            title="So sánh Cùng kỳ (Lịch sử)"
+                            subtitle="Theo dõi sự tăng trưởng qua các năm"
+                            index={4}
+                        >
+                            <div className="h-[400px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={historicalComparisonData} barCategoryGap={25}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 13, fontWeight: 700 }} dy={10} />
+                                        <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
+                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                        <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 700, fontSize: '12px' }} />
+                                        <Bar dataKey="Ký kết" fill="#4f46e5" radius={[6, 6, 0, 0]} barSize={24} />
+                                        <Bar dataKey="Doanh thu" fill="#10b981" radius={[6, 6, 0, 0]} barSize={24} />
+                                        <Bar dataKey="LNG QT" fill="#a855f7" radius={[6, 6, 0, 0]} barSize={24} />
+                                        <Bar dataKey="LNG DT" fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={24} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </ChartCard>
+                    )}
+                </>
+            )}
+
+            {activeTab === 'cashflow' && (
+                <>
+                    {/* ═══ 4. Cashflow ═══ */}
+                    <ChartCard
+                        title="Dòng tiền Thu – Chi"
+                        subtitle="Phân tích luồng tiền vào/ra hàng tháng"
+                        index={3}
+                    >
+                        <div className="h-[360px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart data={cashflowData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} dy={10} />
+                                    <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
+                                    <Tooltip content={<CustomTooltip />} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                    <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
+                                    <Bar dataKey="Thu" name="Dòng tiền vào" fill="#10b981" radius={[6, 6, 0, 0]} barSize={28} />
+                                    <Bar dataKey="Chi" name="Dòng tiền ra" fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={28} />
+                                    <Line type="monotone" dataKey="Rong" name="Dòng tiền ròng" stroke="#0ea5e9" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 2, fill: '#0ea5e9' }} />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </ChartCard>
+
+                    {/* Progress & Debt */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Payment Status / Cash Risk */}
+                        <ChartCard title="Tiến độ Thanh toán" subtitle="Tình trạng thu hồi doanh thu thực tế" index={7}>
+                            {paymentStatusData.length === 0 ? <EmptyState message="Chưa có dữ liệu thanh toán" /> : (
+                                <div className="h-[250px] relative">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
+                                            <Pie
+                                                data={paymentStatusData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={45}
+                                                outerRadius={75}
+                                                paddingAngle={2}
+                                                dataKey="value"
+                                            >
+                                                {paymentStatusData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip content={<CustomTooltip />} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                            <Legend
+                                                verticalAlign="bottom"
+                                                height={40}
+                                                content={(props) => (
+                                                    <div className="flex flex-wrap justify-center gap-4 mt-2">
+                                                        {props.payload?.map((entry, index) => (
+                                                            <div key={`item-${index}`} className="flex items-center gap-1.5 focus:outline-none">
+                                                                <div className="w-2.5 h-2.5 shrink-0" style={{ backgroundColor: entry.color, borderRadius: '4px' }} />
+                                                                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">{entry.value}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </ChartCard>
+                    </div>
+                </>
+            )}
+
+            {activeTab === 'product_brand' && (
+                <>
+                    {/* Customer & Product Insights */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Top Brands */}
+                        <ChartCard title="Top Hãng / Đối tác" subtitle="Đóng góp nhiều doanh thu nhất" index={5}>
+                            {topBrandsData.length === 0 ? <EmptyState message="Chưa có dữ liệu hãng" /> : (
+                                <div className="h-[300px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={topBrandsData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
+                                            <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 10 }} />
+                                            <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={80} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                            <Bar
+                                                dataKey="value"
+                                                name="Doanh thu"
+                                                fill="#0ea5e9"
+                                                radius={[0, 4, 4, 0]}
+                                                barSize={16}
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                {topBrandsData.map((_, index) => (
+                                                    <Cell key={`cell-${index}`} fill={['#0284c7', '#0ea5e9', '#38bdf8', '#7dd3fc', '#bae6fd'][index]} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </ChartCard>
+
+                        {/* Categories */}
+                        <ChartCard title="Nhóm Sản Phẩm" subtitle="Tỷ trọng doanh thu theo nhóm" index={6}>
+                            {productCategoryData.length === 0 ? <EmptyState message="Chưa có dữ liệu sản phẩm" /> : (
+                                <div className="h-[300px] relative">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
+                                            <Pie
+                                                data={productCategoryData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={50}
+                                                outerRadius={80}
+                                                paddingAngle={4}
+                                                dataKey="value"
+                                                cornerRadius={4}
+                                            >
+                                                {productCategoryData.map((_, index) => (
+                                                    <Cell key={`cell-${index}`} fill={['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#f43f5e'][index % 7]} strokeWidth={0} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip content={<CustomTooltip />} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                            <Legend
+                                                verticalAlign="bottom"
+                                                height={60}
+                                                content={(props) => {
+                                                    return (
+                                                        <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-4 px-2">
+                                                            {props.payload?.map((entry, index) => (
+                                                                <div key={`item-${index}`} className="flex items-center gap-1.5 min-w-fit">
+                                                                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                                                                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 capitalize whitespace-nowrap">{entry.value}</span>
+                                                                </div>
+                                                            ))}
                                                         </div>
+                                                    );
+                                                }}
+                                            />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </ChartCard>
+
+                        {/* Profitability Margin by Brand */}
+                        <ChartCard title="Tỷ suất Lợi nhuận" subtitle="Top biên lợi nhuận (%) theo Hãng" index={9}>
+                            {brandProfitabilityData.length === 0 ? <EmptyState message="Chưa có dữ liệu lợi nhuận" /> : (
+                                <div className="h-[300px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={brandProfitabilityData} margin={{ left: -20, top: 10, bottom: 0, right: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} horizontal={true} stroke={getGridStroke()} />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontWeight: 600 }} />
+                                            <YAxis type="number" domain={[0, 'dataMax + 10']} axisLine={false} tickLine={false} tickFormatter={(val) => `${val}%`} tick={{ fill: '#64748b', fontSize: 10 }} />
+                                            <Tooltip
+                                                cursor={{ fill: getCursorFill() }}
+                                                wrapperStyle={{ zIndex: 100, pointerEvents: 'auto' }}
+                                                content={({ active, payload }) => {
+                                                    if (active && payload && payload.length) {
+                                                        const data = payload[0].payload;
+                                                        return (
+                                                            <div style={getTooltipStyle()} className="rounded-lg shadow-xl p-3 border">
+                                                                <p className="text-xs font-bold text-slate-500 mb-1">{data.name}</p>
+                                                                <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                                                    Biên lợi nhuận: {data.value.toFixed(1)}%
+                                                                </p>
+                                                                <p className="text-xs text-slate-500 mt-1">
+                                                                    (Doanh thu DT: {formatCurrency(data.revenue)})
+                                                                </p>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                }}
+                                            />
+                                            <Bar
+                                                dataKey="value"
+                                                name="Biên LN (%)"
+                                                fill="#10b981"
+                                                radius={[4, 4, 0, 0]}
+                                                barSize={36}
+                                                style={{ cursor: 'pointer' }}
+                                            />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </ChartCard>
+                    </div>
+
+                    {/* New Row: Product & Brand Quantities Sold + Profit Structure */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                        {/* Top Products by Quantity */}
+                        <ChartCard title="Số lượng Sản phẩm đã bán" subtitle="Top 5 sản phẩm bán chạy nhất theo số lượng" index={10}>
+                            {productQuantityData.length === 0 ? <EmptyState message="Chưa có dữ liệu sản phẩm" /> : (
+                                <div className="h-[300px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={productQuantityData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
+                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
+                                            <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={100} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                            <Bar
+                                                dataKey="value"
+                                                name="Số lượng"
+                                                fill="#6366f1"
+                                                radius={[0, 4, 4, 0]}
+                                                barSize={16}
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                {productQuantityData.map((_, index) => (
+                                                    <Cell key={`cell-${index}`} fill={['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe'][index]} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </ChartCard>
+
+                        {/* Top Brands by Quantity */}
+                        <ChartCard title="Số lượng Hãng đã bán" subtitle="Top 5 hãng có số lượng sản phẩm bán chạy nhất" index={11}>
+                            {brandQuantityData.length === 0 ? <EmptyState message="Chưa có dữ liệu hãng" /> : (
+                                <div className="h-[300px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={brandQuantityData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
+                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
+                                            <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={80} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                            <Bar
+                                                dataKey="value"
+                                                name="Số lượng"
+                                                fill="#ec4899"
+                                                radius={[0, 4, 4, 0]}
+                                                barSize={16}
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                {brandQuantityData.map((_, index) => (
+                                                    <Cell key={`cell-${index}`} fill={['#db2777', '#ec4899', '#f472b6', '#fbcfe8', '#fce7f3'][index]} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </ChartCard>
+
+                        {/* Brand Profit Structure — Donut */}
+                        <ChartCard title="Cơ cấu Lợi nhuận Hãng" subtitle="Tỷ trọng đóng góp lợi nhuận gộp" index={12}>
+                            {brandProfitStructureData.length === 0 ? <EmptyState message="Chưa có dữ liệu lợi nhuận" /> : (
+                                <>
+                                    <div className="h-[200px] relative">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={brandProfitStructureData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={50}
+                                                    outerRadius={75}
+                                                    paddingAngle={3}
+                                                    dataKey="value"
+                                                    cornerRadius={4}
+                                                >
+                                                    {brandProfitStructureData.map((_, index) => (
+                                                        <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} strokeWidth={0} />
                                                     ))}
+                                                </Pie>
+                                                <Tooltip content={<CustomTooltip />} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        {/* Center label */}
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                            <p className="text-[9px] font-black text-slate-300 dark:text-slate-500 uppercase tracking-widest">Tổng LN</p>
+                                            <p className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
+                                                {formatCurrencyGlobal(brandProfitStructureData.reduce((s, d) => s + d.value, 0))}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {/* Custom Legend */}
+                                    <div className="mt-4 space-y-2 max-h-[80px] overflow-y-auto pr-1 styled-scrollbar">
+                                        {brandProfitStructureData.map((d, i) => {
+                                            const totalProfit = brandProfitStructureData.reduce((s, x) => s + x.value, 0);
+                                            return (
+                                                <div key={i} className="flex items-center justify-between group cursor-default">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2.5 h-2.5 rounded-md shrink-0" style={{ backgroundColor: getChartColors()[i % getChartColors().length] }} />
+                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate max-w-[120px]">{d.name}</span>
+                                                    </div>
+                                                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
+                                                        {totalProfit > 0 ? ((d.value / totalProfit) * 100).toFixed(1) : '0'}%
+                                                    </span>
                                                 </div>
                                             );
-                                        }}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </ChartCard>
-            </div>
-
-            {/* ═══ Advanced Insights Row (Payment, Sales, Profitability) ═══ */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Payment Status / Cash Risk */}
-                <ChartCard title="Tiến độ Thanh toán" subtitle="Tình trạng thu hồi doanh thu thực tế" index={7}>
-                    {paymentStatusData.length === 0 ? <EmptyState message="Chưa có dữ liệu thanh toán" /> : (
-                        <div className="h-[250px] relative">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
-                                    <Pie
-                                        data={paymentStatusData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={45}
-                                        outerRadius={75}
-                                        paddingAngle={2}
-                                        dataKey="value"
-                                    >
-                                        {paymentStatusData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip content={<CustomTooltip />} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
-                                    <Legend
-                                        verticalAlign="bottom"
-                                        height={40}
-                                        content={(props) => (
-                                            <div className="flex flex-wrap justify-center gap-4 mt-2">
-                                                {props.payload?.map((entry, index) => (
-                                                    <div key={`item-${index}`} className="flex items-center gap-1.5 focus:outline-none">
-                                                        <div className="w-2.5 h-2.5 shrink-0" style={{ backgroundColor: entry.color, borderRadius: '4px' }} />
-                                                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">{entry.value}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </ChartCard>
-
-                {/* Top Sales Employees */}
-                <ChartCard title="Hiệu suất Nhân sự" subtitle="Top Doanh số theo Nhân viên" index={8}>
-                    {topEmployeesData.length === 0 ? <EmptyState message="Chưa có dữ liệu sales" /> : (
-                        <div className="h-[250px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={topEmployeesData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
-                                    <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                    <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={90} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
-                                    <Bar
-                                        dataKey="value"
-                                        name="Doanh số"
-                                        fill="#3b82f6"
-                                        radius={[0, 4, 4, 0]}
-                                        barSize={16}
-                                        style={{ cursor: 'pointer' }}
-                                    >
-                                        {topEmployeesData.map((_, index) => (
-                                            <Cell key={`cell-${index}`} fill={['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'][index]} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </ChartCard>
-
-                {/* Profitability Margin by Brand */}
-                <ChartCard title="Tỷ suất Lợi nhuận" subtitle="Top biên lợi nhuận (%) theo Hãng" index={9}>
-                    {brandProfitabilityData.length === 0 ? <EmptyState message="Chưa có dữ liệu lợi nhuận" /> : (
-                        <div className="h-[250px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={brandProfitabilityData} margin={{ left: -20, top: 10, bottom: 0, right: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} horizontal={true} stroke={getGridStroke()} />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10, fontWeight: 600 }} />
-                                    <YAxis type="number" domain={[0, 'dataMax + 10']} axisLine={false} tickLine={false} tickFormatter={(val) => `${val}%`} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                    <Tooltip
-                                        cursor={{ fill: getCursorFill() }}
-                                        wrapperStyle={{ zIndex: 100, pointerEvents: 'auto' }}
-                                        content={({ active, payload }) => {
-                                            if (active && payload && payload.length) {
-                                                const data = payload[0].payload;
-                                                return (
-                                                    <div style={getTooltipStyle()} className="rounded-lg shadow-xl p-3 border">
-                                                        <p className="text-xs font-bold text-slate-500 mb-1">{data.name}</p>
-                                                        <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                                            Biên lợi nhuận: {data.value.toFixed(1)}%
-                                                        </p>
-                                                        <p className="text-xs text-slate-500 mt-1">
-                                                            (Doanh thu DT: {formatCurrency(data.revenue)})
-                                                        </p>
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        }}
-                                    />
-                                    <Bar
-                                        dataKey="value"
-                                        name="Biên LN (%)"
-                                        fill="#10b981"
-                                        radius={[4, 4, 0, 0]}
-                                        barSize={36}
-                                        style={{ cursor: 'pointer' }}
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </ChartCard>
-            </div>
-
-            {/* ═══ 5. Historical Comparison YoY ═══ */}
-            {historicalComparisonData.length > 0 && (
-                <ChartCard
-                    title="So sánh Cùng kỳ (Lịch sử)"
-                    subtitle="Theo dõi sự tăng trưởng qua các năm"
-                    index={4}
-                >
-                    <div className="h-[400px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={historicalComparisonData} barCategoryGap={25}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 13, fontWeight: 700 }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
-                                <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
-                                <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 700, fontSize: '12px' }} />
-                                <Bar dataKey="Ký kết" fill="#4f46e5" radius={[6, 6, 0, 0]} barSize={24} />
-                                <Bar dataKey="Doanh thu" fill="#10b981" radius={[6, 6, 0, 0]} barSize={24} />
-                                <Bar dataKey="LNG QT" fill="#a855f7" radius={[6, 6, 0, 0]} barSize={24} />
-                                <Bar dataKey="LNG DT" fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={24} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                                        })}
+                                    </div>
+                                </>
+                            )}
+                        </ChartCard>
                     </div>
-                </ChartCard>
+                </>
+            )}
+
+            {activeTab === 'employee_customer' && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Top Khách hàng */}
+                    <ChartCard title="Top Khách hàng" subtitle="Hàng đầu theo Danh thu" index={4}>
+                        {topCustomersData.length === 0 ? <EmptyState message="Chưa có dữ liệu khách hàng" /> : (
+                            <div className="h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={topCustomersData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
+                                        <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 10 }} />
+                                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={100} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                        <Bar
+                                            dataKey="value"
+                                            name="Doanh thu"
+                                            fill="#f97316"
+                                            radius={[0, 4, 4, 0]}
+                                            barSize={16}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            {topCustomersData.map((_, index) => (
+                                                <Cell key={`cell-${index}`} fill={['#ea580c', '#f97316', '#fb923c', '#fdba74', '#fed7aa'][index]} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                    </ChartCard>
+
+                    {/* Top Sales Employees */}
+                    <ChartCard title="Hiệu suất Nhân sự" subtitle="Top Doanh số theo Nhân viên" index={8}>
+                        {topEmployeesData.length === 0 ? <EmptyState message="Chưa có dữ liệu sales" /> : (
+                            <div className="h-[250px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={topEmployeesData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
+                                        <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 10 }} />
+                                        <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={90} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                        <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ pointerEvents: 'auto', zIndex: 100 }} />
+                                        <Bar
+                                            dataKey="value"
+                                            name="Doanh số"
+                                            fill="#3b82f6"
+                                            radius={[0, 4, 4, 0]}
+                                            barSize={16}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            {topEmployeesData.map((_, index) => (
+                                                <Cell key={`cell-${index}`} fill={['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'][index]} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+                    </ChartCard>
+                </div>
             )}
         </div>
     );
