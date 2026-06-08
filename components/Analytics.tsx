@@ -8,7 +8,7 @@ import {
     PieChartIcon, Calendar, Download, Building2, ChevronDown,
     TrendingUp, CreditCard, FileText, Target,
     ArrowUpRight, ArrowDownRight, BarChart3, Activity, Wallet,
-    Inbox, Users, Package, X
+    Inbox, Users, Package, X, Check
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useSlidePanel } from '../contexts/SlidePanelContext';
@@ -110,6 +110,153 @@ const KPICard = ({ title, value, icon, color, change, index }: {
     );
 };
 
+/* ─── Searchable Select Component ─── */
+interface SearchableSelectProps {
+    label: string;
+    value: string[];
+    options: { id: string; name: string }[];
+    onChange: (value: string[]) => void;
+    placeholder?: string;
+}
+
+const SearchableSelect: React.FC<SearchableSelectProps> = ({ label, value, options, onChange, placeholder = 'Tất cả' }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const displayValue = useMemo(() => {
+        if (!value || value.length === 0) return placeholder;
+        if (value.length === 1) {
+            const opt = options.find(o => o.id === value[0]);
+            return opt ? opt.name : placeholder;
+        }
+        return `Đã chọn (${value.length})`;
+    }, [value, options, placeholder]);
+
+    const filteredOptions = useMemo(() => {
+        if (!search) return options;
+        const s = search.toLowerCase();
+        return options.filter(o => o.name.toLowerCase().includes(s));
+    }, [options, search]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (!isOpen) setSearch('');
+    }, [isOpen]);
+
+    const handleSelectAll = () => {
+        onChange([]);
+    };
+
+    const handleToggleOption = (id: string) => {
+        let newValue: string[];
+        if (value.includes(id)) {
+            newValue = value.filter(v => v !== id);
+        } else {
+            newValue = [...value, id];
+        }
+        onChange(newValue);
+    };
+
+    return (
+        <div className="relative" ref={containerRef}>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm hover:border-orange-500 dark:hover:border-orange-500 transition-colors cursor-pointer text-left focus:outline-none min-w-[120px] max-w-[200px]"
+            >
+                <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">{label}</span>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{displayValue}</span>
+                </div>
+                <ChevronDown size={14} className="text-slate-400 dark:text-slate-500 shrink-0" />
+            </button>
+
+            {isOpen && (
+                <div className="absolute top-full left-0 mt-1.5 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl rounded-xl z-30 overflow-hidden flex flex-col max-h-[350px]">
+                    <div className="p-2 border-b border-slate-100 dark:border-slate-800 flex items-center gap-1.5">
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Tìm kiếm..."
+                            className="w-full px-3 py-1.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:border-orange-500 text-slate-800 dark:text-slate-200"
+                            autoFocus
+                        />
+                        {value.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleSelectAll}
+                                className="text-[11px] font-bold text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 whitespace-nowrap px-1 cursor-pointer shrink-0"
+                            >
+                                Xóa chọn
+                            </button>
+                        )}
+                    </div>
+                    <div className="overflow-y-auto flex-1 py-1 max-h-[260px] styled-scrollbar">
+                        <button
+                            type="button"
+                            onClick={handleSelectAll}
+                            className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors flex items-center gap-2.5 ${
+                                value.length === 0
+                                    ? 'bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400'
+                                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            }`}
+                        >
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                value.length === 0
+                                    ? 'bg-orange-500 border-orange-500 text-white'
+                                    : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
+                            }`}>
+                                {value.length === 0 && <Check size={10} strokeWidth={3} />}
+                            </div>
+                            <span className="truncate">{placeholder}</span>
+                        </button>
+                        {filteredOptions.length === 0 ? (
+                            <div className="px-4 py-3 text-xs text-slate-400 dark:text-slate-500 text-center">Không tìm thấy kết quả</div>
+                        ) : (
+                            filteredOptions.map(o => {
+                                const isChecked = value.includes(o.id);
+                                return (
+                                    <button
+                                        key={o.id}
+                                        type="button"
+                                        onClick={() => handleToggleOption(o.id)}
+                                        className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors truncate flex items-center gap-2.5 ${
+                                            isChecked
+                                                ? 'bg-orange-50/70 dark:bg-orange-950/15 text-orange-600 dark:text-orange-400'
+                                                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                        }`}
+                                        title={o.name}
+                                    >
+                                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                                            isChecked
+                                                ? 'bg-orange-500 border-orange-500 text-white'
+                                                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900'
+                                        }`}>
+                                            {isChecked && <Check size={10} strokeWidth={3} />}
+                                        </div>
+                                        <span className="truncate">{o.name}</span>
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 /* ─── Chart Card Wrapper ─── */
 const ChartCard = ({ title, subtitle, children, index, className = '' }: {
     title: string;
@@ -169,6 +316,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     const [showUnitSelector, setShowUnitSelector] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'cashflow' | 'product_brand' | 'employee_customer'>('overview');
+    const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
+    const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+    const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
 
     const { openPanel, closePanel } = useSlidePanel();
 
@@ -321,8 +471,51 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
         return Array.from(years).sort().reverse();
     }, [contracts]);
 
+    // Client-side filtering logic for Brand, Product, Customer
+    const processedContracts = useMemo(() => {
+        return contracts.map(c => {
+            let filteredLineItems = c.lineItems || [];
+            if (selectedBrandIds.length > 0) {
+                filteredLineItems = filteredLineItems.filter((li: any) => {
+                    const prod = products.find(p => p.id === li.productId);
+                    return prod?.brandId && selectedBrandIds.includes(prod.brandId);
+                });
+            }
+            if (selectedProductIds.length > 0) {
+                filteredLineItems = filteredLineItems.filter((li: any) => selectedProductIds.includes(li.productId));
+            }
+
+            const hasMatchingLineItems = (selectedBrandIds.length === 0 && selectedProductIds.length === 0) || filteredLineItems.length > 0;
+            const matchesCustomer = selectedCustomerIds.length === 0 || selectedCustomerIds.includes(c.customerId);
+
+            if (!hasMatchingLineItems || !matchesCustomer) {
+                return null;
+            }
+
+            if (selectedBrandIds.length > 0 || selectedProductIds.length > 0) {
+                const totalLineValue = filteredLineItems.reduce((sum: number, li: any) => sum + (li.outputPrice || 0) * (li.quantity || 1), 0);
+                const proportion = c.value > 0 ? totalLineValue / c.value : 0;
+                
+                const allocatedRevenue = (c.actualRevenue || 0) * proportion;
+                const allocatedAdminProfit = (c.adminProfit || 0) * proportion;
+                const allocatedRevProfit = (c.revProfit || 0) * proportion;
+
+                return {
+                    ...c,
+                    actualRevenue: allocatedRevenue,
+                    adminProfit: allocatedAdminProfit,
+                    revProfit: allocatedRevProfit,
+                    value: totalLineValue,
+                    lineItems: filteredLineItems
+                };
+            }
+
+            return c;
+        }).filter((c): c is Contract => c !== null);
+    }, [contracts, selectedBrandIds, selectedProductIds, selectedCustomerIds, products]);
+
     // Contracts are already filtered by unit+year from the API call
-    const filteredContracts = contracts;
+    const filteredContracts = processedContracts;
 
     // Active contracts only — nhất quán với SQL RPC get_brands_with_stats:
     // chỉ lấy hợp đồng đang hoạt động (không tính Draft, Cancelled...)
@@ -335,11 +528,22 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
 
     /* ─── KPI Calculations (from getStats RPC — same as Dashboard) ─── */
     const kpiData = useMemo(() => {
-        if (!statsData) return { totalRevenue: 0, totalProfit: 0, contractCount: 0, completionRate: 0 };
+        const hasActiveFilters = selectedBrandIds.length > 0 || selectedProductIds.length > 0 || selectedCustomerIds.length > 0;
+        
+        let totalRevenue = 0;
+        let totalProfit = 0;
+        let contractCount = 0;
 
-        const totalRevenue = statsData.totalRevenue || 0;
-        const totalProfit = statsData.totalSigningProfit || 0;
-        const contractCount = statsData.totalContracts || 0;
+        if (hasActiveFilters) {
+            totalRevenue = filteredContracts.reduce((sum, c) => sum + (c.actualRevenue || 0), 0);
+            totalProfit = filteredContracts.reduce((sum, c) => sum + (c.adminProfit || 0), 0);
+            contractCount = filteredContracts.length;
+        } else {
+            if (!statsData) return { totalRevenue: 0, totalProfit: 0, contractCount: 0, completionRate: 0 };
+            totalRevenue = statsData.totalRevenue || 0;
+            totalProfit = statsData.totalSigningProfit || 0;
+            contractCount = statsData.totalContracts || 0;
+        }
 
         // Target: aggregate from all business units when viewing 'all'
         let targetRevenue = 0;
@@ -352,7 +556,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
         const completionRate = targetRevenue > 0 ? Math.min(100, (totalRevenue / targetRevenue) * 100) : 0;
 
         return { totalRevenue, totalProfit, contractCount, completionRate };
-    }, [statsData, safeUnit, selectedUnit, units]);
+    }, [statsData, safeUnit, selectedUnit, units, filteredContracts, selectedBrandIds, selectedProductIds, selectedCustomerIds]);
 
     // 1. Structure Pie Chart Data
     const structureData = useMemo(() => {
@@ -898,7 +1102,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     if (isLoading) return <AnalyticsSkeleton />;
 
     return (
-        <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+        <div className="p-4 md:p-6 lg:p-8 space-y-6">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
@@ -912,85 +1116,43 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                    {/* Unit Selector */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowUnitSelector(!showUnitSelector)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:border-orange-500 dark:hover:border-orange-500 transition-colors cursor-pointer"
-                        >
-                            <Building2 size={18} className="text-slate-400 dark:text-slate-500" />
-                            <span className="font-bold text-sm text-slate-700 dark:text-slate-200">{safeUnit.name}</span>
-                            <ChevronDown size={16} className="text-slate-400 dark:text-slate-500" />
-                        </button>
-                        {showUnitSelector && (
-                            <>
-                                <div className="fixed inset-0 z-10" onClick={() => setShowUnitSelector(false)} />
-                                <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl z-20 overflow-hidden">
-                                    {(visibleUnits === 'all' || visibleUnits.length > 1) && (
-                                        <button onClick={() => { onSelectUnit({ id: 'all', name: 'Toàn công ty', type: 'Company' } as Unit); setShowUnitSelector(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-sm text-slate-700 dark:text-slate-200 transition-colors">Toàn công ty</button>
-                                    )}
-                                    {units.filter(u => u.name !== 'Toàn công ty' &&
-                                        (u.type === 'Center' || u.type === 'Branch') &&
-                                        (visibleUnits === 'all' || visibleUnits.includes(u.id))
-                                    ).sort((a, b) => a.name.localeCompare(b.name, 'vi')).map(u => (
-                                        <button key={u.id} onClick={() => { onSelectUnit(u); setShowUnitSelector(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-sm text-slate-700 dark:text-slate-200 transition-colors">{u.name}</button>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    {/* Brand Selector */}
+                    <SearchableSelect
+                        label="Hãng"
+                        value={selectedBrandIds}
+                        options={brands.map(b => ({ id: b.id, name: b.name }))}
+                        onChange={(val) => {
+                            setSelectedBrandIds(val);
+                            setSelectedProductIds([]); // Reset products when brand selection changes
+                        }}
+                        placeholder="Tất cả hãng"
+                    />
 
-                    {/* Year Selector */}
-                    <div className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm">
-                        <Calendar size={18} className="text-slate-400 dark:text-slate-500" />
-                        <select
-                            value={yearFilter}
-                            onChange={(e) => setYearFilter(e.target.value)}
-                            className="bg-transparent font-bold text-sm text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer appearance-none pr-4"
-                        >
-                            <option value="All">Tất cả</option>
-                            {availableYears.map(y => <option key={y} value={y}>Năm {y}</option>)}
-                        </select>
-                    </div>
+                    {/* Product Selector */}
+                    <SearchableSelect
+                        label="Sản phẩm"
+                        value={selectedProductIds}
+                        options={products
+                            .filter(p => selectedBrandIds.length === 0 || (p.brandId && selectedBrandIds.includes(p.brandId)))
+                            .map(p => ({ id: p.id, name: p.name }))}
+                        onChange={setSelectedProductIds}
+                        placeholder="Tất cả sản phẩm"
+                    />
+
+                    {/* Customer Selector */}
+                    <SearchableSelect
+                        label="Khách hàng"
+                        value={selectedCustomerIds}
+                        options={customers.map(c => ({ id: c.id, name: c.shortName || c.name }))}
+                        onChange={setSelectedCustomerIds}
+                        placeholder="Tất cả khách hàng"
+                    />
 
                     <button className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-xl hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors cursor-pointer border border-orange-100 dark:border-orange-900/30">
                         <Download size={18} />
                         <span className="text-sm font-bold hidden sm:inline">Xuất báo cáo</span>
                     </button>
                 </div>
-            </div>
-
-            {/* ═══ KPI Summary Cards ═══ */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                <KPICard
-                    title="Tổng Doanh thu"
-                    value={kpiData.totalRevenue}
-                    icon={<CreditCard size={20} />}
-                    color="emerald"
-                    index={0}
-                />
-                <KPICard
-                    title="Lợi nhuận QT"
-                    value={kpiData.totalProfit}
-                    icon={<TrendingUp size={20} />}
-                    color="purple"
-                    index={1}
-                />
-                <KPICard
-                    title="Số Hợp đồng"
-                    value={kpiData.contractCount}
-                    icon={<FileText size={20} />}
-                    color="indigo"
-                    index={2}
-                />
-                <KPICard
-                    title="Hoàn thành KH"
-                    value={kpiData.completionRate}
-                    icon={<Target size={20} />}
-                    color="amber"
-                    change={{ value: kpiData.completionRate.toFixed(1), isUp: kpiData.completionRate >= 50 }}
-                    index={3}
-                />
             </div>
 
             {/* Tabs Navigation */}
@@ -1437,16 +1599,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                         {/* Brand Profit Structure — Donut */}
                         <ChartCard title="Cơ cấu Lợi nhuận Hãng" subtitle="Tỷ trọng đóng góp lợi nhuận gộp" index={12}>
                             {brandProfitStructureData.length === 0 ? <EmptyState message="Chưa có dữ liệu lợi nhuận" /> : (
-                                <>
-                                    <div className="h-[200px] relative">
+                                <div className="flex items-center justify-between gap-6 h-[300px]">
+                                    {/* Donut Chart */}
+                                    <div className="flex-1 h-full relative">
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
+                                            <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
                                                 <Pie
                                                     data={brandProfitStructureData}
                                                     cx="50%"
                                                     cy="50%"
-                                                    innerRadius={50}
-                                                    outerRadius={75}
+                                                    innerRadius={55}
+                                                    outerRadius={80}
                                                     paddingAngle={3}
                                                     dataKey="value"
                                                     cornerRadius={4}
@@ -1460,30 +1623,30 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                         </ResponsiveContainer>
                                         {/* Center label */}
                                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                            <p className="text-[9px] font-black text-slate-300 dark:text-slate-500 uppercase tracking-widest">Tổng LN</p>
+                                            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Tổng LN</p>
                                             <p className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
                                                 {formatCurrencyGlobal(brandProfitStructureData.reduce((s, d) => s + d.value, 0))}
                                             </p>
                                         </div>
                                     </div>
                                     {/* Custom Legend */}
-                                    <div className="mt-4 space-y-2 max-h-[80px] overflow-y-auto pr-1 styled-scrollbar">
+                                    <div className="w-[40%] max-w-[240px] shrink-0 max-h-full overflow-y-auto pr-1 styled-scrollbar space-y-1 flex flex-col justify-center">
                                         {brandProfitStructureData.map((d, i) => {
                                             const totalProfit = brandProfitStructureData.reduce((s, x) => s + x.value, 0);
                                             return (
-                                                <div key={i} className="flex items-center justify-between group cursor-default">
-                                                    <div className="flex items-center gap-2">
+                                                <div key={i} className="flex items-center justify-between group cursor-default py-0.5 border-b border-slate-100/50 dark:border-slate-800/50 last:border-0">
+                                                    <div className="flex items-center gap-2 min-w-0">
                                                         <div className="w-2.5 h-2.5 rounded-md shrink-0" style={{ backgroundColor: getChartColors()[i % getChartColors().length] }} />
-                                                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate max-w-[120px]">{d.name}</span>
+                                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate" title={d.name}>{d.name}</span>
                                                     </div>
-                                                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
+                                                    <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 ml-2 shrink-0">
                                                         {totalProfit > 0 ? ((d.value / totalProfit) * 100).toFixed(1) : '0'}%
                                                     </span>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                </>
+                                </div>
                             )}
                         </ChartCard>
                     </div>

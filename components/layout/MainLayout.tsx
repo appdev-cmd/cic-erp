@@ -217,7 +217,8 @@ const MainLayout: React.FC = () => {
         );
     }
 
-    const contentMaxWidthClass = isSidebarCollapsed ? 'max-w-[1920px]' : 'max-w-[1600px]';
+    const isWiderPage = location.pathname.startsWith('/analytics') || location.pathname === '/' || location.pathname.startsWith('/dashboard');
+    const contentMaxWidthClass = isWiderPage ? 'max-w-none' : (isSidebarCollapsed ? 'max-w-[1920px]' : 'max-w-[1600px]');
     const isAIAssistant = location.pathname.startsWith('/ai-assistant');
 
     return (
