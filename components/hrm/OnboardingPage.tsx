@@ -10,7 +10,7 @@ import {
     CheckCircle2, Clock, CheckCircle, ChevronRight, FileText, User,
     Trash2, Edit, X, Settings, ArrowRight, UserCheck, Check, MoreVertical,
     Calendar, AlertTriangle, ListChecks, CheckCircle as CheckCircleIcon,
-    XCircle
+    XCircle, Copy
 } from 'lucide-react';
 import { OnboardingService } from '../../services/onboardingService';
 import { EmployeeService } from '../../services/employeeService';
@@ -21,12 +21,14 @@ import type {
     OnboardingTask,
     OnboardingStatus,
     OnboardingAssigneeRole,
-    OnboardingItemStatus
+    OnboardingItemStatus,
+    QuizQuestion
 } from '../../types/onboardingTypes';
 import type { Employee } from '../../types/employee';
 import { formatDate } from '../../utils/formatters';
 import { useSlidePanel } from '../../contexts/SlidePanelContext';
 import DateInput from '../ui/DateInput';
+import { DocumentQuizConfig } from './DocumentQuizConfig';
 
 export const OnboardingPage: React.FC = () => {
     const { openPanel } = useSlidePanel();
@@ -111,7 +113,7 @@ export const OnboardingPage: React.FC = () => {
                         onClick={() => setActiveTab('checklists')}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all ${
                             activeTab === 'checklists'
-                                ? 'bg-white dark:bg-slate-750 text-fuchsia-600 dark:text-fuchsia-400 shadow-sm'
+                                ? 'bg-white dark:bg-slate-700 text-fuchsia-600 dark:text-fuchsia-400 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                         }`}
                     >
@@ -122,7 +124,7 @@ export const OnboardingPage: React.FC = () => {
                         onClick={() => setActiveTab('templates')}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all ${
                             activeTab === 'templates'
-                                ? 'bg-white dark:bg-slate-750 text-fuchsia-600 dark:text-fuchsia-400 shadow-sm'
+                                ? 'bg-white dark:bg-slate-700 text-fuchsia-600 dark:text-fuchsia-400 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                         }`}
                     >
@@ -297,7 +299,7 @@ const LaunchOnboardingModal: React.FC<LaunchModalProps> = ({ onClose, onSuccess 
     return (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-850/50">
+                <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
                     <h3 className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <GraduationCap className="text-fuchsia-500" size={20} />
                         Khởi tạo Quy trình Hội nhập
@@ -316,7 +318,7 @@ const LaunchOnboardingModal: React.FC<LaunchModalProps> = ({ onClose, onSuccess 
                             <select
                                 value={selectedEmployeeId}
                                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-fuchsia-500 outline-none transition cursor-pointer"
+                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-fuchsia-500 outline-none transition cursor-pointer"
                             >
                                 <option value="">-- Chọn nhân sự --</option>
                                 {employees.map(emp => (
@@ -332,7 +334,7 @@ const LaunchOnboardingModal: React.FC<LaunchModalProps> = ({ onClose, onSuccess 
                             <select
                                 value={selectedTemplateId}
                                 onChange={(e) => setSelectedTemplateId(e.target.value)}
-                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-fuchsia-500 outline-none transition cursor-pointer"
+                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-fuchsia-500 outline-none transition cursor-pointer"
                             >
                                 <option value="">Mẫu tự do (Không theo khuôn mẫu)</option>
                                 {templates.map(t => (
@@ -346,11 +348,11 @@ const LaunchOnboardingModal: React.FC<LaunchModalProps> = ({ onClose, onSuccess 
                             <DateInput
                                 value={startDate}
                                 onChange={setStartDate}
-                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 rounded-xl text-sm"
+                                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-sm"
                             />
                         </div>
 
-                        <div className="flex gap-3 pt-3 justify-end border-t border-slate-155 dark:border-slate-800">
+                        <div className="flex gap-3 pt-3 justify-end border-t border-slate-200 dark:border-slate-800">
                             <button
                                 type="button"
                                 onClick={onClose}
@@ -516,14 +518,14 @@ const TemplateManager: React.FC = () => {
                                 </button>
                                 <button
                                     onClick={() => openEditModal(t)}
-                                    className="p-1.5 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition hover:bg-slate-50 dark:hover:bg-slate-850 rounded-lg cursor-pointer"
+                                    className="p-1.5 text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
                                     title="Sửa"
                                 >
                                     <Edit size={16} />
                                 </button>
                                 <button
                                     onClick={() => handleDeleteTemplate(t.id, t.name)}
-                                    className="p-1.5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-450 transition hover:bg-slate-50 dark:hover:bg-slate-850 rounded-lg cursor-pointer"
+                                    className="p-1.5 text-slate-400 hover:text-rose-500 dark:hover:text-rose-450 transition hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
                                     title="Xóa"
                                 >
                                     <Trash2 size={16} />
@@ -544,7 +546,7 @@ const TemplateManager: React.FC = () => {
             {showEditTplModal && (
                 <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
                     <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 shadow-2xl animate-in zoom-in-95 duration-200">
-                        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-850/50 rounded-t-2xl">
+                        <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-t-2xl">
                             <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
                                 {editingTemplate ? 'Chỉnh sửa Mẫu Hội nhập' : 'Tạo mới Mẫu Hội nhập'}
                             </h3>
@@ -559,7 +561,7 @@ const TemplateManager: React.FC = () => {
                                     type="text"
                                     value={name}
                                     onChange={e => setName(e.target.value)}
-                                    className="w-full px-3 py-2 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-750 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 transition"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 transition"
                                     placeholder="Ví dụ: Onboarding Lập trình viên NodeJS"
                                 />
                             </div>
@@ -570,7 +572,7 @@ const TemplateManager: React.FC = () => {
                                     type="text"
                                     value={position}
                                     onChange={e => setPosition(e.target.value)}
-                                    className="w-full px-3 py-2 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-750 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400"
                                     placeholder="Ví dụ: Backend Developer"
                                 />
                             </div>
@@ -580,7 +582,7 @@ const TemplateManager: React.FC = () => {
                                 <textarea
                                     value={description}
                                     onChange={e => setDescription(e.target.value)}
-                                    className="w-full px-3 py-2 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-750 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 transition h-20 resize-none"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 transition h-20 resize-none"
                                     placeholder="Mô tả tóm tắt nội dung quy trình hội nhập..."
                                 />
                             </div>
@@ -593,7 +595,7 @@ const TemplateManager: React.FC = () => {
                                     onChange={e => setIsDefault(e.target.checked)}
                                     className="w-4 h-4 rounded text-fuchsia-600 focus:ring-fuchsia-500 dark:bg-slate-800 border-slate-300 dark:border-slate-700"
                                 />
-                                <label htmlFor="isDefaultTpl" className="text-sm font-bold text-slate-750 dark:text-slate-300 cursor-pointer">Đặt làm Mẫu mặc định</label>
+                                <label htmlFor="isDefaultTpl" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer">Đặt làm Mẫu mặc định</label>
                             </div>
 
                             <div className="flex gap-3 pt-3 justify-end border-t border-slate-100 dark:border-slate-800">
@@ -652,6 +654,12 @@ const TemplateTaskEdit: React.FC<TaskEditProps> = ({ template, onClose }) => {
     const [category, setCategory] = useState('orientation');
     const [saving, setSaving] = useState(false);
 
+    // Document & Quiz States
+    const [documentUrl, setDocumentUrl] = useState<string | null>(null);
+    const [documentName, setDocumentName] = useState<string | null>(null);
+    const [convertedHtml, setConvertedHtml] = useState<string | null>(null);
+    const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[] | null>(null);
+
     const loadTasks = async () => {
         setLoading(true);
         try {
@@ -678,6 +686,10 @@ const TemplateTaskEdit: React.FC<TaskEditProps> = ({ template, onClose }) => {
         const maxSort = tasks.reduce((max, t) => Math.max(max, t.sort_order || 0), 0);
         setSortOrder(maxSort + 10);
         setCategory('orientation');
+        setDocumentUrl(null);
+        setDocumentName(null);
+        setConvertedHtml(null);
+        setQuizQuestions(null);
         setShowAddForm(true);
     };
 
@@ -689,6 +701,10 @@ const TemplateTaskEdit: React.FC<TaskEditProps> = ({ template, onClose }) => {
         setDueDays(task.due_days || 0);
         setSortOrder(task.sort_order || 10);
         setCategory(task.category || 'orientation');
+        setDocumentUrl(task.document_url || null);
+        setDocumentName(task.document_name || null);
+        setConvertedHtml(task.converted_html || null);
+        setQuizQuestions(task.quiz_questions || null);
         setShowAddForm(true);
     };
 
@@ -708,7 +724,11 @@ const TemplateTaskEdit: React.FC<TaskEditProps> = ({ template, onClose }) => {
                 assignee_role: assigneeRole,
                 due_days: Number(dueDays),
                 sort_order: Number(sortOrder),
-                category: category || null
+                category: category || null,
+                document_url: documentUrl,
+                document_name: documentName,
+                converted_html: convertedHtml,
+                quiz_questions: quizQuestions
             };
 
             if (editingTask) {
@@ -741,7 +761,7 @@ const TemplateTaskEdit: React.FC<TaskEditProps> = ({ template, onClose }) => {
     return (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col h-[85vh] animate-in zoom-in-95 duration-200">
-                <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-850/50 rounded-t-2xl shrink-0">
+                <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-t-2xl shrink-0">
                     <div>
                         <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
                             Cấu hình Công việc Mẫu: {template.name}
@@ -756,8 +776,8 @@ const TemplateTaskEdit: React.FC<TaskEditProps> = ({ template, onClose }) => {
                 <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
                     {/* Add / Edit Task Inline Form */}
                     {showAddForm && (
-                        <form onSubmit={handleSaveTask} className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-750 space-y-3 shrink-0">
-                            <h4 className="font-bold text-xs text-slate-750 dark:text-slate-200 uppercase tracking-widest">
+                        <form onSubmit={handleSaveTask} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3 shrink-0">
+                            <h4 className="font-bold text-xs text-slate-700 dark:text-slate-200 uppercase tracking-widest">
                                 {editingTask ? 'Cập nhật công việc mẫu' : 'Thêm công việc mẫu mới'}
                             </h4>
                             
@@ -835,6 +855,21 @@ const TemplateTaskEdit: React.FC<TaskEditProps> = ({ template, onClose }) => {
                                         placeholder="Mô tả yêu cầu cụ thể cần hoàn thành..."
                                     />
                                 </div>
+
+                                <div className="sm:col-span-2">
+                                    <DocumentQuizConfig
+                                        documentUrl={documentUrl}
+                                        documentName={documentName}
+                                        convertedHtml={convertedHtml}
+                                        quizQuestions={quizQuestions}
+                                        onChange={(data) => {
+                                            setDocumentUrl(data.documentUrl);
+                                            setDocumentName(data.documentName);
+                                            setConvertedHtml(data.convertedHtml);
+                                            setQuizQuestions(data.quizQuestions);
+                                        }}
+                                    />
+                                </div>
                             </div>
 
                             <div className="flex gap-2 justify-end pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
@@ -876,13 +911,13 @@ const TemplateTaskEdit: React.FC<TaskEditProps> = ({ template, onClose }) => {
                                     <div className="flex gap-1 shrink-0 ml-4">
                                         <button
                                             onClick={() => openEditTask(t)}
-                                            className="p-1 text-slate-400 hover:text-blue-500 rounded hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer"
+                                            className="p-1 text-slate-400 hover:text-blue-500 rounded hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                                         >
                                             <Edit size={14} />
                                         </button>
                                         <button
                                             onClick={() => handleDeleteTask(t.id)}
-                                            className="p-1 text-slate-400 hover:text-rose-500 rounded hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer"
+                                            className="p-1 text-slate-400 hover:text-rose-500 rounded hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                                         >
                                             <Trash2 size={14} />
                                         </button>
@@ -897,7 +932,7 @@ const TemplateTaskEdit: React.FC<TaskEditProps> = ({ template, onClose }) => {
                     )}
                 </div>
 
-                <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-between bg-slate-50 dark:bg-slate-850/50 rounded-b-2xl shrink-0">
+                <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-between bg-slate-50 dark:bg-slate-900 rounded-b-2xl shrink-0">
                     <button
                         onClick={openAddTask}
                         className="flex items-center gap-1 px-4 py-2 text-xs font-bold text-white bg-fuchsia-600 hover:bg-fuchsia-700 rounded-lg cursor-pointer"
@@ -930,6 +965,12 @@ const OnboardingDetail: React.FC<{ checklistId: string, onRefresh?: () => void }
     const [itemAssigneeId, setItemAssigneeId] = useState('');
     const [itemNotes, setItemNotes] = useState('');
     const [savingItem, setSavingItem] = useState(false);
+
+    // Document & Quiz States
+    const [itemDocumentUrl, setItemDocumentUrl] = useState<string | null>(null);
+    const [itemDocumentName, setItemDocumentName] = useState<string | null>(null);
+    const [itemConvertedHtml, setItemConvertedHtml] = useState<string | null>(null);
+    const [itemQuizQuestions, setItemQuizQuestions] = useState<QuizQuestion[] | null>(null);
 
     const fetchData = async () => {
         try {
@@ -982,7 +1023,11 @@ const OnboardingDetail: React.FC<{ checklistId: string, onRefresh?: () => void }
                 checklist_id: checklistId,
                 title: itemTitle.trim(),
                 assignee_id: itemAssigneeId || null,
-                notes: itemNotes.trim() || null
+                notes: itemNotes.trim() || null,
+                document_url: itemDocumentUrl,
+                document_name: itemDocumentName,
+                converted_html: itemConvertedHtml,
+                quiz_questions: itemQuizQuestions
             };
 
             if (editingItem) {
@@ -1036,14 +1081,21 @@ const OnboardingDetail: React.FC<{ checklistId: string, onRefresh?: () => void }
         setItemTitle('');
         setItemAssigneeId('');
         setItemNotes('');
+        setItemDocumentUrl(null);
+        setItemDocumentName(null);
+        setItemConvertedHtml(null);
+        setItemQuizQuestions(null);
         setShowItemForm(true);
     };
 
     const openEditItem = (item: OnboardingChecklistItem) => {
-        setEditingItem(item);
         setItemTitle(item.title || '');
         setItemAssigneeId(item.assignee_id || '');
         setItemNotes(item.notes || '');
+        setItemDocumentUrl(item.document_url || null);
+        setItemDocumentName(item.document_name || null);
+        setItemConvertedHtml(item.converted_html || null);
+        setItemQuizQuestions(item.quiz_questions || null);
         setShowItemForm(true);
     };
 
@@ -1112,7 +1164,7 @@ const OnboardingDetail: React.FC<{ checklistId: string, onRefresh?: () => void }
 
             {/* Item Editor Dialog Form */}
             {showItemForm && (
-                <form onSubmit={handleSaveItem} className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-750 space-y-3">
+                <form onSubmit={handleSaveItem} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
                     <h4 className="font-bold text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wider">
                         {editingItem ? 'Sửa công việc' : 'Thêm công việc tùy chỉnh mới'}
                     </h4>
@@ -1149,6 +1201,21 @@ const OnboardingDetail: React.FC<{ checklistId: string, onRefresh?: () => void }
                             onChange={e => setItemNotes(e.target.value)}
                             className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs h-16 resize-none"
                             placeholder="Ghi chú chi tiết địa điểm, liên hệ hoặc tài liệu tham khảo..."
+                        />
+                    </div>
+
+                    <div className="pt-2">
+                        <DocumentQuizConfig
+                            documentUrl={itemDocumentUrl}
+                            documentName={itemDocumentName}
+                            convertedHtml={itemConvertedHtml}
+                            quizQuestions={itemQuizQuestions}
+                            onChange={(data) => {
+                                setItemDocumentUrl(data.documentUrl);
+                                setItemDocumentName(data.documentName);
+                                setItemConvertedHtml(data.convertedHtml);
+                                setItemQuizQuestions(data.quizQuestions);
+                            }}
                         />
                     </div>
 
@@ -1217,14 +1284,14 @@ const OnboardingDetail: React.FC<{ checklistId: string, onRefresh?: () => void }
                                 <div className="flex gap-1 shrink-0 ml-2">
                                     <button
                                         onClick={() => openEditItem(item)}
-                                        className="p-1 text-slate-400 hover:text-blue-500 rounded hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer"
+                                        className="p-1 text-slate-400 hover:text-blue-500 rounded hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                                         title="Sửa"
                                     >
                                         <Edit size={14} />
                                     </button>
                                     <button
                                         onClick={() => handleDeleteItem(item.id)}
-                                        className="p-1 text-slate-400 hover:text-rose-500 rounded hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer"
+                                        className="p-1 text-slate-400 hover:text-rose-500 rounded hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                                         title="Xóa"
                                     >
                                         <Trash2 size={14} />

@@ -277,7 +277,7 @@ const LeadsKanbanView: React.FC<Props> = ({ leads, stages, onLeadUpdated, onLead
                       <Phone className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                       <span className="truncate">
                         {lead.phone || 'Chưa có SĐT'}
-                        <span className="text-slate-300 dark:text-slate-750 mx-1.5">•</span>
+                        <span className="text-slate-300 dark:text-slate-600 mx-1.5">•</span>
                         {getRegionText(lead.region)}
                       </span>
                     </div>
@@ -287,7 +287,7 @@ const LeadsKanbanView: React.FC<Props> = ({ leads, stages, onLeadUpdated, onLead
                       <Briefcase className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                       <span className="truncate" title={productNames}>
                         {productNames || 'Chưa chọn sản phẩm'}
-                        <span className="text-slate-300 dark:text-slate-750 mx-1.5">•</span>
+                        <span className="text-slate-300 dark:text-slate-600 mx-1.5">•</span>
                         <span className="font-semibold text-indigo-600 dark:text-indigo-400">
                           {formatCurrencyCompact(lead.expected_value)}
                         </span>

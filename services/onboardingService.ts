@@ -9,8 +9,32 @@ import type {
     OnboardingTask,
     OnboardingChecklist,
     OnboardingChecklistItem,
-    OnboardingStatus
+    OnboardingStatus,
+    QuizQuestion
 } from '../types/onboardingTypes';
+import { chat } from './ai/gateway';
+
+const SYSTEM_PROMPT = `Bạn là hệ thống thiết kế tài liệu đào tạo nội bộ và câu hỏi trắc nghiệm của công ty.
+NHIỆM VỤ:
+Đọc nội dung văn bản thô được cung cấp, chuyển đổi thành mã HTML sạch sẽ, định dạng đẹp mắt để hiển thị học tập, đồng thời tạo bộ câu hỏi trắc nghiệm gồm 5 câu hỏi để kiểm tra nhân sự mới.
+
+ĐỊNH DẠNG TRẢ VỀ (BẮT BUỘC dạng JSON thuần, không kèm markdown \`\`\`json):
+{
+  "html": "<nội dung HTML sạch sẽ, sử dụng các thẻ h1, h2, h3, p, ul, li, strong, table, tr, td để trình bày trực quan>",
+  "quiz": [
+    {
+      "question": "Câu hỏi số 1...",
+      "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
+      "answerIndex": 0
+    },
+    ...
+  ]
+}
+
+QUY TẮC:
+- html: Chỉ dùng các thẻ HTML cơ bản (h1, h2, h3, p, ul, li, strong, table, tr, td). Không dùng CSS inline, không dùng class. Trình bày các phần rõ ràng, dễ đọc.
+- quiz: Phải tạo đúng 5 câu hỏi trắc nghiệm trực tiếp liên quan đến tài liệu. Mỗi câu hỏi có đúng 4 phương án lựa chọn. answerIndex là index của đáp án đúng (0 cho phương án đầu tiên, 1 cho phương án thứ hai, v.v.).
+- Trả về CHỈ JSON thuần, không kèm bất kỳ giải thích hay ký tự nào khác bên ngoài.`;
 
 export const OnboardingService = {
 
@@ -270,7 +294,11 @@ export const OnboardingService = {
                     title: t.title,
                     // Assignee logic: In MVP, we assign to candidate directly if role is new_hire
                     assignee_id: t.assignee_role === 'new_hire' ? employeeId : null,
-                    status: 'pending'
+                    status: 'pending',
+                    document_url: t.document_url,
+                    document_name: t.document_name,
+                    converted_html: t.converted_html,
+                    quiz_questions: t.quiz_questions
                 }));
 
                 const { error: itemInsertError } = await supabase
@@ -282,5 +310,75 @@ export const OnboardingService = {
         }
 
         return checklist.id;
+    },
+
+    // ══════════════════════════════════════════
+    // Document Upload & AI Quiz Methods
+    // ══════════════════════════════════════════
+
+    async uploadOnboardingMaterial(file: File): Promise<{ url: string; name: string }> {
+        const fileExt = file.name.split('.').pop() || '';
+        const fileName = `material_${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `onboarding_materials/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(filePath, file, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('documents').getPublicUrl(filePath);
+        return {
+            url: data.publicUrl,
+            name: file.name
+        };
+    },
+
+    async generateDocumentAndQuiz(text: string): Promise<{ html: string; quiz: QuizQuestion[] }> {
+        const userPrompt = `NỘI DUNG TÀI LIỆU:\n${text}\n\nHãy chuyển đổi tài liệu trên và tạo quiz trắc nghiệm.`;
+        try {
+            const response = await chat({
+                messages: [{ role: 'user', content: userPrompt }],
+                model: 'qwen3.5-35b',
+                systemInstruction: SYSTEM_PROMPT,
+                temperature: 0.2,
+                maxTokens: 3000,
+                meta: { source: 'api' }
+            });
+
+            const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/) || response.match(/(\{[\s\S]*\})/);
+            if (!jsonMatch) {
+                throw new Error('AI local không trả về JSON hợp lệ.');
+            }
+
+            const parsed = JSON.parse(jsonMatch[1].trim());
+            return {
+                html: parsed.html || '',
+                quiz: parsed.quiz || []
+            };
+        } catch (error: any) {
+            console.error('[Onboarding AI] Generate error:', error);
+            throw new Error(`AI Local Error: ${error.message || String(error)}`);
+        }
+    },
+
+    async updateQuizResult(itemId: string, score: number, passed: boolean): Promise<void> {
+        const payload: any = {
+            quiz_score: score,
+            quiz_passed: passed,
+            updated_at: new Date().toISOString()
+        };
+
+        if (passed) {
+            payload.status = 'completed';
+            payload.completed_at = new Date().toISOString();
+        }
+
+        const { error } = await supabase
+            .from('onboarding_checklist_items')
+            .update(payload)
+            .eq('id', itemId);
+
+        if (error) throw error;
     }
 };

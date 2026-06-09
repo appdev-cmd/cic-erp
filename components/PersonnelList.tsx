@@ -40,9 +40,9 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     const [units, setUnits] = useState<Unit[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const pageSize = 12;
+    // Infinite Scroll
+    const [visibleCount, setVisibleCount] = useState(15);
+    const sentinelRef = React.useRef<HTMLDivElement | null>(null);
 
     // Form state
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -209,20 +209,64 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
         });
     }, [allPersonnel, unitFilter, searchQuery, units, visibleUnits, statusFilter]);
 
-    // Total and pagination (based on filtered results)
+    // Total personnel count (based on filtered results)
     const totalCount = filteredAll.length;
-    const totalPages = Math.ceil(totalCount / pageSize);
 
-    // Paginated personnel for current page
+    // Dynamic stats calculated from filtered list
+    const activeUnitsCount = useMemo(() => {
+        return new Set(filteredAll.map(p => p.unitId)).size;
+    }, [filteredAll]);
+
+    const maleCount = useMemo(() => {
+        return filteredAll.filter(p => p.gender === 'male').length;
+    }, [filteredAll]);
+
+    const femaleCount = useMemo(() => {
+        return filteredAll.filter(p => p.gender === 'female').length;
+    }, [filteredAll]);
+
+    const newThisYearCount = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        return filteredAll.filter(p => {
+            if (!p.dateJoined) return false;
+            try {
+                return new Date(p.dateJoined).getFullYear() === currentYear;
+            } catch (e) {
+                return false;
+            }
+        }).length;
+    }, [filteredAll]);
+
+    // Slice personnel for infinite scroll
     const filteredPersonnel = useMemo(() => {
-        const from = (currentPage - 1) * pageSize;
-        return filteredAll.slice(from, from + pageSize);
-    }, [filteredAll, currentPage]);
+        return filteredAll.slice(0, visibleCount);
+    }, [filteredAll, visibleCount]);
 
-    // Reset page on filter change
+    // Reset visibleCount on filter change
     useEffect(() => {
-        setCurrentPage(1);
+        setVisibleCount(15);
     }, [unitFilter, searchQuery, statusFilter]);
+
+    // IntersectionObserver to auto-load more
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && visibleCount < filteredAll.length) {
+                    setVisibleCount(prev => prev + 15);
+                }
+            },
+            {
+                rootMargin: '200px',
+                threshold: 0.1
+            }
+        );
+
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [visibleCount, filteredAll.length]);
 
     const handleSave = async (data: any) => {
         try {
@@ -315,38 +359,101 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-slate-100">
                         Quản lý Nhân sự
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                        {totalCount} nhân viên • Trang {currentPage}/{totalPages || 1}
+                        {totalCount} nhân viên
                     </p>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Import & Template & Export — only Admin/Leadership */}
+                    {can('employees', 'create') && (
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setIsImportOpen(true)}
+                                className="flex items-center gap-2 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all cursor-pointer"
+                            >
+                                <Upload size={16} />
+                                <span>Import</span>
+                            </button>
+                            <a
+                                href="/templates/employeeImportTemplate.xlsx"
+                                download
+                                className="flex items-center gap-2 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all"
+                            >
+                                <Download size={16} />
+                                <span>Template</span>
+                            </a>
+                            <button
+                                onClick={handleExport}
+                                disabled={filteredAll.length === 0}
+                                className="flex items-center gap-2 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-emerald-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                                <FileSpreadsheet size={16} />
+                                <span>Export</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* View Mode Toggle */}
+                    <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-1">
+                        <button
+                            onClick={() => toggleViewMode('table')}
+                            className={`p-2 rounded-md transition-all cursor-pointer ${viewMode === 'table' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                            title="Chế độ bảng (Web)"
+                        >
+                            <FileSpreadsheet size={16} />
+                        </button>
+                        <button
+                            onClick={() => toggleViewMode('grid')}
+                            className={`p-2 rounded-md transition-all cursor-pointer ${viewMode === 'grid' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                            title="Chế độ thẻ (Mobile/Tablet)"
+                        >
+                            <User size={16} />
+                        </button>
+                    </div>
+
+                    {/* Add Button — Spec §6.5: only Admin/Leadership */}
+                    {can('employees', 'create') && (
+                        <button
+                            onClick={() => { setEditingPerson(undefined); setIsFormOpen(true); }}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-sm font-bold shadow-md shadow-indigo-200/50 hover:shadow-lg transition-all cursor-pointer active:scale-95 text-nowrap"
+                        >
+                            <Plus size={16} />
+                            <span>Thêm NV</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Filters Toolbar */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/10 p-3 rounded-xl border border-slate-100 dark:border-slate-800/60">
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                     {/* Unit Filter */}
                     <div className="relative">
                         <button
                             onClick={() => setIsUnitDropdownOpen(!isUnitDropdownOpen)}
-                            className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:border-indigo-300 transition-all min-w-[180px]"
+                            className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 hover:border-indigo-300 transition-all min-w-[180px] cursor-pointer"
                         >
-                            <Building size={18} className="text-slate-400" />
+                            <Building size={16} className="text-slate-400" />
                             <span className="flex-1 text-left truncate">{selectedUnitName}</span>
-                            <ChevronDown size={16} className={`text-slate-400 transition-transform ${isUnitDropdownOpen ? 'rotate-180' : ''}`} />
+                            <ChevronDown size={14} className={`text-slate-400 transition-transform ${isUnitDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
 
                         {isUnitDropdownOpen && (
                             <>
                                 <div className="fixed inset-0 z-10" onClick={() => setIsUnitDropdownOpen(false)} />
-                                <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden">
+                                <div className="absolute top-full left-0 mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden">
                                     <div className="max-h-80 overflow-y-auto">
                                         {filterUnits.map(unit => (
                                             <button
                                                 key={unit.id}
                                                 onClick={() => { setUnitFilter(unit.id); setIsUnitDropdownOpen(false); }}
-                                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors ${unitFilter === unit.id
+                                                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer ${unitFilter === unit.id
                                                     ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
                                                     : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'}`}
                                             >
@@ -365,7 +472,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value as any)}
-                            className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-300 outline-none transition-all cursor-pointer"
+                            className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:border-indigo-300 outline-none transition-all cursor-pointer"
                         >
                             <option value="working">Đang làm việc & Thử việc</option>
                             <option value="active">Chính thức</option>
@@ -374,82 +481,18 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                             <option value="all">Tất cả trạng thái</option>
                         </select>
                     </div>
+                </div>
 
-                    {/* Search */}
-                    <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Tìm kiếm nhân viên..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                    </div>
-
-                    {/* Import & Template — only Admin/Leadership */}
-                    {can('employees', 'create') && (
-                        <>
-                            <button
-                                onClick={() => setIsImportOpen(true)}
-                                className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-indigo-300 transition-all"
-                            >
-                                <Upload size={18} />
-                                <span className="hidden sm:inline">Import</span>
-                            </button>
-                            <a
-                                href="/templates/employeeImportTemplate.xlsx"
-                                download
-                                className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-emerald-300 transition-all"
-                            >
-                                <Download size={18} />
-                                <span className="hidden sm:inline">Template</span>
-                            </a>
-                            <button
-                                onClick={handleExport}
-                                disabled={filteredAll.length === 0}
-                                className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:border-emerald-300 transition-all disabled:opacity-50"
-                            >
-                                <FileSpreadsheet size={18} />
-                                <span className="hidden sm:inline">Export</span>
-                            </button>
-                        </>
-                    )}
-
-                    {/* View Mode Toggle */}
-                    <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-1">
-                        <button
-                            onClick={() => toggleViewMode('table')}
-                            className={`p-2 rounded-md transition-all ${viewMode === 'table' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                            title="Chế độ bảng (Web)"
-                        >
-                            <FileSpreadsheet size={18} />
-                        </button>
-                        <button
-                            onClick={() => toggleViewMode('grid')}
-                            className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                            title="Chế độ thẻ (Mobile/Tablet)"
-                        >
-                            <User size={18} />
-                        </button>
-                    </div>
-
-                    {/* Add Button — Spec §6.5: only Admin/Leadership */}
-                    {(() => {
-                        const canAdd = can('employees', 'create');
-
-                        if (!canAdd) return null;
-
-                        return (
-                            <button
-                                onClick={() => { setEditingPerson(undefined); setIsFormOpen(true); }}
-                                className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg text-sm font-bold shadow-lg shadow-indigo-200/50 hover:shadow-xl transition-all"
-                            >
-                                <Plus size={18} />
-                                <span className="hidden sm:inline text-nowrap">Thêm NV</span>
-                            </button>
-                        );
-                    })()}
+                {/* Search */}
+                <div className="relative w-full md:w-64">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                        type="text"
+                        placeholder="Tìm kiếm nhân viên..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
                 </div>
             </div>
 
@@ -502,7 +545,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                             <Building size={20} />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{units.length}</p>
+                            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{activeUnitsCount}</p>
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Đơn vị</p>
                         </div>
                     </div>
@@ -514,7 +557,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         </div>
                         <div>
                             <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                                {allPersonnel.filter(p => p.gender === 'male').length}/{allPersonnel.filter(p => p.gender === 'female').length}
+                                {maleCount}/{femaleCount}
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Nam / Nữ</p>
                         </div>
@@ -527,7 +570,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                         </div>
                         <div>
                             <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                                {allPersonnel.filter(p => p.dateJoined && new Date(p.dateJoined).getFullYear() === new Date().getFullYear()).length}
+                                {newThisYearCount}
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Mới năm nay</p>
                         </div>
@@ -938,38 +981,29 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                 </div>
             )}
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
-                        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                            Hiển thị {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} / {totalCount} kết quả
-                        </p>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={resetWidths}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
-                                title="Đặt lại kích thước cột mặc định"
-                            >
-                                <RotateCcw size={13} /> Reset cột
-                            </button>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Trước
-                            </button>
-                            <span className="text-sm text-slate-600 dark:text-slate-400">Trang {currentPage} / {totalPages}</span>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Sau
-                            </button>
-                        </div>
-                    </div>
-                )}
+            {/* Infinite Scroll Sentinel */}
+            {visibleCount < totalCount && (
+                <div ref={sentinelRef} className="py-6 flex justify-center items-center gap-2 text-slate-400">
+                    <Loader2 className="animate-spin text-indigo-600 dark:text-indigo-400" size={20} />
+                    <span className="text-xs font-semibold">Đang tải thêm...</span>
+                </div>
+            )}
+
+            {/* Footer Toolbar */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+                <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+                    Hiển thị {filteredPersonnel.length} / {totalCount} nhân viên
+                </p>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={resetWidths}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
+                        title="Đặt lại kích thước cột mặc định"
+                    >
+                        <RotateCcw size={13} /> Reset cột
+                    </button>
+                </div>
+            </div>
 
             {/* Delete Confirmation Modal */}
             {deleteConfirmId && (

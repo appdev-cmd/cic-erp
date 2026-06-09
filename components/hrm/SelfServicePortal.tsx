@@ -9,12 +9,14 @@ import { toast } from 'sonner';
 import {
     User, CalendarDays, Clock, FileText, Settings,
     ChevronRight, MapPin, Briefcase, Mail, Phone, ExternalLink, Loader2, Home, CreditCard,
-    CheckCircle2, ListChecks, GraduationCap
+    CheckCircle2, ListChecks, GraduationCap, X, Check, ArrowRight
 } from 'lucide-react';
 import { EmployeeService } from '../../services';
 import { Employee } from '../../types';
 import DateInput from '../ui/DateInput';
 import { OnboardingService } from '../../services/onboardingService';
+import type { QuizQuestion } from '../../types/onboardingTypes';
+import { formatDate } from '../../utils/formatters';
 
 export const SelfServicePortal: React.FC = () => {
     const { profile } = useAuth();
@@ -26,6 +28,8 @@ export const SelfServicePortal: React.FC = () => {
     const [onboardingChecklist, setOnboardingChecklist] = useState<any>(null);
     const [onboardingItems, setOnboardingItems] = useState<any[]>([]);
     const [assistingItems, setAssistingItems] = useState<any[]>([]);
+    const [showQuizModal, setShowQuizModal] = useState(false);
+    const [selectedQuizItem, setSelectedQuizItem] = useState<any>(null);
 
     // Edit fields state
     const [name, setName] = useState('');
@@ -262,20 +266,20 @@ export const SelfServicePortal: React.FC = () => {
                                     {/* Readonly info fields */}
                                     <div className="sm:col-span-2 pt-4 border-t dark:border-slate-800">
                                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Thông tin công tác (Chỉ đọc)</h4>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-150 dark:border-slate-800">
-                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-850">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-800">
                                                 <span className="text-xs text-slate-400">Mã nhân viên:</span>
                                                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{employee?.employeeCode || '—'}</span>
                                             </div>
-                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-850">
+                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-800">
                                                 <span className="text-xs text-slate-400">Chức vụ:</span>
                                                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{employee?.position || '—'}</span>
                                             </div>
-                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-850">
+                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-800">
                                                 <span className="text-xs text-slate-400">Ngày vào làm:</span>
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{employee?.dateJoined ? new Date(employee.dateJoined).toLocaleDateString('vi-VN') : '—'}</span>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{employee?.dateJoined ? formatDate(employee.dateJoined) : '—'}</span>
                                             </div>
-                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-850">
+                                            <div className="flex justify-between py-1.5 border-b dark:border-slate-800">
                                                 <span className="text-xs text-slate-400">Loại HĐ Lao động:</span>
                                                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{employee?.contractType || '—'}</span>
                                             </div>
@@ -334,19 +338,55 @@ export const SelfServicePortal: React.FC = () => {
 
                                     <div className="space-y-3 mt-4">
                                         {onboardingItems.map(item => {
-                                            const canToggle = item.assignee_id === profile?.employeeId || !item.assignee_id;
+                                            const hasMaterial = !!item.converted_html;
+                                            const canToggle = (item.assignee_id === profile?.employeeId || !item.assignee_id) && !hasMaterial;
                                             return (
                                                 <div key={item.id} className={`flex items-start gap-4 p-4 rounded-xl border ${item.status === 'completed' ? 'bg-slate-50/50 dark:bg-slate-800/20 border-slate-200/50 dark:border-slate-800/50 opacity-60' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm'}`}>
                                                     <button
-                                                        onClick={() => canToggle && handleToggleOnboardingItem(item)}
-                                                        disabled={!canToggle}
-                                                        className={`mt-0.5 rounded-full p-0.5 flex-shrink-0 transition-colors ${item.status === 'completed' ? 'text-emerald-500' : canToggle ? 'text-slate-350 dark:text-slate-650 hover:text-emerald-555 cursor-pointer' : 'text-slate-200 cursor-not-allowed'}`}
+                                                        onClick={() => {
+                                                            if (hasMaterial) {
+                                                                setSelectedQuizItem(item);
+                                                                setShowQuizModal(true);
+                                                            } else if (canToggle) {
+                                                                handleToggleOnboardingItem(item);
+                                                            }
+                                                        }}
+                                                        disabled={!canToggle && !hasMaterial}
+                                                        className={`mt-0.5 rounded-full p-0.5 flex-shrink-0 transition-colors ${
+                                                            item.status === 'completed'
+                                                                ? 'text-emerald-500'
+                                                                : hasMaterial
+                                                                ? 'text-fuchsia-500 hover:text-fuchsia-600 cursor-pointer'
+                                                                : canToggle
+                                                                ? 'text-slate-355 dark:text-slate-650 hover:text-emerald-555 cursor-pointer'
+                                                                : 'text-slate-200 cursor-not-allowed'
+                                                        }`}
                                                     >
                                                         <CheckCircle2 size={22} fill="currentColor" className="text-white dark:text-slate-900" />
                                                     </button>
                                                     <div className="flex-1 min-w-0 text-left">
-                                                        <h4 className={`text-sm font-bold ${item.status === 'completed' ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-850 dark:text-slate-200'}`}>{item.title}</h4>
+                                                        <h4 className={`text-sm font-bold ${item.status === 'completed' ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-800 dark:text-slate-200'}`}>{item.title}</h4>
                                                         {item.notes && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{item.notes}</p>}
+                                                        
+                                                        {hasMaterial && (
+                                                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelectedQuizItem(item);
+                                                                        setShowQuizModal(true);
+                                                                    }}
+                                                                    className="px-3 py-1 bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-bold rounded-lg text-[10px] uppercase tracking-wider transition cursor-pointer flex items-center gap-1 shadow-sm"
+                                                                >
+                                                                    📚 Học tập & Làm Test
+                                                                </button>
+                                                                {item.quiz_passed ? (
+                                                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-450 border border-emerald-250 dark:border-emerald-900/50 rounded-lg text-[9.5px] font-black uppercase tracking-wider">Đạt: {item.quiz_score}%</span>
+                                                                ) : item.quiz_score !== null && item.quiz_score !== undefined ? (
+                                                                    <span className="px-2 py-0.5 bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-450 border border-rose-250 dark:border-rose-900/50 rounded-lg text-[9.5px] font-black uppercase tracking-wider">Chưa đạt: {item.quiz_score}%</span>
+                                                                ) : null}
+                                                            </div>
+                                                        )}
+
                                                         <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
                                                             <User size={10} /> Phụ trách: <span className="font-bold">{item.assignee_name || 'HR Team'}</span>
                                                         </div>
@@ -373,17 +413,255 @@ export const SelfServicePortal: React.FC = () => {
                                             <div key={item.id} className="flex items-start gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
                                                 <button
                                                     onClick={() => handleToggleOnboardingItem(item)}
-                                                    className="mt-0.5 rounded-full p-0.5 flex-shrink-0 text-slate-350 dark:text-slate-650 hover:text-emerald-555 transition cursor-pointer"
+                                                    className="mt-0.5 rounded-full p-0.5 flex-shrink-0 text-slate-300 dark:text-slate-600 hover:text-emerald-500 transition cursor-pointer"
                                                 >
                                                     <CheckCircle2 size={22} fill="currentColor" className="text-white dark:text-slate-900" />
                                                 </button>
                                                 <div className="flex-1 min-w-0 text-left">
                                                     <span className="inline-block px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[9px] font-bold rounded uppercase tracking-wider mb-2">Hỗ trợ: {item.new_hire_name} ({item.new_hire_code})</span>
-                                                    <h4 className="text-sm font-bold text-slate-850 dark:text-slate-200">{item.title}</h4>
+                                                    <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{item.title}</h4>
                                                     {item.notes && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{item.notes}</p>}
                                                 </div>
                                             </div>
                                         ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+            </div>
+            {showQuizModal && selectedQuizItem && (
+                <OnboardingStudyQuizModal
+                    item={selectedQuizItem}
+                    onClose={() => {
+                        setShowQuizModal(false);
+                        setSelectedQuizItem(null);
+                    }}
+                    onSuccess={() => {
+                        fetchOnboardingData();
+                    }}
+                />
+            )}
+        </div>
+    </div>
+    );
+};
+
+// ── Component Modal: Học tập và kiểm tra trắc nghiệm ──
+interface OnboardingStudyQuizModalProps {
+    item: any;
+    onClose: () => void;
+    onSuccess: () => void;
+}
+
+const OnboardingStudyQuizModal: React.FC<OnboardingStudyQuizModalProps> = ({ item, onClose, onSuccess }) => {
+    const [activeTab, setActiveTab] = useState<'study' | 'quiz'>('study');
+    const [answers, setAnswers] = useState<Record<number, number>>({});
+    const [submitted, setSubmitted] = useState(false);
+    const [score, setScore] = useState(item.quiz_score || 0);
+    const [passed, setPassed] = useState(item.quiz_passed || false);
+    const [submitting, setSubmitting] = useState(false);
+
+    const questions: QuizQuestion[] = item.quiz_questions || [];
+
+    const handleOptionSelect = (qIndex: number, oIndex: number) => {
+        if (submitted) return;
+        setAnswers(prev => ({ ...prev, [qIndex]: oIndex }));
+    };
+
+    const handleSubmitQuiz = async () => {
+        if (questions.length === 0) {
+            setSubmitting(true);
+            try {
+                await OnboardingService.updateQuizResult(item.id, 100, true);
+                toast.success('Xác nhận hoàn thành nhiệm vụ!');
+                onSuccess();
+                onClose();
+            } catch {
+                toast.error('Lỗi khi cập nhật trạng thái');
+            } finally {
+                setSubmitting(false);
+            }
+            return;
+        }
+
+        if (Object.keys(answers).length < questions.length) {
+            toast.error('Vui lòng trả lời đầy đủ tất cả các câu hỏi!');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            let correctCount = 0;
+            questions.forEach((q, idx) => {
+                if (answers[idx] === q.answerIndex) {
+                    correctCount++;
+                }
+            });
+
+            const finalScore = Math.round((correctCount / questions.length) * 100);
+            const isPassed = finalScore >= 80;
+
+            await OnboardingService.updateQuizResult(item.id, finalScore, isPassed);
+
+            setScore(finalScore);
+            setPassed(isPassed);
+            setSubmitted(true);
+
+            if (isPassed) {
+                toast.success(`Chúc mừng! Bạn đã vượt qua bài test với điểm số ${finalScore}%`);
+                onSuccess();
+            } else {
+                toast.error(`Bài test chưa đạt (${finalScore}%). Vui lòng thử lại!`);
+            }
+        } catch (error) {
+            toast.error('Lỗi nộp bài kiểm tra');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleRetry = () => {
+        setAnswers({});
+        setSubmitted(false);
+        setScore(0);
+        setPassed(false);
+        setActiveTab('study');
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col h-[85vh] animate-in zoom-in-95 duration-200">
+                <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-t-2xl shrink-0">
+                    <div>
+                        <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm">
+                            Học tập & Kiểm tra: {item.title}
+                        </h3>
+                        {item.document_name && (
+                            <p className="text-[10px] text-fuchsia-600 dark:text-fuchsia-400 font-semibold mt-0.5 uppercase tracking-wider">Tài liệu: {item.document_name}</p>
+                        )}
+                    </div>
+                    <button onClick={onClose} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-slate-400 transition cursor-pointer">
+                        <X size={18} />
+                    </button>
+                </div>
+
+                <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+                    <button
+                        onClick={() => setActiveTab('study')}
+                        className={`flex-1 py-3 text-xs font-bold border-b-2 transition ${activeTab === 'study' ? 'border-fuchsia-500 text-fuchsia-600 dark:text-fuchsia-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        📚 1. Tài liệu Học tập
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (!item.converted_html) {
+                                toast.error('Hãy đọc tài liệu học tập trước.');
+                                return;
+                            }
+                            setActiveTab('quiz');
+                        }}
+                        className={`flex-1 py-3 text-xs font-bold border-b-2 transition ${activeTab === 'quiz' ? 'border-fuchsia-500 text-fuchsia-600 dark:text-fuchsia-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        📝 2. Bài kiểm tra trắc nghiệm
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-950/20">
+                    {activeTab === 'study' ? (
+                        <div className="space-y-6">
+                            <div 
+                                className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm prose prose-sm dark:prose-invert prose-headings:font-bold prose-headings:text-slate-800 dark:prose-headings:text-slate-200 prose-p:leading-relaxed max-w-none prose-table:border prose-table:border-collapse prose-td:border prose-td:p-2"
+                                dangerouslySetInnerHTML={{ __html: item.converted_html || 'Chưa có nội dung tài liệu học tập.' }}
+                            />
+                            
+                            <div className="flex justify-end pt-2">
+                                <button
+                                    onClick={() => setActiveTab('quiz')}
+                                    className="flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold text-white bg-fuchsia-600 hover:bg-fuchsia-700 rounded-xl transition shadow-md hover:shadow-fuchsia-500/20 cursor-pointer"
+                                >
+                                    Bắt đầu làm bài kiểm tra <ArrowRight size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {submitted || item.quiz_passed ? (
+                                <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm">
+                                    <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center text-white shadow-md ${passed || item.quiz_passed ? 'bg-emerald-500' : 'bg-rose-500'}`}>
+                                        <CheckCircle2 size={32} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">
+                                            {passed || item.quiz_passed ? 'Chúc mừng! Bạn đã vượt qua bài test!' : 'Bài test chưa đạt điểm tối thiểu'}
+                                        </h4>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            {passed || item.quiz_passed
+                                                ? `Điểm số của bạn: ${score || item.quiz_score}% (Đạt yêu cầu tối thiểu >= 80%)`
+                                                : `Điểm số của bạn: ${score || item.quiz_score}% (Yêu cầu tối thiểu >= 80%)`}
+                                        </p>
+                                    </div>
+                                    
+                                    {!(passed || item.quiz_passed) && (
+                                        <div className="pt-2 flex justify-center gap-3">
+                                            <button
+                                                onClick={handleRetry}
+                                                className="px-5 py-2.5 text-xs font-bold text-white bg-fuchsia-600 hover:bg-fuchsia-700 rounded-xl transition shadow-md cursor-pointer"
+                                            >
+                                                Làm lại bài kiểm tra
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {questions.length === 0 ? (
+                                        <div className="p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-center">
+                                            <p className="text-xs text-slate-500">Nhiệm vụ này không có bài test trắc nghiệm. Vui lòng bấm nộp bài để xác nhận đã hoàn thành việc học tập.</p>
+                                        </div>
+                                    ) : (
+                                        questions.map((q, qIndex) => (
+                                            <div 
+                                                key={qIndex}
+                                                className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 shadow-sm"
+                                            >
+                                                <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm leading-tight font-sans">
+                                                    Câu {qIndex + 1}: {q.question}
+                                                </h4>
+                                                <div className="grid grid-cols-1 gap-2.5">
+                                                    {q.options.map((opt, oIndex) => {
+                                                        const isSelected = answers[qIndex] === oIndex;
+                                                        return (
+                                                            <button
+                                                                key={oIndex}
+                                                                type="button"
+                                                                onClick={() => handleOptionSelect(qIndex, oIndex)}
+                                                                className={`w-full p-3.5 text-left text-xs font-semibold rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                                                                    isSelected 
+                                                                        ? 'border-fuchsia-500 bg-fuchsia-50/10 text-fuchsia-600 dark:text-fuchsia-400 font-extrabold'
+                                                                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-350'
+                                                                }`}
+                                                            >
+                                                                <span>{opt}</span>
+                                                                {isSelected && <Check size={16} className="text-fuchsia-500 shrink-0 ml-3" />}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+
+                                    <div className="flex justify-end pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleSubmitQuiz}
+                                            disabled={submitting}
+                                            className="px-6 py-2.5 text-xs font-bold text-white bg-fuchsia-600 hover:bg-fuchsia-700 rounded-xl transition shadow-md hover:shadow-fuchsia-500/20 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                                        >
+                                            {submitting && <Loader2 className="animate-spin" size={14} />}
+                                            Nộp bài & Hoàn thành
+                                        </button>
                                     </div>
                                 </div>
                             )}

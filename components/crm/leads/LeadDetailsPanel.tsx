@@ -22,7 +22,7 @@ import LeadAIInsightsTab from './LeadAIInsightsTab';
 import MergeLeadModal from './MergeLeadModal';
 import {
   isLoseStage, resolveStageAction, isHighPotentialStage, isInProgressStage,
-  mapPotentialLevelToStage, isLevelUp,
+  mapPotentialLevelToStage,
 } from '../../../lib/crm/stageWorkflow';
 import { POTENTIAL_LEVEL_LABELS, POTENTIAL_LEVEL_COLORS } from '../../../types/crm';
 import type { PotentialLevel } from '../../../types/crm';
@@ -380,24 +380,8 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
       return;
     }
 
-    // Cùng stage (đổi mức trong "Đang xử lý"): nâng mức bắt buộc ghi chú; hạ mức cập nhật thẳng
-    if (isLevelUp(potentialLevel, level)) {
-      setPendingLevelChange(level);
-    } else {
-      void saveLevelDirect(level);
-    }
-  };
-
-  const saveLevelDirect = async (level: PotentialLevel) => {
-    if (!lead) return;
-    try {
-      await CrmLeadService.update(lead.id, { potential_level: level });
-      setPotentialLevel(level);
-      toast.success(`Đã cập nhật mức: ${POTENTIAL_LEVEL_LABELS[level]}`);
-      onSave();
-    } catch (err: any) {
-      toast.error('Lỗi cập nhật mức tiềm năng: ' + err.message);
-    }
+    // Cùng stage (đổi mức trong "Đang xử lý"): MỌI thay đổi đều bắt buộc ghi chú + lưu lại
+    setPendingLevelChange(level);
   };
 
   const handleLevelChangeConfirm = async (_updated: Partial<CrmLead>, note: string) => {
@@ -416,7 +400,7 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
           description: `Đánh giá mức tiềm năng → ${POTENTIAL_LEVEL_LABELS[level]}: ${note}`,
         });
       } catch (_) { /* ignore */ }
-      toast.success(`Đã nâng mức: ${POTENTIAL_LEVEL_LABELS[level]}`);
+      toast.success(`Đã cập nhật mức: ${POTENTIAL_LEVEL_LABELS[level]}`);
       onSave();
     } catch (err: any) {
       toast.error('Lỗi cập nhật mức tiềm năng: ' + err.message);

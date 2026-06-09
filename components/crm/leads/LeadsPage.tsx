@@ -263,7 +263,7 @@ export const LeadsPage: React.FC = () => {
             <button 
               onClick={handleSeedData}
               disabled={seeding}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 disabled:opacity-50 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm transition-all shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-50 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm transition-all shadow-sm"
               title="Khởi tạo dữ liệu mẫu CRM để test"
             >
               <Database className="w-4 h-4 text-emerald-500" />
@@ -273,7 +273,7 @@ export const LeadsPage: React.FC = () => {
             {/* Import from Excel Button */}
             <button 
               onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm transition-all shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm transition-all shadow-sm"
               title="Import Lead từ file Excel"
             >
               <Upload className="w-4 h-4 text-emerald-500" />

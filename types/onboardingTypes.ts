@@ -7,6 +7,12 @@ export type OnboardingAssigneeRole = 'hr' | 'manager' | 'it' | 'buddy' | 'new_hi
 export type OnboardingStatus = 'in_progress' | 'completed' | 'cancelled';
 export type OnboardingItemStatus = 'pending' | 'in_progress' | 'completed';
 
+export interface QuizQuestion {
+    question: string;
+    options: string[];
+    answerIndex: number;
+}
+
 // ── 1. Templates ──
 export interface OnboardingTemplate {
     id: string;
@@ -31,6 +37,12 @@ export interface OnboardingTask {
     category: string | null;
     created_at: string;
     updated_at: string;
+    
+    // Document & Quiz Configuration
+    document_url?: string | null;
+    document_name?: string | null;
+    converted_html?: string | null;
+    quiz_questions?: QuizQuestion[] | null;
 }
 
 // ── 3. Checklists (The active roadmap for User) ──
@@ -66,8 +78,17 @@ export interface OnboardingChecklistItem {
     created_at: string;
     updated_at: string;
 
+    // Document & Quiz Tracking
+    document_url?: string | null;
+    document_name?: string | null;
+    converted_html?: string | null;
+    quiz_questions?: QuizQuestion[] | null;
+    quiz_score?: number | null;
+    quiz_passed?: boolean | null;
+
     // Joined
     assignee_name?: string;
     category?: string; // Pulled from Task
     due_days?: number; // Pulled from Task to calculate absolute Due Date based on checklist start_date
 }
+

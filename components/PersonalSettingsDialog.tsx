@@ -55,6 +55,8 @@ const initialFormData: FormData = {
     emergencyPhone: '',
     contractType: '',
     contractEndDate: '',
+    hometown: '',
+    status: 'active',
     target: { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
 };
 
@@ -131,6 +133,8 @@ const PersonalSettingsDialog: React.FC<PersonalSettingsDialogProps> = ({
                         emergencyPhone: employee.emergencyPhone || '',
                         contractType: employee.contractType || '',
                         contractEndDate: normalizeDate(employee.contractEndDate),
+                        hometown: employee.hometown || '',
+                        status: employee.status || 'active',
                         target: employee.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 },
                     });
                     setPreviewUrl(employee.avatar || '');
