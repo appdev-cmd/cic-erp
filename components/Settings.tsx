@@ -14,6 +14,7 @@ import HistoricalProductionManager from './settings/HistoricalProductionManager'
 import CompanyTargetManager from './settings/CompanyTargetManager';
 import RouteAuditPanel from './settings/RouteAuditPanel';
 import PermissionAuditLog from './settings/PermissionAuditLog';
+import AnalyticsCardManager from './settings/AnalyticsCardManager';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { useEffectiveProfile } from '../contexts/ImpersonationContext';
@@ -28,7 +29,7 @@ type SettingsTab =
     | 'system'
     | 'permissions' | 'role-defaults' | 'task-mgmt' | 'route-audit' | 'perm-audit'
     | 'drive'
-    | 'historical' | 'company-target'
+    | 'historical' | 'company-target' | 'analytics-cards'
     | 'ai-settings'
     | 'testing';
 
@@ -265,6 +266,7 @@ const Settings: React.FC = () => {
             items: [
                 { id: 'role-defaults', label: 'Quyền theo Role', icon: <ShieldCheck size={15} />, adminOnly: true },
                 { id: 'permissions', label: 'Phân quyền User', icon: <Shield size={15} />, adminOnly: true },
+                { id: 'analytics-cards', label: 'Thẻ Phân tích KD', icon: <BarChart3 size={15} />, adminOnly: true },
                 { id: 'task-mgmt', label: 'Cấp quản lý', icon: <Crown size={15} />, adminOnly: true },
                 { id: 'route-audit', label: 'Route & Phân quyền', icon: <ScanLine size={15} />, adminOnly: true },
                 { id: 'perm-audit', label: 'Nhật ký phân quyền', icon: <History size={15} />, adminOnly: true },
@@ -452,6 +454,19 @@ const Settings: React.FC = () => {
                             {/* Task 3.3: Health Check Widget */}
                             <PermissionHealthCheck />
                             <PermissionManager />
+                        </div>
+                    )}
+
+                    {/* ANALYTICS CARDS (Phân quyền thẻ BI theo role) */}
+                    {activeTab === 'analytics-cards' && isAdmin && (
+                        <div>
+                            <SectionHeader
+                                icon={<BarChart3 size={20} className="text-white" />}
+                                title="Thẻ Phân tích kinh doanh theo Role"
+                                desc="Cấu hình mỗi vai trò được phép xem những thẻ (card) nào trong phân hệ BI"
+                                gradient="from-sky-500 to-indigo-600"
+                            />
+                            <AnalyticsCardManager />
                         </div>
                     )}
 

@@ -12,6 +12,8 @@ export * from './auditLogService';
 export * from './permissionService';
 export { TaxLookupService } from './taxLookupService';
 export { UnitVisibilityService } from './unitVisibilityService';
+export { DashboardPreferenceService } from './dashboardPreferenceService';
+export type { RoleCardMap } from './dashboardPreferenceService';
 export { CrmLeadService, CrmDealService, CrmStageTemplateService, CrmActivityService, CrmDealProductService, CrmCompletionService, CrmAssignmentService } from './crmService';
 export type { CrmUnitAssignmentConfig, CrmAssignmentBalanceStat } from './crmService';
 export { CrmIntelligenceService } from './crmIntelligenceService';

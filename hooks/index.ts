@@ -4,3 +4,4 @@ export { useUnits } from './useUnits';
 export { useUserPermissions, useAllPermissions, useUpdatePermission, useInitializePermissions, useCheckPermission, usePermissionCheck } from './usePermissions';
 export { useEmployeeVisibility, useAllVisibility, useCurrentUserVisibleUnits, useToggleVisibility, useSetVisibility } from './useUnitVisibility';
 export { useNotifications } from './useNotifications';
+export { useAnalyticsCards, useAnalyticsRoleCards } from './useAnalyticsPrefs';
