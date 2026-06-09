@@ -36,7 +36,7 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
             {/* Backdrop */}
             <div
                 className={`absolute inset-0 transition-colors duration-200 ${isTopPanel
-                    ? 'bg-slate-900/40 dark:bg-slate-950/60 cursor-pointer'
+                    ? 'bg-gray-900/30 dark:bg-gray-900/40 cursor-pointer'
                     : 'bg-transparent pointer-events-none'
                     } ${isExiting ? 'slide-panel-backdrop-exit' : 'slide-panel-backdrop-enter'}`}
                 onClick={isTopPanel ? onClose : undefined}
@@ -240,7 +240,7 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
         <div className="fixed inset-0 z-[60]">
             {/* Full-screen backdrop — frosted glass dims the sidebar */}
             <div
-                className={`absolute inset-0 bg-slate-900/25 dark:bg-slate-950/50 backdrop-blur-[2px] transition-colors duration-200 ${isAllExiting ? 'slide-panel-backdrop-exit' : 'slide-panel-backdrop-enter'}`}
+                className={`absolute inset-0 bg-gray-900/20 dark:bg-gray-900/40 backdrop-blur-[2px] transition-colors duration-200 ${isAllExiting ? 'slide-panel-backdrop-exit' : 'slide-panel-backdrop-enter'}`}
                 onClick={() => guardedClose()}
                 aria-hidden="true"
             />

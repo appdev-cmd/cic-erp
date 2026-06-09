@@ -750,7 +750,7 @@ const OrganizationChart: React.FC<OrganizationChartProps> = ({ onSelectUnit, onE
             {/* Chart Canvas */}
             <div
                 ref={canvasRef}
-                className={`overflow-auto bg-slate-50 dark:bg-slate-900/50 ${isPanning ? 'cursor-grabbing' : ''}`}
+                className={`overflow-auto bg-slate-50 dark:bg-slate-900 ${isPanning ? 'cursor-grabbing' : ''}`}
                 style={{ maxHeight: '75vh', minHeight: '500px' }}
                 onWheel={handleWheel}
                 onMouseDown={handleMouseDown}
@@ -797,7 +797,7 @@ const OrganizationChart: React.FC<OrganizationChartProps> = ({ onSelectUnit, onE
             </div>
 
             {/* Footer hint */}
-            <div className="px-5 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+            <div className="px-5 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center">
                     Kéo thả node để di chuyển · Hover để chỉnh sửa/thêm nhánh · Ctrl+Scroll để zoom · Alt+Drag để pan
                 </p>

@@ -25,10 +25,10 @@ export const ReviewLog: React.FC<Props> = ({ reviews }) => {
                             )}
 
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border z-10 shadow-sm ${rv.action === 'Approve' || rv.action === 'Submit'
-                                    ? 'bg-emerald-100 text-emerald-600 border-emerald-200'
+                                    ? 'bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30'
                                     : rv.action === 'Reject'
-                                        ? 'bg-rose-100 text-rose-600 border-rose-200'
-                                        : 'bg-slate-100 text-slate-600'
+                                        ? 'bg-rose-100 text-rose-600 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30'
+                                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                                 }`}>
                                 {rv.action === 'Reject' ? <X size={14} /> : <Check size={14} />}
                             </div>

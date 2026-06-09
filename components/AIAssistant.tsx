@@ -1759,7 +1759,7 @@ const AIAssistant: React.FC = () => {
                               onMouseEnter={() => setMentionIndex(idx)}
                               className={cn(
                                 "w-full text-left flex items-start gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors",
-                                idx === mentionIndex ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300" : "hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300"
+                                idx === mentionIndex ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300" : "hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
                               )}
                             >
                               <span className="text-base leading-none pt-0.5">{item.icon}</span>
@@ -1787,7 +1787,7 @@ const AIAssistant: React.FC = () => {
 
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer z-10"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white/50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer z-10"
                       title="Đính kèm tài liệu (.docx, .txt, .csv, hình ảnh)"
                     >
                       <Paperclip size={18} />

@@ -922,7 +922,7 @@ const ProductList: React.FC<ProductListProps> = ({ onSelectProduct }) => {
                                         </div>
 
                                         {/* Financials & Additional Info */}
-                                        <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800 mt-1">
+                                        <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-800 mt-1">
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">Đơn giá ({product.unit})</span>
                                                 <span className="text-sm font-black text-slate-900 dark:text-slate-100">{formatCurrency(product.basePrice)}</span>

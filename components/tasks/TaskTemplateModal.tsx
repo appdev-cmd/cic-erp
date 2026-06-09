@@ -157,13 +157,13 @@ export const TaskTemplateModal: React.FC<TaskTemplateModalProps> = ({ isOpen, on
 
                        {/* Expanded task list preview */}
                        {isExpanded && tpl.tasks_json?.length > 0 && (
-                         <div className="border-t border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/50 px-4 py-3">
+                         <div className="border-t border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800 px-4 py-3">
                            <div className="space-y-1.5">
                              {[...tpl.tasks_json].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).map((t, i) => {
                                const roleInfo = getRoleLabel(t.assignee_role);
                                const depTask = t.depends_on ? tpl.tasks_json.find(x => x.id === t.depends_on) : null;
                                return (
-                                 <div key={t.id} className="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg hover:bg-white dark:hover:bg-slate-700/50 transition-colors">
+                                 <div key={t.id} className="flex items-center gap-2 text-xs py-1.5 px-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors">
                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 w-5 text-center">{i + 1}</span>
                                    <span className="font-medium text-slate-700 dark:text-slate-300 flex-1 truncate">{t.title}</span>
                                    {roleInfo && (

@@ -501,7 +501,7 @@ export const ContractListMobileCard: React.FC<ContractListTableRowProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-3 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+      <div className="grid grid-cols-2 gap-2 mb-3 bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
         <div>
           <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase">Ký kết</p>
           <p className="text-xs font-black text-slate-900 dark:text-slate-100">{formatCurrency(Math.round((contract.value || 0) * allocFraction))}</p>

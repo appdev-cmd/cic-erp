@@ -807,7 +807,7 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
         {activeTab === 'general' ? (
           <>
             {/* LEFT COLUMN: Lead Form */}
-            <div className="w-full md:w-1/2 border-r border-slate-200 dark:border-slate-800 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-slate-900/20">
+            <div className="w-full md:w-1/2 border-r border-slate-200 dark:border-slate-800 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-slate-900">
               
               {/* ① SUMMARY STRIP — Score · Vùng · Nhận lead */}
               {lead && (
@@ -1209,7 +1209,7 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse min-w-[900px]">
                     <thead>
-                      <tr className="bg-slate-50 dark:bg-slate-800/50 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                      <tr className="bg-slate-50 dark:bg-slate-800 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
                         <th className="py-3 px-5 w-[280px]">Sản phẩm</th>
                         <th className="py-3 px-3 w-40">Hãng SX</th>
                         <th className="py-3 px-3 w-40">Nhà cung cấp</th>
@@ -1224,7 +1224,7 @@ export const LeadDetailsPanel: React.FC<Props> = ({ lead, onClose, onSave, stage
                       {localProducts.map((p: any, index: number) => {
                         const rowBg = index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800';
                         return (
-                          <tr key={p.id} className={`${rowBg} hover:bg-slate-50/80 dark:hover:bg-slate-800/80 transition-colors`}>
+                          <tr key={p.id} className={`${rowBg} hover:bg-slate-50/80 dark:hover:bg-slate-800 transition-colors`}>
                             {/* Product Select */}
                             <td className="py-3.5 px-5">
                               <div className="flex items-center gap-2">

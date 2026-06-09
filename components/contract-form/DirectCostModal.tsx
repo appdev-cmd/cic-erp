@@ -410,7 +410,7 @@ const DirectCostModal: React.FC<DirectCostModalProps> = ({
                                                     });
                                                 }}
                                                 formatVND={formatVND}
-                                                inputClassName="w-full bg-white/60 dark:bg-slate-800/60 rounded-md px-2 py-1 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-rose-500 pr-6"
+                                                inputClassName="w-full bg-white/60 dark:bg-slate-800 rounded-md px-2 py-1 text-sm font-bold text-right outline-none focus:ring-1 focus:ring-indigo-500 text-rose-500 pr-6"
                                                 textColorClass="text-rose-500"
                                             />
                                         </div>

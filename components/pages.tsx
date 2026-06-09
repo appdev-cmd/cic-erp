@@ -209,7 +209,7 @@ export const ContractFormPage: React.FC = () => {
     const cloneFrom = location.state?.cloneFrom;
 
     return (
-        <div className="fixed inset-0 z-[100] bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-slate-900/40 dark:bg-slate-950 backdrop-blur-md flex items-center justify-center p-4">
             <ContractFormComponent
                 contract={cloneFrom}
                 isCloning={!!cloneFrom}

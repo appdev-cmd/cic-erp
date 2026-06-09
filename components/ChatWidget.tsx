@@ -211,7 +211,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                             {/* Expand Button */}
                             <button
                                 onClick={handleExpand}
-                                className="p-1.5 hover:bg-white/20 dark:hover:bg-slate-700/50 rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 hover:bg-white/20 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
                                 title="Phóng lớn — Vào chế độ phân tích chuyên sâu"
                             >
                                 <Maximize2 size={16} />
@@ -219,7 +219,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                             {/* Close Button */}
                             <button
                                 onClick={() => setIsOpen(false)}
-                                className="p-1.5 hover:bg-white/20 dark:hover:bg-slate-700/50 rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 hover:bg-white/20 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
                             >
                                 <X size={18} />
                             </button>
@@ -258,7 +258,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ contextData }) => {
                                                     p: ({ node, ...props }) => <p className="mb-3 last:mb-0" {...props} />,
                                                     strong: ({ node, ...props }) => <strong className="font-bold text-slate-900 dark:text-white" {...props} />,
                                                     table: ({ node, ...props }) => <div className="overflow-x-auto my-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm"><table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-xs" {...props} /></div>,
-                                                    thead: ({ node, ...props }) => <thead className="bg-slate-50 dark:bg-slate-800/80" {...props} />,
+                                                    thead: ({ node, ...props }) => <thead className="bg-slate-50 dark:bg-slate-800" {...props} />,
                                                     th: ({ node, ...props }) => <th className="px-4 py-2.5 text-left font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px]" {...props} />,
                                                     td: ({ node, ...props }) => <td className="px-4 py-2.5 whitespace-nowrap border-t border-slate-100 dark:border-slate-700/50" {...props} />,
                                                     code: ({ node, inline, ...props }: any) => inline 

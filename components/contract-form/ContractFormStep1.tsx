@@ -97,7 +97,7 @@ const SectionCard: React.FC<{ icon: React.ReactNode; title: string; children: Re
     icon, title, children, delay = 0, accentColor = 'indigo'
 }) => (
     <section
-        className="bg-slate-50/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700 p-4 space-y-3 animate-in slide-in-from-bottom-4 duration-500"
+        className="bg-slate-50/80 dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700 p-4 space-y-3 animate-in slide-in-from-bottom-4 duration-500"
         style={{ animationDelay: `${delay}ms` }}
     >
         <div className="flex items-center gap-2.5">

@@ -366,7 +366,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                         onClick={() => setVoucherTab(tab.type)}
                         className={`flex items-center justify-center gap-2 px-5 py-3 text-xs font-bold transition-all relative ${voucherTab === tab.type
                             ? `${tab.color} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 border-b-white dark:border-b-slate-900 rounded-t-xl -mb-px z-10`
-                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-t-xl'
+                            : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-t-xl'
                             }`}
                     >
                         {tab.icon}

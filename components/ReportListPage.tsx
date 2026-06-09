@@ -138,7 +138,7 @@ const ReportListPage: React.FC = () => {
                     <tbody className="bg-white dark:bg-slate-900">
                         {loading ? (
                             Array.from({ length: 3 }).map((_, i) => (
-                                <tr key={i} className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${i % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : ''}`}>
+                                <tr key={i} className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 ${i % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800' : ''}`}>
                                     <td className="px-4 py-4"><div className="w-8 h-5 bg-slate-100 dark:bg-slate-800 rounded animate-pulse mx-auto"></div></td>
                                     <td className="px-4 py-4"><div className="w-40 h-5 bg-slate-100 dark:bg-slate-800 rounded animate-pulse"></div></td>
                                     <td className="px-4 py-4"><div className="w-full h-5 bg-slate-100 dark:bg-slate-800 rounded animate-pulse"></div></td>
@@ -167,7 +167,7 @@ const ReportListPage: React.FC = () => {
                         ) : filteredReports.map((report, index) => (
                             <tr
                                 key={report.id}
-                                className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 transition-colors cursor-pointer group ${index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}`}
+                                className={`border-b border-slate-100 dark:border-slate-700 last:border-b-0 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/10 transition-colors cursor-pointer group ${index % 2 !== 0 ? 'bg-slate-50/50 dark:bg-slate-800' : ''}`}
                                 onClick={() => navigate(`/reports/${report.id}`)}
                             >
                                 {/* STT */}

@@ -341,7 +341,7 @@ export const SelfServicePortal: React.FC = () => {
                                             const hasMaterial = !!item.converted_html;
                                             const canToggle = (item.assignee_id === profile?.employeeId || !item.assignee_id) && !hasMaterial;
                                             return (
-                                                <div key={item.id} className={`flex items-start gap-4 p-4 rounded-xl border ${item.status === 'completed' ? 'bg-slate-50/50 dark:bg-slate-800/20 border-slate-200/50 dark:border-slate-800/50 opacity-60' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm'}`}>
+                                                <div key={item.id} className={`flex items-start gap-4 p-4 rounded-xl border ${item.status === 'completed' ? 'bg-slate-50/50 dark:bg-slate-800 border-slate-200/50 dark:border-slate-800/50 opacity-60' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm'}`}>
                                                     <button
                                                         onClick={() => {
                                                             if (hasMaterial) {
@@ -567,7 +567,7 @@ const OnboardingStudyQuizModal: React.FC<OnboardingStudyQuizModalProps> = ({ ite
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-950/20">
+                <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-950">
                     {activeTab === 'study' ? (
                         <div className="space-y-6">
                             <div 
@@ -639,7 +639,7 @@ const OnboardingStudyQuizModal: React.FC<OnboardingStudyQuizModalProps> = ({ ite
                                                                 className={`w-full p-3.5 text-left text-xs font-semibold rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
                                                                     isSelected 
                                                                         ? 'border-fuchsia-500 bg-fuchsia-50/10 text-fuchsia-600 dark:text-fuchsia-400 font-extrabold'
-                                                                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-350'
+                                                                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-350'
                                                                 }`}
                                                             >
                                                                 <span>{opt}</span>

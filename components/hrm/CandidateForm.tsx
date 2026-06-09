@@ -131,7 +131,7 @@ const CandidateForm: React.FC<Props> = ({ jobOpenings, preSelectedJobId, candida
                 <select
                   value={formData.education}
                   onChange={e => setFormData({ ...formData, education: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 outline-none hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   <option value="">-- Chọn trình độ --</option>
                   <option value="Trung học">Trung học</option>

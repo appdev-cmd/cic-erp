@@ -173,7 +173,7 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
     const topPercent = (sHour / totalHours) * 100;
     const heightPercent = ((eHour - sHour) / totalHours) * 100;
 
-    let colorCls = 'bg-slate-200/90 border-slate-300 text-slate-800 dark:bg-slate-700/90 dark:border-slate-600 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600';
+    let colorCls = 'bg-slate-200/90 border-slate-300 text-slate-800 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600';
     if (b.status === 'approved') {
       colorCls = 'bg-emerald-100/90 border-emerald-300 text-emerald-800 dark:bg-emerald-900/80 dark:border-emerald-700/50 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-800';
     } else if (b.status === 'pending_unit' || b.status === 'pending_admin') {
@@ -263,9 +263,9 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden relative p-0 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col">
+      <div className="flex-1 overflow-hidden relative p-0 bg-slate-50/50 dark:bg-slate-900 flex flex-col">
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-50">
+          <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-slate-900 backdrop-blur-sm z-50">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400"></div>
           </div>
         )}
@@ -274,7 +274,7 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
           <div className="flex-1 flex flex-col min-w-[800px] overflow-hidden">
             {/* Timeline Header - Days */}
             <div className="sticky top-0 z-30 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex">
-              <div className="w-16 shrink-0 border-r border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-800/50 flex flex-col justify-end text-xs text-slate-400">
+              <div className="w-16 shrink-0 border-r border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-800 flex flex-col justify-end text-xs text-slate-400">
                 GMT+07
               </div>
               <div className="flex-1 grid grid-cols-7 divide-x divide-slate-200 dark:divide-slate-800">
@@ -381,7 +381,7 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
               ))}
 
               {Array.from({ length: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay() }).map((_, i) => (
-                <div key={`empty-${i}`} className="bg-slate-50/30 dark:bg-slate-800/30 p-2 min-h-[120px]" />
+                <div key={`empty-${i}`} className="bg-slate-50/30 dark:bg-slate-800 p-2 min-h-[120px]" />
               ))}
 
               {daysArray.map(day => {
@@ -393,7 +393,7 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
                 return (
                   <div 
                     key={day} 
-                    className={`bg-white dark:bg-slate-900 p-2 min-h-[120px] flex flex-col gap-1 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${isWeekend ? 'bg-slate-50/50 dark:bg-slate-800/20' : ''}`}
+                    className={`bg-white dark:bg-slate-900 p-2 min-h-[120px] flex flex-col gap-1 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 ${isWeekend ? 'bg-slate-50/50 dark:bg-slate-800' : ''}`}
                     onClick={() => {
                       if (onCreateRequest) {
                         const dStr = new Date(dateObj);
@@ -438,7 +438,7 @@ const FacilityCalendar: React.FC<FacilityCalendarProps> = ({ onCreateRequest }) 
       </div>
 
       {/* Footer Legend */}
-      <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex items-center gap-4 text-xs font-medium text-slate-600 dark:text-slate-400 shrink-0">
+      <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 flex items-center gap-4 text-xs font-medium text-slate-600 dark:text-slate-400 shrink-0">
         <span className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-300 dark:bg-emerald-900/40 dark:border-emerald-700" />
           Đã duyệt

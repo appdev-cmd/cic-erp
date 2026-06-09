@@ -722,7 +722,7 @@ export const DealDetailsPanel: React.FC<Props> = ({ deal, onClose, onSave, stage
                     </thead>
                     <tbody className="text-sm divide-y divide-slate-100 dark:divide-slate-800">
                       {dealProducts.map((p, index) => (
-                        <tr key={p.id} className={`${index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'} hover:bg-slate-50/80 dark:hover:bg-slate-800/80 transition-colors`}>
+                        <tr key={p.id} className={`${index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50 dark:bg-slate-800'} hover:bg-slate-50/80 dark:hover:bg-slate-800 transition-colors`}>
                           <td className="py-3.5 px-5">
                             <SearchableSelect
                               value={p.product_id || null}

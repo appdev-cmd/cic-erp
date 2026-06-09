@@ -100,7 +100,7 @@ const LeaveCalendar: React.FC = () => {
 
       <div className="flex-1 overflow-auto p-6 relative">
         {isLoading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm z-10">
+          <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-slate-900 backdrop-blur-sm z-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400"></div>
           </div>
         ) : null}
@@ -115,14 +115,14 @@ const LeaveCalendar: React.FC = () => {
         <div className="grid grid-cols-7 gap-px bg-slate-200 dark:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
           {/* Day of Week Headers */}
           {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((day, i) => (
-            <div key={day} className={`bg-slate-50 dark:bg-slate-800/80 p-2 text-center text-xs font-bold uppercase tracking-wider ${i === 0 || i === 6 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>
+            <div key={day} className={`bg-slate-50 dark:bg-slate-800 p-2 text-center text-xs font-bold uppercase tracking-wider ${i === 0 || i === 6 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>
               {day}
             </div>
           ))}
 
           {/* Empty prefix boxes */}
           {Array.from({ length: new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay() }).map((_, i) => (
-            <div key={`empty-${i}`} className="bg-slate-50/50 dark:bg-slate-800/30 p-2 min-h-[100px]" />
+            <div key={`empty-${i}`} className="bg-slate-50/50 dark:bg-slate-800 p-2 min-h-[100px]" />
           ))}
 
           {/* Days */}
@@ -135,7 +135,7 @@ const LeaveCalendar: React.FC = () => {
             return (
               <div 
                 key={day} 
-                className={`bg-white dark:bg-slate-900 p-2 min-h-[100px] flex flex-col gap-1 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${isWeekend ? 'bg-slate-50/50 dark:bg-slate-800/20' : ''}`}
+                className={`bg-white dark:bg-slate-900 p-2 min-h-[100px] flex flex-col gap-1 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 ${isWeekend ? 'bg-slate-50/50 dark:bg-slate-800' : ''}`}
               >
                 <div className="flex justify-between items-start mb-1">
                   <span className={`text-sm font-semibold w-6 h-6 flex items-center justify-center rounded-full ${

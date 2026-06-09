@@ -769,7 +769,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                                                 )}
 
                                                 {/* Contact Info */}
-                                                <div className="flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                                                <div className="flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
                                                     <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{customer.contactPerson || 'Chưa có liên hệ'}</p>
                                                     {(customer.phone || customer.email) && (
                                                         <div className="flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400">
@@ -787,14 +787,14 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
 
                                                 {/* Financials / Stats */}
                                                 <div className="grid grid-cols-2 gap-2 mt-1">
-                                                    <div className="flex flex-col p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                                                    <div className="flex flex-col p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-800">
                                                         <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-1">Hợp đồng</span>
                                                         <span className="text-sm font-black text-slate-900 dark:text-slate-100">{stats.contractCount} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">HĐ</span></span>
                                                         {stats.activeContracts > 0 && (
                                                             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">{stats.activeContracts} đang thực hiện</span>
                                                         )}
                                                     </div>
-                                                    <div className="flex flex-col p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                                                    <div className="flex flex-col p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-800">
                                                         <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-1">Doanh thu</span>
                                                         <span className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{formatCurrency(stats.totalValue)}</span>
                                                         <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">DT: {formatCurrency(stats.totalRevenue)}</span>

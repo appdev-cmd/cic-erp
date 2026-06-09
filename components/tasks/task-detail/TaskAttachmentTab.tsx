@@ -173,7 +173,7 @@ const TaskAttachmentTab: React.FC<TaskAttachmentTabProps> = ({ taskId, currentUs
         className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all
           ${dragOver
             ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20'
-            : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 bg-slate-50/50 dark:bg-slate-800/50'
+            : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 bg-slate-50/50 dark:bg-slate-800'
           }`}
       >
         {uploading ? (
@@ -214,7 +214,7 @@ const TaskAttachmentTab: React.FC<TaskAttachmentTabProps> = ({ taskId, currentUs
             {attachments.map(att => (
               <div
                 key={att.id}
-                className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 group hover:border-indigo-200 dark:hover:border-indigo-800 transition-all"
+                className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800 group hover:border-indigo-200 dark:hover:border-indigo-800 transition-all"
               >
                 <div className="flex-shrink-0">{getFileIcon(att.mime_type)}</div>
                 <div className="flex-1 min-w-0">

@@ -297,19 +297,19 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg mb-6">
                 <button
                     onClick={() => setActiveTab('basic')}
-                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'basic' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'basic' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                 >
                     Thông tin cơ bản
                 </button>
                 <button
                     onClick={() => setActiveTab('web')}
-                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'web' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'web' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                 >
                     Web & Marketing
                 </button>
                 <button
                     onClick={() => setActiveTab('contracts')}
-                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'contracts' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}
+                    className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${activeTab === 'contracts' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                 >
                     Hợp đồng liên quan
                 </button>
@@ -615,7 +615,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ isOpen, onClose, onSave, prod
                 {/* ── TAB: HỢP ĐỒNG LIÊN QUAN ── */}
                 <div className={activeTab === 'contracts' ? 'block' : 'hidden'}>
                     {!product ? (
-                        <div className="p-8 text-center text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                        <div className="p-8 text-center text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
                             Vui lòng lưu sản phẩm trước khi xem các hợp đồng liên quan.
                         </div>
                     ) : (

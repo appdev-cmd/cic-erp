@@ -183,7 +183,7 @@ export default function ContractTasksTab({ contract }: ContractTasksTabProps) {
         ) : (
           <div className="space-y-3">
             {definitions.filter(d => d.status === 'dormant').map(def => (
-              <div key={def.id} className="flex items-start justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors bg-slate-50/50 dark:bg-slate-800/20 group">
+              <div key={def.id} className="flex items-start justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors bg-slate-50/50 dark:bg-slate-800 group">
                 <div className="flex-1 min-w-0">
                   <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">{def.title}</h4>
                   {def.description && (

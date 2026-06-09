@@ -161,7 +161,7 @@ const ServiceManager: React.FC = () => {
                                             {svc.thumbnailUrl ? (
                                                 <img src={svc.thumbnailUrl} alt={svc.nameVi} className="w-10 h-10 rounded object-cover" />
                                             ) : (
-                                                <div className="w-10 h-10 rounded bg-slate-100 flex items-center justify-center text-slate-400">
+                                                <div className="w-10 h-10 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
                                                     <ImageIcon size={16} />
                                                 </div>
                                             )}

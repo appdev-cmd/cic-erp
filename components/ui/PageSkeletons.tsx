@@ -66,7 +66,7 @@ export const DashboardSkeleton: React.FC = () => (
                 <Skeleton className="h-5 w-28 mb-4" />
                 <div className="space-y-3">
                     {Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                        <div key={i} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
                             <Skeleton className="h-3.5 w-32 mb-2" />
                             <Skeleton className="h-2.5 w-full mb-1" />
                             <Skeleton className="h-2.5 w-4/5" />
@@ -174,7 +174,7 @@ export const DetailPageSkeleton: React.FC = () => (
 // FORM PAGE SKELETON
 // ============================================
 export const FormPageSkeleton: React.FC = () => (
-    <div className="fixed inset-0 z-[100] bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] bg-slate-900/40 dark:bg-slate-950 backdrop-blur-md flex items-center justify-center p-4">
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 w-full max-w-4xl shadow-2xl space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center justify-between">
                 <Skeleton className="h-6 w-48" />

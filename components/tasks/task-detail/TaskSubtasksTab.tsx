@@ -100,7 +100,7 @@ export const TaskSubtasksTab: React.FC<TaskSubtasksTabProps> = ({ parentTask, on
               <div 
                 key={task.id} 
                 onClick={() => onSelectTask?.(task.id)}
-                className="flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                className="flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer group"
               >
                 <GripVertical size={14} className="text-slate-300 dark:text-slate-600 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100" />
                 

@@ -125,7 +125,7 @@ export const CustomerExtractCard: React.FC<{
                         {showEmpty ? 'Ẩn trường trống' : `${emptyFields.length} trường trống — bổ sung thủ công`}
                     </button>
                     {showEmpty && (
-                        <div className="px-4 pb-2 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20">
+                        <div className="px-4 pb-2 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900">
                             {emptyFields.map(renderField)}
                         </div>
                     )}
@@ -133,7 +133,7 @@ export const CustomerExtractCard: React.FC<{
             )}
 
             {/* Save Button */}
-            <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+            <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                 <button
                     onClick={() => onSave(editData)}
                     disabled={saving || !editData.name}

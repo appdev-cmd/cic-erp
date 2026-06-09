@@ -388,7 +388,7 @@ const PermissionManager: React.FC = () => {
                                 </p>
                             </div>
                             {/* Role badge */}
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${ROLE_COLORS[user.role] || 'bg-slate-100 text-slate-600'}`}>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${ROLE_COLORS[user.role] || 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
                                 {ROLE_LABELS[user.role] || user.role}
                             </span>
                         </button>

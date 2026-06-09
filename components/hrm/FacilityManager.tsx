@@ -131,7 +131,7 @@ const FacilityManager: React.FC = () => {
         ) : (
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+              <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800">
                 <th className="p-4 font-semibold text-sm text-slate-600 dark:text-slate-300">Tên Tài Sản</th>
                 <th className="p-4 font-semibold text-sm text-slate-600 dark:text-slate-300">Loại</th>
                 <th className="p-4 font-semibold text-sm text-slate-600 dark:text-slate-300">Chi tiết</th>
@@ -141,7 +141,7 @@ const FacilityManager: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {facilities.map(fac => (
-                <tr key={fac.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                <tr key={fac.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800 transition-colors">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                       <div className="w-4 h-4 rounded-full border border-slate-200 dark:border-slate-700" style={{ backgroundColor: fac.color || '#ccc' }} />
@@ -237,7 +237,7 @@ const FacilityManager: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3 rounded-b-2xl">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 flex justify-end gap-3 rounded-b-2xl">
               <button onClick={() => setIsFormOpen(false)} className="px-4 py-2 font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">Hủy</button>
               <button onClick={handleSave} disabled={!name} className="px-5 py-2 font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Lưu</button>
             </div>

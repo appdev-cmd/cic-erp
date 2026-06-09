@@ -27,7 +27,7 @@ export const QuotesPage: React.FC = () => {
         );
       default:
         return (
-          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-50 text-slate-700 dark:bg-slate-900/20 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
+          <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-50 text-slate-700 dark:bg-slate-900 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
             <AlertCircle className="w-3 h-3" /> Nháp
           </span>
         );

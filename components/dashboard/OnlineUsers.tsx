@@ -81,7 +81,7 @@ const OnlineUsers: React.FC = () => {
                             {displayUsers.map((u) => (
                                 <div
                                     key={u.id}
-                                    className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                                    className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                                 >
                                     <div className="relative flex-shrink-0">
                                         <Avatar className="w-7 h-7 border-none">

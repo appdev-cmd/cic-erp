@@ -136,7 +136,7 @@ const TaskRecurringSection: React.FC<TaskRecurringSectionProps> = ({ task, onUpd
       )}
 
       {editing && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 space-y-2.5">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3 space-y-2.5">
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className={labelCls + ' mb-1 block'}>Tần suất</label>

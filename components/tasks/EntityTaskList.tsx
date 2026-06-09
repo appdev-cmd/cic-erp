@@ -41,7 +41,7 @@ const EntityTaskList: React.FC<EntityTaskListProps> = ({
   return (
     <div className={`bg-white dark:bg-slate-800 relative flex flex-col h-full overflow-hidden ${className}`}>
       {/* Header riêng khôi phục lại */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+      <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800">
         <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
           <CheckSquare size={16} className="text-indigo-600 dark:text-indigo-400" />
           Quản lý công việc
@@ -49,7 +49,7 @@ const EntityTaskList: React.FC<EntityTaskListProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsTemplateModalOpen(true)}
-            className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm"
+            className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm"
             title="Áp dụng mẫu công việc có sẵn"
           >
             <Copy size={13} /> Áp dụng Mẫu

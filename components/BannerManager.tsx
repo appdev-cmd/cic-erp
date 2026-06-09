@@ -129,7 +129,7 @@ const BannerManager: React.FC = () => {
                                         <span className="text-sm">No Image</span>
                                     </div>
                                 )}
-                                <div className="absolute top-2 right-2 flex gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur p-1 rounded-lg shadow opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="absolute top-2 right-2 flex gap-1 bg-white/90 dark:bg-slate-900 backdrop-blur p-1 rounded-lg shadow opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button onClick={(e) => { e.stopPropagation(); handleEdit(banner); }} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded">
                                         <Edit size={16} />
                                     </button>

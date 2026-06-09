@@ -678,7 +678,7 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
         </div>
 
         {/* STICKY FILTER BAR - Metric Tabs */}
-        <div className="sticky top-16 z-20 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-4 border-b border-slate-200/50 dark:border-slate-800">
+        <div className="sticky top-16 z-20 bg-slate-50/95 dark:bg-slate-950 backdrop-blur-md py-4 border-b border-slate-200/50 dark:border-slate-800">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto no-scrollbar min-w-0 max-w-full">
               {metricTabs.map((tab) => (

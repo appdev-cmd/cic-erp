@@ -107,7 +107,7 @@ export const InsuranceDashboard: React.FC = () => {
                             <th className="p-3 text-right">Mức lương đóng BH</th>
                             <th className="p-3 text-right">Trừ Cấp NV</th>
                             <th className="p-3 text-right">Cty Đóng</th>
-                            <th className="p-3 pr-4 text-right bg-slate-100 dark:bg-slate-800/80">Tổng Nộp</th>
+                            <th className="p-3 pr-4 text-right bg-slate-100 dark:bg-slate-800">Tổng Nộp</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -119,7 +119,7 @@ export const InsuranceDashboard: React.FC = () => {
                             const empTotal = r.bhxh_employee + r.bhyt_employee + r.bhtn_employee;
                             const compTotal = r.bhxh_employer + r.bhyt_employer + r.bhtn_employer;
                             return (
-                                <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition">
                                     <td className="p-3 pl-4">
                                         <p className="font-bold text-slate-900 dark:text-slate-100">{r.employee?.name}</p>
                                         <p className="text-[10px] text-slate-500 font-normal">{r.employee?.employee_code} • {r.employee?.departments?.name}</p>
@@ -127,7 +127,7 @@ export const InsuranceDashboard: React.FC = () => {
                                     <td className="p-3 text-right">{formatCurrency(r.bhxh_base)}</td>
                                     <td className="p-3 text-right text-indigo-600 dark:text-indigo-400">{formatCurrency(empTotal)}</td>
                                     <td className="p-3 text-right text-rose-600 dark:text-rose-400">{formatCurrency(compTotal)}</td>
-                                    <td className="p-3 pr-4 text-right bg-slate-50/50 dark:bg-slate-800/20 font-black">{formatCurrency(empTotal + compTotal)}</td>
+                                    <td className="p-3 pr-4 text-right bg-slate-50/50 dark:bg-slate-800 font-black">{formatCurrency(empTotal + compTotal)}</td>
                                 </tr>
                             );
                         })}

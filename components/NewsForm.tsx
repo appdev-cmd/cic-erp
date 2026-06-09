@@ -147,7 +147,7 @@ const NewsForm: React.FC<NewsFormProps> = ({ isOpen, onClose, onSave, post, isIn
 
     const formContent = (
         <form onSubmit={handleSubmit} className={isInsidePanel ? "flex flex-col h-full bg-white dark:bg-slate-900" : "space-y-6"}>
-            <div className={isInsidePanel ? "flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/50" : "space-y-6"}>
+            <div className={isInsidePanel ? "flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50/50 dark:bg-slate-900" : "space-y-6"}>
                 <div className="flex flex-col lg:flex-row gap-6">
                     {/* Left Column - Main Content */}
                     <div className="flex-1 min-w-0 space-y-6">

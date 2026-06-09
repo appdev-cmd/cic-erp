@@ -169,7 +169,7 @@ export function PAKDClipboardPasteModal({ isOpen, onClose, onImport }: PAKDClipb
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                         {previewData.lineItems.map((item, idx) => (
-                                            <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                            <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800 transition-colors">
                                                 <td className="py-3 px-4 text-slate-500">{item.stt}</td>
                                                 <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">{item.name}</td>
                                                 <td className="py-3 px-4 text-slate-500">{item.supplier}</td>

@@ -75,7 +75,7 @@ const ChatAISummary: React.FC<ChatAISummaryProps> = ({ roomId, onClose }) => {
             )}
 
             {summary && (
-                <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl p-3 text-sm text-slate-700 dark:text-slate-300 prose prose-sm dark:prose-invert max-w-none leading-relaxed">
+                <div className="bg-white/80 dark:bg-slate-800 rounded-xl p-3 text-sm text-slate-700 dark:text-slate-300 prose prose-sm dark:prose-invert max-w-none leading-relaxed">
                     {summary.split('\n').map((line, i) => (
                         <p key={i} className="mb-1 last:mb-0">
                             {line.startsWith('- ') ? (

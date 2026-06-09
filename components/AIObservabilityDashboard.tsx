@@ -480,7 +480,7 @@ export default function AIObservabilityDashboard() {
                   </tr>
                 ) : (
                   recentLogs.map(log => (
-                    <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                    <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-700 transition">
                       <td className="py-1.5 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                         {fmtDate(log.created_at)}
                       </td>

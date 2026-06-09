@@ -289,7 +289,7 @@ const ImportProjectModal: React.FC<ImportProjectModalProps> = ({ isOpen, onClose
                 className={`flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
                   dragActive
                     ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >
                 {isUploading ? (
@@ -385,7 +385,7 @@ const ImportProjectModal: React.FC<ImportProjectModalProps> = ({ isOpen, onClose
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 shrink-0">
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 shrink-0">
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {parsedData.length > 0
               ? `${parsedData.length} dòng đọc được — ${validCount} sẽ được nhập`

@@ -171,7 +171,7 @@ const LeavePage: React.FC = () => {
                     </div>
                   ))}
                   {balances.length === 0 && (
-                     <div className="col-span-full p-4 flex items-center gap-2 text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                     <div className="col-span-full p-4 flex items-center gap-2 text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg">
                        <AlertCircle size={16} /> Chưa có dữ liệu quỹ phép năm nay. Vui lòng liên hệ HR.
                      </div>
                   )}
@@ -193,7 +193,7 @@ const LeavePage: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {requests.map(req => (
-                        <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                        <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span className="font-medium text-slate-900 dark:text-slate-100">
                               {balances.find(b => b.leave_type === req.leave_type)?.label || req.leave_type}

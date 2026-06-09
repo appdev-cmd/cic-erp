@@ -829,7 +829,7 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
       {showOfferModal && (
         <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800">
               <h3 className="font-bold text-slate-800 dark:text-slate-200">
                 {(offerData as any).targetStage === 'hired' ? 'Xác nhận Tuyển dụng' : 'Gửi Job Offer'}
               </h3>
@@ -1080,7 +1080,7 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
       {showOfferModal && activeApp && (
         <div className="fixed inset-0 z-[120] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity">
           <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-md shadow-2xl flex flex-col animate-in zoom-in-95 duration-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 {offerData.targetStage === 'hired' ? 'Xác nhận Tuyển dụng' : 'Thông tin Gửi Offer'}
               </h3>
@@ -1122,7 +1122,7 @@ const CandidateDetailPanel: React.FC<Props> = ({ candidate, application, onClose
               </div>
             </div>
 
-            <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-2">
+            <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 flex justify-end gap-2">
               <button
                 onClick={() => setShowOfferModal(false)}
                 className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"

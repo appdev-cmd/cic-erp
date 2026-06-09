@@ -235,7 +235,7 @@ const TaskApprovalTab: React.FC<TaskApprovalTabProps> = ({ task, currentUserId, 
 
       {/* ── Actions — submit for approval ── */}
       {!approvalStatus && (
-        <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-800/50">
+        <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 bg-slate-50 dark:bg-slate-800">
           <div className="flex items-center gap-2 mb-3">
             <ShieldCheck size={16} className="text-indigo-500" />
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Yêu cầu phê duyệt</p>

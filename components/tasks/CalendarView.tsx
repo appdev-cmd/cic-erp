@@ -183,9 +183,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, statuses, onSelect, 
                 key={idx}
                 className={`min-h-[100px] border-b border-r border-slate-100 dark:border-slate-800 p-1.5 transition-colors
                   ${!cell.isCurrentMonth
-                    ? 'bg-slate-50/50 dark:bg-slate-900/50'
+                    ? 'bg-slate-50/50 dark:bg-slate-900'
                     : cell.isWeekend
-                      ? 'bg-slate-50/30 dark:bg-slate-800/30'
+                      ? 'bg-slate-50/30 dark:bg-slate-800'
                       : ''
                   }
                   ${cell.isToday ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}

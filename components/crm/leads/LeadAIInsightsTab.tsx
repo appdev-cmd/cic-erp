@@ -193,7 +193,7 @@ const LeadAIInsightsTab: React.FC<Props> = ({ lead }) => {
                   const meta = INSIGHT_META[ins.category] || INSIGHT_META.opportunity;
                   const Icon = meta.icon;
                   return (
-                    <div key={i} className="flex gap-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                    <div key={i} className="flex gap-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800">
                       <Icon size={15} className={`${meta.color} shrink-0 mt-0.5`} />
                       <div className="min-w-0">
                         <span className={`text-[10px] font-bold uppercase ${meta.color}`}>{meta.label}</span>

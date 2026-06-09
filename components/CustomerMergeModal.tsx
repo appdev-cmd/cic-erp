@@ -157,7 +157,7 @@ const CustomerMergeModal: React.FC<CustomerMergeModalProps> = ({ isOpen, onClose
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-b-xl">
+                <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800 rounded-b-xl">
                     <button onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">
                         Hủy
                     </button>

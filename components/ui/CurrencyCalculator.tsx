@@ -515,7 +515,7 @@ const CurrencyCalculator: React.FC<CurrencyCalculatorProps> = ({
                     </div>
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-xl">
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800 rounded-b-xl">
                         <div>
                             {mode === 'foreign' && foreignCurrency && (
                                 <button

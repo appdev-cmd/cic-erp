@@ -259,7 +259,7 @@ const JobOpeningForm: React.FC<Props> = ({ job, onClose, onSuccess, isInsidePane
               </div>
 
               {/* Web Publishing Section */}
-              <div className="md:col-span-2 p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="md:col-span-2 p-4 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                 <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 mb-4">Thông tin xuất bản Website</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

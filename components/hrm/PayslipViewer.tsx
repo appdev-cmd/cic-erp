@@ -27,7 +27,7 @@ export const PayslipViewer: React.FC<Props> = ({ payslip }) => {
             </div>
 
             <div className="p-6 space-y-6">
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg flex items-center justify-between border border-slate-100 dark:border-slate-800">
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg flex items-center justify-between border border-slate-100 dark:border-slate-800">
                     <div>
                         <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{payslip.employee_name}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{payslip.department_name}</p>

@@ -141,7 +141,7 @@ export const PayrollPage: React.FC = () => {
             </div>
 
             {showCreate && (
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-xl border border-slate-200 dark:border-slate-700 flex items-end gap-4">
+                <div className="bg-slate-50 dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 flex items-end gap-4">
                     <div>
                         <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Tháng</label>
                         <input type="number" min="1" max="12" value={newMonth} onChange={e => setNewMonth(Number(e.target.value))} className={inputCls} />
@@ -196,7 +196,7 @@ export const PayrollPage: React.FC = () => {
 
                             <hr className="my-4 border-slate-100 dark:border-slate-800" />
 
-                            <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 -mx-5 -mb-5 px-5 py-3 rounded-b-xl border-t border-slate-100 dark:border-slate-800 mt-2">
+                            <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800 -mx-5 -mb-5 px-5 py-3 rounded-b-xl border-t border-slate-100 dark:border-slate-800 mt-2">
                                 <div className="text-xs text-slate-500 dark:text-slate-400">
                                     {run.status === 'draft' ? 'Sẵn sàng tính toán.' : run.status === 'review' ? `Tính toán bởi: ${run.calculator_name || 'Hệ thống'} lúc ${formatDate(run.updated_at)}` : `Duyệt bởi: ${run.approver_name || '—'} lúc ${run.approved_at ? formatDate(run.approved_at) : '—'}`}
                                 </div>
@@ -294,7 +294,7 @@ const PayrollRunDetail: React.FC<{ runId: string, onBack: () => void }> = ({ run
                         {slips.length === 0 ? (
                             <tr><td colSpan={8} className="p-6 text-center text-sm text-slate-500">Kỳ lương này chưa được tính toán (Nháp). Vui lòng nhấn "Chạy tính lương".</td></tr>
                         ) : slips.map(s => (
-                            <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+                            <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
                                 <td className="p-3 pl-4">
                                     <div className="flex items-center gap-2">
                                         <div className="w-6 h-6 rounded bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">

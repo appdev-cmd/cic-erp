@@ -120,8 +120,8 @@ const ProjectDashboardTab: React.FC<ProjectDashboardTabProps> = ({ project }) =>
     return (
       <div className="grid grid-cols-4 gap-4 animate-pulse">
         {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-slate-100 dark:bg-slate-800 rounded-2xl" />)}
-        <div className="col-span-2 h-64 bg-slate-50 dark:bg-slate-800/50 rounded-2xl" />
-        <div className="col-span-2 h-64 bg-slate-50 dark:bg-slate-800/50 rounded-2xl" />
+        <div className="col-span-2 h-64 bg-slate-50 dark:bg-slate-800 rounded-2xl" />
+        <div className="col-span-2 h-64 bg-slate-50 dark:bg-slate-800 rounded-2xl" />
       </div>
     );
   }

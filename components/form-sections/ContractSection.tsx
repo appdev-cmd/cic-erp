@@ -42,7 +42,7 @@ const VN_BANKS = [
     'ANZ Vietnam',
 ];
 
-const disabledClass = 'bg-slate-100 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-70';
+const disabledClass = 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-70';
 
 const ContractSection: React.FC<FormSectionProps> = ({ formData, setFormData, readOnly }) => {
     return (

@@ -239,7 +239,7 @@ const PermissionAuditLog: React.FC = () => {
 
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ACTION_COLORS[entry.action] || 'bg-slate-100 text-slate-600'}`}>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ACTION_COLORS[entry.action] || 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
                                             {TABLE_LABELS[entry.table_name] || entry.table_name}
                                         </span>
                                         <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">

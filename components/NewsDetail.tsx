@@ -85,7 +85,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ post }) => {
                         <span className="flex items-center gap-1.5"><Calendar size={14} /> Tóm tắt viết ngày: {formatDate(post.createdAt)}</span>
                     </div>
 
-                    <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                    <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
                         <span className="font-semibold mr-2 text-slate-500">Mô tả ngắn:</span>
                         <span className="italic">{post.excerptVi || 'Chưa có trích dẫn/mô tả ngắn...'}</span>
                     </div>

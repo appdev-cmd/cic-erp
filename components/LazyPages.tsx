@@ -439,7 +439,7 @@ export const LazyContractFormPage: React.FC = () => {
     // Show loading while fetching
     if (isLoading) {
         return (
-            <div className="fixed inset-0 z-[100] bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[100] bg-slate-900/40 dark:bg-slate-950 backdrop-blur-md flex items-center justify-center p-4">
                 <div className="bg-white dark:bg-slate-900 rounded-lg p-8 shadow-2xl flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                     <p className="text-slate-600 dark:text-slate-300 font-medium">Đang tải dữ liệu hợp đồng...</p>
@@ -449,7 +449,7 @@ export const LazyContractFormPage: React.FC = () => {
     }
 
     return (
-        <div className="fixed inset-0 z-[100] bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-slate-900/40 dark:bg-slate-950 backdrop-blur-md flex items-center justify-center p-4">
             {withSuspense(
                 <ContractForm
                     contract={cloneFrom || editingContract || undefined}

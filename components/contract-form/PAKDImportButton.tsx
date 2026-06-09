@@ -216,7 +216,7 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
                     className={`
                         flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all
                         ${disabled
-                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            ? 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500 cursor-not-allowed'
                             : 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-violet-500/20'
                         }
                     `}
@@ -233,7 +233,7 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
                     className={`
                         flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all
                         ${disabled || isProcessing
-                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                            ? 'bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500 cursor-not-allowed'
                             : 'bg-white dark:bg-slate-700 text-indigo-600 hover:shadow-md dark:text-indigo-400'
                         }
                     `}
@@ -488,7 +488,7 @@ export function PAKDImportButton({ onImport, disabled }: PAKDImportButtonProps) 
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                         {previewData.lineItems.map((item, idx) => (
-                                            <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                            <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800 transition-colors">
                                                 <td className="py-3 px-4 text-slate-500">{item.stt}</td>
                                                 <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">{item.name}</td>
                                                 <td className="py-3 px-4 text-slate-500">{item.supplier}</td>

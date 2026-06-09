@@ -596,7 +596,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
                                         </thead>
                                         <tbody>
                                             {vatInvoiceItems.map((item, idx) => (
-                                                <tr key={item.lineItemId} className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                                                <tr key={item.lineItemId} className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800">
                                                     <td className="py-2.5 px-3">
                                                         <span className="font-medium text-slate-700 dark:text-slate-300 text-xs">{item.name}</span>
                                                     </td>

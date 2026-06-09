@@ -29,12 +29,12 @@ const ToolsPage: React.FC = () => {
             </div>
 
             {/* Tabs Navigation */}
-            <div className="flex items-center gap-1 bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-xl w-fit">
+            <div className="flex items-center gap-1 bg-slate-100/50 dark:bg-slate-800 p-1 rounded-xl w-fit">
                 <button
                     onClick={() => setActiveTab('pakd')}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === 'pakd'
                         ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700'
                         }`}
                 >
                     <Activity size={18} />
@@ -44,7 +44,7 @@ const ToolsPage: React.FC = () => {
                     onClick={() => setActiveTab('other')}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === 'other'
                         ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700'
                         }`}
                 >
                     <LayoutGrid size={18} />

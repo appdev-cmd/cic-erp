@@ -584,13 +584,13 @@ const TaskItemEditor: React.FC<TaskItemEditorProps> = ({
                         onUpdate(task.id, { assignee_role: opt.value || undefined, assignee_id: undefined });
                         handleTogglePicker(false);
                       }}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer ${task.assignee_role === opt.value ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer ${task.assignee_role === opt.value ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'}`}
                     >
                       {opt.icon} {opt.label}
                     </button>
                   ))}
                 </div>
-                <div className="p-2 bg-slate-50/50 dark:bg-slate-800/50">
+                <div className="p-2 bg-slate-50/50 dark:bg-slate-800">
                   <div className="flex items-center justify-between px-2 mb-2">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Người cụ thể</p>
                     {task.assignee_role === 'specific' && task.assignee_id && (

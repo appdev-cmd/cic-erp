@@ -515,7 +515,7 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
           {/* Done */}
           {doneTasks.length > 0 && (
             <details className="border-t border-slate-100 dark:border-slate-800">
-              <summary className="px-4 py-3 text-xs font-bold text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors bg-slate-50/50 dark:bg-slate-800/30">
+              <summary className="px-4 py-3 text-xs font-bold text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors bg-slate-50/50 dark:bg-slate-800">
                 ✅ {doneTasks.length} đã hoàn thành
               </summary>
               {doneTasks.map(task => (

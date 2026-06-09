@@ -32,7 +32,7 @@ const PersonalSection: React.FC<FormSectionProps> = ({ formData, setFormData, re
                         value={formData.gender}
                         onChange={e => setFormData({ ...formData, gender: e.target.value as any })}
                         disabled={readOnly || isSelfEdit}
-                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:opacity-60"
+                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:opacity-60"
                     >
                         <option value="">-- Chọn --</option>
                         <option value="male">Nam</option>
@@ -48,7 +48,7 @@ const PersonalSection: React.FC<FormSectionProps> = ({ formData, setFormData, re
                         value={formData.maritalStatus}
                         onChange={e => setFormData({ ...formData, maritalStatus: e.target.value as any })}
                         disabled={readOnly || isSelfEdit}
-                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:opacity-60"
+                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:opacity-60"
                     >
                         <option value="">-- Chọn --</option>
                         <option value="single">Độc thân</option>
@@ -66,7 +66,7 @@ const PersonalSection: React.FC<FormSectionProps> = ({ formData, setFormData, re
                         value={formData.idNumber}
                         onChange={e => setFormData({ ...formData, idNumber: e.target.value })}
                         disabled={readOnly}
-                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:opacity-60"
+                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:opacity-60"
                         placeholder="001234567890"
                     />
                 </div>
@@ -81,7 +81,7 @@ const PersonalSection: React.FC<FormSectionProps> = ({ formData, setFormData, re
                         value={formData.hometown}
                         onChange={e => setFormData({ ...formData, hometown: e.target.value })}
                         disabled={readOnly}
-                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:opacity-60"
+                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:opacity-60"
                         placeholder="Quê quán của nhân viên"
                     />
                 </div>
@@ -96,7 +96,7 @@ const PersonalSection: React.FC<FormSectionProps> = ({ formData, setFormData, re
                         value={formData.address}
                         onChange={e => setFormData({ ...formData, address: e.target.value })}
                         disabled={readOnly}
-                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 disabled:bg-slate-50 dark:disabled:bg-slate-800/50 disabled:opacity-60"
+                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-800 disabled:bg-slate-50 dark:disabled:bg-slate-800 disabled:opacity-60"
                         placeholder="Số nhà, đường, quận, thành phố"
                     />
                 </div>

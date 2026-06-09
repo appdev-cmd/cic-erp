@@ -128,7 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/50 dark:bg-slate-950/60 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-slate-900/50 dark:bg-slate-950 backdrop-blur-sm z-40 md:hidden"
           onClick={onClose}
         />
       )}

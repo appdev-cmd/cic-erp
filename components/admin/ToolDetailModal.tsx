@@ -80,7 +80,7 @@ export const ToolDetailModal: React.FC<ToolDetailModalProps> = ({ tool, onClose,
           {/* Default Description */}
           <div>
             <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Mô tả hệ thống (Mặc định)</h4>
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 font-mono">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400 font-mono">
               {tool.description}
             </div>
           </div>
@@ -113,7 +113,7 @@ export const ToolDetailModal: React.FC<ToolDetailModalProps> = ({ tool, onClose,
           </div>
           
           {/* Active Status */}
-          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
             <div>
               <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Trạng thái Tool</p>
               <p className="text-xs text-slate-500">Tắt tool này sẽ vô hiệu hoá nó trên toàn hệ thống.</p>

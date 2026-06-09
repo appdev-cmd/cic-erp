@@ -431,7 +431,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
             </div>
 
             {/* Filters Toolbar */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/10 p-3 rounded-xl border border-slate-100 dark:border-slate-800/60">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-800/60">
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                     {/* Unit Filter */}
                     <div className="relative">
@@ -838,7 +838,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
                                         })()}
 
                                         {/* Contact & Info */}
-                                        <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800 mt-1">
+                                        <div className="flex flex-col gap-2 bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-800 mt-1">
                                             {(person.phone || person.email) && (
                                                 <div className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
                                                     {person.phone && (
@@ -967,7 +967,7 @@ const PersonnelList: React.FC<PersonnelListProps> = ({ selectedUnit, onSelectPer
 
                             <button
                                 onClick={(e) => { e.stopPropagation(); onSelectPersonnel(person.slug || person.id); }}
-                                className="w-full mt-4 py-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg text-xs font-bold transition-all border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/50"
+                                className="w-full mt-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg text-xs font-bold transition-all border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/50"
                             >
                                 Xem chi tiết
                             </button>

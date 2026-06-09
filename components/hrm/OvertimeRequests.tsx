@@ -167,7 +167,7 @@ export const OvertimeRequestsPanel: React.FC = () => {
             </div>
 
             {showForm && (
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div className="bg-slate-50 dark:bg-slate-800 p-5 rounded-lg border border-slate-200 dark:border-slate-700">
                     <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-4">Đăng ký tăng ca mới</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
@@ -203,7 +203,7 @@ export const OvertimeRequestsPanel: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Số giờ</label>
-                            <div className="px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 font-bold">
+                            <div className="px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 font-bold">
                                 {form.hours}h
                             </div>
                         </div>
@@ -233,7 +233,7 @@ export const OvertimeRequestsPanel: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {requests.map(req => (
-                                <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                                <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition">
                                     <td className="p-4">
                                         <div className="flex items-center gap-2">
                                             <div className="bg-indigo-100 dark:bg-indigo-900/30 p-1.5 rounded-full"><User size={14} className="text-indigo-600 dark:text-indigo-400" /></div>

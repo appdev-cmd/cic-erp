@@ -254,7 +254,7 @@ export const AddDocumentLinkDialog: React.FC<AddDocumentLinkDialogProps> = ({
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                                 Chọn File
                             </label>
-                            <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 text-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer relative">
+                            <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-6 text-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer relative">
                                 <input
                                     type="file"
                                     onChange={handleFileChange}

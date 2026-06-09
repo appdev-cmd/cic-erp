@@ -142,7 +142,7 @@ export const StatusDropdown: React.FC<{
           className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${
             s.id === currentStatusId
               ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
           }`}
         >
           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
@@ -343,7 +343,7 @@ export const ProjectPickerDropdown: React.FC<{
             className={`w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-medium transition-colors cursor-pointer ${
               p.id === currentProjectId
                 ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
             }`}
           >
             <FolderKanban size={12} className="flex-shrink-0" />

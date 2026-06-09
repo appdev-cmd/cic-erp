@@ -196,7 +196,7 @@ export const OnboardingPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="px-5 pb-5 pt-2 border-t border-slate-50 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900/50">
+                                <div className="px-5 pb-5 pt-2 border-t border-slate-50 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900">
                                     {/* Progress Bar */}
                                     <div className="space-y-1.5">
                                         <div className="flex justify-between text-xs font-bold">
@@ -1108,7 +1108,7 @@ const OnboardingDetail: React.FC<{ checklistId: string, onRefresh?: () => void }
         <div className="space-y-6 pb-12">
             {/* Header info */}
             {checklist && (
-                <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
                     <div>
                         <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Trạng thái tổng thể</p>
                         <p className="text-sm font-extrabold text-slate-800 dark:text-slate-200 capitalize">
@@ -1246,7 +1246,7 @@ const OnboardingDetail: React.FC<{ checklistId: string, onRefresh?: () => void }
                             key={item.id}
                             className={`flex items-start gap-4 p-4 rounded-2xl border transition-all ${
                                 item.status === 'completed'
-                                    ? 'bg-slate-50/50 dark:bg-slate-800/20 border-slate-200/70 dark:border-slate-800/50 opacity-70'
+                                    ? 'bg-slate-50/50 dark:bg-slate-800 border-slate-200/70 dark:border-slate-800/50 opacity-70'
                                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm'
                             }`}
                         >

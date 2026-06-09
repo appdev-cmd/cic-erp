@@ -202,7 +202,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                     const outputTotal = item.quantity * exactOutputPrice * (1 + (item.vatRate ?? 0) / 100);
                                     const lineMargin = outputTotal - inputTotal - (item.directCosts || 0);
                                     const lineMarginRate = outputTotal > 0 ? (lineMargin / outputTotal) * 100 : 0;
-                                    const rowBg = index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/80 dark:bg-slate-800/80';
+                                    const rowBg = index % 2 === 0 ? 'bg-white dark:bg-slate-900' : 'bg-slate-50/80 dark:bg-slate-800';
 
                                     return (
                                         <React.Fragment key={item.id}>
@@ -345,7 +345,7 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                 </td>
                                             </tr>
                                             {/* ── Row 2: Hãng SX, NCC, SL, Giá, VAT, CP, Chênh lệch ── */}
-                                            <tr className={`${rowBg} group transition-colors hover:bg-indigo-50/60 dark:hover:bg-slate-700/60 border-b border-slate-100 dark:border-slate-700/50`}>
+                                            <tr className={`${rowBg} group transition-colors hover:bg-indigo-50/60 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700/50`}>
                                                 {/* Hãng SX — auto-filled from product, locked if product has brand */}
                                                 <td className="px-2 pb-2 pt-1">
                                                     {(() => {
