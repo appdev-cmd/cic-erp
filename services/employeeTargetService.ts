@@ -37,6 +37,16 @@ export const EmployeeTargetService = {
         return (data || []).map(mapTarget);
     },
 
+    /** Get all targets in a given year (across all units) */
+    getByYear: async (year: number): Promise<EmployeeTarget[]> => {
+        const { data, error } = await supabase
+            .from('employee_targets')
+            .select('*')
+            .eq('year', year);
+        if (error) throw error;
+        return (data || []).map(mapTarget);
+    },
+
     /** Upsert (create or update) a target for employee+unit+year */
     upsert: async (employeeId: string, unitId: string, year: number, target: KPIPlan): Promise<EmployeeTarget> => {
         const { data, error } = await supabase

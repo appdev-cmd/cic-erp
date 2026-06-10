@@ -164,6 +164,30 @@
   box-shadow: 0 0 0 2px var(--color-primary-500);
 }
 
+/* Recharts: bỏ viền trắng (focus outline mặc định của trình duyệt) khi click vào
+   biểu đồ trong card. Nguyên nhân gốc: recharts v3 bật accessibility layer mặc định
+   → gắn tabIndex=0 + role="application" lên <svg class="recharts-surface">, nên khi
+   click chart svg nhận focus và trình duyệt vẽ outline. Tắt outline cho surface +
+   MỌI phần tử focus được bên trong wrapper (bar/sector/dot/path…) cho chắc chắn. */
+.recharts-wrapper,
+.recharts-wrapper:focus,
+.recharts-wrapper:focus-visible,
+.recharts-wrapper :focus,
+.recharts-wrapper :focus-visible,
+.recharts-surface:focus,
+.recharts-surface:focus-visible,
+[class*="recharts-"]:focus,
+[class*="recharts-"]:focus-visible {
+  outline: none !important;
+}
+
+/* Ẩn tooltip recharts còn "dính" khi đang mở slide panel drill-down (bấm cột/lát
+   biểu đồ → mở danh sách HĐ liên quan). Đặt global để luôn được nạp, không phụ
+   thuộc thứ tự render của component. */
+body.analytics-panel-open .recharts-tooltip-wrapper {
+  display: none !important;
+}
+
 /* Text truncation */
 .truncate-2 {
   display: -webkit-box;

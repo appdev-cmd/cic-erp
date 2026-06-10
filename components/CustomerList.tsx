@@ -41,9 +41,10 @@ import { useLayoutContext } from './layout/MainLayout';
 interface CustomerListProps {
     onSelectCustomer?: (id: string) => void;
     onSelectProduct?: (id: string) => void;
+    onSelectBrand?: (id: string) => void;
 }
 
-const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectProduct }) => {
+const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectProduct, onSelectBrand }) => {
     const { can } = usePermissionCheck();
     const { profile: realProfile } = useAuth();
     const { selectedUnit, yearFilter, periodFilter } = useLayoutContext();
@@ -393,7 +394,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
             </div>
 
             {activeView === 'brands' ? (
-                selectedBrandId ? (
+                (!onSelectBrand && selectedBrandId) ? (
                     <BrandDetail
                         brandId={selectedBrandId}
                         onBack={() => setSelectedBrandId(null)}
@@ -402,7 +403,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ onSelectCustomer, onSelectP
                 ) : (
                     <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-6">
                         <BrandManager
-                            onSelectBrand={(id) => setSelectedBrandId(id)}
+                            onSelectBrand={(id) => onSelectBrand ? onSelectBrand(id) : setSelectedBrandId(id)}
                             isFormOpenExternal={brandFormOpen}
                             onFormClose={() => setBrandFormOpen(false)}
                         />

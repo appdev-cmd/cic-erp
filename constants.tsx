@@ -118,3 +118,8 @@ export const NAV_ITEMS = [
   { id: 'settings', label: 'Cài đặt', icon: <Settings size={20} /> },
 ];
 
+
+// Chi phí thực hiện hợp đồng bắt buộc, tự động thêm cho HĐ ký từ 2026
+export const RESERVE_FUND_COST_ID = 'exec-reserve-fund-2026';
+export const RESERVE_FUND_COST_NAME = 'Quỹ dự phòng chi phí chờ quyết toán';
+export const RESERVE_FUND_COST_PERCENTAGE = 0.5;

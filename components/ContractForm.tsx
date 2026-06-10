@@ -10,6 +10,7 @@ import {
   Contract, ExecutionCostItem,
   ContractWorkflowSteps, DEFAULT_WORKFLOW_STEPS
 } from '../types';
+import { RESERVE_FUND_COST_ID, RESERVE_FUND_COST_NAME, RESERVE_FUND_COST_PERCENTAGE } from '../constants';
 import { UnitService, CustomerService, ProductService, ContractService, EmployeeService, ExecutionCostService, ExecutionCostType } from '../services';
 import { summarizeContractContent } from '../services/ai';
 import QuickAddCustomerDialog from './ui/QuickAddCustomerDialog';
@@ -233,9 +234,11 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
     setExecutionCosts(prev => [...prev, { id: `exec-${Date.now()}`, name: '', amount: 0 }]);
   };
   const removeExecutionCost = (id: string) => {
+    if (id === RESERVE_FUND_COST_ID) return;
     setExecutionCosts(prev => prev.filter(c => c.id !== id));
   };
   const updateExecutionCost = (id: string, field: keyof ExecutionCostItem, value: any) => {
+    if (id === RESERVE_FUND_COST_ID) return;
     setExecutionCosts(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
   };
 
@@ -304,6 +307,23 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
 
   // ==================== COMPUTED VALUES ====================
   const totals = useFinancialCalculations(lineItems, executionCosts);
+
+  // Hợp đồng ký từ 2026 trở đi: tự động bổ sung "Quỹ dự phòng chi phí chờ quyết toán" = 0.5% Doanh thu
+  useEffect(() => {
+    const year = new Date(signedDate).getFullYear();
+    if (!year || year < 2026) return;
+    const expectedAmount = Math.round(totals.estimatedRevenue * 0.005);
+    setExecutionCosts(prev => {
+      const idx = prev.findIndex(c => c.id === RESERVE_FUND_COST_ID);
+      if (idx === -1) {
+        return [...prev, { id: RESERVE_FUND_COST_ID, name: RESERVE_FUND_COST_NAME, amount: expectedAmount, percentage: RESERVE_FUND_COST_PERCENTAGE }];
+      }
+      if (prev[idx].amount === expectedAmount && prev[idx].percentage === RESERVE_FUND_COST_PERCENTAGE) return prev;
+      const next = [...prev];
+      next[idx] = { ...next[idx], amount: expectedAmount, percentage: RESERVE_FUND_COST_PERCENTAGE };
+      return next;
+    });
+  }, [signedDate, totals.estimatedRevenue]);
   const formatVND = (val: number) => new Intl.NumberFormat('vi-VN').format(Math.round(val));
 
   const filteredSales = useMemo(() => {

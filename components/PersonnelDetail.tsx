@@ -146,15 +146,16 @@ const PersonnelDetail: React.FC<PersonnelDetailProps> = ({ personnelId, onBack, 
     };
 
     // Update browser tab title with employee name
+    const updatePanelTitle = slidePanel?.updatePanelTitle;
     useEffect(() => {
         if (person) {
             document.title = `${person.name} - CIC ERP`;
-            if (slidePanel?.updatePanelTitle) {
-                slidePanel.updatePanelTitle(undefined, person.name);
+            if (updatePanelTitle) {
+                updatePanelTitle(undefined, person.name);
             }
         }
         return () => { document.title = 'CIC ERP'; };
-    }, [person, slidePanel]);
+    }, [person, updatePanelTitle]);
 
     useEffect(() => { fetchData(kpiYear); }, [personnelId, kpiYear]);
 

@@ -18,7 +18,8 @@ import ContractDetail from './ContractDetail';
 import {
     ContractService, UnitService, EmployeeService,
     PaymentService, HistoricalProductionService,
-    CustomerService, BrandService, ProductService
+    CustomerService, BrandService, ProductService,
+    EmployeeTargetService, CompanyTargetService
 } from '../services';
 import {
     Unit, Contract, Employee, Payment, HistoricalProduction,
@@ -28,6 +29,7 @@ import { toast } from 'sonner';
 import { getChartColors, getAccentColor, getTooltipStyle, getGridStroke, getCursorFill, getMutedBarFill, isDarkTheme } from '../lib/themeColors';
 import { useCurrentUserVisibleUnits, useAnalyticsCards } from '../hooks';
 import { Skeleton } from './ui/Skeleton';
+import { DetailPageSkeleton } from './ui';
 import { motion } from 'framer-motion';
 import { useLayoutContext } from './layout/MainLayout';
 import { CARD_BY_ID, TAB_GRID_COLS, AnalyticsTab } from './analytics/cardRegistry';
@@ -66,14 +68,33 @@ const EmptyState = ({ message }: { message: string }) => (
 );
 
 /* ─── KPI Card ─── */
-const KPICard = ({ title, value, icon, color, change, index }: {
+const KPICard = ({ title, metric, stats, target, companyTarget, yoy, color, icon, index }: {
     title: string;
-    value: number;
-    icon: React.ReactNode;
+    metric: string;
+    stats: any;
+    target: any;
+    companyTarget: any;
+    yoy: { value: string; isUp: boolean; lastYearTotal: number };
     color: string;
-    change?: { value: string; isUp: boolean };
+    icon: React.ReactNode;
     index: number;
 }) => {
+    const actual = stats[metric] || 0;
+    const plan = target[metric] || 0;
+    const progress = plan > 0 ? Math.round((actual / plan) * 100) : 0;
+
+    // Chỉ tiêu ĐHCĐ
+    const dhcdPlan = companyTarget ? (companyTarget[metric] || 0) : 0;
+    const dhcdProgress = dhcdPlan > 0 ? Math.round((actual / dhcdPlan) * 100) : 0;
+
+    const colors: any = {
+        indigo: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/30',
+        emerald: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30',
+        purple: 'text-purple-600 bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-900/30',
+        amber: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/30',
+        cyan: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-900/20 border-cyan-100 dark:border-cyan-900/30',
+    };
+
     const formatValue = (val: number) => {
         const abs = Math.abs(val);
         const sign = val < 0 ? '-' : '';
@@ -83,33 +104,71 @@ const KPICard = ({ title, value, icon, color, change, index }: {
         return Math.round(val).toString();
     };
 
-    const colorMap: Record<string, string> = {
-        indigo: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/30',
-        emerald: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30',
-        purple: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-900/30',
-        amber: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/30',
-    };
+    const barColor = color === 'emerald' ? 'bg-emerald-500' : color === 'amber' ? 'bg-amber-500' : color === 'purple' ? 'bg-purple-500' : color === 'cyan' ? 'bg-cyan-500' : 'bg-indigo-600';
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1, duration: 0.4, ease: 'easeOut' }}
-            className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden"
+            className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden dark-card-glow"
         >
-            <div className="flex justify-between items-start mb-5">
-                <div className={`p-3 rounded-xl ${colorMap[color]} transition-transform group-hover:rotate-6`}>
+            <div className="flex justify-between items-start mb-6">
+                <div className={`p-3 rounded-lg ${colors[color] || colors.indigo} transition-transform group-hover:rotate-6`}>
                     {icon}
                 </div>
-                {change && (
-                    <div className={`flex items-center gap-1 text-[11px] font-black ${change.isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {change.isUp ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                        {change.value}%
+                <div className="text-right">
+                    <div className={`flex items-center justify-end gap-1 text-xs font-black ${yoy.isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        {yoy.isUp ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                        {yoy.value}%
                     </div>
-                )}
+                    {yoy.lastYearTotal > 0 && (
+                        <div className="text-[10px] text-slate-400 font-bold mt-0.5">
+                            {formatValue(yoy.lastYearTotal)}
+                        </div>
+                    )}
+                </div>
             </div>
-            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">{title}</p>
-            <h4 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{formatValue(value)}</h4>
+            <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">{title}</p>
+            <div className="mb-4">
+                <h4 className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{formatValue(actual)}</h4>
+            </div>
+            {plan > 0 || dhcdPlan > 0 ? (
+                <div className="space-y-2">
+                    {/* Chỉ tiêu Nội bộ */}
+                    {plan > 0 && (
+                        <>
+                            <div className="flex justify-between items-center text-xs font-black uppercase tracking-tighter">
+                                <span className="text-slate-400">{dhcdPlan > 0 ? 'KH Nội bộ' : 'Hoàn thành KH'}</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-slate-400 normal-case tracking-normal">/ {formatValue(plan)}</span>
+                                    <span className={progress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400'}>{progress.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-1000 ${barColor}`} style={{ width: `${Math.min(100, progress)}%` }}></div>
+                            </div>
+                        </>
+                    )}
+                    {/* Chỉ tiêu ĐHCĐ */}
+                    {dhcdPlan > 0 && (
+                        <>
+                            <div className="flex justify-between items-center text-xs font-black uppercase tracking-tighter mt-1">
+                                <span className="text-orange-500 dark:text-orange-400">KH ĐHCĐ</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-slate-400 normal-case tracking-normal">/ {formatValue(dhcdPlan)}</span>
+                                    <span className={dhcdProgress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}>{dhcdProgress.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-1000 bg-orange-500" style={{ width: `${Math.min(100, dhcdProgress)}%` }}></div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            ) : (
+                <div className="h-2" />
+            )}
         </motion.div>
     );
 };
@@ -317,6 +376,150 @@ const lineItemRevenue = (li: any) => (li.outputPrice || 0) * (li.quantity || 1);
 /** Tổng doanh thu trước VAT của hợp đồng — base nhất quán (pre-VAT) để phân bổ lợi nhuận theo line. */
 const contractLineTotal = (c: any) => (c.lineItems || []).reduce((s: number, li: any) => s + lineItemRevenue(li), 0);
 
+/**
+ * Phân khúc sản phẩm–dịch vụ (suy ra từ Product.category) — dùng để tách 1 hãng
+ * thành nhiều dòng (vd CIC · Phần mềm / CIC · Thiết bị / CIC · Dịch vụ).
+ * Map khớp danh mục chuẩn ở constants.tsx; category lạ/chưa phân loại → 'other'.
+ */
+type ProductSegment = 'software' | 'device' | 'service' | 'other';
+const SEGMENT_OF: Record<string, ProductSegment> = {
+    'Phần mềm': 'software', 'Bảo trì': 'software',
+    'Thiết bị': 'device',
+    'Tư vấn': 'service', 'Dịch vụ': 'service', 'Đào tạo': 'service',
+};
+/** Nhãn viết tắt dùng trên biểu đồ cho gọn (PM/TB/DV/Khác). */
+const SEGMENT_SHORT: Record<ProductSegment, string> = {
+    software: 'PM', device: 'TB', service: 'DV', other: 'Khác',
+};
+/**
+ * Gắn nhãn cho các dòng "hãng × phân khúc" SAU khi đã slice top-N:
+ * hãng chỉ còn 1 phân khúc trên biểu đồ → chỉ hiện tên hãng;
+ * hãng có ≥2 phân khúc → thêm hậu tố viết tắt (vd "CIC · PM").
+ */
+const labelBrandSegments = <T extends { brandId: string; segment: ProductSegment; brandName: string }>(
+    rows: T[]
+): (T & { name: string })[] => {
+    const cnt = new Map<string, number>();
+    rows.forEach(r => cnt.set(r.brandId, (cnt.get(r.brandId) || 0) + 1));
+    return rows.map(r => ({
+        ...r,
+        name: (cnt.get(r.brandId) || 0) > 1 ? `${r.brandName} · ${SEGMENT_SHORT[r.segment]}` : r.brandName,
+    }));
+};
+const segmentOf = (cat?: string): ProductSegment => SEGMENT_OF[(cat || '').trim()] || 'other';
+
+// Static custom tick components to prevent ResponsiveContainer resize rendering loop
+const BrandYAxisTick = React.memo(({ x, y, payload, data, onOpen }: any) => {
+    const dataItem = data.find(d => d.name === payload?.value);
+    const id = dataItem?.brandId || dataItem?.id;
+    return (
+        <text
+            x={x}
+            y={y}
+            dy={4}
+            textAnchor="end"
+            className={id ? "fill-slate-600 dark:fill-slate-400 hover:fill-indigo-600 dark:hover:fill-indigo-400 hover:underline cursor-pointer font-bold transition-colors duration-150" : "fill-slate-600 dark:fill-slate-400 font-bold"}
+            fontSize={11}
+            onClick={(e) => {
+                e.stopPropagation();
+                if (id) onOpen(id);
+            }}
+        >
+            {payload?.value}
+        </text>
+    );
+});
+BrandYAxisTick.displayName = 'BrandYAxisTick';
+
+const ProductYAxisTick = React.memo(({ x, y, payload, products, onOpen }: any) => {
+    const matchedProd = products.find(p => (p.productLine && p.productLine.trim() === payload?.value) || p.name === payload?.value);
+    return (
+        <text
+            x={x}
+            y={y}
+            dy={4}
+            textAnchor="end"
+            className={matchedProd?.id ? "fill-slate-600 dark:fill-slate-400 hover:fill-indigo-600 dark:hover:fill-indigo-400 hover:underline cursor-pointer font-bold transition-colors duration-150" : "fill-slate-600 dark:fill-slate-400 font-bold"}
+            fontSize={11}
+            onClick={(e) => {
+                e.stopPropagation();
+                if (matchedProd?.id) onOpen(matchedProd.id);
+            }}
+        >
+            {payload?.value}
+        </text>
+    );
+});
+ProductYAxisTick.displayName = 'ProductYAxisTick';
+
+const CustomerYAxisTick = React.memo(({ x, y, payload, data, onOpen }: any) => {
+    const dataItem = data.find(d => d.name === payload?.value);
+    const id = dataItem?.id;
+    return (
+        <text
+            x={x}
+            y={y}
+            dy={4}
+            textAnchor="end"
+            className={id ? "fill-slate-600 dark:fill-slate-400 hover:fill-indigo-600 dark:hover:fill-indigo-400 hover:underline cursor-pointer font-bold transition-colors duration-150" : "fill-slate-600 dark:fill-slate-400 font-bold"}
+            fontSize={11}
+            onClick={(e) => {
+                e.stopPropagation();
+                if (id) onOpen(id);
+            }}
+        >
+            {payload?.value}
+        </text>
+    );
+});
+CustomerYAxisTick.displayName = 'CustomerYAxisTick';
+
+const EmployeeYAxisTick = React.memo(({ x, y, payload, data, onOpen }: any) => {
+    const dataItem = data.find(d => d.name === payload?.value);
+    const id = dataItem?.id;
+    return (
+        <text
+            x={x}
+            y={y}
+            dy={4}
+            textAnchor="end"
+            className={id ? "fill-slate-600 dark:fill-slate-400 hover:fill-indigo-600 dark:hover:fill-indigo-400 hover:underline cursor-pointer font-bold transition-colors duration-150" : "fill-slate-600 dark:fill-slate-400 font-bold"}
+            fontSize={11}
+            onClick={(e) => {
+                e.stopPropagation();
+                if (id) onOpen(id);
+            }}
+        >
+            {payload?.value}
+        </text>
+    );
+});
+EmployeeYAxisTick.displayName = 'EmployeeYAxisTick';
+
+const BrandParetoXAxisTick = React.memo(({ x, y, payload, data, onOpen }: any) => {
+    const dataItem = data.find(d => d.name === payload?.value);
+    const id = dataItem?.brandId;
+    return (
+        <text
+            x={x}
+            y={y}
+            dy={8}
+            textAnchor="end"
+            className={id ? "fill-slate-600 dark:fill-slate-400 hover:fill-indigo-600 dark:hover:fill-indigo-400 hover:underline cursor-pointer font-bold transition-colors duration-150" : "fill-slate-600 dark:fill-slate-400 font-bold"}
+            fontSize={9}
+            fontWeight={600}
+            transform={`rotate(-35, ${x}, ${y})`}
+            onClick={(e) => {
+                e.stopPropagation();
+                if (id) onOpen(id);
+            }}
+        >
+            {payload?.value}
+        </text>
+    );
+});
+BrandParetoXAxisTick.displayName = 'BrandParetoXAxisTick';
+
 const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, onSelectUnit: propOnSelectUnit }) => {
     const { yearFilter, periodFilter, setYearFilter, selectedUnit: ctxSelectedUnit, setSelectedUnit: ctxSetSelectedUnit } = useLayoutContext();
     const selectedUnit = propSelectedUnit || ctxSelectedUnit;
@@ -379,6 +582,108 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
         });
     }, [openPanel, closePanel]);
 
+    const handleOpenPersonnelDetail = useCallback((id: string) => {
+        openPanel({
+            title: 'Chi tiết Nhân viên',
+            component: (
+                <React.Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        {React.createElement(
+                            React.lazy(() => import('./PersonnelDetail')),
+                            {
+                                personnelId: id,
+                                onBack: () => closePanel(),
+                                onViewContract: (contractId: string) => handleOpenContractDetail(contractId, contractId)
+                            }
+                        )}
+                    </div>
+                </React.Suspense>
+            )
+        });
+    }, [openPanel, closePanel, handleOpenContractDetail]);
+
+    const handleOpenUnitDetail = useCallback((id: string) => {
+        openPanel({
+            title: 'Chi tiết Đơn vị',
+            component: (
+                <React.Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        {React.createElement(
+                            React.lazy(() => import('./UnitDetail')),
+                            {
+                                unitId: id,
+                                onBack: () => closePanel(),
+                                onViewContract: (contractId: string) => handleOpenContractDetail(contractId, contractId),
+                                onViewPersonnel: handleOpenPersonnelDetail,
+                                yearFilter: yearFilter
+                            }
+                        )}
+                    </div>
+                </React.Suspense>
+            )
+        });
+    }, [openPanel, closePanel, yearFilter, handleOpenContractDetail, handleOpenPersonnelDetail]);
+
+    const handleOpenProductDetail = useCallback((id: string) => {
+        openPanel({
+            title: 'Chi tiết Sản phẩm/DV',
+            component: (
+                <React.Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        {React.createElement(
+                            React.lazy(() => import('./ProductDetail')),
+                            {
+                                productId: id,
+                                onBack: () => closePanel(),
+                                onViewContract: (contractId: string) => handleOpenContractDetail(contractId, contractId)
+                            }
+                        )}
+                    </div>
+                </React.Suspense>
+            )
+        });
+    }, [openPanel, closePanel, handleOpenContractDetail]);
+
+    const handleOpenBrandDetail = useCallback((id: string) => {
+        openPanel({
+            title: 'Chi tiết Hãng sản xuất',
+            component: (
+                <React.Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        {React.createElement(
+                            React.lazy(() => import('./BrandDetail')),
+                            {
+                                brandId: id,
+                                onBack: () => closePanel(),
+                                onSelectProduct: handleOpenProductDetail
+                            }
+                        )}
+                    </div>
+                </React.Suspense>
+            )
+        });
+    }, [openPanel, closePanel, handleOpenProductDetail]);
+
+    const handleOpenCustomerDetail = useCallback((id: string) => {
+        openPanel({
+            title: 'Chi tiết Khách hàng',
+            component: (
+                <React.Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        {React.createElement(
+                            React.lazy(() => import('./CustomerDetail')),
+                            {
+                                customerId: id,
+                                onBack: () => closePanel(),
+                                onViewContract: (contractId: string) => handleOpenContractDetail(contractId, contractId)
+                            }
+                        )}
+                    </div>
+                </React.Suspense>
+            )
+        });
+    }, [openPanel, closePanel, handleOpenContractDetail]);
+
     const [drillDown, setDrillDown] = useState<{
         isOpen: boolean;
         title: string;
@@ -427,12 +732,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [brands, setBrands] = useState<Brand[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
+    const [employeeTargets, setEmployeeTargets] = useState<any[]>([]);
 
     // KPI data from getStats RPC (same source as Dashboard)
     const [statsData, setStatsData] = useState<{
         totalRevenue: number; totalProfit: number; totalSigningProfit: number;
         totalRevenueProfit: number; totalCash: number; totalValue: number; totalContracts: number;
     } | null>(null);
+
+    const [rawDistData, setRawDistData] = useState<any[]>([]);
+    const [companyTarget, setCompanyTarget] = useState<any | null>(null);
+    const [monthlyHistLast, setMonthlyHistLast] = useState<any[]>([]);
 
     // Fetch base data (units, employees, historical) once
     useEffect(() => {
@@ -458,6 +768,29 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
         };
         fetchBaseData();
     }, []);
+
+    // Fetch employee targets when unit/year changes
+    useEffect(() => {
+        let cancelled = false;
+        const fetchTargets = async () => {
+            const yearParam = (yearFilter && yearFilter !== 'All') ? parseInt(yearFilter) : new Date().getFullYear();
+            try {
+                let targets: any[] = [];
+                if (selectedUnit?.id === 'all') {
+                    targets = await EmployeeTargetService.getByYear(yearParam);
+                } else {
+                    targets = await EmployeeTargetService.getByUnitAndYear(selectedUnit.id, yearParam);
+                }
+                if (!cancelled) {
+                    setEmployeeTargets(targets);
+                }
+            } catch (err) {
+                console.error("Lỗi tải chỉ tiêu nhân sự:", err);
+            }
+        };
+        fetchTargets();
+        return () => { cancelled = true; };
+    }, [selectedUnit, yearFilter]);
 
     // Fetch contracts & stats when unit/year changes — uses list() with payments join
     useEffect(() => {
@@ -501,17 +834,67 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                     }
                 }
 
-                // Parallel: getStats (KPI) + list (contracts with payments) + payments
-                const [stats, contractsRes, payRes] = await Promise.all([
+                // Parallel: getStats (KPI) + list (contracts with payments) + payments + distribution stats
+                const yearParam = yearFilter === 'All' ? null : parseInt(yearFilter);
+                const [stats, contractsRes, payRes, distData] = await Promise.all([
                     ContractService.getStats({ unitId, dateFrom, dateTo }),
                     ContractService.list({ page: 1, limit: 10000, unitId, dateFrom, dateTo }),
-                    PaymentService.list({ page: 1, limit: 10000 })
+                    PaymentService.list({ page: 1, limit: 10000 }),
+                    (async () => {
+                        try {
+                            return selectedUnit?.id === 'all'
+                                ? await UnitService.getWithStats(yearParam, periodFilter)
+                                : await EmployeeService.getWithStats(selectedUnit.id, undefined, yearParam, periodFilter);
+                        } catch (e) {
+                            console.warn("Lỗi tải phân phối:", e);
+                            return [];
+                        }
+                    })()
                 ]);
+
+                let ct: any = null;
+                if (selectedUnit?.id === 'all' && yearFilter !== 'All') {
+                    try {
+                        ct = await CompanyTargetService.getByYear(parseInt(yearFilter));
+                    } catch (e) {
+                        console.warn("Lỗi tải mục tiêu ĐHCĐ:", e);
+                    }
+                }
+
+                let mLast: any[] = [];
+                try {
+                    const currentYearNum = yearFilter === 'All' ? new Date().getFullYear() : parseInt(yearFilter);
+                    const lastYearNum = currentYearNum - 1;
+                    const histUnitId = selectedUnit?.id || 'all';
+
+                    if (histUnitId === 'all') {
+                        const all = await HistoricalProductionService.getMonthlyByYear(lastYearNum);
+                        const monthMap: Record<number, any> = {};
+                        all.forEach(h => {
+                            const m = h.month!;
+                            if (!monthMap[m]) {
+                                monthMap[m] = { unitId: 'all', year: lastYearNum, month: m, signing: 0, revenue: 0, adminProfit: 0, revProfit: 0 };
+                            }
+                            monthMap[m].signing += h.signing;
+                            monthMap[m].revenue += h.revenue;
+                            monthMap[m].adminProfit += h.adminProfit;
+                            monthMap[m].revProfit += h.revProfit;
+                        });
+                        mLast = Object.values(monthMap);
+                    } else {
+                        mLast = await HistoricalProductionService.getMonthlyByYearAndUnit(lastYearNum, histUnitId);
+                    }
+                } catch (e) {
+                    console.warn("Lỗi tải lịch sử cùng kỳ:", e);
+                }
 
                 if (!cancelled) {
                     setStatsData(stats as any);
                     setContracts(contractsRes.data);
                     setPayments(payRes.data);
+                    setRawDistData(distData || []);
+                    setCompanyTarget(ct);
+                    setMonthlyHistLast(mLast);
                 }
             } catch (error) {
                 toast.error("Lỗi tải dữ liệu thống kê");
@@ -627,6 +1010,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
 
         if (selectedUnit.id === 'all') {
             return allowedUnits.map(u => ({
+                id: u.id,
                 name: u.name,
                 value: contracts
                     .filter(c => c.unitId === u.id && (yearFilter === 'All' || c.signedDate?.startsWith(yearFilter)))
@@ -636,6 +1020,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             return employees
                 .filter(e => e.unitId === selectedUnit.id)
                 .map(e => ({
+                    id: e.id,
                     name: e.name,
                     value: filteredContracts
                         .filter(c => c.salespersonId === e.id)
@@ -662,6 +1047,29 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 name: u.name,
                 Target: targetRev,
                 Actual: actualRev,
+            };
+        }).sort((a, b) => b.Actual - a.Actual);
+    }, [units, contracts, selectedUnit, yearFilter, visibleUnits]);
+
+    // 2b. Unit Performance (Hiệu suất theo Đơn vị)
+    const unitPerformanceData = useMemo(() => {
+        const allowedUnits = units.filter(u => {
+            if (u.id === 'all') return false;
+            if (visibleUnits === 'all') return true;
+            return visibleUnits.includes(u.id);
+        });
+
+        return allowedUnits.filter(u => selectedUnit.id === 'all' || u.id === selectedUnit.id).map(u => {
+            const unitContracts = contracts.filter(c => c.unitId === u.id && (yearFilter === 'All' || c.signedDate?.startsWith(yearFilter)));
+            const actualRev = unitContracts.reduce((sum, c) => sum + (c.actualRevenue || 0), 0);
+            const targetRev = u.target?.revenue || 0;
+            const completion = targetRev > 0 ? (actualRev / targetRev) * 100 : 0;
+            return {
+                id: u.id,
+                name: u.name,
+                Actual: actualRev,
+                Target: targetRev,
+                completion,
             };
         }).sort((a, b) => b.Actual - a.Actual);
     }, [units, contracts, selectedUnit, yearFilter, visibleUnits]);
@@ -858,21 +1266,26 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     // Doanh thu dùng outputPrice × quantity nhất quán với module Đối tác.
     // Lợi nhuận phân bổ theo tỷ lệ line item / contract_value vì profit chỉ có ở cấp hợp đồng.
     const brandProfitabilityData = useMemo(() => {
-        const brandMap = new Map<string, { rev: number, profit: number }>();
+        // Khoá gộp = brandId|segment → tách 1 hãng thành nhiều dòng theo phân khúc.
+        const brandMap = new Map<string, { brandId: string, segment: ProductSegment, rev: number, profit: number }>();
         activeContracts.forEach(c => {
             if (c.lineItems && Array.isArray(c.lineItems)) {
                 const clt = contractLineTotal(c); // base pre-VAT để tỷ lệ phân bổ cộng dồn = 1
                 c.lineItems.forEach((li: any) => {
                     const product = products.find(p => p.id === li.productId);
                     if (product && product.brandId) {
+                        const segment = segmentOf(product.category);
+                        const key = `${product.brandId}|${segment}`;
                         const lineRevenue = lineItemRevenue(li);
                         const proportion = clt > 0 ? lineRevenue / clt : 0;
                         // Chỉ dùng LNG quản trị (adminProfit) — KHÔNG cộng revProfit (2 cơ sở khác nhau,
                         // cộng lại làm biên LN vượt 100%).
                         const allocatedProfit = (c.adminProfit || 0) * proportion;
 
-                        const current = brandMap.get(product.brandId) || { rev: 0, profit: 0 };
-                        brandMap.set(product.brandId, {
+                        const current = brandMap.get(key) || { brandId: product.brandId, segment, rev: 0, profit: 0 };
+                        brandMap.set(key, {
+                            brandId: product.brandId,
+                            segment,
                             rev: current.rev + lineRevenue,
                             profit: current.profit + allocatedProfit
                         });
@@ -880,13 +1293,15 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 });
             }
         });
-        return Array.from(brandMap.entries())
-            .map(([id, data]) => {
+        const rows = Array.from(brandMap.entries())
+            .map(([key, data]) => {
                 const margin = data.rev > 0 ? (data.profit / data.rev) * 100 : 0;
                 return {
-                    id,
+                    id: key,
+                    brandId: data.brandId,
+                    segment: data.segment,
+                    brandName: brands.find(b => b.id === data.brandId)?.name || 'Hãng khác',
                     type: 'BRAND',
-                    name: brands.find(b => b.id === id)?.name || 'Hãng khác',
                     value: margin,
                     revenue: data.rev // keep revenue for tooltip info
                 };
@@ -894,26 +1309,30 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             .filter(d => d.revenue > 0)
             .sort((a, b) => b.value - a.value)
             .slice(0, 5);
+        return labelBrandSegments(rows);
     }, [activeContracts, products, brands]);
 
-    // 12. Top Sold Products by Quantity
+    // 12. Top Sold Products by Quantity — gom theo HỌ SẢN PHẨM (productLine), không tách biến thể.
     const productQuantityData = useMemo(() => {
-        const productMap = new Map<string, number>();
+        const familyMap = new Map<string, number>(); // họ SP (productLine) -> tổng số lượng
         activeContracts.forEach(c => {
             if (c.lineItems && Array.isArray(c.lineItems)) {
                 c.lineItems.forEach((li: any) => {
                     if (li.productId) {
+                        const p = products.find(pp => pp.id === li.productId);
+                        // Ưu tiên họ SP; thiếu thì lùi về tên SP để vẫn hiện 1 dòng riêng.
+                        const family = p?.productLine?.trim() || p?.name || li.productName || 'Sản phẩm ẩn';
                         const qty = li.quantity || 1;
-                        productMap.set(li.productId, (productMap.get(li.productId) || 0) + qty);
+                        familyMap.set(family, (familyMap.get(family) || 0) + qty);
                     }
                 });
             }
         });
-        return Array.from(productMap.entries())
-            .map(([id, qty]) => ({
-                id,
+        return Array.from(familyMap.entries())
+            .map(([family, qty]) => ({
+                id: family,
                 type: 'PRODUCT_QTY',
-                name: products.find(p => p.id === id)?.name || 'Sản phẩm ẩn',
+                name: family,
                 value: qty
             }))
             .filter(d => d.value > 0)
@@ -949,44 +1368,53 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
 
     // 14. Brand Profit Structure
     const brandProfitStructureData = useMemo(() => {
-        const brandMap = new Map<string, number>(); // brandId -> totalProfit
+        // Khoá gộp = brandId|segment → tách 1 hãng thành nhiều lát theo phân khúc.
+        const brandMap = new Map<string, { brandId: string, segment: ProductSegment, profit: number }>();
         activeContracts.forEach(c => {
             if (c.lineItems && Array.isArray(c.lineItems)) {
                 const clt = contractLineTotal(c);
                 c.lineItems.forEach((li: any) => {
                     const product = products.find(p => p.id === li.productId);
                     if (product && product.brandId) {
+                        const segment = segmentOf(product.category);
+                        const key = `${product.brandId}|${segment}`;
                         const lineRevenue = lineItemRevenue(li);
                         const proportion = clt > 0 ? lineRevenue / clt : 0;
                         const allocatedProfit = (c.adminProfit || 0) * proportion; // LNG quản trị
-                        brandMap.set(product.brandId, (brandMap.get(product.brandId) || 0) + allocatedProfit);
+                        const cur = brandMap.get(key) || { brandId: product.brandId, segment, profit: 0 };
+                        brandMap.set(key, { brandId: product.brandId, segment, profit: cur.profit + allocatedProfit });
                     }
                 });
             }
         });
         const sortedBrands = Array.from(brandMap.entries())
-            .map(([id, profit]) => ({
-                id,
+            .map(([key, d]) => ({
+                id: key,
+                brandId: d.brandId,
+                segment: d.segment,
+                brandName: brands.find(b => b.id === d.brandId)?.name || 'Hãng khác',
                 type: 'BRAND_PROFIT_STRUCTURE',
-                name: brands.find(b => b.id === id)?.name || 'Hãng khác',
-                value: profit
+                value: d.profit
             }))
             .filter(d => d.value > 0)
             .sort((a, b) => b.value - a.value);
 
         if (sortedBrands.length <= 10) {
-            return sortedBrands;
+            return labelBrandSegments(sortedBrands);
         }
 
         const top10 = sortedBrands.slice(0, 10);
         const otherProfit = sortedBrands.slice(10).reduce((sum, d) => sum + d.value, 0);
 
         return [
-            ...top10,
+            ...labelBrandSegments(top10),
             {
                 id: 'other_brands',
+                brandId: '',
+                segment: 'other' as ProductSegment,
+                brandName: 'Hãng khác',
                 type: 'BRAND_PROFIT_STRUCTURE_OTHER',
-                name: 'Khác',
+                name: 'Hãng khác',
                 value: otherProfit
             }
         ];
@@ -1015,11 +1443,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 .filter(c => c.customerId === data.id)
                 .map(c => ({ contract: c, displayValue: c.actualRevenue || 0 }));
         } else if (data.type === 'BRAND') {
-            // Dùng outputPrice × quantity của các line item thuộc hãng này (nhất quán với bar chart)
+            // Dùng outputPrice × quantity của line item thuộc hãng này (nhất quán với bar chart).
+            // Card "Tỷ suất LN" tách theo phân khúc (có data.segment) → lọc thêm theo nhóm;
+            // card "Top Hãng" không có segment (id = brandId) → lọc theo hãng.
+            const brandId = data.brandId || data.id;
             activeContracts.forEach(c => {
                 const brandRevenue = (c.lineItems || []).reduce((sum: number, li: any) => {
                     const product = products.find(p => p.id === li.productId);
-                    if (product?.brandId === data.id) {
+                    if (product?.brandId === brandId && (!data.segment || segmentOf(product?.category) === data.segment)) {
                         return sum + (li.outputPrice || 0) * (li.quantity || 1);
                     }
                     return sum;
@@ -1044,12 +1475,13 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             });
             matches.sort((a, b) => b.displayValue - a.displayValue);
         } else if (data.type === 'PRODUCT_QTY') {
+            // data.id = họ sản phẩm (productLine) → khớp mọi line item cùng họ.
             activeContracts.forEach(c => {
                 const prodQty = (c.lineItems || []).reduce((sum: number, li: any) => {
-                    if (li.productId === data.id) {
-                        return sum + (li.quantity || 1);
-                    }
-                    return sum;
+                    if (!li.productId) return sum;
+                    const p = products.find(pp => pp.id === li.productId);
+                    const family = p?.productLine?.trim() || p?.name || li.productName || 'Sản phẩm ẩn';
+                    return family === data.id ? sum + (li.quantity || 1) : sum;
                 }, 0);
                 if (prodQty > 0) matches.push({ contract: c, displayValue: prodQty });
             });
@@ -1070,7 +1502,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             activeContracts.forEach(c => {
                 const brandRevenue = (c.lineItems || []).reduce((sum: number, li: any) => {
                     const product = products.find(p => p.id === li.productId);
-                    if (product?.brandId === data.id) {
+                    if (product?.brandId === data.brandId && segmentOf(product?.category) === data.segment) {
                         return sum + (li.outputPrice || 0) * (li.quantity || 1);
                     }
                     return sum;
@@ -1086,11 +1518,12 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             });
             matches.sort((a, b) => b.displayValue - a.displayValue);
         } else if (data.type === 'BRAND_PROFIT_STRUCTURE_OTHER') {
-            const topBrandIds = new Set(brandProfitStructureData.slice(0, 10).map(b => b.id));
+            // Đuôi "Hãng khác" = các tổ hợp brand|segment ngoài top 10 (id là khoá gộp brandId|segment).
+            const topKeys = new Set(brandProfitStructureData.slice(0, 10).map(b => b.id));
             activeContracts.forEach(c => {
                 const otherBrandRevenue = (c.lineItems || []).reduce((sum: number, li: any) => {
                     const product = products.find(p => p.id === li.productId);
-                    if (product?.brandId && !topBrandIds.has(product.brandId)) {
+                    if (product?.brandId && !topKeys.has(`${product.brandId}|${segmentOf(product.category)}`)) {
                         return sum + (li.outputPrice || 0) * (li.quantity || 1);
                     }
                     return sum;
@@ -1114,8 +1547,25 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
      * Mở slide panel liệt kê hợp đồng liên quan khi BẤM vào cột/lát của biểu đồ.
      * Thay cho việc nhồi bảng vào tooltip (vốn khó thao tác vì tooltip bám chuột).
      */
+    /**
+     * Recharts giữ tooltip "dính" lại khi chuột vẫn nằm trên biểu đồ sau khi bấm.
+     * Chủ động blur element đang focus (svg surface) + phát sự kiện rời chuột để
+     * recharts ẩn tooltip ngay, không chờ chuột rời chart. Bổ trợ cho CSS ẩn theo
+     * class `analytics-panel-open`.
+     */
+    const dismissChartTooltips = () => {
+        if (typeof document === 'undefined') return;
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        document.querySelectorAll('.recharts-wrapper, .recharts-surface').forEach((el) => {
+            ['pointerleave', 'pointerout', 'mouseleave', 'mouseout'].forEach((type) => {
+                el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, relatedTarget: document.body }));
+            });
+        });
+    };
+
     const openContractDrillDown = (data: any) => {
         if (!data || !data.type) return;
+        dismissChartTooltips();
         const matches = getContractMatches(data);
         if (matches.length === 0) {
             toast.info('Không có hợp đồng liên quan');
@@ -1331,24 +1781,29 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
 
     // Ma trận hãng BCG (doanh thu × biên LN × số lượng)
     const brandMatrixData = useMemo(() => {
-        const m = new Map<string, { rev: number; profit: number; qty: number }>();
+        // Khoá gộp = brandId|segment → mỗi hãng tách thành nhiều điểm theo phân khúc.
+        const m = new Map<string, { brandId: string; segment: ProductSegment; rev: number; profit: number; qty: number }>();
         activeContracts.forEach(c => {
             const clt = contractLineTotal(c);
             (c.lineItems || []).forEach((li: any) => {
                 const p = products.find(pp => pp.id === li.productId);
                 if (p && p.brandId) {
+                    const segment = segmentOf(p.category);
+                    const key = `${p.brandId}|${segment}`;
                     const rev = lineItemRevenue(li);
                     const prop = clt > 0 ? rev / clt : 0;
                     const profit = (c.adminProfit || 0) * prop; // LNG quản trị (không cộng revProfit)
-                    const cur = m.get(p.brandId) || { rev: 0, profit: 0, qty: 0 };
-                    m.set(p.brandId, { rev: cur.rev + rev, profit: cur.profit + profit, qty: cur.qty + (li.quantity || 1) });
+                    const cur = m.get(key) || { brandId: p.brandId, segment, rev: 0, profit: 0, qty: 0 };
+                    m.set(key, { brandId: p.brandId, segment, rev: cur.rev + rev, profit: cur.profit + profit, qty: cur.qty + (li.quantity || 1) });
                 }
             });
         });
-        return Array.from(m.entries())
-            .map(([id, d]) => ({
-                id,
-                name: brands.find(b => b.id === id)?.name || 'Hãng khác',
+        const rows = Array.from(m.entries())
+            .map(([key, d]) => ({
+                id: key,
+                brandId: d.brandId,
+                segment: d.segment,
+                brandName: brands.find(b => b.id === d.brandId)?.name || 'Hãng khác',
                 x: d.rev,
                 y: d.rev > 0 ? (d.profit / d.rev) * 100 : 0,
                 z: d.qty,
@@ -1356,6 +1811,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             .filter(d => d.x > 0)
             .sort((a, b) => b.x - a.x)
             .slice(0, 12);
+        return labelBrandSegments(rows);
     }, [activeContracts, products, brands]);
 
     // Pareto doanh thu theo hãng
@@ -1371,7 +1827,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             });
         });
         const arr = Array.from(m.entries())
-            .map(([id, rev]) => ({ name: brands.find(b => b.id === id)?.name || 'Khác', value: rev }))
+            .map(([id, rev]) => ({ brandId: id, name: brands.find(b => b.id === id)?.name || 'Khác', value: rev }))
             .filter(d => d.value > 0)
             .sort((a, b) => b.value - a.value)
             .slice(0, 15);
@@ -1383,23 +1839,63 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     // Hoàn thành KPI theo nhân sự
     const employeeCompletionData = useMemo(() => {
         const actual = new Map<string, number>();
-        filteredContracts.forEach(c => {
-            if (c.salespersonId) actual.set(c.salespersonId, (actual.get(c.salespersonId) || 0) + (c.actualRevenue || 0));
+
+        // Tính doanh thu thực tế phân bổ cho từng nhân viên dựa trên tỷ lệ phân bổ của hợp đồng
+        employees.forEach(emp => {
+            let totalActualRev = 0;
+            filteredContracts.forEach(c => {
+                if (c.status === 'Cancelled') return;
+                let fraction = 0;
+
+                const primaryEmpId = c.salespersonId;
+                
+                if (primaryEmpId === emp.id) {
+                    // Nếu là salesperson chính
+                    const allocs: any[] = (c as any).employeeAllocations || [];
+                    if (allocs.length > 0) {
+                        const myAlloc = allocs.find((a: any) => a.employeeId === emp.id);
+                        fraction = myAlloc ? (myAlloc.percent || 0) / 100 : 0;
+                    } else {
+                        fraction = 1; // 100% nếu không cấu hình phân bổ
+                    }
+                } else {
+                    // Nếu là nhân sự phụ trợ được phân bổ doanh số
+                    const allocs: any[] = (c as any).employeeAllocations || [];
+                    const myAlloc = allocs.find((a: any) => a.employeeId === emp.id);
+                    if (myAlloc) {
+                        fraction = (myAlloc.percent || 0) / 100;
+                    }
+                }
+
+                if (fraction > 0) {
+                    totalActualRev += (c.actualRevenue || 0) * fraction;
+                }
+            });
+            actual.set(emp.id, totalActualRev);
         });
+
         return employees
             .filter(e =>
                 (visibleUnits === 'all' || (e.unitId && visibleUnits.includes(e.unitId))) &&
                 (selectedUnit.id === 'all' || e.unitId === selectedUnit.id)
             )
             .map(e => {
-                const target = e.target?.revenue || 0;
+                // Lấy chỉ tiêu năm từ employeeTargets được fetch theo năm hiện tại
+                const tRecord = employeeTargets.find(t => t.employeeId === e.id);
+                const target = tRecord?.revenue || 0;
                 const act = actual.get(e.id) || 0;
-                return { id: e.id, name: e.name, actual: act, target, pct: target > 0 ? (act / target) * 100 : (act > 0 ? 100 : 0) };
+                // Nếu không giao target (target = 0) thì pct = 0 để tránh hiển thị 100% giả tạo
+                return { id: e.id, name: e.name, actual: act, target, pct: target > 0 ? (act / target) * 100 : 0 };
             })
             .filter(d => d.target > 0 || d.actual > 0)
-            .sort((a, b) => b.pct - a.pct)
+            .sort((a, b) => {
+                if (b.pct !== a.pct) {
+                    return b.pct - a.pct; // Sắp xếp theo tỷ lệ hoàn thành giảm dần
+                }
+                return b.actual - a.actual; // Nếu tỷ lệ hoàn thành bằng nhau, sắp xếp theo doanh số thực tế giảm dần
+            })
             .slice(0, 8);
-    }, [filteredContracts, employees, visibleUnits, selectedUnit]);
+    }, [filteredContracts, employees, visibleUnits, selectedUnit, employeeTargets]);
 
     // Khách hàng mới vs quay lại (theo tháng, trong kỳ)
     const newVsReturningData = useMemo(() => {
@@ -1458,14 +1954,96 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
         ].filter(d => d.value > 0);
     }, [filteredContracts]);
 
+    // ─── Tính toán chỉ tiêu và tăng trưởng YoY (y nguyên từ Dashboard) ───
+    const actualStats = useMemo(() => ({
+        signing: statsData?.totalValue || 0,
+        revenue: statsData?.totalRevenue || 0,
+        adminProfit: statsData?.totalSigningProfit || 0,
+        revProfit: statsData?.totalRevenueProfit || 0,
+        cash: statsData?.totalCash || 0
+    }), [statsData]);
+
+    const displayTarget = useMemo(() => {
+        if (selectedUnit.id === 'all' && rawDistData.length > 0) {
+            const sumTarget: any = { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+            rawDistData.forEach((u: any) => {
+                if (u.id === 'all') return;
+                sumTarget.signing += u.target?.signing || 0;
+                sumTarget.revenue += u.target?.revenue || 0;
+                sumTarget.adminProfit += u.target?.adminProfit || 0;
+                sumTarget.cash += u.target?.cash || 0;
+            });
+            sumTarget.revProfit = sumTarget.adminProfit;
+            sumTarget.cash = 0;
+            return sumTarget;
+        }
+        const t = safeUnit.target || { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 };
+        return { ...t, revProfit: t.adminProfit, cash: 0 };
+    }, [safeUnit, rawDistData, selectedUnit]);
+
+    const isFilteringByPeriod = !!periodFilter;
+    const effectiveTarget = isFilteringByPeriod
+        ? { signing: 0, revenue: 0, adminProfit: 0, revProfit: 0, cash: 0 }
+        : displayTarget;
+
+    const effectiveCompanyTarget = (!isFilteringByPeriod && selectedUnit.id === 'all' && companyTarget)
+        ? CompanyTargetService.toKPIPlan(companyTarget)
+        : null;
+
+    const getYoY = useCallback((metric: string) => {
+        const curr = actualStats[metric as keyof typeof actualStats] || 0;
+        if (yearFilter === 'All') return { value: '0.0', isUp: true, lastYearTotal: 0 };
+
+        let startMonth = 1;
+        let endMonth = new Date().getMonth() + 1;
+
+        if (periodFilter) {
+            if (periodFilter.startsWith('M')) {
+                const m = parseInt(periodFilter.substring(1));
+                startMonth = m;
+                endMonth = m;
+            } else if (periodFilter.startsWith('Q')) {
+                const q = parseInt(periodFilter.substring(1));
+                startMonth = (q - 1) * 3 + 1;
+                endMonth = q * 3;
+            }
+        }
+
+        const samePeriodData = monthlyHistLast.filter(
+            h => h.month != null && h.month >= startMonth && h.month <= endMonth
+        );
+
+        let lastYearVal = 0;
+        if (samePeriodData.length > 0) {
+            lastYearVal = samePeriodData.reduce((sum, h) => sum + Number(h[metric as keyof typeof h] || 0), 0);
+        } else {
+            if (!periodFilter) {
+                const currentYear = parseInt(yearFilter);
+                const lastYear = currentYear - 1;
+                const lastYearAnnual = historicalData.find(h => h.year === lastYear);
+                if (lastYearAnnual) {
+                    lastYearVal = Number(lastYearAnnual[metric as keyof HistoricalProduction] || 0);
+                }
+            }
+        }
+
+        if (lastYearVal === 0) return { value: '0.0', isUp: true, lastYearTotal: 0 };
+
+        const trueLastYearVal = lastYearVal * 1_000_000;
+        const growth = ((curr - trueLastYearVal) / trueLastYearVal) * 100;
+
+        return { value: Math.abs(growth).toFixed(1), isUp: growth >= 0, lastYearTotal: trueLastYearVal };
+    }, [actualStats, yearFilter, periodFilter, monthlyHistLast, historicalData]);
+
     // ─── Card render registry: id → JSX. Gắn với cardRegistry để gating + sắp xếp ───
     const cardElements: Record<string, React.ReactNode> = {
         'kpi-summary': (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                <KPICard index={0} title="Doanh thu" color="indigo" icon={<TrendingUp size={22} />} value={statsData?.totalRevenue || 0} />
-                <KPICard index={1} title="Lợi nhuận gộp" color="emerald" icon={<Target size={22} />} value={statsData?.totalSigningProfit || 0} />
-                <KPICard index={2} title="Tiền về" color="purple" icon={<Wallet size={22} />} value={statsData?.totalCash || 0} />
-                <KPICard index={3} title="Số hợp đồng" color="amber" icon={<FileText size={22} />} value={statsData?.totalContracts || 0} />
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                <KPICard index={0} title="Ký kết" metric="signing" stats={actualStats} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('signing')} color="indigo" icon={<FileText size={22} />} />
+                <KPICard index={1} title="Doanh thu" metric="revenue" stats={actualStats} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('revenue')} color="emerald" icon={<CreditCard size={22} />} />
+                <KPICard index={2} title="LNG Quản trị" metric="adminProfit" stats={actualStats} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('adminProfit')} color="purple" icon={<TrendingUp size={22} />} />
+                <KPICard index={3} title="LNG Doanh thu" metric="revProfit" stats={actualStats} target={effectiveTarget} companyTarget={effectiveCompanyTarget} yoy={getYoY('revProfit')} color="amber" icon={<Target size={22} />} />
+                <KPICard index={4} title="Dòng tiền" metric="cash" stats={actualStats} target={effectiveTarget} companyTarget={null} yoy={{ value: '0', isUp: true, lastYearTotal: 0 }} color="cyan" icon={<Wallet size={22} />} />
             </div>
         ),
         'contract-status-funnel': (
@@ -1646,7 +2224,12 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                         <p className="text-xs text-slate-500">Số lượng: {payload[0].payload.z}</p>
                                     </div>
                                 ) : null} />
-                                <Scatter data={brandMatrixData}>
+                                <Scatter data={brandMatrixData} onClick={(d: any) => {
+                                    const payload = d?.payload ?? d;
+                                    if (payload?.brandId) {
+                                        handleOpenBrandDetail(payload.brandId);
+                                    }
+                                }} style={{ cursor: 'pointer' }}>
                                     <LabelList dataKey="name" position="top" offset={8} fill="#64748b" style={{ fontSize: 10, fontWeight: 700 }} />
                                     {brandMatrixData.map((_, i) => (<Cell key={i} fill={getChartColors()[i % getChartColors().length]} />))}
                                 </Scatter>
@@ -1663,7 +2246,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                         <ResponsiveContainer width="100%" height="100%">
                             <ComposedChart data={brandParetoData} margin={{ left: 0, right: 10, top: 10, bottom: 40 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} height={60} tick={{ fill: '#475569', fontSize: 9, fontWeight: 600 }} />
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    interval={0}
+                                    height={60}
+                                    tick={<BrandParetoXAxisTick data={brandParetoData} onOpen={handleOpenBrandDetail} />}
+                                />
                                 <YAxis yAxisId="left" axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 10 }} />
                                 <YAxis yAxisId="right" orientation="right" domain={[0, 100]} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}%`} tick={{ fill: '#64748b', fontSize: 10 }} />
                                 <Tooltip cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} content={({ active, payload }) => (active && payload && payload.length) ? (
@@ -1673,7 +2263,15 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                         <p className="text-xs text-orange-500">Lũy kế: {payload[0].payload.cum.toFixed(1)}%</p>
                                     </div>
                                 ) : null} />
-                                <Bar yAxisId="left" dataKey="value" name="Doanh thu" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} />
+                                <Bar yAxisId="left" dataKey="value" name="Doanh thu" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20}
+                                    onClick={(d: any) => {
+                                        const payload = d?.payload ?? d;
+                                        if (payload?.brandId) {
+                                            handleOpenBrandDetail(payload.brandId);
+                                        }
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                />
                                 <Line yAxisId="right" type="monotone" dataKey="cum" name="Lũy kế %" stroke="#f97316" strokeWidth={3} dot={{ r: 2 }} />
                             </ComposedChart>
                         </ResponsiveContainer>
@@ -1688,9 +2286,24 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                         {employeeCompletionData.map((d) => (
                             <div key={d.id}>
                                 <div className="flex justify-between items-center mb-1 gap-2">
-                                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate">{d.name}</span>
+                                    <button
+                                        onClick={() => handleOpenPersonnelDetail(d.id)}
+                                        className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left focus:outline-none"
+                                    >
+                                        {d.name}
+                                    </button>
                                     <span className="text-xs font-black text-slate-700 dark:text-slate-200 shrink-0">
-                                        {formatCurrencyCompact(d.actual)} / {formatCurrencyCompact(d.target)} · <span className={d.pct >= 100 ? 'text-emerald-500' : d.pct >= 70 ? 'text-amber-500' : 'text-rose-500'}>{Math.round(d.pct)}%</span>
+                                        {formatCurrencyCompact(d.actual)} / {formatCurrencyCompact(d.target)}
+                                        {d.target > 0 ? (
+                                            <>
+                                                {' '}·{' '}
+                                                <span className={d.pct >= 100 ? 'text-emerald-500' : d.pct >= 70 ? 'text-amber-500' : 'text-rose-500'}>
+                                                    {Math.round(d.pct)}%
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <> · <span className="text-slate-400 dark:text-slate-500">—</span></>
+                                        )}
                                     </span>
                                 </div>
                                 <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -1781,7 +2394,18 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                         <div className="h-[280px] relative">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
-                                    <Pie data={structureData} cx="50%" cy="50%" innerRadius={70} outerRadius={95} paddingAngle={4} dataKey="value" cornerRadius={6}>
+                                    <Pie data={structureData} cx="50%" cy="50%" innerRadius={70} outerRadius={95} paddingAngle={4} dataKey="value" cornerRadius={6}
+                                        onClick={(dataEntry: any) => {
+                                            const payload = dataEntry?.payload ?? dataEntry;
+                                            if (!payload?.id) return;
+                                            if (selectedUnit.id === 'all') {
+                                                handleOpenUnitDetail(payload.id);
+                                            } else {
+                                                handleOpenPersonnelDetail(payload.id);
+                                            }
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                    >
                                         {structureData.map((_, index) => (
                                             <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} strokeWidth={0} />
                                         ))}
@@ -1799,7 +2423,18 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                 <div key={i} className="flex items-center justify-between group cursor-default">
                                     <div className="flex items-center gap-3">
                                         <div className="w-3 h-3 rounded-md transition-transform group-hover:scale-125" style={{ backgroundColor: getChartColors()[i % getChartColors().length] }} />
-                                        <span className="text-sm font-bold text-slate-600 dark:text-slate-300 truncate max-w-[160px]">{d.name}</span>
+                                        <button
+                                            onClick={() => {
+                                                if (selectedUnit.id === 'all') {
+                                                    handleOpenUnitDetail(d.id);
+                                                } else {
+                                                    handleOpenPersonnelDetail(d.id);
+                                                }
+                                            }}
+                                            className="text-sm font-bold text-slate-600 dark:text-slate-300 truncate max-w-[160px] hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left focus:outline-none"
+                                        >
+                                            {d.name}
+                                        </button>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-bold text-slate-400 dark:text-slate-500">{pieTotal > 0 ? ((d.value / pieTotal) * 100).toFixed(1) : '0'}%</span>
@@ -1939,7 +2574,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <BarChart data={topBrandsData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
                                 <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={80} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                <YAxis
+                                    type="category"
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={130}
+                                    tick={<BrandYAxisTick data={topBrandsData} onOpen={handleOpenBrandDetail} />}
+                                />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} />
                                 <Bar dataKey="value" name="Doanh thu" fill="#0ea5e9" radius={[0, 4, 4, 0]} barSize={16} onClick={(d: any) => openContractDrillDown(d?.payload ?? d)} style={{ cursor: 'pointer' }}>
                                     {topBrandsData.map((_, index) => (
@@ -1992,7 +2634,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <BarChart data={brandProfitabilityData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 30 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
                                 <XAxis type="number" domain={[0, 'dataMax + 10']} axisLine={false} tickLine={false} tickFormatter={(val) => `${Math.round(val)}%`} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={90} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                <YAxis
+                                    type="category"
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={130}
+                                    tick={<BrandYAxisTick data={brandProfitabilityData} onOpen={handleOpenBrandDetail} />}
+                                />
                                 <Tooltip
                                     cursor={{ fill: getCursorFill() }}
                                     wrapperStyle={{ zIndex: 100 }}
@@ -2018,14 +2667,21 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             </ChartCard>
         ),
         'product-qty': (
-            <ChartCard title="Số lượng Sản phẩm đã bán" subtitle="Top 5 sản phẩm bán chạy nhất theo số lượng" index={10}>
+            <ChartCard title="Số lượng Sản phẩm đã bán" subtitle="Top 5 họ sản phẩm bán chạy nhất theo số lượng" index={10}>
                 {productQuantityData.length === 0 ? <EmptyState message="Chưa có dữ liệu sản phẩm" /> : (
                     <div className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={productQuantityData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
                                 <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={100} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                <YAxis
+                                    type="category"
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={150}
+                                    tick={<ProductYAxisTick products={products} onOpen={handleOpenProductDetail} />}
+                                />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} />
                                 <Bar dataKey="value" name="Số lượng" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={16} onClick={(d: any) => openContractDrillDown(d?.payload ?? d)} style={{ cursor: 'pointer' }}>
                                     {productQuantityData.map((_, index) => (
@@ -2046,7 +2702,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <BarChart data={brandQuantityData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
                                 <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={80} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                <YAxis
+                                    type="category"
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={130}
+                                    tick={<BrandYAxisTick data={brandQuantityData} onOpen={handleOpenBrandDetail} />}
+                                />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} />
                                 <Bar dataKey="value" name="Số lượng" fill="#ec4899" radius={[0, 4, 4, 0]} barSize={16} onClick={(d: any) => openContractDrillDown(d?.payload ?? d)} style={{ cursor: 'pointer' }}>
                                     {brandQuantityData.map((_, index) => (
@@ -2066,7 +2729,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                         <div className="flex-1 h-full relative">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
-                                    <Pie data={brandProfitStructureData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value" cornerRadius={4} onClick={(d: any) => openContractDrillDown(d?.payload ?? d)} style={{ cursor: 'pointer' }}>
+                                    <Pie data={brandProfitStructureData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value" cornerRadius={4}
+                                        onClick={(dataEntry: any) => {
+                                            const payload = dataEntry?.payload ?? dataEntry;
+                                            if (payload?.brandId) {
+                                                handleOpenBrandDetail(payload.brandId);
+                                            } else {
+                                                openContractDrillDown(payload);
+                                            }
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                    >
                                         {brandProfitStructureData.map((_, index) => (
                                             <Cell key={`cell-${index}`} fill={getChartColors()[index % getChartColors().length]} strokeWidth={0} />
                                         ))}
@@ -2086,7 +2759,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                     <div key={i} className="flex items-center justify-between group cursor-default py-0.5 border-b border-slate-100/50 dark:border-slate-800/50 last:border-0">
                                         <div className="flex items-center gap-2 min-w-0">
                                             <div className="w-2.5 h-2.5 rounded-md shrink-0" style={{ backgroundColor: getChartColors()[i % getChartColors().length] }} />
-                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate" title={d.name}>{d.name}</span>
+                                            {d.brandId ? (
+                                                <button
+                                                    onClick={() => handleOpenBrandDetail(d.brandId)}
+                                                    className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer text-left focus:outline-none"
+                                                    title={d.name}
+                                                >
+                                                    {d.name}
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate" title={d.name}>{d.name}</span>
+                                            )}
                                         </div>
                                         <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 ml-2 shrink-0">{totalProfit > 0 ? ((d.value / totalProfit) * 100).toFixed(1) : '0'}%</span>
                                     </div>
@@ -2105,7 +2788,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <BarChart data={topCustomersData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
                                 <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={100} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                <YAxis
+                                    type="category"
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={150}
+                                    tick={<CustomerYAxisTick data={topCustomersData} onOpen={handleOpenCustomerDetail} />}
+                                />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} />
                                 <Bar dataKey="value" name="Doanh thu" fill="#f97316" radius={[0, 4, 4, 0]} barSize={16} onClick={(d: any) => openContractDrillDown(d?.payload ?? d)} style={{ cursor: 'pointer' }}>
                                     {topCustomersData.map((_, index) => (
@@ -2126,13 +2816,41 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <BarChart data={topEmployeesData} layout="vertical" margin={{ left: -10, top: 10, bottom: 0, right: 10 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={getGridStroke()} />
                                 <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 10 }} />
-                                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={90} tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} />
+                                <YAxis
+                                    type="category"
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={120}
+                                    tick={<EmployeeYAxisTick data={topEmployeesData} onOpen={handleOpenPersonnelDetail} />}
+                                />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} />
                                 <Bar dataKey="value" name="Doanh số" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={16} onClick={(d: any) => openContractDrillDown(d?.payload ?? d)} style={{ cursor: 'pointer' }}>
                                     {topEmployeesData.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'][index]} />
                                     ))}
                                 </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
+            </ChartCard>
+        ),
+        'unit-performance': (
+            <ChartCard title="Hiệu suất theo Đơn vị" subtitle="Doanh thu thực tế so với chỉ tiêu theo đơn vị" index={9}>
+                {unitPerformanceData.length === 0 ? (
+                    <EmptyState message="Chưa có dữ liệu đơn vị" />
+                ) : (
+                    <div className="h-[340px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={unitPerformanceData} barCategoryGap={20}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} />
+                                <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
+                                <Bar dataKey="Actual" name="Thực tế" fill={getAccentColor()} radius={[6, 6, 0, 0]} barSize={32} />
+                                <Bar dataKey="Target" name="Kế hoạch" fill={getMutedBarFill()} radius={[6, 6, 0, 0]} barSize={32} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -2216,8 +2934,6 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
 
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
-            {/* Ẩn tooltip recharts khi có slide panel mở (drill-down) */}
-            <style>{`body.analytics-panel-open .recharts-tooltip-wrapper{display:none !important;}`}</style>
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
@@ -2263,32 +2979,25 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                         placeholder="Tất cả khách hàng"
                     />
 
-                    <button
-                        onClick={() => setEditMode(v => !v)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-colors cursor-pointer border ${
-                            editMode
-                                ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600'
-                                : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700'
-                        }`}
-                        title={editMode ? 'Xong — thoát chế độ sắp xếp' : 'Sắp xếp & ẩn/hiện thẻ trực tiếp trên giao diện'}
-                    >
-                        {editMode ? <Check size={18} /> : <PencilRuler size={18} />}
-                        <span className="text-sm font-bold hidden sm:inline">{editMode ? 'Xong' : 'Sắp xếp'}</span>
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button
+                            onClick={() => setEditMode(v => !v)}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-colors cursor-pointer border ${
+                                editMode
+                                    ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600'
+                                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700'
+                            }`}
+                            title={editMode ? 'Xong — thoát chế độ sắp xếp' : 'Sắp xếp & ẩn/hiện thẻ trực tiếp trên giao diện'}
+                        >
+                            {editMode ? <Check size={18} /> : <PencilRuler size={18} />}
+                            <span className="text-sm font-bold hidden sm:inline">{editMode ? 'Xong' : 'Sắp xếp'}</span>
+                        </button>
 
-                    <button
-                        onClick={() => setShowCustomizer(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
-                        title="Chọn & sắp xếp các thẻ hiển thị"
-                    >
-                        <SlidersHorizontal size={18} />
-                        <span className="text-sm font-bold hidden sm:inline">Tùy chỉnh</span>
-                    </button>
-
-                    <button className="flex items-center gap-2 px-4 py-2.5 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-xl hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors cursor-pointer border border-orange-100 dark:border-orange-900/30">
-                        <Download size={18} />
-                        <span className="text-sm font-bold hidden sm:inline">Xuất báo cáo</span>
-                    </button>
+                        <button className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 dark:bg-orange-600 text-white rounded-xl hover:bg-orange-700 dark:hover:bg-orange-700 transition-colors cursor-pointer border border-orange-600 dark:border-orange-600 shadow-sm">
+                            <Download size={18} />
+                            <span className="text-sm font-bold hidden sm:inline">Xuất báo cáo</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 

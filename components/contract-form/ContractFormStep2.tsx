@@ -12,6 +12,7 @@ import SearchableSelect from '../ui/SearchableSelect';
 import CurrencyCalculator from '../ui/CurrencyCalculator';
 import { FinancialTotals } from '../../hooks/useFinancialCalculations';
 import { safeEval } from '../../utils/formulaEval';
+import { RESERVE_FUND_COST_ID } from '../../constants';
 
 /**
  * Inline autocomplete input with ghost-text suggestion.
@@ -618,10 +619,18 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {executionCosts.map((cost, idx) => (
+                                    {executionCosts.map((cost, idx) => {
+                                        const isLocked = cost.id === RESERVE_FUND_COST_ID;
+                                        return (
                                         <tr key={cost.id} className="group border-b border-slate-100 dark:border-slate-800 last:border-0">
                                             <td className="py-1 px-1 text-slate-400 font-medium">{idx + 1}</td>
                                             <td className="py-2 px-2">
+                                                {isLocked ? (
+                                                    <div className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                                                        <Lock size={11} className="text-slate-400 flex-shrink-0" />
+                                                        <span title="Chi phí bắt buộc, tự động thêm cho hợp đồng từ 2026, không thể sửa/xoá">{cost.name}</span>
+                                                    </div>
+                                                ) : (
                                                 <input
                                                     type="text"
                                                     list="execution-cost-names"
@@ -638,8 +647,12 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                     }}
                                                     className="w-full px-2 py-1 bg-transparent border-0 border-b border-transparent hover:border-slate-300 focus:border-indigo-500 text-xs font-medium outline-none transition-colors"
                                                 />
+                                                )}
                                             </td>
                                             <td className="py-2 px-2">
+                                                {isLocked ? (
+                                                    <div className="text-right text-xs font-bold pr-1 text-slate-600 dark:text-slate-300">{cost.percentage}%</div>
+                                                ) : (
                                                 <div className="flex items-center gap-1">
                                                     <input
                                                         type="number"
@@ -655,8 +668,12 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                     />
                                                     <span className="text-[10px] text-slate-400 font-bold flex-shrink-0">%</span>
                                                 </div>
+                                                )}
                                             </td>
                                             <td className="py-2 px-2">
+                                                {isLocked ? (
+                                                    <div className="text-right text-xs font-black pr-5 text-slate-800 dark:text-slate-200">{formatVND(cost.amount || 0)}</div>
+                                                ) : (
                                                 <CurrencyCalculator
                                                     value={cost.amount || 0}
                                                     onChange={(vnd) => {
@@ -671,8 +688,10 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                     inputClassName="w-full px-2 py-1 bg-transparent border-0 text-xs font-black text-right outline-none pr-5"
                                                     textColorClass="text-slate-800 dark:text-slate-200"
                                                 />
+                                                )}
                                             </td>
                                             <td className="py-2 px-1">
+                                                {!isLocked && (
                                                 <button
                                                     onClick={() => removeExecutionCost(cost.id)}
                                                     className="p-1 text-slate-300 hover:text-rose-500 rounded opacity-0 group-hover:opacity-100 transition-all"
@@ -680,9 +699,11 @@ const ContractFormStep2: React.FC<ContractFormStep2Props> = ({
                                                 >
                                                     <X size={12} />
                                                 </button>
+                                                )}
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                                 <tfoot>
                                     <tr className="border-t border-slate-200 dark:border-slate-600">

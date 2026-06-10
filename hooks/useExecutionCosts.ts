@@ -2,6 +2,7 @@
 // Used by both ContractForm and ContractBusinessPlanTab
 import { useState, useCallback } from 'react';
 import { ExecutionCostItem } from '../types';
+import { RESERVE_FUND_COST_ID } from '../constants';
 
 export function useExecutionCosts(initialCosts: ExecutionCostItem[] = []) {
     const [executionCosts, setExecutionCosts] = useState<ExecutionCostItem[]>(initialCosts);
@@ -14,6 +15,7 @@ export function useExecutionCosts(initialCosts: ExecutionCostItem[] = []) {
     }, []);
 
     const removeExecutionCost = useCallback((id: string) => {
+        if (id === RESERVE_FUND_COST_ID) return;
         setExecutionCosts(prev => prev.filter(c => c.id !== id));
     }, []);
 
@@ -21,6 +23,7 @@ export function useExecutionCosts(initialCosts: ExecutionCostItem[] = []) {
      * Update a single field. Pass `revenue` to auto-calc percentage↔amount.
      */
     const updateExecutionCost = useCallback((id: string, field: keyof ExecutionCostItem, value: any, revenue?: number) => {
+        if (id === RESERVE_FUND_COST_ID) return;
         setExecutionCosts(prev => prev.map(c => {
             if (c.id !== id) return c;
             const newCost = { ...c, [field]: value };

@@ -62,6 +62,7 @@ const CustomerList = lazyWithRetry(() => import('./CustomerList'));
 const CustomerDetail = lazyWithRetry(() => import('./CustomerDetail'));
 const ProductList = lazyWithRetry(() => import('./ProductList'));
 const ProductDetail = lazyWithRetry(() => import('./ProductDetail'));
+const BrandDetail = lazyWithRetry(() => import('./BrandDetail'));
 const UnitList = lazyWithRetry(() => import('./UnitList'));
 const UnitDetail = lazyWithRetry(() => import('./UnitDetail'));
 const Settings = lazyWithRetry(() => import('./Settings'));
@@ -586,6 +587,28 @@ function useOpenProductPanel() {
     }, [openPanel, closePanel, openContractPanel]);
 }
 
+// Opens a Brand (manufacturer) detail in a slide panel
+function useOpenBrandPanel() {
+    const { openPanel, closePanel } = useSlidePanel();
+    const openProductPanel = useOpenProductPanel();
+    return useCallback((brandId: string) => {
+        openPanel({
+            title: 'Chi tiết Hãng sản xuất',
+            component: (
+                <Suspense fallback={<DetailPageSkeleton />}>
+                    <div className="p-4 md:p-6 lg:p-8">
+                        <BrandDetail
+                            brandId={brandId}
+                            onBack={() => closePanel()}
+                            onSelectProduct={openProductPanel}
+                        />
+                    </div>
+                </Suspense>
+            ),
+        });
+    }, [openPanel, closePanel, openProductPanel]);
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // PAYMENT MODULE — Slide Panel Integration
 // ═══════════════════════════════════════════════════════════════════════
@@ -654,6 +677,7 @@ export const LazyCustomerListPage: React.FC = () => {
     const { openPanel, closePanel } = useSlidePanel();
     const openContractPanel = useOpenContractPanel();
     const openProductPanel = useOpenProductPanel();
+    const openBrandPanel = useOpenBrandPanel();
 
     const handleSelectCustomer = useCallback((id: string) => {
         openPanel({
@@ -677,6 +701,7 @@ export const LazyCustomerListPage: React.FC = () => {
         <CustomerList
             onSelectCustomer={handleSelectCustomer}
             onSelectProduct={openProductPanel}
+            onSelectBrand={openBrandPanel}
         />
     );
 };
