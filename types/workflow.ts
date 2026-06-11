@@ -75,7 +75,8 @@ export type PermissionResource =
   | 'leaves'
   | 'recruitment'
   | 'analytics'
-  | 'crm';
+  | 'crm'
+  | 'tools';
 
 export interface UserPermission {
   id?: string;
@@ -107,6 +108,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     recruitment: ['view', 'create', 'update', 'delete'],
     analytics: ['view', 'create', 'update', 'delete'],
     crm: ['view', 'create', 'update', 'delete'],
+    tools: ['view', 'create', 'update', 'delete'],
   },
   // Ban lãnh đạo — Toàn quyền dữ liệu, KHÔNG settings/permissions, payments chỉ xem
   Leadership: {

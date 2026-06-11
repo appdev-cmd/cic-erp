@@ -8,8 +8,9 @@ import { toast } from 'sonner';
 const BASE_GAP = 20;           // px base gap between sidebar and first panel (expanded)
 const COLLAPSED_BASE_GAP = 60; // px base gap when sidebar collapsed (larger to prevent tab clipping)
 const STACKING_OFFSET = 20;   // px additional gap per stacked panel
-const TAB_HEIGHT = 38;         // approximate tab height in px
-const TAB_VERTICAL_GAP = 6;   // px gap between cascading tabs vertically
+const TAB_WIDTH = 34;          // px tab thickness (protrudes left of panel edge)
+const TAB_LENGTH = 148;        // px fixed tab length (vertical)
+const TAB_GAP = 3;             // px gap between adjacent tabs
 
 // ─── Single Panel ────────────────────────────────────────────────────────────
 
@@ -82,12 +83,11 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
     );
 };
 
-// ─── Tab Ears — overlaps sidebar AND panel body ──────────────────────────────
-// Each tab straddles the panel's left border:
-//   - LEFT portion: overlaps the sidebar
-//   - RIGHT portion: overlaps the panel body (overlap width = TAB_HEIGHT)
-// Tabs cascade VERTICALLY — each lower panel's tab is pushed down.
-// Rendered in the outer fixed container (not the viewport) so they can 
+// ─── Folder Tabs — vertical tabs hugging each panel's left edge ──────────────
+// Each tab is a vertical "folder tab" whose RIGHT edge sits flush against its
+// own panel's left border (1px overlap to hide the seam). Text runs vertically.
+// Tabs stack adjacently top-to-bottom with a tiny gap, like file-folder tabs.
+// Rendered in the outer fixed container (not the viewport) so they can
 // extend over the sidebar.
 
 interface PanelTabsOverlayProps {
@@ -106,19 +106,19 @@ const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, sidebarWidt
             {panels.map((panel, index) => {
                 const isTopPanel = index === panels.length - 1;
                 const title = panel.title || `Panel ${index + 1}`;
-                const displayTitle = title.length > 12 ? title.slice(0, 12) + '…' : title;
+                const displayTitle = title.length > 24 ? title.slice(0, 24) + '…' : title;
 
-                // Vertical cascade: each tab is lower
-                const tabTop = 12 + index * (TAB_HEIGHT + TAB_VERTICAL_GAP);
+                // Adjacent stacking: tabs sit right below each other
+                const tabTop = 16 + index * (TAB_LENGTH + TAB_GAP);
 
-                // Same formula for both states — only baseGap differs
-                // This automatically preserves the tab-to-panel distance
+                // Tab's right edge hugs its own panel's left edge (1px overlap
+                // hides the border seam) — deeper panels step right, so tabs
+                // form a folder-tab staircase
                 const baseGap = isSidebarCollapsed ? COLLAPSED_BASE_GAP : BASE_GAP;
                 const panelLeftEdgeScreen = sidebarWidth + baseGap + index * STACKING_OFFSET;
-                const tabRightEdge = panelLeftEdgeScreen + TAB_HEIGHT;
 
                 const tabPositionStyle: React.CSSProperties = {
-                    right: `calc(100% - ${tabRightEdge}px)`,
+                    right: `calc(100% - ${panelLeftEdgeScreen + 1}px)`,
                     top: `${tabTop}px`,
                     zIndex: 60 + panels.length + index + 1,
                 };
@@ -136,14 +136,14 @@ const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, sidebarWidt
                                     onFocus(panel.id);
                                 }
                             }}
-                            className={`group flex items-center gap-1.5 pl-3 pr-2.5 py-2
+                            className={`group flex flex-col items-center gap-1.5 pt-2.5 pb-2
                                 rounded-l-xl border border-r-0
                                 transition-all duration-200
-                                whitespace-nowrap
                                 ${isTopPanel
                                     ? 'bg-indigo-600 dark:bg-indigo-500 border-indigo-700 dark:border-indigo-600 text-white shadow-xl shadow-indigo-500/30 dark:shadow-indigo-700/50'
                                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-600 shadow-lg shadow-slate-900/15 dark:shadow-slate-950/50 cursor-pointer'
                                 }`}
+                            style={{ width: `${TAB_WIDTH}px`, height: `${TAB_LENGTH}px` }}
                             title={panel.title || 'Panel'}
                         >
                             {/* Icon */}
@@ -154,8 +154,11 @@ const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, sidebarWidt
                                 {panel.icon || <FileText size={14} />}
                             </span>
 
-                            {/* Title */}
-                            <span className="text-xs font-semibold">
+                            {/* Title — vertical, reads bottom-to-top */}
+                            <span
+                                className="flex-1 min-h-0 overflow-hidden text-xs font-semibold whitespace-nowrap"
+                                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', textOverflow: 'ellipsis' }}
+                            >
                                 {displayTitle}
                             </span>
 
@@ -164,7 +167,7 @@ const PanelTabsOverlay: React.FC<PanelTabsOverlayProps> = ({ panels, sidebarWidt
                                 <span
                                     onClick={(e) => { e.stopPropagation(); onClose(panel.id); }}
                                     className="flex-shrink-0 w-5 h-5 flex items-center justify-center
-                                        rounded-full ml-1
+                                        rounded-full
                                         text-indigo-200 hover:text-white hover:bg-indigo-700 dark:hover:bg-indigo-600
                                         transition-all duration-150 cursor-pointer"
                                     title="Đóng"

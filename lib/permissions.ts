@@ -10,7 +10,7 @@
  *   and NAV helpers (which sidebar items to hide?).
  * - Role determines DATA SCOPE, not permissions. Permissions come from DB.
  */
-import { UserRole } from '../types';
+import { UserRole, PermissionResource, DEFAULT_ROLE_PERMISSIONS } from '../types';
 
 // ═══════════════════════════════════════════
 // Role groups — data scope
@@ -80,11 +80,34 @@ export function canViewProjects(role: UserRole, userUnitCode?: string): boolean 
 }
 
 /**
+ * Sidebar nav items mapped to the SAME permission resources that RouteGuard
+ * checks (see routes/routePermissions.ts). Keeping the two in sync guarantees:
+ * menu hiện ⇔ vào được bằng link.
+ */
+const NAV_RESOURCE_MAP: { navId: string; resource: PermissionResource }[] = [
+    { navId: 'crm', resource: 'crm' },
+    { navId: 'contracts', resource: 'contracts' },
+    { navId: 'payments', resource: 'payments' },
+    { navId: 'customers', resource: 'customers' },
+    { navId: 'products', resource: 'products' },
+    { navId: 'website', resource: 'news' },
+    { navId: 'tasks', resource: 'tasks' },
+    { navId: 'reports', resource: 'reports' },
+    { navId: 'units', resource: 'units' },
+    { navId: 'analytics', resource: 'analytics' },
+    { navId: 'tools', resource: 'tools' },
+];
+
+/**
  * Items that should be hidden from sidebar based on role + DB permissions.
  * Returns Set of nav item IDs to HIDE.
- * 
- * @param dbPermissions - Optional permission map from user_permissions DB table.
- *   If provided, DB permissions override role-based defaults for employees/units.
+ *
+ * Deny-by-default, mirror của RouteGuard:
+ * - DB đã load → chỉ hiện khi có user_permissions.<resource>.view
+ * - DB chưa load (dbPermissions === undefined) → fallback DEFAULT_ROLE_PERMISSIONS
+ *
+ * @param dbPermissions - Permission map from user_permissions DB table.
+ *   undefined = DB chưa load. Map rỗng = user không có quyền nào.
  */
 export function getHiddenNavItems(
     role: UserRole,
@@ -93,71 +116,31 @@ export function getHiddenNavItems(
 ): Set<string> {
     const hidden = new Set<string>();
 
+    // Admin: full access (mirrors the Admin bypass in usePermissionCheck.can)
+    if (role === 'Admin') return hidden;
+
     // Settings & AI Dashboard: only Admin
-    if (role !== 'Admin') {
-        hidden.add('settings');
-        hidden.add('ai-dashboard');
+    hidden.add('settings');
+    hidden.add('ai-dashboard');
+
+    const dbLoaded = dbPermissions !== undefined;
+    const dbView = (resource: PermissionResource) =>
+        dbPermissions?.get(resource)?.has('view') ?? false;
+    const roleDefaultView = (resource: PermissionResource) =>
+        DEFAULT_ROLE_PERMISSIONS[role]?.[resource]?.includes('view') ?? false;
+
+    for (const { navId, resource } of NAV_RESOURCE_MAP) {
+        const visible = dbLoaded ? dbView(resource) : roleDefaultView(resource);
+        if (!visible) hidden.add(navId);
     }
 
-    // Units: check DB permission first, fallback to role-based
-    const hasUnitsViewInDB = dbPermissions?.get('units')?.has('view');
-    if (hasUnitsViewInDB === undefined) {
-        // DB not loaded yet → fallback to role-based
-        if (!canViewUnits(role)) hidden.add('units');
-    } else if (!hasUnitsViewInDB) {
-        hidden.add('units');
-    }
+    // Personnel: can() có special-case role-based (canViewEmployees), nên OR thêm
+    const employeesVisible = dbLoaded ? dbView('employees') : roleDefaultView('employees');
+    if (!employeesVisible && !canViewEmployees(role, userUnitCode)) hidden.add('personnel');
 
-    // Personnel: check DB permission first, fallback to role-based
-    const hasEmployeesViewInDB = dbPermissions?.get('employees')?.has('view');
-    if (hasEmployeesViewInDB === undefined) {
-        // DB not loaded yet → fallback to role-based
-        if (!canViewEmployees(role, userUnitCode)) hidden.add('personnel');
-    } else if (!hasEmployeesViewInDB) {
-        hidden.add('personnel');
-    }
-
-    // Tools: Admin by default, or DB-granted permission.
-    // To grant a specific user access to Tools, add user_permissions.tools.view = true in DB.
-    const hasToolsViewInDB = dbPermissions?.get('tools')?.has('view');
-    if (hasToolsViewInDB === undefined) {
-        if (role !== 'Admin') hidden.add('tools');
-    } else if (!hasToolsViewInDB) {
-        hidden.add('tools');
-    }
-
-    // BIM Projects: only Devs or localhost
-    const hasProjectsViewInDB = dbPermissions?.get('projects')?.has('view');
-    if (hasProjectsViewInDB === undefined) {
-        if (!canViewProjects(role, userUnitCode)) hidden.add('projects');
-    } else if (!hasProjectsViewInDB) {
-        hidden.add('projects');
-    }
-
-    // Tasks: check DB permission first, default to visible for all roles
-    const hasTasksViewInDB = dbPermissions?.get('tasks')?.has('view');
-    if (hasTasksViewInDB === undefined) {
-        // DB not loaded yet → default: show tasks for everyone
-    } else if (!hasTasksViewInDB) {
-        hidden.add('tasks');
-    }
-
-    // Reports: only Admin
-    const hasReportsViewInDB = dbPermissions?.get('reports')?.has('view');
-    if (hasReportsViewInDB === undefined) {
-        if (role !== 'Admin') hidden.add('reports');
-    } else if (!hasReportsViewInDB) {
-        hidden.add('reports');
-    }
-
-    // Analytics: Admin và Leadership mặc định, hoặc được cấp quyền qua DB
-    const hasAnalyticsViewInDB = dbPermissions?.get('analytics')?.has('view');
-    if (hasAnalyticsViewInDB === undefined) {
-        // DB chưa load → fallback role-based: chỉ Admin và Leadership
-        if (role !== 'Admin' && role !== 'Leadership') hidden.add('analytics');
-    } else if (!hasAnalyticsViewInDB) {
-        hidden.add('analytics');
-    }
+    // BIM Projects: fallback role/đơn vị BIM khi DB chưa load
+    const projectsVisible = dbLoaded ? dbView('projects') : canViewProjects(role, userUnitCode);
+    if (!projectsVisible) hidden.add('projects');
 
     return hidden;
 }

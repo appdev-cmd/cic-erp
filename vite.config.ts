@@ -215,7 +215,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
     server: {
-      port: 3000,
+      port: Number(process.env.PORT) || 3000,
       host: '0.0.0.0', // Mở cho LAN nội bộ (văn phòng) — thay đổi từ 'localhost'
       proxy: {
         // Gemma vLLM — target từ env (máy chủ công ty) hoặc fallback localhost dev

@@ -64,7 +64,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { profile } = useAuth();
   const { impersonatedUser, isImpersonating } = useImpersonation();
-  const { permissions } = usePermissionCheck();
+  const { permissions, isLoading: permissionsLoading } = usePermissionCheck();
 
   useEffect(() => {
     if (!isResizing || !setIsResizing || !setSidebarWidth) return;
@@ -103,16 +103,16 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Use impersonated role for nav filtering when impersonating
   const effectiveProfile = isImpersonating && impersonatedUser ? impersonatedUser : profile;
 
-  // Build DB permission map for nav visibility
+  // Build DB permission map for nav visibility.
+  // undefined = DB chưa load (fallback theo role); Map rỗng = user không có quyền nào (deny-by-default).
   const dbPermissions = useMemo(() => {
+    if (permissionsLoading) return undefined;
     const map = new Map<string, Set<string>>();
-    if (permissions && permissions.length > 0) {
-      for (const p of permissions) {
-        map.set(p.resource, new Set(p.actions));
-      }
+    for (const p of permissions || []) {
+      map.set(p.resource, new Set(p.actions));
     }
-    return map.size > 0 ? map : undefined; // undefined = DB not loaded yet
-  }, [permissions]);
+    return map;
+  }, [permissions, permissionsLoading]);
 
   const hiddenItems = effectiveProfile ? getHiddenNavItems(effectiveProfile.role, effectiveProfile.unitCode, dbPermissions) : new Set<string>();
 

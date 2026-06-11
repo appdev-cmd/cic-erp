@@ -18,11 +18,8 @@ export interface RoutePermissionEntry {
 export const PUBLIC_ROUTES: { pattern: string; label: string }[] = [
     { pattern: '/', label: 'Trang chu (Dashboard)' },
     { pattern: '/dashboard', label: 'Dashboard (redirect)' },
-    { pattern: '/analytics', label: 'Phan tich va Bao cao' },
     { pattern: '/documents', label: 'Quan ly Tai lieu' },
     { pattern: '/ai-assistant', label: 'Tro ly AI' },
-    { pattern: '/agent-manager', label: 'Quan ly AI Agents' },
-    { pattern: '/tools/*', label: 'Cong cu noi bo' },
     { pattern: '/chat', label: 'Chat noi bo' },
     { pattern: '/user-guide', label: 'Huong dan su dung' },
 ];
@@ -67,6 +64,14 @@ export const ROUTE_PERMISSION_MAP: RoutePermissionEntry[] = [
 
     { pattern: '/crm/*', resource: 'crm', action: 'view', label: 'Quan ly CRM', module: 'CRM' },
     { pattern: '/crm', resource: 'crm', action: 'view', label: 'Quan ly CRM', module: 'CRM' },
+
+    { pattern: '/analytics', resource: 'analytics', action: 'view', label: 'Phan tich kinh doanh', module: 'Phan tich' },
+
+    { pattern: '/tools', resource: 'tools', action: 'view', label: 'Cong cu noi bo', module: 'Cong cu' },
+    { pattern: '/tools/*', resource: 'tools', action: 'view', label: 'Cong cu noi bo', module: 'Cong cu' },
+
+    { pattern: '/agent-manager', resource: 'settings', action: 'view', label: 'Quan ly AI Agents', module: 'He thong' },
+    { pattern: '/admin/ai-dashboard', resource: 'settings', action: 'view', label: 'AI Dashboard', module: 'He thong' },
 ];
 
 function patternToRegex(pattern: string): RegExp {
