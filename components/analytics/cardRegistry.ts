@@ -50,8 +50,8 @@ export const ANALYTICS_CARDS: AnalyticsCardMeta[] = [
     // ── Tab: Tổng quan ──
     { id: 'kpi-summary', title: 'Dải KPI điều hành', subtitle: 'Ký kết · Doanh thu · LNG QT · LNG DT · Dòng tiền', tab: 'overview', fullWidth: true, sensitivity: 'profit' },
     { id: 'revenue-structure', title: 'Cơ cấu Doanh thu', subtitle: 'Tỷ trọng đóng góp doanh thu', tab: 'overview', sensitivity: 'general' },
-    { id: 'plan-vs-actual', title: 'Kế hoạch vs Thực tế', subtitle: 'So sánh doanh thu với mục tiêu', tab: 'overview', sensitivity: 'general' },
-    { id: 'contract-status-funnel', title: 'Phễu trạng thái Hợp đồng', subtitle: 'Số lượng & giá trị theo giai đoạn', tab: 'overview', sensitivity: 'general' },
+    { id: 'plan-vs-actual', title: 'Kế hoạch vs Thực tế', subtitle: 'So sánh doanh thu với mục tiêu', tab: 'overview', fullWidth: true, sensitivity: 'general' },
+    { id: 'contract-status-funnel', title: 'Phễu trạng thái Hợp đồng', subtitle: 'Số lượng & giá trị theo giai đoạn', tab: 'overview', fullWidth: true, sensitivity: 'general' },
     { id: 'contract-classification', title: 'Cơ cấu Phân loại HĐ', subtitle: 'Tỷ trọng doanh thu theo phân loại', tab: 'overview', sensitivity: 'general' },
     { id: 'monthly-trend', title: 'Xu hướng theo tháng', subtitle: 'Biến động Doanh thu & Lợi nhuận', tab: 'overview', fullWidth: true, sensitivity: 'general' },
     { id: 'cumulative-vs-target', title: 'Doanh thu Lũy kế vs Mục tiêu', subtitle: 'Tiến độ tích lũy so kế hoạch', tab: 'overview', fullWidth: true, sensitivity: 'general' },
@@ -71,14 +71,13 @@ export const ANALYTICS_CARDS: AnalyticsCardMeta[] = [
     { id: 'brand-margin', title: 'Tỷ suất Lợi nhuận', subtitle: 'Top biên lợi nhuận (%) theo Hãng', tab: 'product_brand', sensitivity: 'profit' },
     { id: 'product-qty', title: 'Số lượng Sản phẩm đã bán', subtitle: 'Top họ sản phẩm bán chạy theo SL', tab: 'product_brand', sensitivity: 'general' },
     { id: 'brand-qty', title: 'Số lượng Hãng đã bán', subtitle: 'Top hãng bán chạy theo SL', tab: 'product_brand', sensitivity: 'general' },
-    { id: 'brand-profit-structure', title: 'Cơ cấu Lợi nhuận Hãng', subtitle: 'Tỷ trọng đóng góp lợi nhuận gộp', tab: 'product_brand', sensitivity: 'profit' },
+    { id: 'brand-profit-structure', title: 'Cơ cấu Lợi nhuận Hãng', subtitle: 'Tỷ trọng đóng góp lợi nhuận gộp', tab: 'product_brand', fullWidth: true, sensitivity: 'profit' },
     { id: 'brand-bcg', title: 'Ma trận Hãng (DT × Biên LN)', subtitle: 'Định vị hãng theo DT và biên LN', tab: 'product_brand', fullWidth: true, sensitivity: 'profit' },
     { id: 'revenue-pareto', title: 'Pareto Doanh thu theo Hãng', subtitle: 'Mức độ tập trung doanh thu (80/20)', tab: 'product_brand', fullWidth: true, sensitivity: 'general' },
 
     // ── Tab: Hiệu suất & Khách hàng ──
     { id: 'top-customers', title: 'Top Khách hàng', subtitle: 'Hàng đầu theo doanh thu', tab: 'employee_customer', sensitivity: 'general' },
     { id: 'top-employees', title: 'Hiệu suất Nhân sự', subtitle: 'Top doanh số theo nhân viên', tab: 'employee_customer', sensitivity: 'general' },
-    { id: 'unit-performance', title: 'Hiệu suất theo Đơn vị', subtitle: 'Doanh thu thực tế so với chỉ tiêu theo đơn vị', tab: 'employee_customer', fullWidth: true, sensitivity: 'general' },
     { id: 'employee-target-completion', title: 'Hoàn thành KPI Nhân sự', subtitle: 'Thực tế so với chỉ tiêu', tab: 'employee_customer', fullWidth: true, sensitivity: 'general' },
     { id: 'new-vs-returning-customers', title: 'Khách hàng Mới vs Quay lại', subtitle: 'Khách phát sinh HĐ theo tháng', tab: 'employee_customer', fullWidth: true, sensitivity: 'general' },
     { id: 'deal-size-distribution', title: 'Phân bố Quy mô Hợp đồng', subtitle: 'Số lượng HĐ theo khoảng giá trị', tab: 'employee_customer', sensitivity: 'general' },

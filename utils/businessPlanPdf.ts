@@ -12,6 +12,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Contract, LineItem, ExecutionCostItem, PaymentPhase } from '../types';
+import { savePdf } from './savePdf';
 
 // ── Vietnamese font (Roboto TTF) ───────────────────────────
 // jsPDF requires a classic (non-variable) TTF for proper Unicode support.
@@ -392,47 +393,10 @@ export async function generateBusinessPlanPdf(
   doc.text('Phụ trách trung tâm', sigRightX, sigY, { align: 'center' });
 
   // ═══════════════════════════════════════════════════════════
-  // 5. DOWNLOAD — robust method to guarantee .pdf filename
+  // 5. DOWNLOAD — dùng helper chung, đảm bảo đúng tên file .pdf
   // ═══════════════════════════════════════════════════════════
   const filename = `PAKD_${contract.contractCode.replace(/\//g, '_')}.pdf`;
-
-  // Get PDF as arraybuffer and create Blob with explicit MIME type
-  const pdfArrayBuffer = doc.output('arraybuffer');
-  const pdfBlob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
-
-  // Try File System Access API first (shows native save dialog with filename)
-  if ('showSaveFilePicker' in window) {
-    try {
-      const handle = await (window as any).showSaveFilePicker({
-        suggestedName: filename,
-        types: [{
-          description: 'PDF Document',
-          accept: { 'application/pdf': ['.pdf'] },
-        }],
-      });
-      const writable = await handle.createWritable();
-      await writable.write(pdfBlob);
-      await writable.close();
-      return; // Done — saved via native dialog
-    } catch (err: any) {
-      // User cancelled or API not supported — fall through to fallback
-      if (err.name === 'AbortError') return;
-    }
-  }
-
-  // Fallback: anchor download with data URI (avoids blob URL UUID issue)
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUri = reader.result as string;
-    const link = document.createElement('a');
-    link.href = dataUri;
-    link.download = filename;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => document.body.removeChild(link), 100);
-  };
-  reader.readAsDataURL(pdfBlob);
+  await savePdf(doc, filename);
 }
 
 // Helper: format date for PDF display (dd/mm/yyyy)

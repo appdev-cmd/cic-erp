@@ -26,6 +26,7 @@ export const PUBLIC_ROUTES: { pattern: string; label: string }[] = [
 
 export const ROUTE_PERMISSION_MAP: RoutePermissionEntry[] = [
     { pattern: '/contracts', resource: 'contracts', action: 'view', label: 'Danh sach hop dong', module: 'Hop dong' },
+    { pattern: '/contracts/review', resource: 'contracts', action: 'view', label: 'Ra soat hop dong bat thuong', module: 'Hop dong' },
     { pattern: '/contracts/new', resource: 'contracts', action: 'create', label: 'Tao hop dong moi', module: 'Hop dong' },
     { pattern: '/contracts/:id/:subId', resource: 'contracts', action: 'view', label: 'Chi tiet hop dong', module: 'Hop dong' },
     { pattern: '/contracts/:id', resource: 'contracts', action: 'view', label: 'Chi tiet hop dong', module: 'Hop dong' },

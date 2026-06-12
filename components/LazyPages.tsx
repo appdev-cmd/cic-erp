@@ -52,6 +52,7 @@ const Dashboard = lazyWithRetry(() => import('./Dashboard'));
 const ContractList = lazyWithRetry(() => import('./ContractList'));
 const ContractDetail = lazyWithRetry(() => import('./ContractDetail'));
 const ContractForm = lazyWithRetry(() => import('./ContractForm'));
+const ContractReview = lazyWithRetry(() => import('./ContractReviewPage'));
 const PaymentList = lazyWithRetry(() => import('./PaymentList'));
 const Analytics = lazyWithRetry(() => import('./Analytics'));
 const AIAssistant = lazyWithRetry(() => import('./AIAssistant'));
@@ -619,6 +620,12 @@ export const LazyPaymentListPage: React.FC = () => {
     return withSuspense(
         <PaymentList onSelectContract={openContractPanel} />
     );
+};
+
+// Contract Anomaly Review — báo cáo rà soát hợp đồng bất thường (mở chi tiết trong slide panel)
+export const LazyContractReviewPage: React.FC = () => {
+    const openContractPanel = useOpenContractPanel();
+    return withSuspense(<ContractReview onSelectContract={openContractPanel} />);
 };
 
 // Analytics

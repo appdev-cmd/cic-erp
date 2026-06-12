@@ -13,6 +13,7 @@ import {
     LazyContractListPage as ContractListPage,
     LazyContractDetailPage as ContractDetailPage,
     LazyContractFormPage as ContractFormPage,
+    LazyContractReviewPage as ContractReviewPage,
     LazyPaymentListPage as PaymentListPage,
     LazyAnalyticsPage as AnalyticsPage,
     LazyAIAssistantPage as AIAssistantPage,
@@ -87,6 +88,7 @@ export const router = createBrowserRouter([
 
             // Contracts
             { path: 'contracts', element: <ContractListPage /> },
+            { path: 'contracts/review', element: <ContractReviewPage /> },
             { path: 'contracts/new', element: <ContractFormPage /> },
             { path: 'contracts/:id/edit', element: <ContractFormPage /> },
             { path: 'contracts/:id', element: <ContractDetailPage /> },

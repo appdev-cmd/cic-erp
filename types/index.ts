@@ -18,6 +18,12 @@ export type {
 } from './contract';
 export { DEFAULT_WORKFLOW_STEPS } from './contract';
 
+// Contract anomaly review
+export type {
+  AnomalyRuleKey, AnomalyCategory, AnomalySeverity, AnomalyRuleConfig,
+  AnomalyFlag, ContractAnomalyResult, AnomalyRuleMeta, AnomalyParamDef,
+} from './contractAnomaly';
+
 // Customer domain
 export type { Customer, CustomerContact, CustomerBank } from './customer';
 

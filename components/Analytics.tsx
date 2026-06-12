@@ -32,8 +32,12 @@ import { Skeleton } from './ui/Skeleton';
 import { DetailPageSkeleton } from './ui';
 import { motion } from 'framer-motion';
 import { useLayoutContext } from './layout/MainLayout';
-import { CARD_BY_ID, TAB_GRID_COLS, AnalyticsTab } from './analytics/cardRegistry';
+import { CARD_BY_ID, TAB_GRID_COLS, TAB_ORDER, AnalyticsTab } from './analytics/cardRegistry';
 import AnalyticsCustomizer from './analytics/AnalyticsCustomizer';
+import ExportReportDialog, { ExportDialogOptions } from './analytics/ExportReportDialog';
+import { useReportCapture } from './analytics/useReportCapture';
+import { useAuth } from '../contexts/AuthContext';
+import type { ManagementReportOptions, ReportKpiRow } from '../utils/managementReportPdf';
 
 interface AnalyticsProps {
     selectedUnit: Unit;
@@ -367,6 +371,77 @@ const formatCurrencyGlobal = (val: number) => {
     if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(0)} tr`;
     if (abs >= 1e3) return `${sign}${Math.round(abs / 1e3)}K`;
     return `${Math.round(val)}`;
+};
+
+const renderPieLabel = (data: any[]) => (props: any) => {
+    const { cx, cy, midAngle, innerRadius, outerRadius, value, name, index } = props;
+    if (!data || data.length === 0) return null;
+
+    const valuesSorted = [...data].map(d => d.value || 0).sort((a, b) => b - a);
+    const threshold = valuesSorted.length > 3 ? valuesSorted[2] : 0;
+
+    if (data.length > 3 && value < threshold) return null;
+
+    const RADIAN = Math.PI / 180;
+    const radius = outerRadius + 12;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    const sx = cx + outerRadius * Math.cos(-midAngle * RADIAN);
+    const sy = cy + outerRadius * Math.sin(-midAngle * RADIAN);
+    const mx = cx + (outerRadius + 6) * Math.cos(-midAngle * RADIAN);
+    const my = cy + (outerRadius + 6) * Math.sin(-midAngle * RADIAN);
+    const ex = x + (midAngle > 90 && midAngle < 270 ? -1 : 1) * 6;
+    const ey = y;
+
+    const textAnchor = midAngle > 90 && midAngle < 270 ? 'end' : 'start';
+    const formattedVal = formatCurrencyGlobal(value);
+
+    const displayName = name.length > 14 ? name.substring(0, 12) + '..' : name;
+
+    // Tính tỷ trọng %
+    const total = data.reduce((s, d) => s + (d.value || 0), 0);
+    const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+
+    return (
+        <g>
+            <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke="#94a3b8" fill="none" strokeWidth={1} />
+            <circle cx={ex} cy={ey} r={1.5} fill="#94a3b8" />
+            <text
+                x={ex + (textAnchor === 'start' ? 4 : -4)}
+                y={ey}
+                textAnchor={textAnchor}
+                fill="#64748b"
+                className="text-[9px] font-bold dark:fill-slate-400"
+                dominantBaseline="central"
+            >
+                <tspan x={ex + (textAnchor === 'start' ? 4 : -4)} dy="-0.5em">{displayName}</tspan>
+                <tspan x={ex + (textAnchor === 'start' ? 4 : -4)} dy="1.1em">{`${formattedVal} (${pct}%)`}</tspan>
+            </text>
+        </g>
+    );
+};
+
+const getContractRevenueInPeriod = (c: any, year: string, paymentsList: any[]) => {
+    const contractPayments = paymentsList.filter(p => p.contractId === c.id);
+    const revenuePayments = contractPayments.filter(p =>
+        p.voucherType === 'VAT_INVOICE' &&
+        ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status) &&
+        (year === 'All' || year === 'all' || (p.invoiceDate || p.paymentDate)?.startsWith(year))
+    );
+    let revenue = 0;
+    revenuePayments.forEach(p => {
+        const hasVat = c.hasVat !== false;
+        const vatRate = c.vatRate ?? 10;
+        if (p.vatInvoiceItems && p.vatInvoiceItems.length > 0) {
+            revenue += p.vatInvoiceItems.reduce((s: number, item: any) => s + (Number(item.amountBeforeVAT) || 0), 0);
+        } else {
+            const gross = Number(p.amount) || 0;
+            const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+            revenue += Math.round(gross / vatDivisor);
+        }
+    });
+    return revenue;
 };
 
 /* ═══════════════════════════════════════ MAIN COMPONENT ═══════════════════════════════════════ */
@@ -838,7 +913,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 const yearParam = yearFilter === 'All' ? null : parseInt(yearFilter);
                 const [stats, contractsRes, payRes, distData] = await Promise.all([
                     ContractService.getStats({ unitId, dateFrom, dateTo }),
-                    ContractService.list({ page: 1, limit: 10000, unitId, dateFrom, dateTo }),
+                    ContractService.list({ page: 1, limit: 10000, unitId }),
                     PaymentService.list({ page: 1, limit: 10000 }),
                     (async () => {
                         try {
@@ -1013,8 +1088,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 id: u.id,
                 name: u.name,
                 value: contracts
-                    .filter(c => c.unitId === u.id && (yearFilter === 'All' || c.signedDate?.startsWith(yearFilter)))
-                    .reduce((sum, c) => sum + (c.actualRevenue || 0), 0)
+                    .filter(c => c.unitId === u.id && c.status !== 'Cancelled')
+                    .reduce((sum, c) => {
+                        const revInPeriod = getContractRevenueInPeriod(c, yearFilter, payments);
+                        return sum + revInPeriod;
+                    }, 0)
             })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
         } else {
             return employees
@@ -1023,13 +1101,18 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                     id: e.id,
                     name: e.name,
                     value: filteredContracts
-                        .filter(c => c.salespersonId === e.id)
-                        .reduce((sum, c) => sum + (c.actualRevenue || 0), 0)
+                        .filter(c => c.salespersonId === e.id && c.status !== 'Cancelled')
+                        .reduce((sum, c) => {
+                            const revInPeriod = getContractRevenueInPeriod(c, yearFilter, payments);
+                            const empFraction = ((c as any)._employeePct || 100) / 100;
+                            const unitFraction = (((c as any)._allocationPct || 100) / 100);
+                            return sum + revInPeriod * empFraction * unitFraction;
+                        }, 0)
                 }))
                 .filter(d => d.value > 0)
                 .sort((a, b) => b.value - a.value);
         }
-    }, [units, contracts, selectedUnit, yearFilter, employees, filteredContracts, visibleUnits]);
+    }, [units, contracts, selectedUnit, yearFilter, employees, filteredContracts, payments, visibleUnits]);
 
     // 2. Plan vs Actual Bar Chart
     const planVsActualData = useMemo(() => {
@@ -1040,8 +1123,23 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
         });
 
         return allowedUnits.filter(u => selectedUnit.id === 'all' || u.id === selectedUnit.id).map(u => {
-            const unitContracts = contracts.filter(c => c.unitId === u.id && (yearFilter === 'All' || c.signedDate?.startsWith(yearFilter)));
-            const actualRev = unitContracts.reduce((sum, c) => sum + (c.actualRevenue || 0), 0);
+            const unitContracts = contracts.filter(c => c.unitId === u.id && c.status !== 'Cancelled');
+            const actualRev = unitContracts.reduce((sum, c) => {
+                const revInPeriod = getContractRevenueInPeriod(c, yearFilter, payments);
+                const allocations = c.unitAllocations || [];
+                const isLeadUnit = c.unitId === u.id;
+                const supportAlloc = allocations.find((a: any) => a.unitId === u.id && a.role === 'support');
+                let fraction = 1;
+                if (isLeadUnit && allocations.length > 0) {
+                    const leadAlloc = allocations.find((a: any) => a.unitId === u.id && a.role === 'lead');
+                    fraction = leadAlloc ? (leadAlloc.percent || 100) / 100 : 1;
+                } else if (supportAlloc) {
+                    fraction = (supportAlloc.percent || 0) / 100;
+                } else if (!isLeadUnit) {
+                    fraction = 0;
+                }
+                return sum + revInPeriod * fraction;
+            }, 0);
             const targetRev = u.target?.revenue || 0;
             return {
                 name: u.name,
@@ -1049,7 +1147,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 Actual: actualRev,
             };
         }).sort((a, b) => b.Actual - a.Actual);
-    }, [units, contracts, selectedUnit, yearFilter, visibleUnits]);
+    }, [units, contracts, selectedUnit, yearFilter, payments, visibleUnits]);
 
     // 2b. Unit Performance (Hiệu suất theo Đơn vị)
     const unitPerformanceData = useMemo(() => {
@@ -1060,8 +1158,23 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
         });
 
         return allowedUnits.filter(u => selectedUnit.id === 'all' || u.id === selectedUnit.id).map(u => {
-            const unitContracts = contracts.filter(c => c.unitId === u.id && (yearFilter === 'All' || c.signedDate?.startsWith(yearFilter)));
-            const actualRev = unitContracts.reduce((sum, c) => sum + (c.actualRevenue || 0), 0);
+            const unitContracts = contracts.filter(c => c.unitId === u.id && c.status !== 'Cancelled');
+            const actualRev = unitContracts.reduce((sum, c) => {
+                const revInPeriod = getContractRevenueInPeriod(c, yearFilter, payments);
+                const allocations = c.unitAllocations || [];
+                const isLeadUnit = c.unitId === u.id;
+                const supportAlloc = allocations.find((a: any) => a.unitId === u.id && a.role === 'support');
+                let fraction = 1;
+                if (isLeadUnit && allocations.length > 0) {
+                    const leadAlloc = allocations.find((a: any) => a.unitId === u.id && a.role === 'lead');
+                    fraction = leadAlloc ? (leadAlloc.percent || 100) / 100 : 1;
+                } else if (supportAlloc) {
+                    fraction = (supportAlloc.percent || 0) / 100;
+                } else if (!isLeadUnit) {
+                    fraction = 0;
+                }
+                return sum + revInPeriod * fraction;
+            }, 0);
             const targetRev = u.target?.revenue || 0;
             const completion = targetRev > 0 ? (actualRev / targetRev) * 100 : 0;
             return {
@@ -1072,19 +1185,63 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 completion,
             };
         }).sort((a, b) => b.Actual - a.Actual);
-    }, [units, contracts, selectedUnit, yearFilter, visibleUnits]);
+    }, [units, contracts, selectedUnit, yearFilter, payments, visibleUnits]);
 
     // 3. Monthly Trend
     const monthlyTrendData = useMemo(() => {
         const months = Array.from({ length: 12 }, (_, i) => `Th.${i + 1}`);
+        const targetYear = yearFilter && yearFilter !== 'All' && yearFilter !== 'all' ? parseInt(yearFilter) : null;
+
+        const isInMonth = (dateStr: string | null | undefined, monthNum: number): boolean => {
+            if (!dateStr) return false;
+            const d = new Date(dateStr);
+            const yearMatch = targetYear ? d.getFullYear() === targetYear : true;
+            return yearMatch && (d.getMonth() + 1) === monthNum;
+        };
+
         return months.map((m, i) => {
-            const monthStr = (i + 1).toString().padStart(2, '0');
-            const monthContracts = filteredContracts.filter(c => c.signedDate && c.signedDate.split('-')[1] === monthStr);
-            const revenue = monthContracts.reduce((sum, c) => sum + (c.actualRevenue || 0), 0);
-            const profit = monthContracts.reduce((sum, c) => sum + ((c.value || 0) - (c.estimatedCost || 0)), 0);
-            return { name: m, DoanhThu: revenue, LoiNhuan: profit };
+            const monthNum = i + 1;
+            let monthlyRevenue = 0;
+            let monthlyProfit = 0;
+
+            filteredContracts.forEach(c => {
+                const unitFraction = selectedUnit.id === 'all' ? 1 : (((c as any)._allocationPct || 100) / 100);
+                const contractPayments = payments.filter(p => p.contractId === c.id);
+
+                const revenuePayments = contractPayments.filter(p =>
+                    p.voucherType === 'VAT_INVOICE' &&
+                    ['Đã xuất HĐ', 'Đã giao KH', 'Tiền về', 'Paid'].includes(p.status) &&
+                    isInMonth(p.invoiceDate || p.paymentDate, monthNum)
+                );
+
+                let revenueInMonth = 0;
+                revenuePayments.forEach(p => {
+                    const hasVat = c.hasVat !== false;
+                    const vatRate = c.vatRate ?? 10;
+                    if (p.vatInvoiceItems && p.vatInvoiceItems.length > 0) {
+                        revenueInMonth += p.vatInvoiceItems.reduce((s, item) => s + (Number(item.amountBeforeVAT) || 0), 0);
+                    } else {
+                        const gross = Number(p.amount) || 0;
+                        const vatDivisor = hasVat && vatRate > 0 ? (1 + vatRate / 100) : 1;
+                        revenueInMonth += Math.round(gross / vatDivisor);
+                    }
+                });
+
+                let profitInMonth = 0;
+                const expectedRevenue = c.expectedRevenue || 0;
+                const expectedProfit = c.adminProfit || 0;
+                if (expectedRevenue > 0) {
+                    const profitRatio = expectedProfit / expectedRevenue;
+                    profitInMonth = revenueInMonth * profitRatio;
+                }
+
+                monthlyRevenue += revenueInMonth * unitFraction;
+                monthlyProfit += profitInMonth * unitFraction;
+            });
+
+            return { name: m, DoanhThu: Math.round(monthlyRevenue), LoiNhuan: Math.round(monthlyProfit) };
         });
-    }, [filteredContracts]);
+    }, [filteredContracts, payments, yearFilter, selectedUnit]);
 
     // 4. Cashflow (In vs Out)
     const cashflowData = useMemo(() => {
@@ -1122,6 +1279,8 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     const historicalComparisonData = useMemo(() => {
         const relevantHist = historicalData.filter(h => selectedUnit.id === 'all' ? true : h.unitId === selectedUnit.id);
         const yearMap = new Map<number, any>();
+        
+        // 1. Nạp dữ liệu lịch sử từ DB
         relevantHist.forEach(h => {
             if (!yearMap.has(h.year)) {
                 yearMap.set(h.year, { name: h.year.toString(), 'Ký kết': 0, 'Doanh thu': 0, 'LNG QT': 0, 'LNG DT': 0 });
@@ -1132,15 +1291,66 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             entry['LNG QT'] += h.adminProfit * 1000000;
             entry['LNG DT'] += h.revProfit * 1000000;
         });
-        return Array.from(yearMap.values()).sort((a, b) => parseInt(a.name) - parseInt(b.name));
-    }, [historicalData, selectedUnit]);
 
-    // 6. Top Customers by Revenue (Top 5)
+        // 2. Tính toán real-time cho năm hiện tại (2026) và tương lai từ contracts & payments thực tế
+        const currentYear = new Date().getFullYear();
+        const activeYears = new Set<number>();
+        activeYears.add(currentYear);
+
+        contracts.forEach(c => {
+            if (c.signedDate && c.signedDate.includes('-')) {
+                const y = parseInt(c.signedDate.split('-')[0]);
+                if (!isNaN(y) && y >= currentYear) activeYears.add(y);
+            }
+        });
+        
+        payments.forEach(p => {
+            const dateStr = p.invoiceDate || p.paymentDate;
+            if (dateStr && dateStr.includes('-')) {
+                const y = parseInt(dateStr.split('-')[0]);
+                if (!isNaN(y) && y >= currentYear) activeYears.add(y);
+            }
+        });
+
+        activeYears.forEach(y => {
+            let signingYear = 0;
+            let revenueYear = 0;
+            let adminProfitYear = 0;
+            let revProfitYear = 0;
+
+            contracts.forEach(c => {
+                const contractYear = (c.signedDate && c.signedDate.includes('-')) ? parseInt(c.signedDate.split('-')[0]) : null;
+                if (contractYear === y) {
+                    signingYear += (c.value || 0);
+                    adminProfitYear += (c.adminProfit || 0);
+                }
+
+                const rev = getContractRevenueInPeriod(c, y.toString(), payments);
+                revenueYear += rev;
+                
+                const ratio = c.value > 0 ? ((c.adminProfit || 0) / c.value) : 0;
+                revProfitYear += rev * ratio;
+            });
+
+            yearMap.set(y, {
+                name: y.toString(),
+                'Ký kết': signingYear,
+                'Doanh thu': revenueYear,
+                'LNG QT': adminProfitYear,
+                'LNG DT': revProfitYear
+            });
+        });
+
+        return Array.from(yearMap.values()).sort((a, b) => parseInt(a.name) - parseInt(b.name));
+    }, [historicalData, selectedUnit, contracts, payments]);
+
+    // 6. Top Customers by Revenue (Top 5) — dùng VAT invoice revenue nhất quán với Monthly Trend
     const topCustomersData = useMemo(() => {
         const customerMap = new Map<string, number>();
         filteredContracts.forEach(c => {
             if (c.customerId) {
-                customerMap.set(c.customerId, (customerMap.get(c.customerId) || 0) + (c.actualRevenue || 0));
+                const rev = getContractRevenueInPeriod(c, yearFilter, payments);
+                customerMap.set(c.customerId, (customerMap.get(c.customerId) || 0) + rev);
             }
         });
         return Array.from(customerMap.entries())
@@ -1153,7 +1363,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
             .filter(d => d.value > 0)
             .sort((a, b) => b.value - a.value)
             .slice(0, 5);
-    }, [filteredContracts, customers]);
+    }, [filteredContracts, customers, yearFilter, payments]);
 
     // 7. Top Brands by Revenue
     // Dùng outputPrice × quantity trực tiếp (nhất quán với vw_products_with_stats trong module Đối tác)
@@ -1238,13 +1448,12 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
         ].filter(d => d.value > 0);
     }, [filteredContracts]);
 
-    // 10. Top Employees (Sales Performance)
+    // 10. Top Employees (Sales Performance) — dùng VAT invoice revenue nhất quán với Monthly Trend
     const topEmployeesData = useMemo(() => {
         const empMap = new Map<string, number>();
         filteredContracts.forEach(c => {
-            const rev = c.actualRevenue || 0;
+            const rev = getContractRevenueInPeriod(c, yearFilter, payments);
             if (rev > 0) {
-                // Determine the primary sales person or allocate
                 const empId = c.salespersonId;
                 if (empId) {
                     empMap.set(empId, (empMap.get(empId) || 0) + rev);
@@ -1259,8 +1468,8 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 value: rev
             }))
             .sort((a, b) => b.value - a.value)
-            .slice(0, 5); // top 5
-    }, [filteredContracts, employees]);
+            .slice(0, 5);
+    }, [filteredContracts, employees, yearFilter, payments]);
 
     // 11. Brand Profitability Margin
     // Doanh thu dùng outputPrice × quantity nhất quán với module Đối tác.
@@ -2064,6 +2273,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                 ) : null} />
                                 <Bar dataKey="value" name="Giá trị" radius={[0, 4, 4, 0]} barSize={26}>
                                     {contractStatusFunnelData.map((_, i) => (<Cell key={i} fill={getChartColors()[i % getChartColors().length]} />))}
+                                    <LabelList dataKey="value" position="right" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
@@ -2076,8 +2286,18 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 {contractClassificationData.length === 0 ? <EmptyState message="Chưa có dữ liệu phân loại" /> : (
                     <div className="h-[300px] relative">
                         <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie data={contractClassificationData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value" cornerRadius={4}>
+                            <PieChart margin={{ left: 45, right: 45, top: 10, bottom: 10 }}>
+                                <Pie 
+                                    data={contractClassificationData} 
+                                    cx="50%" 
+                                    cy="50%" 
+                                    innerRadius={40} 
+                                    outerRadius={60} 
+                                    paddingAngle={3} 
+                                    dataKey="value" 
+                                    cornerRadius={4}
+                                    label={renderPieLabel(contractClassificationData)}
+                                >
                                     {contractClassificationData.map((_, i) => (<Cell key={i} fill={getChartColors()[i % getChartColors().length]} strokeWidth={0} />))}
                                 </Pie>
                                 <Tooltip content={<CustomTooltip />} wrapperStyle={{ zIndex: 100 }} />
@@ -2113,7 +2333,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
                             <Tooltip content={<CustomTooltip />} wrapperStyle={{ zIndex: 100 }} />
                             <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
-                            <Area type="monotone" dataKey="Lũy kế" stroke={getAccentColor()} strokeWidth={3} fill="url(#cumRevGrad)" />
+                            <Area type="monotone" dataKey="Lũy kế" stroke={getAccentColor()} strokeWidth={3} fill="url(#cumRevGrad)">
+                                <LabelList dataKey="Lũy kế" position="top" offset={8} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
+                            </Area>
                             <Line type="monotone" dataKey="Mục tiêu" stroke="#94a3b8" strokeWidth={2} strokeDasharray="6 4" dot={false} />
                         </ComposedChart>
                     </ResponsiveContainer>
@@ -2135,7 +2357,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} dy={10} />
                             <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
                             <Tooltip content={<CustomTooltip />} wrapperStyle={{ zIndex: 100 }} />
-                            <Area type="monotone" dataKey="Số dư" stroke="#0ea5e9" strokeWidth={3} fill="url(#cumBalGrad)" activeDot={{ r: 5 }} />
+                            <Area type="monotone" dataKey="Số dư" stroke="#0ea5e9" strokeWidth={3} fill="url(#cumBalGrad)" activeDot={{ r: 5 }}>
+                                <LabelList dataKey="Số dư" position="top" offset={8} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
+                            </Area>
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -2153,6 +2377,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} />
                                 <Bar dataKey="value" name="Công nợ" radius={[4, 4, 0, 0]} barSize={40}>
                                     {arAgingData.map((entry, i) => (<Cell key={i} fill={entry.color} />))}
+                                    <LabelList dataKey="value" position="top" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
@@ -2198,7 +2423,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                 </div>
                             ) : null} />
                             <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
-                            <Bar yAxisId="left" dataKey="Tiền về" fill="#10b981" radius={[4, 4, 0, 0]} barSize={18} />
+                            <Bar yAxisId="left" dataKey="Tiền về" fill="#10b981" radius={[4, 4, 0, 0]} barSize={18}>
+                                <LabelList dataKey="Tiền về" position="top" offset={6} style={{ fontSize: 8, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
+                            </Bar>
                             <Bar yAxisId="left" dataKey="Doanh thu" fill={getMutedBarFill()} radius={[4, 4, 0, 0]} barSize={18} />
                             <Line yAxisId="right" type="monotone" dataKey="Tỷ lệ" stroke="#6366f1" strokeWidth={3} dot={false} />
                         </ComposedChart>
@@ -2271,7 +2498,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                         }
                                     }}
                                     style={{ cursor: 'pointer' }}
-                                />
+                                >
+                                    <LabelList dataKey="value" position="top" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
+                                </Bar>
                                 <Line yAxisId="right" type="monotone" dataKey="cum" name="Lũy kế %" stroke="#f97316" strokeWidth={3} dot={{ r: 2 }} />
                             </ComposedChart>
                         </ResponsiveContainer>
@@ -2331,7 +2560,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             ) : null} />
                             <Legend wrapperStyle={{ paddingTop: '12px', fontWeight: 700, fontSize: '12px' }} />
                             <Bar dataKey="Mới" stackId="a" fill="#10b981" barSize={22} />
-                            <Bar dataKey="Quay lại" stackId="a" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={22} />
+                            <Bar dataKey="Quay lại" stackId="a" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={22}>
+                                <LabelList position="top" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} valueAccessor={(entry: any) => { const t = (entry?.['Mới'] || 0) + (entry?.['Quay lại'] || 0); return t > 0 ? t : ''; }} />
+                            </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -2353,6 +2584,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             ) : null} />
                             <Bar dataKey="count" name="Số HĐ" radius={[4, 4, 0, 0]} barSize={44}>
                                 {dealSizeData.map((_, i) => (<Cell key={i} fill={getChartColors()[i % getChartColors().length]} />))}
+                                <LabelList dataKey="count" position="top" offset={6} style={{ fontSize: 10, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? v : ''} />
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
@@ -2374,7 +2606,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                         <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">{payload[0].payload.value} ngày</p>
                                     </div>
                                 ) : null} />
-                                <Bar dataKey="value" name="Ngày" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={28} />
+                                <Bar dataKey="value" name="Ngày" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={28}>
+                                    <LabelList dataKey="value" position="right" offset={6} style={{ fontSize: 10, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? `${v} ngày` : ''} />
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -2393,8 +2627,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                     <>
                         <div className="h-[280px] relative">
                             <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={structureData} cx="50%" cy="50%" innerRadius={70} outerRadius={95} paddingAngle={4} dataKey="value" cornerRadius={6}
+                                <PieChart margin={{ left: 45, right: 45, top: 10, bottom: 10 }}>
+                                    <Pie 
+                                        data={structureData} 
+                                        cx="50%" 
+                                        cy="50%" 
+                                        innerRadius={40} 
+                                        outerRadius={60} 
+                                        paddingAngle={4} 
+                                        dataKey="value" 
+                                        cornerRadius={6}
+                                        label={renderPieLabel(structureData)}
                                         onClick={(dataEntry: any) => {
                                             const payload = dataEntry?.payload ?? dataEntry;
                                             if (!payload?.id) return;
@@ -2456,13 +2699,24 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 ) : (
                     <div className="h-[340px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={planVsActualData} barCategoryGap={20}>
+                            <BarChart data={planVsActualData} barCategoryGap={20} margin={{ bottom: 25 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} dy={10} />
+                                <XAxis 
+                                    dataKey="name" 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }} 
+                                    interval={0} 
+                                    angle={-25} 
+                                    textAnchor="end" 
+                                    height={60} 
+                                />
                                 <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} />
                                 <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
-                                <Bar dataKey="Actual" name="Thực tế" fill={getAccentColor()} radius={[6, 6, 0, 0]} barSize={32} />
+                                <Bar dataKey="Actual" name="Thực tế" fill={getAccentColor()} radius={[6, 6, 0, 0]} barSize={32}>
+                                    <LabelList dataKey="Actual" position="top" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
+                                </Bar>
                                 <Bar dataKey="Target" name="Kế hoạch" fill={getMutedBarFill()} radius={[6, 6, 0, 0]} barSize={32} />
                             </BarChart>
                         </ResponsiveContainer>
@@ -2490,7 +2744,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
                             <Tooltip content={<CustomTooltip />} wrapperStyle={{ zIndex: 100 }} />
                             <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
-                            <Area type="monotone" dataKey="DoanhThu" name="Doanh thu" stroke={getAccentColor()} strokeWidth={3} fillOpacity={1} fill="url(#colorRevAnalytics)" activeDot={{ r: 5, strokeWidth: 2 }} />
+                            <Area type="monotone" dataKey="DoanhThu" name="Doanh thu" stroke={getAccentColor()} strokeWidth={3} fillOpacity={1} fill="url(#colorRevAnalytics)" activeDot={{ r: 5, strokeWidth: 2 }}>
+                                <LabelList dataKey="DoanhThu" position="top" offset={8} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
+                            </Area>
                             <Area type="monotone" dataKey="LoiNhuan" name="Lợi nhuận" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfitAnalytics)" activeDot={{ r: 5, strokeWidth: 2 }} />
                         </AreaChart>
                     </ResponsiveContainer>
@@ -2508,7 +2764,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} />
                             <Legend wrapperStyle={{ paddingTop: '20px', fontWeight: 700, fontSize: '12px' }} />
                             <Bar dataKey="Ký kết" fill="#4f46e5" radius={[6, 6, 0, 0]} barSize={24} />
-                            <Bar dataKey="Doanh thu" fill="#10b981" radius={[6, 6, 0, 0]} barSize={24} />
+                            <Bar dataKey="Doanh thu" fill="#10b981" radius={[6, 6, 0, 0]} barSize={24}>
+                                <LabelList dataKey="Doanh thu" position="top" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
+                            </Bar>
                             <Bar dataKey="LNG QT" fill="#a855f7" radius={[6, 6, 0, 0]} barSize={24} />
                             <Bar dataKey="LNG DT" fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={24} />
                         </BarChart>
@@ -2526,7 +2784,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
                             <Tooltip content={<CustomTooltip />} wrapperStyle={{ zIndex: 100 }} />
                             <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
-                            <Bar dataKey="Thu" name="Dòng tiền vào" fill="#10b981" radius={[6, 6, 0, 0]} barSize={28} />
+                            <Bar dataKey="Thu" name="Dòng tiền vào" fill="#10b981" radius={[6, 6, 0, 0]} barSize={28}>
+                                <LabelList dataKey="Thu" position="top" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
+                            </Bar>
                             <Bar dataKey="Chi" name="Dòng tiền ra" fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={28} />
                             <Line type="monotone" dataKey="Rong" name="Dòng tiền ròng" stroke="#0ea5e9" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 2, fill: '#0ea5e9' }} />
                         </ComposedChart>
@@ -2539,8 +2799,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 {paymentStatusData.length === 0 ? <EmptyState message="Chưa có dữ liệu thanh toán" /> : (
                     <div className="h-[250px] relative">
                         <ResponsiveContainer width="100%" height="100%">
-                            <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
-                                <Pie data={paymentStatusData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={2} dataKey="value">
+                            <PieChart margin={{ left: 45, right: 45, top: 10, bottom: 10 }}>
+                                <Pie 
+                                    data={paymentStatusData} 
+                                    cx="50%" 
+                                    cy="50%" 
+                                    innerRadius={30} 
+                                    outerRadius={50} 
+                                    paddingAngle={2} 
+                                    dataKey="value"
+                                    label={renderPieLabel(paymentStatusData)}
+                                >
                                     {paymentStatusData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
                                     ))}
@@ -2587,6 +2856,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                     {topBrandsData.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={['#0284c7', '#0ea5e9', '#38bdf8', '#7dd3fc', '#bae6fd'][index]} />
                                     ))}
+                                    <LabelList dataKey="value" position="right" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
@@ -2599,8 +2869,20 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 {productCategoryData.length === 0 ? <EmptyState message="Chưa có dữ liệu sản phẩm" /> : (
                     <div className="h-[300px] relative">
                         <ResponsiveContainer width="100%" height="100%">
-                            <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
-                                <Pie data={productCategoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={4} dataKey="value" cornerRadius={4} onClick={(d: any) => openContractDrillDown(d?.payload ?? d)} style={{ cursor: 'pointer' }}>
+                            <PieChart margin={{ left: 45, right: 45, top: 10, bottom: 10 }}>
+                                <Pie 
+                                    data={productCategoryData} 
+                                    cx="50%" 
+                                    cy="50%" 
+                                    innerRadius={35} 
+                                    outerRadius={55} 
+                                    paddingAngle={4} 
+                                    dataKey="value" 
+                                    cornerRadius={4} 
+                                    label={renderPieLabel(productCategoryData)}
+                                    onClick={(d: any) => openContractDrillDown(d?.payload ?? d)} 
+                                    style={{ cursor: 'pointer' }}
+                                >
                                     {productCategoryData.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#f43f5e'][index % 7]} strokeWidth={0} />
                                     ))}
@@ -2659,7 +2941,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                         return null;
                                     }}
                                 />
-                                <Bar dataKey="value" name="Biên LN (%)" fill="#10b981" radius={[0, 4, 4, 0]} barSize={22} onClick={(d: any) => openContractDrillDown(d?.payload ?? d)} style={{ cursor: 'pointer' }} />
+                                <Bar dataKey="value" name="Biên LN (%)" fill="#10b981" radius={[0, 4, 4, 0]} barSize={22} onClick={(d: any) => openContractDrillDown(d?.payload ?? d)} style={{ cursor: 'pointer' }}>
+                                    <LabelList dataKey="value" position="right" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? `${v.toFixed(1)}%` : ''} />
+                                </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -2687,6 +2971,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                     {productQuantityData.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe'][index]} />
                                     ))}
+                                    <LabelList dataKey="value" position="right" offset={6} style={{ fontSize: 10, fontWeight: 700, fill: '#475569' }} />
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
@@ -2715,6 +3000,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                     {brandQuantityData.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={['#db2777', '#ec4899', '#f472b6', '#fbcfe8', '#fce7f3'][index]} />
                                     ))}
+                                    <LabelList dataKey="value" position="right" offset={6} style={{ fontSize: 10, fontWeight: 700, fill: '#475569' }} />
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
@@ -2728,8 +3014,17 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                     <div className="flex items-center justify-between gap-6 h-[300px]">
                         <div className="flex-1 h-full relative">
                             <ResponsiveContainer width="100%" height="100%">
-                                <PieChart margin={{ top: 0, bottom: 0, left: 0, right: 0 }}>
-                                    <Pie data={brandProfitStructureData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={3} dataKey="value" cornerRadius={4}
+                                <PieChart margin={{ left: 45, right: 45, top: 10, bottom: 10 }}>
+                                    <Pie 
+                                        data={brandProfitStructureData} 
+                                        cx="50%" 
+                                        cy="50%" 
+                                        innerRadius={35} 
+                                        outerRadius={55} 
+                                        paddingAngle={3} 
+                                        dataKey="value" 
+                                        cornerRadius={4}
+                                        label={renderPieLabel(brandProfitStructureData)}
                                         onClick={(dataEntry: any) => {
                                             const payload = dataEntry?.payload ?? dataEntry;
                                             if (payload?.brandId) {
@@ -2801,6 +3096,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                     {topCustomersData.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={['#ea580c', '#f97316', '#fb923c', '#fdba74', '#fed7aa'][index]} />
                                     ))}
+                                    <LabelList dataKey="value" position="right" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
@@ -2829,6 +3125,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                                     {topEmployeesData.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe'][index]} />
                                     ))}
+                                    <LabelList dataKey="value" position="right" offset={6} style={{ fontSize: 9, fontWeight: 700, fill: '#475569' }} formatter={(v: any) => v > 0 ? formatCurrencyCompact(v) : ''} />
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
@@ -2836,27 +3133,135 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 )}
             </ChartCard>
         ),
-        'unit-performance': (
-            <ChartCard title="Hiệu suất theo Đơn vị" subtitle="Doanh thu thực tế so với chỉ tiêu theo đơn vị" index={9}>
-                {unitPerformanceData.length === 0 ? (
-                    <EmptyState message="Chưa có dữ liệu đơn vị" />
-                ) : (
-                    <div className="h-[340px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={unitPerformanceData} barCategoryGap={20}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={getGridStroke()} />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tickFormatter={formatCurrency} tick={{ fill: '#64748b', fontSize: 11 }} />
-                                <Tooltip content={<CustomTooltip />} cursor={{ fill: getCursorFill() }} wrapperStyle={{ zIndex: 100 }} />
-                                <Legend wrapperStyle={{ paddingTop: '16px', fontWeight: 700, fontSize: '12px' }} />
-                                <Bar dataKey="Actual" name="Thực tế" fill={getAccentColor()} radius={[6, 6, 0, 0]} barSize={32} />
-                                <Bar dataKey="Target" name="Kế hoạch" fill={getMutedBarFill()} radius={[6, 6, 0, 0]} barSize={32} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                )}
-            </ChartCard>
-        ),
+    };
+
+    /* ═══════════ Xuất Báo cáo Quản trị ra PDF ═══════════ */
+    const { profile } = useAuth();
+    const [showExportDialog, setShowExportDialog] = useState(false);
+    const { captureCharts, printLayout } = useReportCapture(cardElements);
+
+    /** Kỳ báo cáo theo filter đang chọn — vd "Quý 2 · Năm 2026". */
+    const reportPeriodLabel = useMemo(() => {
+        const y = yearFilter === 'All' ? 'Tất cả các năm' : `Năm ${yearFilter}`;
+        if (!periodFilter) return y;
+        if (periodFilter.startsWith('Q')) return `Quý ${periodFilter.substring(1)} · ${y}`;
+        if (periodFilter.startsWith('M')) return `Tháng ${periodFilter.substring(1)} · ${y}`;
+        return y;
+    }, [yearFilter, periodFilter]);
+
+    const reportUnitName = selectedUnit.id === 'all' ? 'Toàn công ty' : selectedUnit.name;
+
+    /** Bộ lọc Hãng/SP/KH đang áp dụng — in lên trang bìa để minh bạch phạm vi số liệu. */
+    const reportFilterSummary = useMemo(() => {
+        const out: { label: string; value: string }[] = [];
+        const names = (ids: string[], list: any[]) =>
+            ids.map(id => { const f = list.find(x => x.id === id); return f?.shortName || f?.name || id; }).join(', ');
+        if (selectedBrandIds.length > 0) out.push({ label: 'Lọc theo Hãng', value: names(selectedBrandIds, brands) });
+        if (selectedProductIds.length > 0) out.push({ label: 'Lọc theo Sản phẩm', value: names(selectedProductIds, products) });
+        if (selectedCustomerIds.length > 0) out.push({ label: 'Lọc theo Khách hàng', value: names(selectedCustomerIds, customers) });
+        return out;
+    }, [selectedBrandIds, selectedProductIds, selectedCustomerIds, brands, products, customers]);
+
+    /** Tab còn ít nhất 1 card hiển thị (ngoài dải KPI) theo quyền + cá nhân hoá. */
+    const reportAvailableTabs = useMemo(
+        () => TAB_ORDER.filter(tab => visibleOrderedIds.some(id => CARD_BY_ID[id]?.tab === tab && id !== 'kpi-summary')),
+        [visibleOrderedIds],
+    );
+
+    const handleExportReport = async (opts: ExportDialogOptions, onProgress: (m: string) => void) => {
+        try {
+            // Gating phân quyền: chỉ đưa KPI lợi nhuận vào PDF nếu user thấy được card kpi-summary
+            const includeProfitKpi = visibleOrderedIds.includes('kpi-summary');
+            const kpiDefs: { key: ReportKpiRow['key']; label: string; profit?: boolean }[] = [
+                { key: 'signing', label: 'Giá trị ký kết' },
+                { key: 'revenue', label: 'Doanh thu' },
+                { key: 'adminProfit', label: 'LNG Quản trị', profit: true },
+                { key: 'revProfit', label: 'LNG Doanh thu', profit: true },
+                { key: 'cash', label: 'Dòng tiền (tiền về)' },
+            ];
+            const kpis: ReportKpiRow[] = kpiDefs
+                .filter(d => includeProfitKpi || !d.profit)
+                .map(d => {
+                    // Dòng tiền không so cùng kỳ — nhất quán với KPICard trên giao diện
+                    const yoy = d.key === 'cash' ? { value: '0', isUp: true, lastYearTotal: 0 } : getYoY(d.key);
+                    return {
+                        key: d.key,
+                        label: d.label,
+                        actual: actualStats[d.key] || 0,
+                        target: (effectiveTarget as any)[d.key] || 0,
+                        companyTarget: effectiveCompanyTarget ? ((effectiveCompanyTarget as any)[d.key] || 0) : 0,
+                        yoyPct: yoy.lastYearTotal > 0 ? parseFloat(yoy.value) : null,
+                        yoyUp: yoy.isUp,
+                    };
+                });
+
+            // Dataset thô cho bảng số liệu — key khớp cardId trong cardRegistry
+            const datasets: Record<string, any[]> = {
+                'revenue-structure': structureData,
+                'plan-vs-actual': planVsActualData,
+                'contract-status-funnel': contractStatusFunnelData,
+                'contract-classification': contractClassificationData,
+                'monthly-trend': monthlyTrendData,
+                'cumulative-vs-target': cumulativeVsTargetData,
+                'historical-yoy': historicalComparisonData,
+                'cashflow': cashflowData,
+                'cumulative-cashflow': cumulativeCashflowData,
+                'payment-status': paymentStatusData,
+                'ar-aging': arAgingData,
+                'top-receivables': topReceivablesData,
+                'collection-rate-trend': collectionRateData,
+                'top-brands': topBrandsData,
+                'product-category': productCategoryData,
+                'brand-margin': brandProfitabilityData,
+                'product-qty': productQuantityData,
+                'brand-qty': brandQuantityData,
+                'brand-profit-structure': brandProfitStructureData,
+                'brand-bcg': brandMatrixData,
+                'revenue-pareto': brandParetoData,
+                'top-customers': topCustomersData,
+                'top-employees': topEmployeesData,
+                'employee-target-completion': employeeCompletionData,
+                'new-vs-returning-customers': newVsReturningData,
+                'deal-size-distribution': dealSizeData,
+                'cycle-time': cycleTimeData,
+            };
+
+            const cardIds = visibleOrderedIds.filter(
+                id => opts.sections.includes(CARD_BY_ID[id]?.tab) && id !== 'kpi-summary',
+            );
+            const charts = opts.includeCharts
+                ? await captureCharts(cardIds, onProgress)
+                : new Map();
+
+            // Tên file: BaoCaoQuanTri_CIC_<DonVi>_<Ky>_<yyyymmdd>.pdf (bỏ dấu tiếng Việt)
+            const slug = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
+                .replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^a-zA-Z0-9]+/g, '');
+            const now = new Date();
+            const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+            const periodPart = `${periodFilter ? slug(periodFilter) + '-' : ''}${yearFilter === 'All' ? 'TatCa' : yearFilter}`;
+            const fileName = `BaoCaoQuanTri_CIC_${slug(reportUnitName)}_${periodPart}_${ymd}.pdf`;
+
+            const reportOpts: ManagementReportOptions = {
+                sections: opts.sections,
+                includeCharts: opts.includeCharts,
+                periodLabel: reportPeriodLabel,
+                unitName: reportUnitName,
+                filterSummary: reportFilterSummary,
+                exportedBy: profile?.fullName || profile?.email || 'Người dùng CIC ERP',
+                visibleCardIds: visibleOrderedIds,
+                kpis,
+                datasets,
+                charts,
+                fileName,
+            };
+            // Dynamic import — không kéo jsPDF vào bundle chính của trang
+            const { generateManagementReport } = await import('../utils/managementReportPdf');
+            await generateManagementReport(reportOpts, onProgress);
+            toast.success('Đã xuất Báo cáo Quản trị (PDF)');
+        } catch (err) {
+            console.error('[Analytics] Xuất báo cáo PDF lỗi:', err);
+            toast.error('Xuất báo cáo thất bại. Vui lòng thử lại.');
+        }
     };
 
     /** Render các card của 1 tab: lọc theo quyền+lựa chọn, giữ thứ tự user. */
@@ -2993,7 +3398,11 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                             <span className="text-sm font-bold hidden sm:inline">{editMode ? 'Xong' : 'Sắp xếp'}</span>
                         </button>
 
-                        <button className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 dark:bg-orange-600 text-white rounded-xl hover:bg-orange-700 dark:hover:bg-orange-700 transition-colors cursor-pointer border border-orange-600 dark:border-orange-600 shadow-sm">
+                        <button
+                            onClick={() => setShowExportDialog(true)}
+                            title="Xuất Báo cáo Quản trị ra PDF"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 dark:bg-orange-600 text-white rounded-xl hover:bg-orange-700 dark:hover:bg-orange-700 transition-colors cursor-pointer border border-orange-600 dark:border-orange-600 shadow-sm"
+                        >
                             <Download size={18} />
                             <span className="text-sm font-bold hidden sm:inline">Xuất báo cáo</span>
                         </button>
@@ -3081,6 +3490,20 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 onReset={resetLayout}
                 isSaving={isSaving}
             />
+
+            {/* Hộp thoại xuất Báo cáo Quản trị (PDF) */}
+            <ExportReportDialog
+                isOpen={showExportDialog}
+                onClose={() => setShowExportDialog(false)}
+                periodLabel={reportPeriodLabel}
+                unitName={reportUnitName}
+                filterSummary={reportFilterSummary}
+                availableTabs={reportAvailableTabs}
+                onExport={handleExportReport}
+            />
+
+            {/* Layout ẩn để chụp chart khi đang xuất PDF */}
+            {printLayout}
         </div>
     );
 };

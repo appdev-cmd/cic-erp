@@ -5,3 +5,4 @@ export { useUserPermissions, useAllPermissions, useUpdatePermission, useInitiali
 export { useEmployeeVisibility, useAllVisibility, useCurrentUserVisibleUnits, useToggleVisibility, useSetVisibility } from './useUnitVisibility';
 export { useNotifications } from './useNotifications';
 export { useAnalyticsCards, useAnalyticsRoleCards } from './useAnalyticsPrefs';
+export { useContractAnomalyConfig } from './useContractAnomalyConfig';

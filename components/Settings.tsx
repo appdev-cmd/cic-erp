@@ -15,6 +15,7 @@ import CompanyTargetManager from './settings/CompanyTargetManager';
 import RouteAuditPanel from './settings/RouteAuditPanel';
 import PermissionAuditLog from './settings/PermissionAuditLog';
 import AnalyticsCardManager from './settings/AnalyticsCardManager';
+import AnomalyRuleManager from './settings/AnomalyRuleManager';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { useEffectiveProfile } from '../contexts/ImpersonationContext';
@@ -29,7 +30,7 @@ type SettingsTab =
     | 'system'
     | 'permissions' | 'role-defaults' | 'task-mgmt' | 'route-audit' | 'perm-audit'
     | 'drive'
-    | 'historical' | 'company-target' | 'analytics-cards'
+    | 'historical' | 'company-target' | 'analytics-cards' | 'anomaly-rules'
     | 'ai-settings'
     | 'testing';
 
@@ -289,6 +290,7 @@ const Settings: React.FC = () => {
             items: [
                 { id: 'historical', label: 'Sản lượng lịch sử', icon: <BarChart3 size={15} />, adminOnly: true },
                 { id: 'company-target', label: 'Chỉ tiêu ĐHCĐ', icon: <TrendingUp size={15} />, adminOnly: true },
+                { id: 'anomaly-rules', label: 'Ngưỡng rà soát HĐ', icon: <AlertTriangle size={15} />, adminOnly: true },
             ],
         },
         {
@@ -531,6 +533,19 @@ const Settings: React.FC = () => {
                                 gradient="from-orange-500 to-amber-600"
                             />
                             <CompanyTargetManager />
+                        </div>
+                    )}
+
+                    {/* NGƯỠNG RÀ SOÁT HỢP ĐỒNG BẤT THƯỜNG */}
+                    {activeTab === 'anomaly-rules' && isAdmin && (
+                        <div>
+                            <SectionHeader
+                                icon={<AlertTriangle size={20} className="text-white" />}
+                                title="Ngưỡng rà soát Hợp đồng bất thường"
+                                desc="Bật/tắt luật, đặt mức độ và ngưỡng phát hiện cho báo cáo rà soát hợp đồng"
+                                gradient="from-red-500 to-rose-600"
+                            />
+                            <AnomalyRuleManager />
                         </div>
                     )}
 

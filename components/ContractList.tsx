@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Search, Filter, Plus, ExternalLink, User, Loader2, DollarSign, Briefcase, TrendingUp, Calendar, Building2, Download, Copy, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Check, Clock, AlertCircle, AlertTriangle, FileText, CheckCircle, PackageCheck, X, RotateCcw, Hash } from 'lucide-react';
 import { ContractService, EmployeeService, UnitService } from '../services';
@@ -41,6 +42,7 @@ interface ContractListProps {
 }
 
 const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContract, onAdd, onClone, onEdit }) => {
+  const navigate = useNavigate();
   const { profile: realProfile } = useAuth();
   // Impersonation - để filter theo đơn vị của user đang giả làm
   const { impersonatedUser, isImpersonating } = useImpersonation();
@@ -696,6 +698,13 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/contracts/review')}
+            title="Rà soát các hợp đồng có dấu hiệu bất thường"
+            className="flex items-center justify-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 px-4 py-2 rounded-xl font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-all shadow-sm text-sm cursor-pointer"
+          >
+            <AlertTriangle size={16} /> Rà soát bất thường
+          </button>
           <button
             onClick={handleExportExcel}
             disabled={isExporting}
