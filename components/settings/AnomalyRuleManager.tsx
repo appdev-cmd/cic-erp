@@ -50,16 +50,26 @@ const AnomalyRuleManager: React.FC = () => {
         setDirty(true);
     };
 
-    const handleSave = () => {
-        save(draft);
-        setDirty(false);
-        toast.success('Đã lưu cấu hình ngưỡng rà soát');
+    const handleSave = async () => {
+        try {
+            await save(draft);
+            setDirty(false);
+            toast.success('Đã lưu cấu hình ngưỡng rà soát');
+        } catch (e: any) {
+            const msg = e?.message || e?.code || 'lỗi không xác định';
+            toast.error(`Lưu cấu hình thất bại: ${msg}`);
+        }
     };
-    const handleReset = () => {
+    const handleReset = async () => {
         if (!window.confirm('Khôi phục toàn bộ luật về mặc định?')) return;
-        reset();
-        setDirty(false);
-        toast.success('Đã khôi phục mặc định');
+        try {
+            await reset();
+            setDirty(false);
+            toast.success('Đã khôi phục mặc định');
+        } catch (e: any) {
+            const msg = e?.message || e?.code || 'lỗi không xác định';
+            toast.error(`Khôi phục thất bại: ${msg}`);
+        }
     };
 
     if (isLoading) {

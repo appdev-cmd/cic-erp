@@ -37,7 +37,7 @@ const RULE_BADGE: Record<AnomalyRuleKey, string> = {
     profit_margin_high: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800',
     profit_margin_low: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800',
     profit_margin_negative: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800',
-    cost_missing: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border border-orange-200 dark:border-orange-800',
+    cost_missing: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 border border-orange-200 dark:border-orange-800',
     // B. Dữ liệu / Doanh thu - Chi phí
     expected_revenue_missing: 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-300 border border-lime-200 dark:border-lime-800',
     value_zero: 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300 border border-stone-200 dark:border-stone-700',
@@ -49,7 +49,7 @@ const RULE_BADGE: Record<AnomalyRuleKey, string> = {
     overdue_advance: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 border border-fuchsia-200 dark:border-fuchsia-800',
     accepted_no_invoice: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200 dark:border-purple-800',
     receivable_large: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 border border-violet-200 dark:border-violet-800',
-    cash_over_invoiced: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800',
+    cash_over_invoiced: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-900/40 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700',
     // D. Tiến độ / Vòng đời
     overdue_execution: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 border border-sky-200 dark:border-sky-800',
     stale_processing: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800',
@@ -298,7 +298,7 @@ const ContractReviewPage: React.FC<ContractReviewPageProps> = ({ onSelectContrac
                                     <tr
                                         key={r.contract.id}
                                         onClick={() => openContract(r.contract.id)}
-                                        className="hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 cursor-pointer transition-colors"
+                                        className="hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors"
                                     >
                                         <td className="px-4 py-3">
                                             <div className="font-black text-slate-900 dark:text-slate-100">{r.contract.contractCode}</div>

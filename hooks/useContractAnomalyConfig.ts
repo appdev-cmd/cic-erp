@@ -34,8 +34,9 @@ export function useContractAnomalyConfig() {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEY }),
     });
 
-    const save = useCallback((next: AnomalyRuleConfig[]) => saveMutation.mutate(next), [saveMutation]);
-    const reset = useCallback(() => resetMutation.mutate(), [resetMutation]);
+    // Trả Promise để UI await được kết quả thật (thành công/lỗi), tránh báo nhầm.
+    const save = useCallback((next: AnomalyRuleConfig[]) => saveMutation.mutateAsync(next), [saveMutation]);
+    const reset = useCallback(() => resetMutation.mutateAsync(), [resetMutation]);
 
     return {
         rules,

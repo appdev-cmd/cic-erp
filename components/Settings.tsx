@@ -333,8 +333,8 @@ const Settings: React.FC = () => {
                             <div key={group.id} className="mb-4">
                                 {/* Group label */}
                                 <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
-                                    <span className="text-slate-400 dark:text-slate-500 w-5 flex justify-center">{group.icon}</span>
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                                    <span className="text-orange-500 dark:text-orange-400 w-5 flex justify-center">{group.icon}</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-orange-600 dark:text-orange-400">
                                         {group.label}
                                     </span>
                                 </div>
