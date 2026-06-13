@@ -271,6 +271,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
             slidePanelCtx.openPanel({
                 title,
                 icon,
+                url: `/payments?panel=form&id=${payment?.id || 'new'}`,
                 component: (
                     <div className="p-4 md:p-6 lg:p-8">
                         <PaymentForm
@@ -458,7 +459,7 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
 
             {/* Table */}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                <div className={`overflow-x-auto overflow-y-auto max-h-[calc(100vh-420px)] ${isResizing ? 'select-none' : ''}`}>
+                <div className={`hidden md:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-420px)] ${isResizing ? 'select-none' : ''}`}>
                     <table className="text-left" style={{ tableLayout: 'fixed', width: Object.values(columnWidths).reduce((a, b) => a + b, 0), minWidth: '100%' }}>
                         <colgroup>
                             {PAYMENT_TABLE_COLUMNS.map(c => (
@@ -570,22 +571,79 @@ const PaymentList: React.FC<PaymentListProps> = ({ onSelectContract }) => {
                             })}
                         </tbody>
                     </table>
+                </div>
 
-                    {/* Infinite scroll sentinel */}
-                    <div className="p-4 flex flex-col items-center justify-center">
-                        <div ref={sentinelRef} className="h-4 w-full" />
-                        {isLoadingMore && (
-                            <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
-                                <Loader2 size={20} className="animate-spin" />
-                                <span className="text-sm font-medium">Đang tải thêm...</span>
+                {/* MOBILE CARDS (< md) */}
+                <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                    {isLoading ? (
+                        <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+                            <Loader2 className="animate-spin inline-block mr-2" /> Đang tải dữ liệu...
+                        </div>
+                    ) : payments.map((payment, index) => {
+                        const statusConfig = getStatusConfig(payment.status);
+                        const StatusIcon = statusConfig.icon;
+                        const dateStr = payment.voucherType === 'VAT_INVOICE'
+                            ? (payment.invoiceDate || payment.paymentDate)
+                            : (payment.paymentDate || payment.invoiceDate || payment.dueDate);
+                        return (
+                            <div
+                                key={payment.id}
+                                onClick={() => handleEdit(payment)}
+                                className="p-4 cursor-pointer active:bg-slate-50 dark:active:bg-slate-800 transition-colors"
+                            >
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 break-words">{getExtraColumnValue(payment)}</p>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                                            <Building2 size={11} className="shrink-0" /> <span className="truncate">{getCustomerName(payment)}</span>
+                                        </p>
+                                    </div>
+                                    <p className="font-black text-slate-900 dark:text-slate-100 text-sm whitespace-nowrap shrink-0">{formatCurrency(payment.amount)}</p>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${statusConfig.color}`}>
+                                            {StatusIcon && <StatusIcon size={10} />} {statusConfig.label || payment.status}
+                                        </span>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onSelectContract?.(payment.contractId); }}
+                                            className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 text-xs font-medium"
+                                        >
+                                            <FileText size={11} /> {(payment as any).contractCode || payment.contractId}
+                                        </button>
+                                        <span className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                                            <Calendar size={10} /> {dateStr ? formatDate(dateStr) : '—'}
+                                        </span>
+                                    </div>
+                                    {canDelete && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(payment.id); }}
+                                            className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shrink-0"
+                                            title="Xóa phiếu"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        )}
-                        {!hasMore && payments.length > 0 && !isLoading && (
-                            <div className="text-center py-4 text-sm text-slate-400">
-                                Đã hiển thị tất cả {totalCount} kết quả
-                            </div>
-                        )}
-                    </div>
+                        );
+                    })}
+                </div>
+
+                {/* Infinite scroll sentinel — dùng chung desktop + mobile */}
+                <div className="p-4 flex flex-col items-center justify-center">
+                    <div ref={sentinelRef} className="h-4 w-full" />
+                    {isLoadingMore && (
+                        <div className="flex items-center justify-center py-4 gap-2 text-indigo-600 dark:text-indigo-400">
+                            <Loader2 size={20} className="animate-spin" />
+                            <span className="text-sm font-medium">Đang tải thêm...</span>
+                        </div>
+                    )}
+                    {!hasMore && payments.length > 0 && !isLoading && (
+                        <div className="text-center py-4 text-sm text-slate-400">
+                            Đã hiển thị tất cả {totalCount} kết quả
+                        </div>
+                    )}
                 </div>
 
                 {/* Status bar */}

@@ -233,6 +233,8 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                                 Không tìm thấy đơn vị nào phù hợp.
                             </div>
                         ) : (
+                            <>
+                            <div className="hidden md:block overflow-x-auto">
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
@@ -372,6 +374,61 @@ const UnitList: React.FC<UnitListProps> = ({ onSelectUnit }) => {
                                     })}
                                 </tbody>
                             </table>
+                            </div>
+
+                            {/* MOBILE CARDS (< md) */}
+                            <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                                {filteredUnits.map((unit) => {
+                                    const unitStat = stats.unitStats.get(unit.id);
+                                    const signing = unitStat?.signing || 0;
+                                    const revenue = unitStat?.revenue || 0;
+                                    const profit = unitStat?.profit || 0;
+                                    const tl = typeLabel(unit.type);
+                                    const metric = (label: string, val: number, cls: string) => (
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{label}</span>
+                                            <span className={`text-xs font-black ${cls}`}>{formatCurrency(val)}</span>
+                                        </div>
+                                    );
+                                    return (
+                                        <div
+                                            key={unit.id}
+                                            onClick={() => onSelectUnit?.(unit.id)}
+                                            className="p-4 cursor-pointer active:bg-slate-50 dark:active:bg-slate-800 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                                                    <Building size={18} />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{unit.name}</p>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase">{unit.code}</span>
+                                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${tl.cls}`}>{tl.text}</span>
+                                                        <span className="text-[10px] text-slate-400 dark:text-slate-500">· {(unit as any).employeeCount || '—'} NV · {(unit as any).stats?.contractCount || 0} HĐ</span>
+                                                    </div>
+                                                </div>
+                                                {isAdmin && (
+                                                    <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                        <button onClick={() => handleEdit(unit)} className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors" title="Chỉnh sửa">
+                                                            <Pencil size={15} />
+                                                        </button>
+                                                        <button onClick={() => handleDelete(unit.id)} className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors" title="Xóa">
+                                                            <Trash2 size={15} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                                {metric('Ký kết', signing, 'text-blue-600 dark:text-blue-400')}
+                                                {metric('Doanh thu', revenue, 'text-emerald-600 dark:text-emerald-400')}
+                                                {metric('LNG QT', profit, 'text-purple-600 dark:text-purple-400')}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            </>
                         )}
                     </div>
                 </>
