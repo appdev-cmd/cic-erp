@@ -711,13 +711,13 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <div className="xl:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm dark-card-glow">
-            <div className="flex justify-between items-center mb-10">
+          <div className="xl:col-span-2 bg-white dark:bg-slate-900 p-4 sm:p-6 lg:p-8 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm dark-card-glow">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 lg:mb-10">
               <div>
-                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight mb-2">Biến động theo tháng</h3>
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight mb-2">Biến động theo tháng</h3>
                 <p className="text-sm font-medium text-slate-500">So sánh dữ liệu {activeMetric === 'signing' ? 'Ký kết' : activeMetric === 'revenue' ? 'Doanh thu' : 'Lợi nhuận'} giữa các năm</p>
               </div>
-              <div className="flex gap-6 text-xs font-bold uppercase text-slate-400">
+              <div className="flex gap-4 sm:gap-6 text-xs font-bold uppercase text-slate-400">
                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-indigo-600 rounded-full shadow-lg shadow-indigo-200"></div> {yearFilter === 'All' ? new Date().getFullYear() : yearFilter}</div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-cyan-400 shadow-lg shadow-cyan-200"></div>
@@ -845,17 +845,18 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
             </div>
           </div>
         ) : (
-          <div className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm dark-card-glow">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 md:p-8 lg:p-10 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm dark-card-glow">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6 lg:mb-10">
               <div>
-                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-3 mb-2">
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-3 mb-2">
                   {safeUnit?.id === 'all' ? <Building2 className="text-indigo-600" size={24} /> : <Users className="text-indigo-600" size={24} />}
                   {safeUnit?.id === 'all' ? 'Hiệu suất thực hiện Đơn vị' : 'Hiệu suất nhân sự kinh doanh'}
                 </h3>
                 <p className="text-sm font-medium text-slate-500">Bảng xếp hạng hiệu quả hoạt động ({activeMetric})</p>
               </div>
             </div>
-            <div className="overflow-x-auto">
+            {/* Desktop: bảng (≥md) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-separate border-spacing-y-3">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-wider text-slate-400 font-black">
@@ -907,6 +908,45 @@ const Dashboard: React.FC<DashboardProps> = ({ selectedUnit, onSelectUnit, onSel
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile: card list (< md) */}
+            <div className="md:hidden space-y-3">
+              {performanceTableData.map((row) => (
+                <div
+                  key={row.id}
+                  onClick={() => {
+                    if (safeUnit?.id === 'all') {
+                      (onSelectPerformanceUnit || ((id: string) => navigate(`/units/${id}`)))(row.id);
+                    } else {
+                      (onSelectEmployee || ((id: string) => navigate(`/personnel/${id}`)))(row.slug || row.id);
+                    }
+                  }}
+                  className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 cursor-pointer active:bg-slate-100 dark:active:bg-slate-800 transition-colors border border-slate-100 dark:border-slate-800"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    {row.avatar ? (
+                      <img src={row.avatar} alt={row.name} className="w-11 h-11 rounded-lg object-cover shadow-sm shrink-0" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className={`w-11 h-11 rounded-lg ${safeUnit?.id === 'all' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'} flex items-center justify-center font-bold text-lg shadow-sm shrink-0`}>
+                        {row.name.substring(0, 1)}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{row.name}</p>
+                      <p className="text-xs font-bold text-slate-400 truncate">{row.subText}</p>
+                    </div>
+                    <span className={`text-sm font-black shrink-0 ${row.progress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>{row.progress.toFixed(0)}%</span>
+                  </div>
+                  <div className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner mb-2">
+                    <div className={`h-full rounded-full transition-all duration-1000 ${row.progress >= 90 ? 'bg-emerald-500' : row.progress >= 70 ? 'bg-indigo-600' : 'bg-amber-500'}`} style={{ width: `${Math.min(100, row.progress)}%` }}></div>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 dark:text-slate-400 font-bold">MT: <span className="text-slate-600 dark:text-slate-300">{Math.round(row.target).toLocaleString('vi-VN')}</span></span>
+                    <span className="text-slate-500 dark:text-slate-400 font-bold">TT: <span className="text-slate-900 dark:text-slate-100 font-black">{Math.round(row.actual).toLocaleString('vi-VN')}</span></span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
