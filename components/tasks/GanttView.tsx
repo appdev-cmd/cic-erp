@@ -10,6 +10,7 @@ import {
   AlertTriangle, Layers, User
 } from 'lucide-react';
 import { dataClient } from '../../lib/dataClient';
+import { useIsMobile } from '../../hooks';
 
 // ═══════════════════════════════════════
 // TYPES & CONSTANTS
@@ -131,6 +132,7 @@ interface GanttViewProps {
 }
 
 export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses, onUpdateDates }) => {
+  const isMobile = useIsMobile();
   const [zoom, setZoomState] = useState<ZoomLevel>(
     () => (localStorage.getItem('cic_gantt_zoom') as ZoomLevel) || 'week'
   );
@@ -407,6 +409,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ tasks, onSelect, statuses,
   // ═══════════════════════════════════════
   if (tasks.length === 0) return <EmptyState message="Không có công việc nào." />;
   if (ganttTasks.length === 0) return <EmptyState message="Chưa có công việc nào có ngày bắt đầu hoặc hạn chót." sub="Biểu đồ Gantt cần mốc thời gian để hiển thị." />;
+  // Biểu đồ Gantt là timeline ngang rất rộng — không phù hợp màn hình điện thoại.
+  if (isMobile) return <EmptyState message="Biểu đồ Gantt cần màn hình rộng hơn." sub="Vui lòng xem trên máy tính hoặc máy tính bảng (xoay ngang). Trên điện thoại hãy dùng chế độ Danh sách hoặc Kanban." />;
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 260px)' }}>
