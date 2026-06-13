@@ -280,7 +280,7 @@ const ContractReviewPage: React.FC<ContractReviewPageProps> = ({ onSelectContrac
                     </p>
                 </div>
             ) : (
-                <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden">
+                <div className="hidden md:block bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs uppercase font-black">
@@ -339,6 +339,54 @@ const ContractReviewPage: React.FC<ContractReviewPageProps> = ({ onSelectContrac
                             </tbody>
                         </table>
                     </div>
+                </div>
+            )}
+
+            {/* MOBILE CARDS (< md) — mỗi HĐ 1 card, badge cảnh báo, bấm để mở chi tiết */}
+            {!loading && filtered.length > 0 && (
+                <div className="md:hidden space-y-3">
+                    {filtered.map(r => (
+                        <div
+                            key={r.contract.id}
+                            onClick={() => openContract(r.contract.id)}
+                            className="bg-white dark:bg-slate-900 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-800 cursor-pointer active:bg-slate-50 dark:active:bg-slate-800 transition-colors"
+                        >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="min-w-0">
+                                    <div className="font-black text-slate-900 dark:text-slate-100">{r.contract.contractCode}</div>
+                                    <div className="text-slate-500 dark:text-slate-400 text-xs line-clamp-2">{r.contract.title}</div>
+                                </div>
+                                <span className={`shrink-0 font-black text-sm whitespace-nowrap ${
+                                    (r.contract.margin ?? 0) < 0 ? 'text-red-600 dark:text-red-400'
+                                        : (r.contract.margin ?? 0) > 50 ? 'text-amber-600 dark:text-amber-400'
+                                            : 'text-slate-700 dark:text-slate-200'
+                                }`}>
+                                    {(Math.round((r.contract.margin ?? 0) * 10) / 10)}%
+                                </span>
+                            </div>
+
+                            {/* Cảnh báo */}
+                            <div className="flex flex-wrap gap-1.5 mb-3">
+                                {r.flags.map((f, i) => (
+                                    <span
+                                        key={i}
+                                        title={`${f.detail} · Mức ${SEVERITY_LABELS[f.severity]}`}
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold ${RULE_BADGE[f.ruleKey] || SEVERITY_BADGE[f.severity]}`}
+                                    >
+                                        <span className={`w-1.5 h-1.5 rounded-full ${SEVERITY_DOT[f.severity]}`} />
+                                        {f.label}
+                                    </span>
+                                ))}
+                            </div>
+
+                            {/* Meta: đơn vị · giá trị · ngày ký */}
+                            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <span className="font-bold text-slate-600 dark:text-slate-300">{unitNameById.get(r.contract.unitId) || '—'}</span>
+                                <span className="font-bold text-slate-700 dark:text-slate-200">{formatVND(r.contract.value || 0)}</span>
+                                <span className="text-slate-400 dark:text-slate-500 ml-auto">{formatDate(r.contract.signedDate)}</span>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
         </div>
