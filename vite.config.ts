@@ -211,6 +211,138 @@ function recruitmentEmailProxy(env: Record<string, string>): Plugin {
   };
 }
 
+function techIntelCrawlProxy(env: Record<string, string>): Plugin {
+  return {
+    name: 'tech-intel-crawl-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/tech-intel/crawl', async (req, res) => {
+        if (req.method === 'OPTIONS') {
+          res.writeHead(200, {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          });
+          res.end();
+          return;
+        }
+        if (req.method !== 'POST') {
+          res.writeHead(405, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+          return;
+        }
+
+        // Setup process.env for local execution
+        process.env.VITE_SUPABASE_URL = env.VITE_SUPABASE_URL || 'https://jyohocjsnsyfgfsmjfqx.supabase.co';
+        process.env.SUPABASE_SERVICE_ROLE_KEY = env.VITE_SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+        process.env.VITE_SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
+
+        // Read request body
+        let body = '';
+        for await (const chunk of req) body += chunk;
+        let parsedBody: any = {};
+        try {
+          if (body) parsedBody = JSON.parse(body);
+        } catch {}
+
+        const shimmedReq = Object.assign(req, {
+          body: parsedBody
+        }) as any;
+
+        const shimmedRes = Object.assign(res, {
+          status(code: number) {
+            res.statusCode = code;
+            return shimmedRes;
+          },
+          json(data: any) {
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(data));
+            return shimmedRes;
+          }
+        }) as any;
+
+        try {
+          const crawlModule = await import('./api/tech-intel/crawl');
+          await crawlModule.default(shimmedReq, shimmedRes);
+        } catch (err: any) {
+          console.error('[Vite Proxy] Crawl error:', err);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message || 'Internal Server Error' }));
+        }
+      });
+    }
+  };
+}
+
+// Local Dev Proxy for /api/ai-proxy
+// Khi chạy `npm run dev`, Vite không chạy serverless functions.
+// Middleware này chặn /api/ai-proxy để chạy file api/ai-proxy.ts cục bộ.
+function aiProxyDevProxy(env: Record<string, string>): Plugin {
+  return {
+    name: 'ai-proxy-dev-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/ai-proxy', async (req, res) => {
+        if (req.method === 'OPTIONS') {
+          res.writeHead(200, {
+            'Access-Control-Allow-Origin': req.headers.origin || '*',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-request-user-id, x-use-key-id',
+          });
+          res.end();
+          return;
+        }
+
+        // Setup process.env for local serverless execution
+        process.env.VITE_SUPABASE_URL = env.VITE_SUPABASE_URL;
+        process.env.VITE_SUPABASE_SERVICE_ROLE_KEY = env.VITE_SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+        process.env.VITE_SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
+        process.env.GEMINI_API_KEYS = env.GEMINI_API_KEYS || env.GEMINI_API_KEY || env.VITE_GOOGLE_API_KEY;
+        process.env.VLLM_URL = env.VITE_VLLM_URL;
+        process.env.VITE_LITELLM_KEY = env.VITE_LITELLM_KEY;
+
+        // Read request body
+        let body = '';
+        for await (const chunk of req) body += chunk;
+        let parsedBody: any = {};
+        try {
+          if (body) parsedBody = JSON.parse(body);
+        } catch {}
+
+        // Parse query params từ url
+        const parsedUrl = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+        const query: Record<string, string> = {};
+        parsedUrl.searchParams.forEach((val, key) => { query[key] = val; });
+
+        const shimmedReq = Object.assign(req, {
+          body: parsedBody,
+          query: query,
+          url: '/api/ai-proxy' + req.url
+        }) as any;
+
+        const shimmedRes = Object.assign(res, {
+          status(code: number) {
+            res.statusCode = code;
+            return shimmedRes;
+          },
+          json(data: any) {
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(data));
+            return shimmedRes;
+          }
+        }) as any;
+
+        try {
+          const aiProxyModule = await import('./api/ai-proxy');
+          await aiProxyModule.default(shimmedReq, shimmedRes);
+        } catch (err: any) {
+          console.error('[Vite Proxy] AI Proxy error:', err);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message || 'Internal Server Error' }));
+        }
+      });
+    }
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
@@ -245,6 +377,16 @@ export default defineConfig(({ mode }) => {
           secure: true,
           rewrite: (path) => path.replace(/^\/api\/gemini/, '')
         },
+        // AI Proxy — tránh CORS khi gọi VLLM (Tạm tắt ở local dev để dùng aiProxyDevProxy chạy Serverless Code)
+        // '/api/ai-proxy': {
+        //   target: env.VITE_VLLM_URL || 'https://ai-api.cic.com.vn:9443',
+        //   changeOrigin: true,
+        //   secure: false,
+        //   headers: {
+        //     'Authorization': `Bearer ${env.VITE_LITELLM_KEY || 'sk-cic-2026'}`
+        //   },
+        //   rewrite: (path) => path.replace(/^\/api\/ai-proxy/, '/v1')
+        // },
       },
       watch: {
         ignored: ['**/scripts/auto-train/venv/**'],
@@ -273,24 +415,41 @@ export default defineConfig(({ mode }) => {
       react(),
       geminiExtractProxy(env),
       recruitmentEmailProxy(env),
+      techIntelCrawlProxy(env),
+      aiProxyDevProxy(env),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.png', 'cic-logo.png'],
         manifest: {
           name: 'CIC ERP System',
           short_name: 'CIC ERP',
-          description: 'Hệ thống quản lý hợp đồng thông minh CIC',
+          description: 'Hệ thống quản trị tổng thể thông minh CIC',
           theme_color: '#ffffff',
+          background_color: '#ffffff',
+          // standalone: mở như app riêng (không thanh địa chỉ) khi cài lên màn hình chính.
+          display: 'standalone',
+          // any: cho phép cả dọc lẫn ngang — báo cáo xem ngang tiện hơn trên điện thoại/tablet.
+          orientation: 'any',
+          start_url: '/',
+          scope: '/',
           icons: [
             {
               src: 'favicon.png',
               sizes: '192x192',
-              type: 'image/png'
+              type: 'image/png',
+              purpose: 'any'
             },
             {
               src: 'cic-logo.png',
               sizes: '512x512',
-              type: 'image/png'
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: 'cic-logo.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable'
             }
           ]
         }
