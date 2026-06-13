@@ -21,6 +21,8 @@ import QuickAddSupplierDialog from './ui/QuickAddSupplierDialog';
 import { useAuth } from '../contexts/AuthContext';
 import { useFinancialCalculations } from '../hooks/useFinancialCalculations';
 import { recalculateAutoCostsForList } from '../hooks/useLineItems';
+import { useIsMobile } from '../hooks';
+import MobileFormGuard from './ui/MobileFormGuard';
 import {
   StepIndicator,
   FinancialSummary,
@@ -47,6 +49,7 @@ interface ContractFormProps {
 
 const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false, onSave, onCancel, onDirtyChange, isInsidePanel = false }) => {
   const { profile } = useAuth();
+  const isMobile = useIsMobile();
   const isEditing = !!contract && !isCloning;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -649,6 +652,15 @@ const ContractForm: React.FC<ContractFormProps> = ({ contract, isCloning = false
   };
 
   // ==================== RENDER ====================
+  // Form hợp đồng 4 bước quá phức tạp cho điện thoại → chặn, hướng dẫn dùng máy lớn.
+  if (isMobile) {
+    return (
+      <div className="bg-white dark:bg-slate-900 h-full w-full flex flex-col">
+        <MobileFormGuard title={isCloning ? 'Sao chép hợp đồng' : contract ? 'Sửa hợp đồng' : 'Tạo hợp đồng'} onBack={onCancel} />
+      </div>
+    );
+  }
+
   // When inside a slide panel: no border, no shadow, no max-width, fill height
   const outerClasses = isInsidePanel
     ? 'bg-white dark:bg-slate-900 overflow-hidden flex flex-col h-full w-full'

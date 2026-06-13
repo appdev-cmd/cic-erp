@@ -12,6 +12,8 @@ import { dataClient as supabase } from '../lib/dataClient';
 import CustomerForm from './CustomerForm';
 import { generateSlug } from '../utils/formatters';
 import RichTextEditor from './ui/RichTextEditor';
+import { useIsMobile } from '../hooks';
+import MobileFormGuard from './ui/MobileFormGuard';
 
 interface ProjectFormProps {
   project?: BIMProject | null;
@@ -41,6 +43,7 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 ];
 
 const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) => {
+  const isMobile = useIsMobile();
   const isEditing = !!project;
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('general');
@@ -262,6 +265,15 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, onSave, onCancel }) 
   // ── Styles ──────────────────────────────────────────────────
   const inputCls = 'w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent outline-none transition-all';
   const labelCls = 'block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1.5';
+
+  // Form dự án nhiều trường → chặn trên điện thoại, hướng dẫn dùng máy lớn.
+  if (isMobile) {
+    return (
+      <div className="bg-white dark:bg-slate-900 h-full w-full flex flex-col">
+        <MobileFormGuard title={project ? 'Sửa dự án' : 'Tạo dự án'} onBack={onCancel} />
+      </div>
+    );
+  }
 
   return (
     <>

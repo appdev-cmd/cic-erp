@@ -24,6 +24,8 @@ import QuickAddCustomerDialog from './ui/QuickAddCustomerDialog';
 import DateInput from './ui/DateInput';
 import { formatNumber } from '../lib/utils';
 import { SlidePanelHeader } from './ui/SlidePanelHeader';
+import { useIsMobile } from '../hooks';
+import MobileFormGuard from './ui/MobileFormGuard';
 
 interface PaymentFormProps {
     payment?: Payment;
@@ -67,6 +69,7 @@ const VOUCHER_CONFIG: Record<VoucherType, { label: string; icon: React.ReactNode
 };
 
 const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType = 'RECEIPT', initialContractId, initialCustomerId, onSave, onCancel, contractValue, existingInvoiceTotal, existingReceiptTotal, editingVoucherAmount, isInsidePanel }) => {
+    const isMobile = useIsMobile();
     // Voucher type
     const [voucherType, setVoucherType] = useState<VoucherType>(payment?.voucherType || initialVoucherType);
 
@@ -1025,6 +1028,14 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ payment, initialVoucherType =
             )}
         </>
     );
+
+    // Form phiếu thu/chi nhiều trường + tính toán tài chính → chặn trên điện thoại.
+    if (isMobile) {
+        const guard = <MobileFormGuard title={payment ? 'Sửa phiếu thu/chi' : 'Tạo phiếu thu/chi'} onBack={onCancel} />;
+        return isInsidePanel ? guard : (
+            <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 flex flex-col">{guard}</div>
+        );
+    }
 
     // If inside panel, render form directly without modal wrapper
     if (isInsidePanel) {
