@@ -1,0 +1,7 @@
+# Crawl4AI deep crawler — chạy bằng Python 3.11 (KHÔNG dùng 3.14: lxml chưa có wheel)
+# Tạo venv & cài:
+#   py -3.11 -m venv scripts/crawl4ai/.venv
+#   scripts/crawl4ai/.venv/Scripts/python.exe -m pip install -r scripts/crawl4ai/requirements.txt
+#   scripts/crawl4ai/.venv/Scripts/python.exe -m playwright install chromium
+crawl4ai==0.8.9
+python-dotenv>=1.0

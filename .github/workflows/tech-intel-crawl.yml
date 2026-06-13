@@ -1,0 +1,76 @@
+name: Tech Intel — Crawl & Analyze
+
+# Pipeline Giám sát Công nghệ chạy HOÀN TOÀN TRÊN SERVER (GitHub Actions),
+# không phụ thuộc máy cá nhân bật/tắt. Cào (RSS + Crawl4AI render JS) →
+# resolve nội dung Google News → AI (Gemini) phân tích tự động.
+#
+# Vì Crawl4AI cần headless Chromium nên KHÔNG chạy được trên Vercel serverless;
+# GitHub Actions (Ubuntu) là môi trường server có sẵn browser + cron miễn phí.
+
+on:
+  schedule:
+    # 19:00 UTC = 02:00 sáng giờ Việt Nam (UTC+7), mỗi ngày
+    - cron: '0 19 * * *'
+  workflow_dispatch:   # cho phép bấm chạy tay từ tab Actions
+
+# Không chạy chồng nếu lần trước chưa xong
+concurrency:
+  group: tech-intel-crawl
+  cancel-in-progress: false
+
+jobs:
+  crawl-and-analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      VITE_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Tuỳ chọn: nếu KHÔNG lưu Gemini key trong bảng gemini_keys thì set secret này
+      GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Python 3.11 + Crawl4AI + Chromium ──
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Crawl4AI
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r scripts/crawl4ai/requirements.txt
+
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+
+      # ── Node (cho các script tsx: RSS crawl + AI analyze) ──
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node deps
+        run: npm ci
+
+      # ── Pipeline 4 bước (mỗi bước độc lập, lỗi 1 bước không chặn bước sau) ──
+      - name: 1/4 — RSS + Google News crawl
+        if: always()
+        run: npx tsx scripts/tech-intel-crawl.ts
+
+      - name: 2/4 — Deep crawl web sources (Crawl4AI render JS)
+        if: always()
+        run: python scripts/crawl4ai/deep_crawl.py --max-pages=40
+
+      - name: 3/4 — Resolve nội dung Google News (browser)
+        if: always()
+        run: python scripts/crawl4ai/resolve_gnews.py --batch=6
+
+      - name: 4/4 — AI phân tích bài pending (Gemini)
+        if: always()
+        run: npx tsx scripts/process-pending.ts

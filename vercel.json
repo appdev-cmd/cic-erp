@@ -2,6 +2,15 @@
     "functions": {
         "api/ai-proxy.ts": {
             "maxDuration": 60
+        },
+        "api/tech-intel/crawl.ts": {
+            "maxDuration": 60
+        },
+        "api/tech-intel/analyze.ts": {
+            "maxDuration": 60
+        },
+        "api/tech-intel/deep-crawl.ts": {
+            "maxDuration": 60
         }
     },
     "headers": [
