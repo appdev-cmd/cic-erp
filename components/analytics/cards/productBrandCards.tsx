@@ -200,8 +200,8 @@ export function buildProductBrandCards(ctx: AnalyticsCardContext): Record<string
         'brand-profit-structure': (
             <ChartCard title="Cơ cấu Lợi nhuận Hãng" subtitle="Tỷ trọng đóng góp lợi nhuận gộp" index={12}>
                 {brandProfitStructureData.length === 0 ? <EmptyState message="Chưa có dữ liệu lợi nhuận" /> : (
-                    <div className="flex items-center justify-between gap-6 h-[300px]">
-                        <div className="flex-1 h-full relative">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6 sm:h-[300px]">
+                        <div className="w-full h-[220px] sm:flex-1 sm:h-full relative">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart margin={{ left: 45, right: 45, top: 10, bottom: 10 }}>
                                     <Pie
@@ -236,7 +236,7 @@ export function buildProductBrandCards(ctx: AnalyticsCardContext): Record<string
                                 <p className="text-sm font-black text-slate-900 dark:text-white mt-0.5">{formatCurrencyGlobal(brandProfitStructureData.reduce((s, d) => s + d.value, 0))}</p>
                             </div>
                         </div>
-                        <div className="w-[40%] max-w-[240px] shrink-0 max-h-full overflow-y-auto pr-1 styled-scrollbar space-y-1 flex flex-col justify-center">
+                        <div className="w-full sm:w-[40%] sm:max-w-[240px] shrink-0 max-h-[180px] sm:max-h-full overflow-y-auto pr-1 styled-scrollbar space-y-1 flex flex-col justify-center">
                             {brandProfitStructureData.map((d, i) => {
                                 const totalProfit = brandProfitStructureData.reduce((s, x) => s + x.value, 0);
                                 return (

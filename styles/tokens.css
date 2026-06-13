@@ -367,3 +367,18 @@ body.analytics-panel-open .recharts-tooltip-wrapper {
 .pb-safe {
   padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
+
+/* =============================================================================
+   NO-SCROLLBAR — ẩn thanh cuộn (dùng cho dải cuộn ngang: tab bar, filter chip
+   trên mobile). Vẫn cuộn được bằng vuốt/chuột, chỉ ẩn phần hiển thị scrollbar.
+   ============================================================================= */
+.no-scrollbar {
+  -ms-overflow-style: none;   /* IE/Edge cũ */
+  scrollbar-width: none;      /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;              /* Chrome/Safari/WebKit */
+  width: 0;
+  height: 0;
+}

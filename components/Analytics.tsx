@@ -1940,7 +1940,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                     </p>
                 </div>
 
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-nowrap md:flex-wrap items-center gap-2 md:gap-3 overflow-x-auto no-scrollbar -mx-1 px-1 md:mx-0 md:px-0 md:overflow-visible">
                     {/* Brand Selector */}
                     <SearchableSelect
                         label="Hãng"
@@ -1999,52 +1999,28 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
                 </div>
             </div>
 
-            {/* Tabs Navigation */}
-            <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl flex flex-wrap gap-1.5 shadow-inner">
-                <button
-                    onClick={() => setActiveTab('overview')}
-                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black transition-all duration-200 cursor-pointer ${
-                        activeTab === 'overview'
-                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md transform scale-[1.02]'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700'
-                    }`}
-                >
-                    <BarChart3 size={18} />
-                    Tổng quan & Doanh thu
-                </button>
-                <button
-                    onClick={() => setActiveTab('cashflow')}
-                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black transition-all duration-200 cursor-pointer ${
-                        activeTab === 'cashflow'
-                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md transform scale-[1.02]'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700'
-                    }`}
-                >
-                    <Wallet size={18} />
-                    Dòng tiền & Thanh toán
-                </button>
-                <button
-                    onClick={() => setActiveTab('product_brand')}
-                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black transition-all duration-200 cursor-pointer ${
-                        activeTab === 'product_brand'
-                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md transform scale-[1.02]'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700'
-                    }`}
-                >
-                    <Package size={18} />
-                    Sản phẩm & Đối tác
-                </button>
-                <button
-                    onClick={() => setActiveTab('employee_customer')}
-                    className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-black transition-all duration-200 cursor-pointer ${
-                        activeTab === 'employee_customer'
-                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md transform scale-[1.02]'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700'
-                    }`}
-                >
-                    <Users size={18} />
-                    Hiệu suất & Khách hàng
-                </button>
+            {/* Tabs Navigation — cuộn ngang trên mobile (không wrap), nhãn rút gọn trên màn hình hẹp */}
+            <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl flex flex-nowrap lg:flex-wrap gap-1.5 shadow-inner overflow-x-auto no-scrollbar">
+                {([
+                    { id: 'overview', icon: <BarChart3 size={18} />, label: 'Tổng quan & Doanh thu', short: 'Tổng quan' },
+                    { id: 'cashflow', icon: <Wallet size={18} />, label: 'Dòng tiền & Thanh toán', short: 'Dòng tiền' },
+                    { id: 'product_brand', icon: <Package size={18} />, label: 'Sản phẩm & Đối tác', short: 'Sản phẩm' },
+                    { id: 'employee_customer', icon: <Users size={18} />, label: 'Hiệu suất & Khách hàng', short: 'Hiệu suất' },
+                ] as const).map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-sm font-black transition-all duration-200 cursor-pointer shrink-0 whitespace-nowrap ${
+                            activeTab === tab.id
+                                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-md lg:scale-[1.02]'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-700'
+                        }`}
+                    >
+                        {tab.icon}
+                        <span className="sm:hidden">{tab.short}</span>
+                        <span className="hidden sm:inline">{tab.label}</span>
+                    </button>
+                ))}
             </div>
 
             {/* Dải gợi ý chế độ sắp xếp */}

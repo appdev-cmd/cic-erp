@@ -84,10 +84,10 @@ export const KPICard = ({ title, metric, stats, target, companyTarget, yoy, colo
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1, duration: 0.4, ease: 'easeOut' }}
-            className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden dark-card-glow"
+            className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden dark-card-glow"
         >
-            <div className="flex justify-between items-start mb-6">
-                <div className={`p-3 rounded-lg ${colors[color] || colors.indigo} transition-transform group-hover:rotate-6`}>
+            <div className="flex justify-between items-start mb-4 sm:mb-6">
+                <div className={`p-2.5 sm:p-3 rounded-lg ${colors[color] || colors.indigo} transition-transform group-hover:rotate-6`}>
                     {icon}
                 </div>
                 <div className="text-right">
@@ -305,11 +305,11 @@ export const ChartCard = ({ title, subtitle, children, index, className = '' }: 
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 + index * 0.12, duration: 0.5, ease: 'easeOut' }}
-        className={`bg-white dark:bg-slate-900 p-8 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all ${className}`}
+        className={`bg-white dark:bg-slate-900 p-4 sm:p-6 lg:p-8 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all ${className}`}
     >
-        <div className="mb-8">
-            <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">{title}</h3>
-            {subtitle && <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">{subtitle}</p>}
+        <div className="mb-4 lg:mb-8">
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">{title}</h3>
+            {subtitle && <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">{subtitle}</p>}
         </div>
         {children}
     </motion.div>
