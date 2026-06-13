@@ -57,6 +57,12 @@ import {
     LazyCrmQuotesPage as CrmQuotesPage,
     LazyCrmProductsPage as CrmProductsPage,
     LazyCrmSettingsPage as CrmSettingsPage,
+    LazyTechHubDashboardPage as TechHubDashboardPage,
+    LazyTechNewsFeedPage as TechNewsFeedPage,
+    LazyTechArticleDetailPage as TechArticleDetailPage,
+    LazyTechReportLibraryPage as TechReportLibraryPage,
+    LazyTechReportViewerPage as TechReportViewerPage,
+    LazyTechSourceManagerPage as TechSourceManagerPage,
 } from '../components/LazyPages';
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -181,6 +187,14 @@ export const router = createBrowserRouter([
             { path: 'crm/quotes', element: <CrmQuotesPage /> },
             { path: 'crm/products', element: <CrmProductsPage /> },
             { path: 'crm/settings', element: <CrmSettingsPage /> },
+
+            // ConTech Intelligence Hub
+            { path: 'tech-intel', element: <TechHubDashboardPage /> },
+            { path: 'tech-intel/feed', element: <TechNewsFeedPage /> },
+            { path: 'tech-intel/articles/:id', element: <TechArticleDetailPage /> },
+            { path: 'tech-intel/reports', element: <TechReportLibraryPage /> },
+            { path: 'tech-intel/reports/:id', element: <TechReportViewerPage /> },
+            { path: 'tech-intel/sources', element: <TechSourceManagerPage /> },
 
             // 404 Fallback
             { path: '*', element: <Navigate to="/" replace /> },

@@ -91,11 +91,22 @@ export const SlidePanelProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }, [panels, closingPanels, baseUrl]);
 
+    /** Push a new panel onto the stack. Returns its unique ID.
+     *  IMPORTANT: Always pass a `url` property so the browser address bar updates
+     *  and users can copy/share the link. Only omit for ephemeral utility panels
+     *  (e.g., create-task form, template manager) that don't need deep-linking. */
     const openPanel = useCallback((entry: Omit<PanelEntry, 'id'>): string => {
+        if (process.env.NODE_ENV === 'development' && !entry.url) {
+            console.warn(
+                `[SlidePanel] openPanel called without "url" for "${entry.title || 'Untitled'}". ` +
+                `Consider adding a url so users can share direct links.`
+            );
+        }
         const id = `panel-${++panelCounter}-${Date.now()}`;
         setPanels(prev => [...prev, { ...entry, id }]);
         return id;
     }, []);
+
 
     const triggerCloseAnimation = useCallback((id: string) => {
         setClosingPanels(prev => new Set(prev).add(id));

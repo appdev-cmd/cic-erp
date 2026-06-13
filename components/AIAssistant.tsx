@@ -1034,7 +1034,7 @@ const AIAssistant: React.FC = () => {
           `**Nguyên nhân**: Máy chủ AI chính (\`${currentModel === 'qwen3.5-35b' ? 'Qwen 3.5 35B' : currentModel}\`) hiện đang bận hoặc gặp sự cố kết nối (Ví dụ: Bạn đang chạy local và chưa kết nối vào mạng nội bộ/VPN của công ty).\n\n` +
           `Đồng thời, **kênh dự phòng Gemini Cloud mặc định của hệ thống đã bị hết hạn hoặc không hợp lệ** (Lỗi: *${errDetail.substring(0, 150)}*).\n\n` +
           `**Giải pháp khắc phục (Kích hoạt API Key cá nhân)**:\n` +
-          `Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 2.0 Flash** sử dụng **API Key cá nhân** của bạn để đảm bảo bảo mật và kiểm soát chi phí tối ưu cho doanh nghiệp.\n\n` +
+          `Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 3.5 Flash** sử dụng **API Key cá nhân** của bạn để đảm bảo bảo mật và kiểm soát chi phí tối ưu cho doanh nghiệp.\n\n` +
           `Để tiếp tục sử dụng, bạn vui lòng cấu hình API Key cá nhân theo các bước sau:\n` +
           `1. 🔑 Lấy API Key miễn phí ngay lập tức tại **[Google AI Studio](https://aistudio.google.com/app/apikey)**.\n` +
           `2. ⚙️ Bấm vào biểu tượng **Cài đặt (⚙️)** ở góc trên bên phải khung chat này.\n` +
@@ -1264,9 +1264,10 @@ const AIAssistant: React.FC = () => {
                         );
                       })}
                     </optgroup>
-                    {((_profile?.role && ['Admin', 'Leadership'].includes(_profile.role)) || ['gemini-2.0-flash', 'gemini-1.5-pro', 'gpt-4o', 'deepseek-chat', 'deepseek-r1'].includes(currentModel)) && (
+                    {((_profile?.role && ['Admin', 'Leadership'].includes(_profile.role)) || ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gpt-4o', 'deepseek-chat', 'deepseek-r1'].includes(currentModel)) && (
                       <optgroup label="🔑 Cloud AI" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-                        <option value="gemini-2.0-flash">✨ Gemini 2.0 Flash</option>
+                        <option value="gemini-3.5-flash">✨ Gemini 3.5 Flash</option>
+                        <option value="gemini-2.5-flash">✨ Gemini 2.5 Flash</option>
                         <option value="gemini-1.5-pro">🧠 Gemini 1.5 Pro</option>
                         <option value="gpt-4o">🤖 GPT-4o</option>
                         <option value="deepseek-chat">💬 DeepSeek V3</option>

@@ -163,6 +163,7 @@ const ProjectTasksTab: React.FC<ProjectTasksTabProps> = ({ projectId, projectNam
   const handleOpenTask = (task: Task) => {
     openPanel({
       title: task.title,
+      url: `/tasks/${task.id}`,
       component: (
         <Suspense fallback={<div className="p-8 text-center"><Loader2 className="animate-spin mx-auto" /></div>}>
           <TaskDetailPanel

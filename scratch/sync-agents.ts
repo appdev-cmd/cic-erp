@@ -1,3 +1,4 @@
+import '../setup-env';
 import { AgentConfigService } from '../services/ai/agentConfigService';
 
 async function main() {

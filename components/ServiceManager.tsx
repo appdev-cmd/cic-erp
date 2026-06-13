@@ -61,6 +61,7 @@ const ServiceManager: React.FC = () => {
     const openFormPanel = (service?: CmsService) => {
         openPanel({
             title: service ? 'Chỉnh sửa Dịch vụ' : 'Thêm Dịch vụ mới',
+            url: `/website?panel=service&id=${service?.id || 'new'}`,
             component: (
                 <ServiceForm 
                     service={service} 
@@ -77,6 +78,7 @@ const ServiceManager: React.FC = () => {
         openPanel({
             title: 'Chi tiết Dịch vụ',
             icon: <Wrench className="text-orange-500" size={20} />,
+            url: `/website?panel=service-detail&id=${service.id}`,
             component: (
                 <div className="flex flex-col h-full bg-white dark:bg-slate-900">
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">

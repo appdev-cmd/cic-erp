@@ -745,6 +745,7 @@ const TasksPage: React.FC<TasksPageProps> = ({ onSelectTask, isEmbedded, sourceM
               openPanel({
                 component: <TaskTemplateManagerPanel onClose={() => closePanel()} />,
                 title: 'Quản lý Mẫu Công Việc',
+                url: '/tasks?panel=templates',
               });
             }}
             className="hidden sm:flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"

@@ -54,12 +54,14 @@ Hãy phân tích bài viết sau và trả về JSON THUẦN (không có markdow
 
 TIÊU ĐỀ: ${a.title}
 ${a.summary ? `TÓM TẮT: ${a.summary}` : ''}
-${a.content ? `NỘI DUNG: ${a.content.substring(0, 3000)}` : ''}
+${a.content ? `NỘI DUNG: ${a.content.substring(0, 6000)}` : ''}
 URL: ${a.url}
 
 Trả về JSON với cấu trúc chính xác sau:
 {
-  "title_vi": "...","summary_vi": "...","technologies": ["..."],
+  "title_vi": "...","summary_vi": "...",
+  "content_vi": "DỊCH TOÀN BỘ nội dung sang tiếng Việt tự nhiên, đầy đủ, KHÔNG tóm tắt; giữ tên riêng/thuật ngữ. Không có nội dung thì để chuỗi rỗng.",
+  "technologies": ["..."],
   "technology_category": "software_platform|ai_solution|robotics_automation|consulting|green_certification|energy_emission",
   "project_phases": ["survey|design|planning|construction|project_management|handover|operations|monitoring"],
   "industries": ["civil|industrial|infrastructure|energy|oil_gas|power|mining|materials|manufacturing"],
@@ -82,7 +84,7 @@ async function callGemini(model: string, prompt: string, keys: string[]): Promis
           model: `models/${model}`,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.3,
-          max_tokens: 4000, // gemini-3.5-flash là model "thinking", cần room cho reasoning + JSON
+          max_tokens: 8000, // dịch toàn văn content_vi + reasoning + JSON → cần nhiều room hơn
           response_format: { type: 'json_object' },
         }),
         signal: AbortSignal.timeout(55000),
@@ -151,7 +153,7 @@ async function main() {
       if (!r) throw new Error('parse JSON fail');
 
       await supabase.from('tech_articles').update({
-        title_vi: r.title_vi || a.title, summary_vi: r.summary_vi || '',
+        title_vi: r.title_vi || a.title, summary_vi: r.summary_vi || '', content_vi: r.content_vi || '',
         technologies: r.technologies || [], technology_category: r.technology_category || 'software_platform',
         project_phases: r.project_phases || [], industries: r.industries || [],
         event_type: r.event_type || 'new_solution', companies: r.companies || [],

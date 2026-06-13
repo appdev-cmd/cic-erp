@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     Moon, Sun, Shield, ShieldCheck, Settings2, FlaskConical, Users, Palette,
     HardDrive, BarChart3, Bot, Crown, ScanLine, Sparkles, History,
@@ -19,6 +19,7 @@ import AnomalyRuleManager from './settings/AnomalyRuleManager';
 import { useLayoutContext } from './layout/MainLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { useEffectiveProfile } from '../contexts/ImpersonationContext';
+import { useSlidePanel } from '../contexts/SlidePanelContext';
 import { dataClient } from '../lib/dataClient';
 import { PermissionService } from '../services/permissionService';
 import { toast } from 'sonner';
@@ -34,20 +35,23 @@ type SettingsTab =
     | 'ai-settings'
     | 'testing';
 
+interface SettingsTabItem {
+    id: SettingsTab;
+    label: string;
+    desc: string;
+    icon: React.ReactNode;
+    adminOnly?: boolean;
+}
+
 interface SectionGroup {
     id: string;
     label: string;
     icon: React.ReactNode;
     adminOnly?: boolean;
-    items: {
-        id: SettingsTab;
-        label: string;
-        icon: React.ReactNode;
-        adminOnly?: boolean;
-    }[];
+    items: SettingsTabItem[];
 }
 
-// ─── Permission Health Check Widget (Task 3.3) ───────────────────────────────
+// ─── Permission Health Check Widget ──────────────────────────────────────────
 const PermissionHealthCheck: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
@@ -131,18 +135,18 @@ const PermissionHealthCheck: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center gap-2 text-sm text-slate-500 py-4">
+            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 py-4">
                 <Loader2 size={16} className="animate-spin" /> Đang kiểm tra...
             </div>
         );
     }
 
     return (
-        <div className="mb-6 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div className="mb-6 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800">
                 <div className="flex items-center gap-2">
-                    <Database size={15} className="text-orange-500" />
+                    <Database size={15} className="text-orange-500 dark:text-orange-400" />
                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                         Kiểm tra sức khỏe phân quyền
                     </span>
@@ -152,16 +156,16 @@ const PermissionHealthCheck: React.FC = () => {
                     className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                     title="Làm mới"
                 >
-                    <RefreshCw size={13} className="text-slate-400" />
+                    <RefreshCw size={13} className="text-slate-400 dark:text-slate-500" />
                 </button>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700">
-                <div className={`p-4 text-center ${stats.noPermission > 0 ? 'bg-red-50 dark:bg-red-900' : 'bg-white dark:bg-slate-900'}`}>
+            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-800">
+                <div className={`p-4 text-center ${stats.noPermission > 0 ? 'bg-red-50/50 dark:bg-red-950/20' : 'bg-white dark:bg-slate-900'}`}>
                     {stats.noPermission > 0
-                        ? <AlertTriangle size={20} className="mx-auto mb-1 text-red-500" />
-                        : <CheckCircle2 size={20} className="mx-auto mb-1 text-emerald-500" />
+                        ? <AlertTriangle size={20} className="mx-auto mb-1 text-red-500 dark:text-red-400" />
+                        : <CheckCircle2 size={20} className="mx-auto mb-1 text-emerald-500 dark:text-emerald-400" />
                     }
                     <div className={`text-2xl font-black ${stats.noPermission > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         {stats.noPermission}
@@ -169,12 +173,12 @@ const PermissionHealthCheck: React.FC = () => {
                     <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">chưa có quyền</div>
                 </div>
                 <div className="p-4 text-center bg-white dark:bg-slate-900">
-                    <Shield size={20} className="mx-auto mb-1 text-indigo-400" />
+                    <Shield size={20} className="mx-auto mb-1 text-indigo-400 dark:text-indigo-500" />
                     <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{stats.customized}</div>
                     <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">đã có quyền</div>
                 </div>
                 <div className="p-4 text-center bg-white dark:bg-slate-900">
-                    <Users size={20} className="mx-auto mb-1 text-amber-400" />
+                    <Users size={20} className="mx-auto mb-1 text-amber-400 dark:text-amber-500" />
                     <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{stats.crossUnit}</div>
                     <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">cross-unit access</div>
                 </div>
@@ -182,24 +186,24 @@ const PermissionHealthCheck: React.FC = () => {
 
             {/* Users without permissions */}
             {stats.noPermission > 0 && (
-                <div className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+                <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
                     <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-2">
                         Nhân viên chưa có quyền:
                     </p>
                     <div className="flex flex-wrap gap-1.5 mb-3">
                         {stats.noPermissionUsers.map(u => (
-                            <span key={u.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 rounded text-[11px] font-medium">
+                            <span key={u.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 rounded text-[11px] font-medium border border-red-100 dark:border-red-900/50">
                                 {u.name} <span className="opacity-60">({u.role})</span>
                             </span>
                         ))}
                         {stats.noPermission > 5 && (
-                            <span className="text-[11px] text-slate-400">+{stats.noPermission - 5} khác</span>
+                            <span className="text-[11px] text-slate-400 dark:text-slate-500">+{stats.noPermission - 5} khác</span>
                         )}
                     </div>
                     <button
                         onClick={handleFixAll}
                         disabled={fixing}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 rounded-lg transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 rounded-lg transition-colors cursor-pointer"
                     >
                         {fixing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                         {fixing ? 'Đang khởi tạo...' : `Khởi tạo quyền cho ${stats.noPermission} nhân viên`}
@@ -208,8 +212,8 @@ const PermissionHealthCheck: React.FC = () => {
             )}
 
             {stats.noPermission === 0 && (
-                <div className="border-t border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-900 px-4 py-2.5 flex items-center gap-2">
-                    <CheckCircle2 size={13} className="text-emerald-500 flex-shrink-0" />
+                <div className="border-t border-slate-200 dark:border-slate-800 bg-emerald-50/50 dark:bg-emerald-950/20 px-4 py-2.5 flex items-center gap-2">
+                    <CheckCircle2 size={13} className="text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
                     <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
                         Tất cả nhân viên đã được cấu hình quyền đầy đủ
                     </span>
@@ -232,22 +236,79 @@ const SectionHeader: React.FC<{ icon: React.ReactNode; title: string; desc: stri
     </div>
 );
 
+// ─── Component Cài Đặt Giao Diện Hệ Thống ───────────────────────────────────────
+const SystemSettingsPanel: React.FC = () => {
+    const { theme, setTheme, accent, setAccent } = useLayoutContext();
+    return (
+        <div className="space-y-6">
+            <SectionHeader
+                icon={<Settings2 size={20} className="text-white" />}
+                title="Giao diện hệ thống"
+                desc="Tùy chỉnh chủ đề và màu sắc hiển thị"
+                gradient="from-slate-500 to-slate-700"
+            />
+            {/* Theme Mode */}
+            <div>
+                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Chế độ hiển thị</h4>
+                <div className="grid grid-cols-2 gap-4">
+                    <button
+                        onClick={() => setTheme('light')}
+                        className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${theme === 'light'
+                            ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-950 dark:border-orange-500 dark:text-orange-400'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                            }`}
+                    >
+                        <Sun size={20} />
+                        <span className="font-bold text-sm">Chế độ Sáng</span>
+                    </button>
+                    <button
+                        onClick={() => setTheme('dark')}
+                        className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${theme === 'dark'
+                            ? 'bg-orange-950/30 border-orange-500 text-orange-400 dark:bg-orange-950/40 dark:border-orange-500'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                            }`}
+                    >
+                        <Moon size={20} />
+                        <span className="font-bold text-sm">Chế độ Tối</span>
+                    </button>
+                </div>
+            </div>
+            {/* Accent Color */}
+            <div>
+                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Màu chủ đạo</h4>
+                <div className="grid grid-cols-2 gap-4">
+                    <button
+                        onClick={() => setAccent('orange')}
+                        className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${accent === 'orange'
+                            ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-950 dark:border-orange-500 dark:text-orange-400'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                            }`}
+                    >
+                        <div className="w-5 h-5 rounded-full" style={{ backgroundColor: '#f97316' }} />
+                        <span className="font-bold text-sm">Cam (Mặc định)</span>
+                    </button>
+                    <button
+                        onClick={() => setAccent('blue')}
+                        className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${accent === 'blue'
+                            ? 'bg-sky-50 border-sky-500 text-sky-700 dark:bg-sky-950/20 dark:border-sky-500 dark:text-sky-400'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                            }`}
+                    >
+                        <div className="w-5 h-5 rounded-full" style={{ backgroundColor: '#0ea5e9' }} />
+                        <span className="font-bold text-sm">CIC Blue</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const Settings: React.FC = () => {
-    const { theme, setTheme, accent, setAccent } = useLayoutContext();
-    const { profile: realProfile } = useAuth();
+    const { openPanel } = useSlidePanel();
     const { profile: effectiveProfile } = useEffectiveProfile();
     // Impersonation-aware: hide admin tabs when impersonating non-admin
     const isAdmin = effectiveProfile?.role === 'Admin';
-
-    const [activeTab, setActiveTabState] = useState<SettingsTab>(() => {
-        return (localStorage.getItem('cic-erp-settings-tab') as SettingsTab) || 'system';
-    });
-
-    const setActiveTab = (tab: SettingsTab) => {
-        setActiveTabState(tab);
-        localStorage.setItem('cic-erp-settings-tab', tab);
-    };
 
     // ─── Section Groups ───────────────────────────────────────────────────────
     const GROUPS: SectionGroup[] = [
@@ -256,7 +317,12 @@ const Settings: React.FC = () => {
             label: 'Hiển thị',
             icon: <Palette size={14} />,
             items: [
-                { id: 'system', label: 'Giao diện', icon: <Settings2 size={15} /> },
+                {
+                    id: 'system',
+                    label: 'Giao diện',
+                    desc: 'Tùy chỉnh chủ đề sáng/tối và màu sắc hiển thị chủ đạo của hệ thống',
+                    icon: <Settings2 size={16} />
+                },
             ],
         },
         {
@@ -265,12 +331,48 @@ const Settings: React.FC = () => {
             icon: <Shield size={14} />,
             adminOnly: true,
             items: [
-                { id: 'role-defaults', label: 'Quyền theo Role', icon: <ShieldCheck size={15} />, adminOnly: true },
-                { id: 'permissions', label: 'Phân quyền User', icon: <Shield size={15} />, adminOnly: true },
-                { id: 'analytics-cards', label: 'Thẻ Phân tích KD', icon: <BarChart3 size={15} />, adminOnly: true },
-                { id: 'task-mgmt', label: 'Cấp quản lý', icon: <Crown size={15} />, adminOnly: true },
-                { id: 'route-audit', label: 'Route & Phân quyền', icon: <ScanLine size={15} />, adminOnly: true },
-                { id: 'perm-audit', label: 'Nhật ký phân quyền', icon: <History size={15} />, adminOnly: true },
+                {
+                    id: 'role-defaults',
+                    label: 'Quyền theo Role',
+                    desc: 'Cấu hình quyền cơ bản mặc định áp dụng cho từng vai trò',
+                    icon: <ShieldCheck size={16} />,
+                    adminOnly: true
+                },
+                {
+                    id: 'permissions',
+                    label: 'Phân quyền User',
+                    desc: 'Quản lý và cấp quyền chi tiết cho từng tài khoản nhân viên',
+                    icon: <Shield size={16} />,
+                    adminOnly: true
+                },
+                {
+                    id: 'analytics-cards',
+                    label: 'Thẻ Phân tích KD',
+                    desc: 'Phân quyền hiển thị các thẻ phân tích trong BI theo vai trò',
+                    icon: <BarChart3 size={16} />,
+                    adminOnly: true
+                },
+                {
+                    id: 'task-mgmt',
+                    label: 'Cấp quản lý',
+                    desc: 'Thiết lập cấp quản lý trực tiếp và phạm vi phụ trách của nhân viên',
+                    icon: <Crown size={16} />,
+                    adminOnly: true
+                },
+                {
+                    id: 'route-audit',
+                    label: 'Route & Phân quyền',
+                    desc: 'Rà soát trạng thái bảo vệ và phân quyền cho tất cả đường dẫn URL',
+                    icon: <ScanLine size={16} />,
+                    adminOnly: true
+                },
+                {
+                    id: 'perm-audit',
+                    label: 'Nhật ký phân quyền',
+                    desc: 'Xem lịch sử thay đổi phân quyền, vai trò của nhân viên',
+                    icon: <History size={16} />,
+                    adminOnly: true
+                },
             ],
         },
         {
@@ -279,7 +381,13 @@ const Settings: React.FC = () => {
             icon: <HardDrive size={14} />,
             adminOnly: true,
             items: [
-                { id: 'drive', label: 'Google Drive', icon: <HardDrive size={15} />, adminOnly: true },
+                {
+                    id: 'drive',
+                    label: 'Google Drive',
+                    desc: 'Kết nối, xác thực và cấu hình thư mục lưu trữ tài liệu Google Drive',
+                    icon: <HardDrive size={16} />,
+                    adminOnly: true
+                },
             ],
         },
         {
@@ -288,9 +396,27 @@ const Settings: React.FC = () => {
             icon: <BarChart3 size={14} />,
             adminOnly: true,
             items: [
-                { id: 'historical', label: 'Sản lượng lịch sử', icon: <BarChart3 size={15} />, adminOnly: true },
-                { id: 'company-target', label: 'Chỉ tiêu ĐHCĐ', icon: <TrendingUp size={15} />, adminOnly: true },
-                { id: 'anomaly-rules', label: 'Ngưỡng rà soát HĐ', icon: <AlertTriangle size={15} />, adminOnly: true },
+                {
+                    id: 'historical',
+                    label: 'Sản lượng lịch sử',
+                    desc: 'Quản lý số liệu sản lượng, doanh thu lịch sử từ các năm trước',
+                    icon: <BarChart3 size={16} />,
+                    adminOnly: true
+                },
+                {
+                    id: 'company-target',
+                    label: 'Chỉ tiêu ĐHCĐ',
+                    desc: 'Thiết lập chỉ tiêu kế hoạch năm do Đại hội cổ đông giao phó',
+                    icon: <TrendingUp size={16} />,
+                    adminOnly: true
+                },
+                {
+                    id: 'anomaly-rules',
+                    label: 'Ngưỡng rà soát HĐ',
+                    desc: 'Thiết lập quy tắc và ngưỡng để phát hiện hợp đồng bất thường',
+                    icon: <AlertTriangle size={16} />,
+                    adminOnly: true
+                },
             ],
         },
         {
@@ -299,7 +425,13 @@ const Settings: React.FC = () => {
             icon: <Bot size={14} />,
             adminOnly: true,
             items: [
-                { id: 'ai-settings', label: 'Thiết lập AI', icon: <Bot size={15} />, adminOnly: true },
+                {
+                    id: 'ai-settings',
+                    label: 'Thiết lập AI',
+                    desc: 'Cấu hình các khóa API Google Gemini và cài đặt AI Assistant',
+                    icon: <Bot size={16} />,
+                    adminOnly: true
+                },
             ],
         },
         {
@@ -307,287 +439,300 @@ const Settings: React.FC = () => {
             label: 'Kiểm thử',
             icon: <FlaskConical size={14} />,
             items: [
-                { id: 'testing', label: 'Kiểm thử & Debug', icon: <FlaskConical size={15} /> },
+                {
+                    id: 'testing',
+                    label: 'Kiểm thử & Debug',
+                    desc: 'Công cụ chạy test hệ thống tự động và giả lập vai trò người dùng',
+                    icon: <FlaskConical size={16} />
+                },
             ],
         },
     ];
 
-    const visibleGroups = GROUPS.map(g => ({
-        ...g,
-        items: g.items.filter(item => !item.adminOnly || isAdmin),
-    })).filter(g => (!g.adminOnly || isAdmin) && g.items.length > 0);
+    const visibleGroups = useMemo(() => {
+        return GROUPS.map(g => ({
+            ...g,
+            items: g.items.filter(item => !item.adminOnly || isAdmin),
+        })).filter(g => (!g.adminOnly || isAdmin) && g.items.length > 0);
+    }, [isAdmin]);
+
+    const handleOpenPanel = useCallback((tabId: SettingsTab, title: string, itemIcon: React.ReactNode) => {
+        let component: React.ReactNode = null;
+
+        switch (tabId) {
+            case 'system':
+                component = <SystemSettingsPanel />;
+                break;
+            case 'role-defaults':
+                component = (
+                    <div>
+                        <SectionHeader
+                            icon={<ShieldCheck size={20} className="text-white" />}
+                            title="Quyền mặc định theo Role"
+                            desc="Cấu hình quyền cơ bản cho từng vai trò — lưu vào database"
+                            gradient="from-emerald-500 to-teal-600"
+                        />
+                        <RoleDefaultsManager />
+                    </div>
+                );
+                break;
+            case 'permissions':
+                component = (
+                    <div>
+                        <SectionHeader
+                            icon={<Shield size={20} className="text-white" />}
+                            title="Phân quyền người dùng"
+                            desc="Quản lý quyền truy cập chi tiết cho từng nhân viên"
+                            gradient="from-purple-500 to-orange-600"
+                        />
+                        <PermissionHealthCheck />
+                        <PermissionManager />
+                    </div>
+                );
+                break;
+            case 'analytics-cards':
+                component = (
+                    <div>
+                        <SectionHeader
+                            icon={<BarChart3 size={20} className="text-white" />}
+                            title="Thẻ Phân tích kinh doanh theo Role"
+                            desc="Cấu hình mỗi vai trò được phép xem những thẻ (card) nào trong phân hệ BI"
+                            gradient="from-sky-500 to-indigo-600"
+                        />
+                        <AnalyticsCardManager />
+                    </div>
+                );
+                break;
+            case 'task-mgmt':
+                component = (
+                    <div>
+                        <SectionHeader
+                            icon={<Crown size={20} className="text-white" />}
+                            title="Cấp quản lý & Phạm vi"
+                            desc="Thiết lập cấp quản lý và đơn vị phụ trách cho mỗi nhân viên"
+                            gradient="from-amber-500 to-yellow-600"
+                        />
+                        <ManagementRankManager />
+                    </div>
+                );
+                break;
+            case 'route-audit':
+                component = (
+                    <div>
+                        <SectionHeader
+                            icon={<ScanLine size={20} className="text-white" />}
+                            title="Kiểm tra Route & Phân quyền"
+                            desc="Rà soát trực quan tất cả URL và trạng thái bảo vệ phân quyền"
+                            gradient="from-rose-500 to-pink-600"
+                        />
+                        <RouteAuditPanel />
+                    </div>
+                );
+                break;
+            case 'perm-audit':
+                component = (
+                    <div>
+                        <SectionHeader
+                            icon={<History size={20} className="text-white" />}
+                            title="Nhật ký phân quyền"
+                            desc="Lịch sử thay đổi quyền truy cập, vai trò và quyền xem đơn vị"
+                            gradient="from-slate-500 to-slate-700"
+                        />
+                        <PermissionAuditLog />
+                    </div>
+                );
+                break;
+            case 'drive':
+                component = <DriveSettings />;
+                break;
+            case 'historical':
+                component = <HistoricalProductionManager />;
+                break;
+            case 'company-target':
+                component = (
+                    <div>
+                        <SectionHeader
+                            icon={<TrendingUp size={20} className="text-white" />}
+                            title="Chỉ tiêu ĐHCĐ"
+                            desc="Chỉ tiêu Đại hội cổ đông giao theo năm (Ký kết, Doanh thu, Lợi nhuận)"
+                            gradient="from-orange-500 to-amber-600"
+                        />
+                        <CompanyTargetManager />
+                    </div>
+                );
+                break;
+            case 'anomaly-rules':
+                component = (
+                    <div>
+                        <SectionHeader
+                            icon={<AlertTriangle size={20} className="text-white" />}
+                            title="Ngưỡng rà soát Hợp đồng bất thường"
+                            desc="Bật/tắt luật, đặt mức độ và ngưỡng phát hiện cho báo cáo rà soát hợp đồng"
+                            gradient="from-red-500 to-rose-600"
+                        />
+                        <AnomalyRuleManager />
+                    </div>
+                );
+                break;
+            case 'ai-settings':
+                component = (
+                    <div className="space-y-6">
+                        <React.Suspense fallback={
+                            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 py-4">
+                                <Loader2 size={16} className="animate-spin" /> Đang tải thiết lập AI...
+                            </div>
+                        }>
+                            <AISettingsManager />
+                        </React.Suspense>
+                    </div>
+                );
+                break;
+            case 'testing':
+                component = (
+                    <div className="space-y-8">
+                        {isAdmin && (
+                            <div>
+                                <SectionHeader
+                                    icon={<Users size={20} className="text-white" />}
+                                    title="Giả làm người dùng"
+                                    desc="Test phân quyền bằng cách đóng vai user khác"
+                                    gradient="from-amber-500 to-orange-600"
+                                />
+                                <UserImpersonator />
+                            </div>
+                        )}
+                        {isAdmin && <div className="border-t border-slate-200 dark:border-slate-800" />}
+                        <div>
+                            <SectionHeader
+                                icon={<FlaskConical size={20} className="text-white" />}
+                                title="Kiểm thử tự động"
+                                desc="Chạy các bài test hệ thống"
+                                gradient="from-emerald-500 to-teal-600"
+                            />
+                            <PilotRunner />
+                        </div>
+                    </div>
+                );
+                break;
+            default:
+                component = <div className="text-slate-500 dark:text-slate-400">Không tìm thấy tính năng</div>;
+        }
+
+        openPanel({
+            title: title,
+            icon: itemIcon,
+            component: (
+                <div className="p-6 md:p-8 bg-slate-50 dark:bg-slate-900 min-h-full">
+                    <div className="max-w-5xl mx-auto bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 shadow-sm dark:shadow-none">
+                        {component}
+                    </div>
+                </div>
+            ),
+            url: `/settings?panel=${tabId}`
+        });
+    }, [openPanel, isAdmin]);
+
+    const initialOpenRef = useRef(false);
+
+    useEffect(() => {
+        if (!effectiveProfile || initialOpenRef.current) return;
+
+        const params = new URLSearchParams(window.location.search);
+        const panelParam = params.get('panel') as SettingsTab | null;
+        if (panelParam) {
+            const foundItem = visibleGroups
+                .flatMap(g => g.items)
+                .find(item => item.id === panelParam);
+
+            if (foundItem) {
+                initialOpenRef.current = true;
+                handleOpenPanel(foundItem.id, foundItem.label, foundItem.icon);
+            }
+        }
+    }, [effectiveProfile, visibleGroups, handleOpenPanel]);
+
+    const col1GroupIds = ['display', 'integrations', 'ai'];
+    const col2GroupIds = ['security'];
+    const col3GroupIds = ['data', 'testing'];
+
+    const col1Groups = visibleGroups.filter(g => col1GroupIds.includes(g.id));
+    const col2Groups = visibleGroups.filter(g => col2GroupIds.includes(g.id));
+    const col3Groups = visibleGroups.filter(g => col3GroupIds.includes(g.id));
+
+    const renderGroupCard = (group: any) => {
+        return (
+            <div
+                key={group.id}
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm dark:shadow-none overflow-hidden flex flex-col"
+            >
+                {/* Group Header */}
+                <div className="flex items-center gap-2.5 px-4 py-3.5 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800">
+                    <span className="text-orange-500 dark:text-orange-400 w-5 flex justify-center">{group.icon}</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                        {group.label}
+                    </span>
+                </div>
+
+                {/* Group Items */}
+                <div className="p-3 space-y-1.5 flex-1">
+                    {group.items.map((item: any) => (
+                        <div
+                            key={item.id}
+                            onClick={() => handleOpenPanel(item.id, item.label, item.icon)}
+                            className="group w-full flex items-center justify-between gap-3 p-3 rounded-xl text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                        >
+                            <div className="flex items-start gap-3 min-w-0">
+                                {/* Item Icon */}
+                                <div className="w-9 h-9 rounded-lg bg-orange-50 dark:bg-orange-950/35 flex items-center justify-center flex-shrink-0 text-orange-600 dark:text-orange-400 transition-colors duration-200 group-hover:bg-orange-100 dark:group-hover:bg-orange-950/60">
+                                    {item.icon}
+                                </div>
+
+                                {/* Text Info */}
+                                <div className="min-w-0">
+                                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                                        {item.label}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal mt-0.5 whitespace-pre-wrap">
+                                        {item.desc}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Arrow Action */}
+                            <ChevronRight
+                                size={15}
+                                className="text-slate-400 dark:text-slate-600 group-hover:text-orange-500 dark:group-hover:text-orange-400 group-hover:translate-x-0.5 transition-all flex-shrink-0"
+                            />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="max-w-7xl mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Cài đặt</h1>
-                <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-slate-500">v2.5.0</span>
+                <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-slate-500 dark:text-slate-400">v2.5.0</span>
             </div>
 
-            <div className="flex gap-5">
-                {/* ─── Left Sidebar Navigation ─────────────────────────────── */}
-                <div className="w-52 flex-shrink-0">
-                    <nav className="space-y-0.5 sticky top-6">
-                        {visibleGroups.map(group => (
-                            <div key={group.id} className="mb-4">
-                                {/* Group label */}
-                                <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
-                                    <span className="text-orange-500 dark:text-orange-400 w-5 flex justify-center">{group.icon}</span>
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-orange-600 dark:text-orange-400">
-                                        {group.label}
-                                    </span>
-                                </div>
-                                {/* Items */}
-                                {group.items.map(item => (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => setActiveTab(item.id)}
-                                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${activeTab === item.id
-                                            ? 'bg-orange-50 dark:bg-orange-900 text-orange-700 dark:text-orange-400 font-semibold'
-                                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 font-medium'
-                                            }`}
-                                    >
-                                        <span className="flex items-center gap-2">
-                                            <span className={`${activeTab === item.id ? 'text-orange-500' : 'text-slate-400 dark:text-slate-500'} w-5 flex justify-center`}>
-                                                {item.icon}
-                                            </span>
-                                            {item.label}
-                                        </span>
-                                        {activeTab === item.id && (
-                                            <ChevronRight size={13} className="text-orange-400 flex-shrink-0" />
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        ))}
-                    </nav>
+            {/* Grid of Group Cards - Customized to 3 Columns */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                {/* Column 1: Hiển thị, Tích hợp, Trí tuệ nhân tạo, Kiểm thử */}
+                <div className="space-y-6">
+                    {col1Groups.map(group => renderGroupCard(group))}
                 </div>
 
-                {/* ─── Right Content Area ───────────────────────────────────── */}
-                <div className="flex-1 min-w-0 bg-white dark:bg-slate-900 p-6 md:p-8 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-none">
+                {/* Column 2: Phân quyền */}
+                <div className="space-y-6">
+                    {col2Groups.map(group => renderGroupCard(group))}
+                </div>
 
-                    {/* SYSTEM */}
-                    {activeTab === 'system' && (
-                        <div className="space-y-6">
-                            <SectionHeader
-                                icon={<Settings2 size={20} className="text-white" />}
-                                title="Giao diện hệ thống"
-                                desc="Tùy chỉnh chủ đề và màu sắc hiển thị"
-                                gradient="from-slate-500 to-slate-700"
-                            />
-                            {/* Theme Mode */}
-                            <div>
-                                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Chế độ hiển thị</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <button
-                                        onClick={() => setTheme('light')}
-                                        className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${theme === 'light'
-                                            ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-900 dark:border-orange-500 dark:text-orange-400'
-                                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
-                                            }`}
-                                    >
-                                        <Sun size={20} />
-                                        <span className="font-bold text-sm">Chế độ Sáng</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setTheme('dark')}
-                                        className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${theme === 'dark'
-                                            ? 'bg-orange-900/30 border-orange-500 text-orange-400'
-                                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
-                                            }`}
-                                    >
-                                        <Moon size={20} />
-                                        <span className="font-bold text-sm">Chế độ Tối</span>
-                                    </button>
-                                </div>
-                            </div>
-                            {/* Accent Color */}
-                            <div>
-                                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Màu chủ đạo</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <button
-                                        onClick={() => setAccent('orange')}
-                                        className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${accent === 'orange'
-                                            ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-900 dark:border-orange-500 dark:text-orange-400'
-                                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
-                                            }`}
-                                    >
-                                        <div className="w-5 h-5 rounded-full" style={{ backgroundColor: '#f97316' }} />
-                                        <span className="font-bold text-sm">Cam (Mặc định)</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setAccent('blue')}
-                                        className={`flex items-center justify-center gap-3 p-4 rounded-lg border transition-all duration-200 cursor-pointer ${accent === 'blue'
-                                            ? 'bg-sky-50 border-sky-500 text-sky-700 dark:bg-sky-900/20 dark:border-sky-500 dark:text-sky-400'
-                                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-500'
-                                            }`}
-                                    >
-                                        <div className="w-5 h-5 rounded-full" style={{ backgroundColor: '#0ea5e9' }} />
-                                        <span className="font-bold text-sm">CIC Blue</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ROLE DEFAULTS */}
-                    {activeTab === 'role-defaults' && isAdmin && (
-                        <div>
-                            <SectionHeader
-                                icon={<ShieldCheck size={20} className="text-white" />}
-                                title="Quyền mặc định theo Role"
-                                desc="Cấu hình quyền cơ bản cho từng vai trò — lưu vào database"
-                                gradient="from-emerald-500 to-teal-600"
-                            />
-                            <RoleDefaultsManager />
-                        </div>
-                    )}
-
-                    {/* PERMISSIONS (User-level) — with Health Check */}
-                    {activeTab === 'permissions' && isAdmin && (
-                        <div>
-                            <SectionHeader
-                                icon={<Shield size={20} className="text-white" />}
-                                title="Phân quyền người dùng"
-                                desc="Quản lý quyền truy cập chi tiết cho từng nhân viên"
-                                gradient="from-purple-500 to-orange-600"
-                            />
-                            {/* Task 3.3: Health Check Widget */}
-                            <PermissionHealthCheck />
-                            <PermissionManager />
-                        </div>
-                    )}
-
-                    {/* ANALYTICS CARDS (Phân quyền thẻ BI theo role) */}
-                    {activeTab === 'analytics-cards' && isAdmin && (
-                        <div>
-                            <SectionHeader
-                                icon={<BarChart3 size={20} className="text-white" />}
-                                title="Thẻ Phân tích kinh doanh theo Role"
-                                desc="Cấu hình mỗi vai trò được phép xem những thẻ (card) nào trong phân hệ BI"
-                                gradient="from-sky-500 to-indigo-600"
-                            />
-                            <AnalyticsCardManager />
-                        </div>
-                    )}
-
-                    {/* TASK MANAGEMENT */}
-                    {activeTab === 'task-mgmt' && isAdmin && (
-                        <div>
-                            <SectionHeader
-                                icon={<Crown size={20} className="text-white" />}
-                                title="Cấp quản lý & Phạm vi"
-                                desc="Thiết lập cấp quản lý và đơn vị phụ trách cho mỗi nhân viên"
-                                gradient="from-amber-500 to-yellow-600"
-                            />
-                            <ManagementRankManager />
-                        </div>
-                    )}
-
-                    {/* ROUTE AUDIT */}
-                    {activeTab === 'route-audit' && isAdmin && (
-                        <div>
-                            <SectionHeader
-                                icon={<ScanLine size={20} className="text-white" />}
-                                title="Kiểm tra Route & Phân quyền"
-                                desc="Rà soát trực quan tất cả URL và trạng thái bảo vệ phân quyền"
-                                gradient="from-rose-500 to-pink-600"
-                            />
-                            <RouteAuditPanel />
-                        </div>
-                    )}
-
-                    {/* PERMISSION AUDIT LOG */}
-                    {activeTab === 'perm-audit' && isAdmin && (
-                        <div>
-                            <SectionHeader
-                                icon={<History size={20} className="text-white" />}
-                                title="Nhật ký phân quyền"
-                                desc="Lịch sử thay đổi quyền truy cập, vai trò và quyền xem đơn vị"
-                                gradient="from-slate-500 to-slate-700"
-                            />
-                            <PermissionAuditLog />
-                        </div>
-                    )}
-
-                    {/* Các tab thiết lập AI đã được chuyển sang trang AI Agent hợp nhất */}
-
-                    {/* GOOGLE DRIVE */}
-                    {activeTab === 'drive' && isAdmin && (
-                        <DriveSettings />
-                    )}
-
-                    {/* HISTORICAL PRODUCTION */}
-                    {activeTab === 'historical' && isAdmin && (
-                        <HistoricalProductionManager />
-                    )}
-
-                    {/* COMPANY TARGET (ĐHCĐ) */}
-                    {activeTab === 'company-target' && isAdmin && (
-                        <div>
-                            <SectionHeader
-                                icon={<TrendingUp size={20} className="text-white" />}
-                                title="Chỉ tiêu ĐHCĐ"
-                                desc="Chỉ tiêu Đại hội cổ đông giao theo năm (Ký kết, Doanh thu, Lợi nhuận)"
-                                gradient="from-orange-500 to-amber-600"
-                            />
-                            <CompanyTargetManager />
-                        </div>
-                    )}
-
-                    {/* NGƯỠNG RÀ SOÁT HỢP ĐỒNG BẤT THƯỜNG */}
-                    {activeTab === 'anomaly-rules' && isAdmin && (
-                        <div>
-                            <SectionHeader
-                                icon={<AlertTriangle size={20} className="text-white" />}
-                                title="Ngưỡng rà soát Hợp đồng bất thường"
-                                desc="Bật/tắt luật, đặt mức độ và ngưỡng phát hiện cho báo cáo rà soát hợp đồng"
-                                gradient="from-red-500 to-rose-600"
-                            />
-                            <AnomalyRuleManager />
-                        </div>
-                    )}
-
-                    {/* THIẾT LẬP AI */}
-                    {activeTab === 'ai-settings' && isAdmin && (
-                        <div className="space-y-6">
-                            <React.Suspense fallback={
-                                <div className="flex items-center gap-2 text-sm text-slate-500 py-4">
-                                    <Loader2 size={16} className="animate-spin" /> Đang tải thiết lập AI...
-                                </div>
-                            }>
-                                <AISettingsManager />
-                            </React.Suspense>
-                        </div>
-                    )}
-
-                    {/* TESTING */}
-                    {activeTab === 'testing' && (
-                        <div className="space-y-8">
-                            {isAdmin && (
-                                <div>
-                                    <SectionHeader
-                                        icon={<Users size={20} className="text-white" />}
-                                        title="Giả làm người dùng"
-                                        desc="Test phân quyền bằng cách đóng vai user khác"
-                                        gradient="from-amber-500 to-orange-600"
-                                    />
-                                    <UserImpersonator />
-                                </div>
-                            )}
-                            {isAdmin && <div className="border-t border-slate-200 dark:border-slate-700" />}
-                            <div>
-                                <SectionHeader
-                                    icon={<FlaskConical size={20} className="text-white" />}
-                                    title="Kiểm thử tự động"
-                                    desc="Chạy các bài test hệ thống"
-                                    gradient="from-emerald-500 to-teal-600"
-                                />
-                                <PilotRunner />
-                            </div>
-                        </div>
-                    )}
+                {/* Column 3: Dữ liệu */}
+                <div className="space-y-6">
+                    {col3Groups.map(group => renderGroupCard(group))}
                 </div>
             </div>
         </div>
@@ -595,3 +740,6 @@ const Settings: React.FC = () => {
 };
 
 export default Settings;
+
+
+

@@ -28,6 +28,7 @@ export const RESOURCE_LABELS: Record<PermissionResource, string> = {
     analytics: 'Phân tích kinh doanh',
     crm: 'CRM',
     tools: 'Công cụ nội bộ',
+    tech_intel: 'Giám sát Công nghệ',
 };
 
 // ─── Action Labels ────────────────────────────────────────

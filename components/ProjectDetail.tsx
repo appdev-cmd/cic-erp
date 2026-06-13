@@ -134,6 +134,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onBack, onEdit
     import('./ContractDetail').then(({ default: ContractDetailComponent }) => {
       openPanel({
         title: `Hợp đồng ${contractInfo.contractCode}`,
+        url: `/contracts/${contractInfo.id}`,
         component: (
           <div className="p-4 md:p-6 lg:p-8">
             <ContractDetailComponent

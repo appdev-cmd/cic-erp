@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, Shield, Sparkles, BarChart3, Loader2 } from 'lucide-react';
+import { Bot, Shield, Sparkles, BarChart3, Loader2, Key } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 // Lazy-loaded sub-components
@@ -7,8 +7,9 @@ const AgentManager = React.lazy(() => import('../AgentManager'));
 const AIPermissionManager = React.lazy(() => import('./AIPermissionManager'));
 const EmbeddingSettings = React.lazy(() => import('./EmbeddingSettings'));
 const AIObservabilityDashboard = React.lazy(() => import('../AIObservabilityDashboard'));
+const GeminiKeyManager = React.lazy(() => import('./GeminiKeyManager'));
 
-type AITab = 'agents' | 'permissions' | 'embedding' | 'monitoring';
+type AITab = 'agents' | 'permissions' | 'embedding' | 'monitoring' | 'gemini-keys';
 
 const LoadingState: React.FC = () => (
   <div className="flex flex-col items-center justify-center py-12 md:py-20 gap-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -24,6 +25,7 @@ const AISettingsManager: React.FC = () => {
         { id: 'agents', label: 'Cấu hình Trợ lý', icon: <Bot size={15} /> },
         { id: 'permissions', label: 'Phân quyền AI', icon: <Shield size={15} /> },
         { id: 'embedding', label: 'Cấu hình Vector', icon: <Sparkles size={15} /> },
+        { id: 'gemini-keys', label: 'Quản lý Gemini Keys', icon: <Key size={15} /> },
         { id: 'monitoring', label: 'Giám sát & Chi phí', icon: <BarChart3 size={15} /> },
     ] as const;
 
@@ -63,6 +65,11 @@ const AISettingsManager: React.FC = () => {
                 {activeTab === 'embedding' && (
                     <React.Suspense fallback={<LoadingState />}>
                         <EmbeddingSettings />
+                    </React.Suspense>
+                )}
+                {activeTab === 'gemini-keys' && (
+                    <React.Suspense fallback={<LoadingState />}>
+                        <GeminiKeyManager />
                     </React.Suspense>
                 )}
                 {activeTab === 'monitoring' && (

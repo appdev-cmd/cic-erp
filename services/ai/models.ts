@@ -70,8 +70,32 @@ export const AI_MODELS: AIModel[] = [
 
   // ─── Google Gemini ─────────────────────────
   {
+    id: 'gemini-3.5-flash',
+    name: 'Gemini 3.5 Flash',
+    provider: 'gemini',
+    contextWindow: 1048576,
+    supportsVision: true,
+    supportsStreaming: true,
+    supportsToolCalling: true,
+    costPer1kInput: 0.000075,
+    costPer1kOutput: 0.0003,
+    isEnabled: true, // Fallback chính khi local model gặp sự cố
+  },
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    provider: 'gemini',
+    contextWindow: 1048576,
+    supportsVision: true,
+    supportsStreaming: true,
+    supportsToolCalling: true,
+    costPer1kInput: 0.000075,
+    costPer1kOutput: 0.0003,
+    isEnabled: true,
+  },
+  {
     id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
+    name: 'Gemini 2.0 Flash (Deprecated)',
     provider: 'gemini',
     contextWindow: 1048576,
     supportsVision: true,
@@ -79,7 +103,7 @@ export const AI_MODELS: AIModel[] = [
     supportsToolCalling: true,
     costPer1kInput: 0.0001,
     costPer1kOutput: 0.0004,
-    isEnabled: true, // Fallback chính khi local model gặp sự cố
+    isEnabled: false,
   },
   {
     id: 'gemini-1.5-flash',

@@ -88,7 +88,7 @@ async function callGeminiProxy(
     parts: GeminiPart[],
     maxTokens = 8192,
     temperature = 0.1,
-    model = 'gemini-2.0-flash',
+    model = 'gemini-3.5-flash',
     apiSource: GeminiApiSource = 'system'
 ): Promise<string> {
     // --- Personal key: gọi trực tiếp ---
@@ -699,7 +699,7 @@ export async function extractPAKDFromImage(
         rawText = await callGeminiProxy([
             { text: PAKD_EXTRACT_PROMPT },
             { inlineData: { mimeType, data: base64 } },
-        ], 8192, 0.1, 'gemini-2.0-flash', apiSource);
+        ], 8192, 0.1, 'gemini-3.5-flash', apiSource);
     } else if (model === 'gpt4o') {
         const apiKey = localStorage.getItem('cic_custom_openai_key') || import.meta.env.VITE_OPENAI_API_KEY;
         if (!apiKey) throw new Error('Bạn cần nhập OpenAI API Key trong Cài đặt để dùng GPT-4o với ảnh, hoặc sử dụng Gemini.');
@@ -763,7 +763,7 @@ export async function extractPAKDFromText(
         rawText = await callGeminiProxy([
             { text: PAKD_EXTRACT_PROMPT },
             { text },
-        ], 8192, 0.1, 'gemini-2.0-flash', apiSource);
+        ], 8192, 0.1, 'gemini-3.5-flash', apiSource);
     } else if (model === 'gpt4o') {
         const apiKey = localStorage.getItem('cic_custom_openai_key') || import.meta.env.VITE_OPENAI_API_KEY;
         if (!apiKey) throw new Error('Chưa cấu hình OPENAI_API_KEY');

@@ -78,7 +78,7 @@ describe('AI Gateway Fallback Tests', () => {
     });
 
     expect(res.wasFallback).toBe(true);
-    expect(res.activeModel).toBe('gemini-2.0-flash');
+    expect(res.activeModel).toBe('gemini-3.5-flash');
     expect(res.message).toBe('Hello from Gemini Fallback');
   });
 });

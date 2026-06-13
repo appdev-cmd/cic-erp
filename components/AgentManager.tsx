@@ -243,6 +243,7 @@ const AgentManager: React.FC = () => {
                 openPanel({
                   title: agent.name,
                   icon: renderIcon(agent.icon, 14),
+                  url: `/ai-assistant?agent=${agent.id}`,
                   component: (
                     <AgentDetailPanel
                       agent={agent}

@@ -73,6 +73,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     const handleOpenContractDetail = useCallback((id: string, code: string) => {
         openPanel({
             title: `Chi tiết Hợp đồng ${code}`,
+            url: `/contracts/${id}`,
             component: (
                 <div className="p-4 md:p-6 lg:p-8">
                     <ContractDetail
@@ -114,6 +115,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     const handleOpenPersonnelDetail = useCallback((id: string) => {
         openPanel({
             title: 'Chi tiết Nhân viên',
+            url: `/personnel/${id}`,
             component: (
                 <React.Suspense fallback={<DetailPageSkeleton />}>
                     <div className="p-4 md:p-6 lg:p-8">
@@ -134,6 +136,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     const handleOpenUnitDetail = useCallback((id: string) => {
         openPanel({
             title: 'Chi tiết Đơn vị',
+            url: `/units/${id}`,
             component: (
                 <React.Suspense fallback={<DetailPageSkeleton />}>
                     <div className="p-4 md:p-6 lg:p-8">
@@ -156,6 +159,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     const handleOpenProductDetail = useCallback((id: string) => {
         openPanel({
             title: 'Chi tiết Sản phẩm/DV',
+            url: `/products/${id}`,
             component: (
                 <React.Suspense fallback={<DetailPageSkeleton />}>
                     <div className="p-4 md:p-6 lg:p-8">
@@ -196,6 +200,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ selectedUnit: propSelectedUnit, o
     const handleOpenCustomerDetail = useCallback((id: string) => {
         openPanel({
             title: 'Chi tiết Khách hàng',
+            url: `/customers/${id}`,
             component: (
                 <React.Suspense fallback={<DetailPageSkeleton />}>
                     <div className="p-4 md:p-6 lg:p-8">

@@ -19,7 +19,7 @@ import { formatCurrency } from '../utils/formatters';
 const PROVIDER_KEY = 'cic_lead_intelligence_provider';
 const GEMINI_KEY_STORAGE = 'cic_custom_gemini_key';
 const LOCAL_MODEL = 'qwen3.5-35b';
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-3.5-flash';
 
 function selectAIModel(): string {
   try {

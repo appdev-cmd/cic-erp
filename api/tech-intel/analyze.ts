@@ -59,13 +59,14 @@ Hãy phân tích bài viết sau và trả về JSON THUẦN (không có markdow
 
 TIÊU ĐỀ: ${article.title}
 ${article.summary ? `TÓM TẮT: ${article.summary}` : ''}
-${article.content ? `NỘI DUNG: ${article.content.substring(0, 3000)}` : ''}
+${article.content ? `NỘI DUNG: ${article.content.substring(0, 6000)}` : ''}
 URL: ${article.url}
 
 Trả về JSON với cấu trúc chính xác sau:
 {
   "title_vi": "Tiêu đề dịch sang tiếng Việt tự nhiên",
   "summary_vi": "Tóm tắt 2-3 câu bằng tiếng Việt, nêu rõ công nghệ gì, ai phát triển, ứng dụng ra sao",
+  "content_vi": "DỊCH TOÀN BỘ nội dung bài viết sang tiếng Việt tự nhiên, mạch lạc, giữ nguyên đầy đủ ý và các đoạn. Giữ nguyên tên riêng/tên công ty/thuật ngữ kỹ thuật khi cần. Đây là bản dịch chính để người đọc Việt Nam đọc, KHÔNG phải tóm tắt — phải dịch hết nội dung được cung cấp. Nếu không có nội dung thì để chuỗi rỗng.",
   "technologies": ["Tên công nghệ cụ thể, ví dụ: BIM, Digital Twin, LiDAR"],
   "technology_category": "Một trong: software_platform | ai_solution | robotics_automation | consulting | green_certification | energy_emission",
   "project_phases": ["Một hoặc nhiều trong: survey | design | planning | construction | project_management | handover | operations | monitoring"],
@@ -102,7 +103,7 @@ async function callAI(model: string, prompt: string, timeoutMs: number): Promise
       model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
-      max_tokens: 4000, // gemini-3.5-flash "thinking" cần room cho reasoning + JSON
+      max_tokens: 8000, // dịch toàn văn content_vi + reasoning + JSON → cần nhiều room hơn
       stream: false,
       response_format: { type: 'json_object' },
     }),
@@ -224,6 +225,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .update({
           title_vi: r.title_vi || article.title,
           summary_vi: r.summary_vi || '',
+          content_vi: r.content_vi || '',
           technologies: r.technologies || [],
           technology_category: r.technology_category || 'software_platform',
           project_phases: r.project_phases || [],

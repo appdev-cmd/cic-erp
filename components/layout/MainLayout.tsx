@@ -193,6 +193,7 @@ const MainLayout: React.FC = () => {
         if (path.startsWith('/units')) return 'units';
         if (path.startsWith('/settings')) return 'settings';
         if (path.startsWith('/crm')) return 'crm';
+        if (path.startsWith('/tech-intel')) return 'tech-intel';
         return 'dashboard';
     };
 
@@ -321,7 +322,7 @@ const MainLayout: React.FC = () => {
                     <CommandPalette />
                     
                     {/* Floating Chat AI */}
-                    <ChatWidget />
+                    {/* <ChatWidget /> */}
 
                     {/* ═══ Floating Impersonation Banner ═══ */}
                     {isImpersonating && impersonatedUser && (

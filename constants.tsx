@@ -21,7 +21,8 @@ import {
   Newspaper,
   Globe,
   Activity,
-  Target
+  Target,
+  Radar
 } from 'lucide-react';
 import { UserRole, PlanStatus } from './types';
 
@@ -102,6 +103,7 @@ export const NAV_ITEMS = [
   { id: 'analytics', label: 'Phân tích kinh doanh', icon: <PieChart size={20} /> },
   { id: 'hrm', label: 'Nhân sự HR', icon: <Briefcase size={20} /> },
   { id: 'ai-assistant', label: 'AI Agent', icon: <BrainCircuit size={20} /> },
+  { id: 'tech-intel', label: 'Giám sát Công nghệ', icon: <Radar size={20} /> },
   { id: 'chat', label: 'Chat', icon: <MessageCircle size={20} /> },
 
   { id: 'documents', label: 'Tài liệu', icon: <FolderOpen size={20} />, devOnly: true },

@@ -175,6 +175,7 @@ const RecruitmentPage: React.FC = () => {
               onClick={() => {
                 openPanel({
                   title: 'Tạo Yêu cầu Tuyển dụng',
+                  url: '/hrm/recruitment?panel=job-new',
                   component: (
                     <JobOpeningForm
                       job={null}
@@ -383,7 +384,7 @@ const RecruitmentPage: React.FC = () => {
                        </div>
                        <div className="text-right flex flex-col items-end gap-1.5">
                          <div className="flex items-center gap-2">
-                           <button onClick={(e) => { e.stopPropagation(); openPanel({ title: `Chỉnh sửa: ${job.title}`, component: (<JobOpeningForm job={job} onClose={() => closePanel()} onSuccess={() => { closePanel(); loadData(); }} isInsidePanel={true} />) }); }} className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-50 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-900/30 rounded-lg transition-colors" title="Sửa vị trí">
+                           <button onClick={(e) => { e.stopPropagation(); openPanel({ title: `Chỉnh sửa: ${job.title}`, url: `/hrm/recruitment?panel=job-edit&id=${job.id}`, component: (<JobOpeningForm job={job} onClose={() => closePanel()} onSuccess={() => { closePanel(); loadData(); }} isInsidePanel={true} />) }); }} className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-slate-50 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-900/30 rounded-lg transition-colors" title="Sửa vị trí">
                              <Edit size={16} />
                            </button>
                            <button onClick={(e) => { e.stopPropagation(); const url = `${window.location.origin}/jobs/${job.id}/apply`; navigator.clipboard.writeText(url); toast.success('Đã sao chép link ứng tuyển vòng ngoài!'); }} className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 bg-slate-50 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-900/30 rounded-lg transition-colors" title="Copy link ứng tuyển Public">

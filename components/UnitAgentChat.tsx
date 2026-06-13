@@ -232,7 +232,7 @@ const UnitAgentChat: React.FC<UnitAgentChatProps> = ({ isOpen, onClose, unitCode
           `**Nguyên nhân**: Máy chủ AI chính hiện đang gặp sự cố kết nối (Ví dụ: Bạn đang chạy local và chưa kết nối vào mạng nội bộ/VPN của công ty).\n\n` +
           `Đồng thời, **kênh dự phòng Gemini Cloud mặc định của hệ thống đã bị hết hạn hoặc không hợp lệ** (Lỗi: *${errDetail.substring(0, 150)}*).\n\n` +
           `**Giải pháp khắc phục (Kích hoạt API Key cá nhân)**:\n` +
-          `Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 2.0 Flash** sử dụng **API Key cá nhân** của bạn.\n\n` +
+          `Hệ thống hỗ trợ tự động kích hoạt kênh dự phòng qua mô hình đám mây **Gemini 3.5 Flash** sử dụng **API Key cá nhân** của bạn.\n\n` +
           `Vui lòng vào phần **Cài đặt (⚙️)** ở thanh công cụ góc trên bên phải **khung chat chính** để cấu hình **API Key cá nhân** (lấy miễn phí từ **[Google AI Studio](https://aistudio.google.com/app/apikey)**).\n\n` +
           `*Sau khi lưu ở trang chat chính, trợ lý AI sẽ tự động kích hoạt lại kênh dự phòng này!*`;
       }

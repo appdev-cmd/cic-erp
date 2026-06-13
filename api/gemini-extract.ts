@@ -97,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // If supabaseAdmin is null (no SUPABASE_SERVICE_ROLE_KEY), allow without auth (dev mode)
 
         // ─── Call Gemini ─────────────────────────────────
-        const { parts, maxTokens = 8192, temperature = 0.1, model = 'gemini-2.0-flash' } = req.body || {};
+        const { parts, maxTokens = 8192, temperature = 0.1, model = 'gemini-3.5-flash' } = req.body || {};
 
         if (!parts || !Array.isArray(parts) || parts.length === 0) {
             return res.status(400).json({ error: 'Missing or invalid "parts" in request body' });

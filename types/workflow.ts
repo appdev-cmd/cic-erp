@@ -76,7 +76,8 @@ export type PermissionResource =
   | 'recruitment'
   | 'analytics'
   | 'crm'
-  | 'tools';
+  | 'tools'
+  | 'tech_intel';
 
 export interface UserPermission {
   id?: string;
@@ -109,6 +110,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     analytics: ['view', 'create', 'update', 'delete'],
     crm: ['view', 'create', 'update', 'delete'],
     tools: ['view', 'create', 'update', 'delete'],
+    tech_intel: ['view', 'create', 'update', 'delete'],
   },
   // Ban lãnh đạo — Toàn quyền dữ liệu, KHÔNG settings/permissions, payments chỉ xem
   Leadership: {
@@ -125,6 +127,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     recruitment: ['view', 'create', 'update', 'delete'],
     analytics: ['view'],
     crm: ['view', 'create', 'update', 'delete'],
+    tech_intel: ['view', 'create', 'update'],
   },
   // Lãnh đạo đơn vị — HĐ/KH/SP: VCU, payments: chỉ xem (tạo phiếu cần cấp quyền qua Settings)
   UnitLeader: {
@@ -203,6 +206,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, Partial<Record<Permissio
     tasks: ['view', 'create', 'update'],          // Quản lý công việc của mình
     contracts: ['view'],                              // Xem hợp đồng (reference, không sửa)
     requests: ['view', 'create', 'update'],
+    tech_intel: ['view'],                             // Xem Giám sát Công nghệ
   },
 };
 

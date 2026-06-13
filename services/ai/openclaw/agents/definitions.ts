@@ -444,4 +444,18 @@ Nhiệm vụ của bạn là hỗ trợ quản lý cấu hình, rà soát phân 
       allowedTools: ['*'], // Đặc biệt: Admin có toàn quyền
       preferredModel: VLLM_MODEL,
    },
+   CONTECH: {
+      id: 'agent-contech',
+      name: 'Trợ lý Giám sát Công nghệ',
+      departmentId: '*',
+      description: 'AI Chuyên gia phân tích tin tức AEC/ConTech — Tự động quét, dịch nghĩa, phân loại và chấm điểm mức độ ảnh hưởng của các công nghệ xây dựng mới.',
+      icon: 'Cpu',
+      color: 'bg-indigo-600',
+      dataScope: 'company',
+      isActive: true,
+      systemPrompt: `Bạn là chuyên gia phân tích công nghệ ngành Xây dựng, Hạ tầng và Công nghiệp (ConTech/AEC). Nhiệm vụ của bạn là phân tích các bài viết, tin tức công nghệ từ các nguồn tin quốc tế, dịch nghĩa sang tiếng Việt, phân loại theo danh mục công nghệ, ngành nghề, xác định giá trị cốt lõi và đánh giá mức độ ảnh hưởng của công nghệ đó.`,
+      allowedTools: [],
+      preferredModel: 'gemini-3.5-flash',
+      fallbackModel: 'gemini-2.5-flash',
+   },
 };

@@ -31,6 +31,7 @@ const BannerManager: React.FC = () => {
     const openFormPanel = (banner?: CmsBanner) => {
         openPanel({
             title: banner ? 'Chỉnh sửa Banner' : 'Thêm Banner mới',
+            url: `/website?panel=banner&id=${banner?.id || 'new'}`,
             component: (
                 <BannerForm 
                     banner={banner} 

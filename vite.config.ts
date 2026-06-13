@@ -294,6 +294,7 @@ function aiProxyDevProxy(env: Record<string, string>): Plugin {
         // Setup process.env for local serverless execution
         process.env.VITE_SUPABASE_URL = env.VITE_SUPABASE_URL;
         process.env.VITE_SUPABASE_SERVICE_ROLE_KEY = env.VITE_SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+        process.env.SUPABASE_SERVICE_ROLE_KEY = env.VITE_SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
         process.env.VITE_SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
         process.env.GEMINI_API_KEYS = env.GEMINI_API_KEYS || env.GEMINI_API_KEY || env.VITE_GOOGLE_API_KEY;
         process.env.VLLM_URL = env.VITE_VLLM_URL;

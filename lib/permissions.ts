@@ -96,6 +96,7 @@ const NAV_RESOURCE_MAP: { navId: string; resource: PermissionResource }[] = [
     { navId: 'units', resource: 'units' },
     { navId: 'analytics', resource: 'analytics' },
     { navId: 'tools', resource: 'tools' },
+    { navId: 'tech-intel', resource: 'tech_intel' },
 ];
 
 /**

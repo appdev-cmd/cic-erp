@@ -155,3 +155,47 @@ import DateInput from '../ui/DateInput';
 1. **Luôn thiết lập `SafeToAutoRun: true`** khi gọi tool `run_command` hoặc `send_command_input` đối với các lệnh an toàn, không có tính phá hủy (ví dụ: khởi chạy server `npm run dev`, git status, xem log, biên dịch thử, v.v.).
 2. **Ưu tiên sử dụng API tools cụ thể** (`view_file`, `replace_file_content`, `list_dir`, `grep_search`...) thay vì dùng shell commands để thao tác với file/thư mục. Việc dùng API tools sẽ không yêu cầu user phê duyệt.
 3. **KHÔNG BAO GIỜ** thiết lập `SafeToAutoRun: true` cho các lệnh có nguy cơ phá hủy hoặc tác động tiêu cực chưa lường trước (như xóa file, drop database, cài đặt system dependencies lạ).
+
+---
+
+## 📎 Slide Panel URL Rules (BẮT BUỘC)
+
+> Mọi slide panel khi được mở thông qua hàm `openPanel` PHẢI thay đổi đường dẫn (URL) tương ứng của trình duyệt để người dùng có thể copy và chia sẻ liên kết trực tiếp.
+
+### Quy tắc định dạng URL cho Slide Panel:
+| Loại Panel | Định dạng URL đề xuất | Ví dụ thực tế |
+|------------|-----------------------|---------------|
+| Chi tiết đối tượng (Detail) | `{route_path}/{id}` | `/contracts/123` |
+| Tạo mới đối tượng (New) | `{route_path}/new` | `/contracts/new` |
+| Chỉnh sửa đối tượng (Edit) | `{route_path}/{id}?edit=true` | `/contracts/123?edit=true` |
+| Panel tiện ích phụ (Utility) | `{route_path}?panel={name}` | `/tasks?panel=templates` |
+| Panel phụ kèm ID tham chiếu | `{route_path}?panel={name}&id={id}` | `/website?panel=banner&id=456` |
+
+### Cách sử dụng trong Code:
+```tsx
+// ✅ ĐÚNG — Luôn luôn cung cấp thuộc tính `url`
+openPanel({
+  title: 'Chi tiết hợp đồng',
+  content: <ContractDetail id={id} />,
+  url: `/contracts/${id}`
+});
+
+// ❌ SAI — Thiếu thuộc tính `url` khiến URL trình duyệt không đổi
+openPanel({
+  title: 'Chi tiết hợp đồng',
+  content: <ContractDetail id={id} />
+});
+```
+
+### Ngoại lệ được phép bỏ qua `url`:
+- Các panel tạo nhanh (quick-create) mang tính chất cực kỳ tạm thời (ví dụ: panel nhập nhanh task con nằm trực tiếp trong một trang công việc).
+- Các panel drill-down dữ liệu biểu đồ phân tích nhanh không có trang đích tương ứng.
+
+### Cơ chế Cảnh báo Dev:
+Trong môi trường phát triển (`import.meta.env.DEV`), hàm `openPanel()` trong [SlidePanelContext.tsx](file:///d:/@Vibe_code_projects/CIC%20ERP/contexts/SlidePanelContext.tsx) sẽ hiển thị một dòng cảnh báo `console.warn` nếu phát hiện lệnh gọi không chứa tham số `url`. Hãy chú ý console log khi phát triển.
+
+### Checklist khi viết Slide Panel mới:
+- [ ] Xác định URL tương ứng cho Panel dựa theo bảng định dạng URL.
+- [ ] Thêm thuộc tính `url: ...` vào object cấu hình truyền vào `openPanel`.
+- [ ] Kiểm tra trên môi trường DEV xem URL trình duyệt có tự động thay đổi khi mở Panel và phục hồi khi đóng Panel hay không.
+

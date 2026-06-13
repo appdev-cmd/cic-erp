@@ -104,6 +104,14 @@ const QuotesPage = lazyWithRetry(() => import('./crm/quotes/QuotesPage'));
 const ProductsPage = lazyWithRetry(() => import('./crm/products/ProductsPage'));
 const CrmSettingsPage = lazyWithRetry(() => import('./crm/settings/CrmSettingsPage'));
 
+// ConTech Intelligence Hub
+const TechHubDashboard = lazyWithRetry(() => import('./techhub/TechHubDashboard'));
+const TechNewsFeed = lazyWithRetry(() => import('./techhub/TechNewsFeed'));
+const TechArticleDetail = lazyWithRetry(() => import('./techhub/TechArticleDetail'));
+const TechReportLibrary = lazyWithRetry(() => import('./techhub/TechReportLibrary'));
+const TechReportViewer = lazyWithRetry(() => import('./techhub/TechReportViewer'));
+const TechSourceManager = lazyWithRetry(() => import('./techhub/TechSourceManager'));
+
 // Helper wrapper for Suspense with custom fallback
 const withSuspense = (Component: React.ReactNode, fallback?: React.ReactNode) => (
     <Suspense fallback={fallback || <ListPageSkeleton />}>
@@ -1113,3 +1121,11 @@ export const LazyCrmSettingsPage: React.FC = () => withSuspense(<CrmSettingsPage
 
 // Settings / System
 export const LazyAIObservabilityDashboardPage: React.FC = () => withSuspense(<AIObservabilityDashboard />);
+
+// ConTech Intelligence Hub
+export const LazyTechHubDashboardPage: React.FC = () => withSuspense(<TechHubDashboard />);
+export const LazyTechNewsFeedPage: React.FC = () => withSuspense(<TechNewsFeed />);
+export const LazyTechArticleDetailPage: React.FC = () => withSuspense(<TechArticleDetail />);
+export const LazyTechReportLibraryPage: React.FC = () => withSuspense(<TechReportLibrary />);
+export const LazyTechReportViewerPage: React.FC = () => withSuspense(<TechReportViewer />);
+export const LazyTechSourceManagerPage: React.FC = () => withSuspense(<TechSourceManager />);

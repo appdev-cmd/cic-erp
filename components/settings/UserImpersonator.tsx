@@ -26,6 +26,7 @@ const RESOURCE_LABELS: Record<PermissionResource, string> = {
     analytics: 'Phân tích',
     crm: 'CRM',
     tools: 'Công cụ nội bộ',
+    tech_intel: 'Giám sát Công nghệ',
 };
 
 // Map position/title to UserRole for permission lookup

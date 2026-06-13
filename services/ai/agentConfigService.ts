@@ -1,6 +1,15 @@
-import { dataClient as supabase } from '../../lib/dataClient';
+import { createClient } from '@supabase/supabase-js';
+import { dataClient } from '../../lib/dataClient';
 import type { DepartmentAgent } from './openclaw/types';
 import { agentDefinitions } from './openclaw/agents/definitions';
+
+// Tự động nâng cấp lên admin client ở backend node script nếu có service role key
+const supabaseUrl = (typeof process !== 'undefined' && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL)) || '';
+const serviceKey = (typeof process !== 'undefined' && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY)) || '';
+
+const supabase = (supabaseUrl && serviceKey)
+  ? createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } })
+  : dataClient;
 
 export interface AgentConfigRow {
   id: string;

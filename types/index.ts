@@ -67,3 +67,19 @@ export type {
   CrmStageTemplate, CrmStage, CrmLead, CrmDeal,
   CrmActivity, CrmDealProduct
 } from './crm';
+
+// ConTech Intelligence Hub
+export type {
+  TechCategory, ProjectPhase, IndustrySector, TechEventType,
+  ImpactLevel, ArticleStatus, SourceType, CrawlFrequency,
+  TechSource, TechArticle, TechReport, TechBookmark,
+  TechDashboardStats, TechArticleFilter, ArticleAnalysisResult,
+  TechTaxonomyItem, ReportStatistics, TrendDataPoint,
+} from './techIntel';
+export type { ReportType as TechReportType } from './techIntel';
+export {
+  TECH_CATEGORY_LABELS, TECH_CATEGORY_COLORS,
+  PROJECT_PHASE_LABELS, INDUSTRY_SECTOR_LABELS,
+  EVENT_TYPE_LABELS, IMPACT_LEVEL_LABELS, IMPACT_LEVEL_COLORS,
+  ARTICLE_STATUS_LABELS, SOURCE_TYPE_LABELS, REPORT_TYPE_LABELS,
+} from './techIntel';

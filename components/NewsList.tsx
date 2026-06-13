@@ -60,6 +60,7 @@ const NewsList: React.FC = () => {
         openPanel({
             title: 'Tạo bài viết mới',
             icon: <Plus className="text-indigo-600" />,
+            url: '/website?panel=news-new',
             component: <NewsForm 
                         isInsidePanel={true} 
                         onClose={closePanel} 
@@ -78,6 +79,7 @@ const NewsList: React.FC = () => {
         openPanel({
             title: 'Chỉnh sửa bài viết',
             icon: <Edit2 className="text-indigo-600" />,
+            url: `/website?panel=news-edit&id=${post.id}`,
             component: <NewsForm 
                         isInsidePanel={true} 
                         post={post} 
@@ -96,6 +98,7 @@ const NewsList: React.FC = () => {
         openPanel({
             title: 'Chi tiết Tin tức',
             icon: <FileText className="text-orange-500" size={20} />,
+            url: `/website?panel=news&id=${post.id}`,
             component: (
                 <div className="flex flex-col h-full bg-white dark:bg-slate-900">
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">

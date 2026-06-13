@@ -71,6 +71,13 @@ export const ROUTE_PERMISSION_MAP: RoutePermissionEntry[] = [
     { pattern: '/tools', resource: 'tools', action: 'view', label: 'Cong cu noi bo', module: 'Cong cu' },
     { pattern: '/tools/*', resource: 'tools', action: 'view', label: 'Cong cu noi bo', module: 'Cong cu' },
 
+    { pattern: '/tech-intel', resource: 'tech_intel', action: 'view', label: 'Giam sat Cong nghe', module: 'ConTech' },
+    { pattern: '/tech-intel/feed', resource: 'tech_intel', action: 'view', label: 'Tin tuc Cong nghe', module: 'ConTech' },
+    { pattern: '/tech-intel/articles/:id', resource: 'tech_intel', action: 'view', label: 'Chi tiet bai viet', module: 'ConTech' },
+    { pattern: '/tech-intel/reports', resource: 'tech_intel', action: 'view', label: 'Thu vien bao cao', module: 'ConTech' },
+    { pattern: '/tech-intel/reports/:id', resource: 'tech_intel', action: 'view', label: 'Xem bao cao', module: 'ConTech' },
+    { pattern: '/tech-intel/sources', resource: 'tech_intel', action: 'update', label: 'Quan ly nguon tin', module: 'ConTech' },
+
     { pattern: '/agent-manager', resource: 'settings', action: 'view', label: 'Quan ly AI Agents', module: 'He thong' },
     { pattern: '/admin/ai-dashboard', resource: 'settings', action: 'view', label: 'AI Dashboard', module: 'He thong' },
 ];

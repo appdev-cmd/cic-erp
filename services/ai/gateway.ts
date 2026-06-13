@@ -301,7 +301,7 @@ async function* streamGemini(request: ChatRequest): AsyncGenerator<string> {
   const genAI = new GoogleGenerativeAI(apiKey);
 
   let validModelId = request.model;
-  if (!validModelId || validModelId === 'gemini-pro') validModelId = 'gemini-2.0-flash';
+  if (!validModelId || validModelId === 'gemini-pro') validModelId = 'gemini-3.5-flash';
 
   const model = genAI.getGenerativeModel({
     model: validModelId,
@@ -363,17 +363,17 @@ async function* streamGemini(request: ChatRequest): AsyncGenerator<string> {
       if (text) yield text;
     }
   } catch (err: any) {
-    // Auto-fallback gemini-2.0 → gemini-2.0-flash-lite (không dùng 1.5 đã deprecated)
-    if (validModelId.includes('2.0') && (String(err).includes('404') || String(err).includes('not found'))) {
+    // Auto-fallback gemini-3.5/2.0 → gemini-2.5-flash
+    if ((validModelId.includes('3.5') || validModelId.includes('2.0')) && (String(err).includes('404') || String(err).includes('not found'))) {
       const fallbackModel = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash-lite',
+        model: 'gemini-2.5-flash',
         systemInstruction: request.systemInstruction || 'Bạn là Trợ lý AI Enterprise của CIC ERP.',
       });
       const fallbackChat = fallbackModel.startChat({
         history: chatHistory,
         generationConfig: { temperature: request.temperature ?? 0.3 },
       });
-      yield '*(Chuyển sang Gemini 2.0 Flash Lite)*\n\n';
+      yield '*(Chuyển sang Gemini 2.5 Flash)*\n\n';
       const result = await fallbackChat.sendMessageStream(lastMessage);
       for await (const chunk of result.stream) {
         if (request.signal?.aborted) return;
