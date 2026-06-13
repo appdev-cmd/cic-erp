@@ -337,3 +337,33 @@ body.analytics-panel-open .recharts-tooltip-wrapper {
 .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1 !important;
 }
+
+/* =============================================================================
+   SAFE-AREA (notch / tai thỏ) — kích hoạt nhờ viewport-fit=cover trong index.html.
+   Dùng cho thanh/element fixed sát mép màn hình trên điện thoại.
+   ============================================================================= */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.safe-right {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.safe-x {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Cộng thêm safe-area vào padding sẵn có (vd thanh hành động dính đáy mobile). */
+.pb-safe {
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+}

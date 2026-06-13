@@ -20,6 +20,9 @@ export type { CardVariant } from './Card';
 export { default as DataTable } from './DataTable';
 export type { Column, SortConfig, SortDirection } from './DataTable';
 
+export { default as ResponsiveTable } from './ResponsiveTable';
+export type { ResponsiveColumn, ResponsiveTableProps } from './ResponsiveTable';
+
 // Navigation
 export { default as Breadcrumb } from './Breadcrumb';
 export type { BreadcrumbItem } from './Breadcrumb';

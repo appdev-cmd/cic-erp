@@ -6,3 +6,5 @@ export { useEmployeeVisibility, useAllVisibility, useCurrentUserVisibleUnits, us
 export { useNotifications } from './useNotifications';
 export { useAnalyticsCards, useAnalyticsRoleCards } from './useAnalyticsPrefs';
 export { useContractAnomalyConfig } from './useContractAnomalyConfig';
+export { useBreakpoint, useIsMobile, useMediaQuery, BREAKPOINTS } from './useBreakpoint';
+export type { Breakpoint } from './useBreakpoint';

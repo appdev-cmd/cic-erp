@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { X, FileText } from 'lucide-react';
 import { useSlidePanel, PanelEntry } from '../../contexts/SlidePanelContext';
+import { useIsMobile } from '../../hooks';
 import { toast } from 'sonner';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -21,13 +22,15 @@ interface SlidePanelItemProps {
     onClose: () => void;
     isExiting?: boolean;
     isSidebarCollapsed: boolean;
+    isMobile: boolean;
 }
 
-const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, onClose, isExiting, isSidebarCollapsed }) => {
+const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, onClose, isExiting, isSidebarCollapsed, isMobile }) => {
     const isTopPanel = index === total - 1;
     // Larger base gap when collapsed pushes panel right, preventing tab from being clipped
     const baseGap = isSidebarCollapsed ? COLLAPSED_BASE_GAP : BASE_GAP;
-    const stackOffset = baseGap + index * STACKING_OFFSET;
+    // Mobile: panel chiếm trọn màn hình (không chừa khe xếp chồng, không có tab-ear).
+    const stackOffset = isMobile ? 0 : baseGap + index * STACKING_OFFSET;
 
     return (
         <div
@@ -60,17 +63,17 @@ const SlidePanelItem: React.FC<SlidePanelItemProps> = ({ panel, index, total, on
                 aria-modal={isTopPanel}
                 aria-label={panel.title || 'Panel'}
             >
-                {/* Close Button */}
+                {/* Close Button — vùng chạm ≥44px trên mobile (full-screen) */}
                 {isTopPanel && (
                     <button
                         onClick={onClose}
-                        className="absolute top-3 right-3 z-10 p-2 rounded-lg
+                        className="absolute top-3 right-3 z-10 p-2.5 md:p-2 rounded-lg
               text-slate-400 hover:text-slate-600 dark:hover:text-slate-300
-              hover:bg-slate-100 dark:hover:bg-slate-800
+              hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700
               transition-colors"
                         aria-label="Đóng"
                     >
-                        <X size={20} />
+                        <X size={22} className="md:w-5 md:h-5" />
                     </button>
                 )}
 
@@ -191,6 +194,7 @@ interface SlidePanelContainerProps {
 
 export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSidebarCollapsed }) => {
     const { panels, closePanel, focusPanel, hasOpenPanels, closingPanels, isTopPanelLocked } = useSlidePanel();
+    const isMobile = useIsMobile();
 
     // Guarded close: closePanel already invokes onCloseBlocked callbacks when locked.
     // This wrapper adds a fallback toast for panels with no callback registered.
@@ -269,19 +273,23 @@ export const SlidePanelContainer: React.FC<SlidePanelContainerProps> = ({ isSide
                         onClose={() => guardedClose(panel.id)}
                         isExiting={closingPanels.has(panel.id)}
                         isSidebarCollapsed={isSidebarCollapsed}
+                        isMobile={isMobile}
                     />
                 ))}
             </div>
 
-            {/* Tab Ears — OUTSIDE viewport, in the fixed container -->
-                 This allows tabs to overlap the sidebar */}
-            <PanelTabsOverlay
-                panels={panels}
-                sidebarWidth={sidebarWidth}
-                isSidebarCollapsed={isSidebarCollapsed}
-                onFocus={(id) => guardedFocus(id)}
-                onClose={(id) => guardedClose(id)}
-            />
+            {/* Tab Ears — OUTSIDE viewport, in the fixed container.
+                 Cho phép tab tràn lên sidebar (desktop). Trên mobile panel full-screen
+                 + sidebar là drawer nên ẩn tab-ear; điều hướng panel bằng nút đóng (X). */}
+            {!isMobile && (
+                <PanelTabsOverlay
+                    panels={panels}
+                    sidebarWidth={sidebarWidth}
+                    isSidebarCollapsed={isSidebarCollapsed}
+                    onFocus={(id) => guardedFocus(id)}
+                    onClose={(id) => guardedClose(id)}
+                />
+            )}
         </div>
     );
 };

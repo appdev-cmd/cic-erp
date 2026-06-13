@@ -10,7 +10,7 @@ import { useImpersonation } from '../contexts/ImpersonationContext';
 import ImportContractModal from './ImportContractModal';
 import { exportContractsToExcel } from '../services/contractExportService';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
-import { useCurrentUserVisibleUnits } from '../hooks';
+import { useCurrentUserVisibleUnits, useIsMobile } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
 import ScrollToTop from './ui/ScrollToTop';
 import { usePermissionCheck } from '../hooks/usePermissions';
@@ -66,13 +66,7 @@ const ContractList: React.FC<ContractListProps> = ({ selectedUnit, onSelectContr
   const [statusFilter, setStatusFilter] = useState<ContractStatus | 'All'>(savedFilters.statusFilter || 'All');
   
   // Detect mobile viewport to render infinite scroll sentinel in the correct container
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const isMobile = useIsMobile();
   const [unitFilter, setUnitFilter] = useState<string>(savedFilters.unitFilter || 'All');
   const [searchTerm, setSearchTerm] = useState(savedFilters.searchTerm || '');
   const [salespersonFilter, setSalespersonFilter] = useState<string>(savedFilters.salespersonFilter || 'All');
