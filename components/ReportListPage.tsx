@@ -110,8 +110,8 @@ const ReportListPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* TABLE — match ContractList */}
-            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto">
+            {/* TABLE — match ContractList (desktop ≥md) */}
+            <div className="hidden md:block bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors overflow-x-auto">
                 <table className="w-full text-left">
                     <thead>
                         <tr className="z-20">
@@ -265,6 +265,93 @@ const ReportListPage: React.FC = () => {
                         ))}
                     </tbody>
                 </table>
+            </div>
+
+            {/* MOBILE CARDS (< md) — nút thao tác luôn hiện (không dựa vào hover) */}
+            <div className="md:hidden space-y-3">
+                {loading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="bg-white dark:bg-slate-900 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-800 animate-pulse h-[120px]" />
+                    ))
+                ) : filteredReports.length === 0 ? (
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-8 text-center border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                                <FileText size={22} className="text-slate-400 dark:text-slate-500" />
+                            </div>
+                            <p className="font-bold text-slate-600 dark:text-slate-300">
+                                {searchTerm ? 'Không tìm thấy báo cáo phù hợp' : 'Chưa có báo cáo nào'}
+                            </p>
+                        </div>
+                    </div>
+                ) : filteredReports.map((report) => (
+                    <div
+                        key={report.id}
+                        onClick={() => navigate(`/reports/${report.id}`)}
+                        className="bg-white dark:bg-slate-900 rounded-lg p-4 shadow-sm border border-slate-200 dark:border-slate-800 cursor-pointer active:bg-slate-50 dark:active:bg-slate-800 transition-colors"
+                    >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                            <p className="font-bold text-sm text-slate-800 dark:text-slate-100 line-clamp-2 flex-1">
+                                {report.title}
+                            </p>
+                            {report.type === 'external_link' ? (
+                                <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                                    <LinkIcon size={10} /> Link
+                                </span>
+                            ) : (
+                                <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                                    <FileText size={10} /> HTML
+                                </span>
+                            )}
+                        </div>
+
+                        {report.description && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-3">
+                                {report.description}
+                            </p>
+                        )}
+
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                                    <User size={12} />
+                                </div>
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{report.author}</span>
+                                <span className="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 flex items-center gap-1">
+                                    <Calendar size={11} /> {formatDate(report.date)}
+                                </span>
+                            </div>
+
+                            {/* Thao tác — luôn hiện, vùng chạm ≥40px (bấm card để xem) */}
+                            <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                {report.type === 'html_file' && (
+                                    <a
+                                        href={report.fileUrl}
+                                        download
+                                        className="p-2.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
+                                        title="Tải xuống"
+                                    >
+                                        <Download size={18} />
+                                    </a>
+                                )}
+                                <button
+                                    onClick={() => handleEdit(report)}
+                                    className="p-2.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors"
+                                    title="Chỉnh sửa"
+                                >
+                                    <Edit size={18} />
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(report.id, report.filePath)}
+                                    className="p-2.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                    title="Xóa báo cáo"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {/* Form Modal */}
