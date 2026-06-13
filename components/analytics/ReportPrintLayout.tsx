@@ -35,6 +35,10 @@ const ReportPrintLayout = React.forwardRef<HTMLDivElement, ReportPrintLayoutProp
                 (HTML) — không đụng transform attribute của SVG recharts. */}
             <style>{`
                 [data-report-card] div { opacity: 1 !important; transform: none !important; }
+                /* Ep padding card nhat quan: ChartCard dung padding responsive theo
+                   media-query viewport, nen PDF xuat tu dien thoai (375px) se khac
+                   desktop. Ep cung 2rem tren goc card de PDF giong het nhau moi thiet bi. */
+                [data-report-card] > div { padding: 2rem !important; }
             `}</style>
             {cardIds.map(id => (
                 <div
